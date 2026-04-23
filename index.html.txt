@@ -1,0 +1,1133 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>IUC Admission Form</title>
+  <style>
+    :root {
+      --bg: #f7f4ec;
+      --card: #ffffff;
+      --primary: #2d2363;
+      --primary-2: #241c52;
+      --soft: #efeafc;
+      --text: #1f2937;
+      --muted: #6b7280;
+      --border: #e5e7eb;
+      --success-bg: #ecfdf5;
+      --success-bd: #a7f3d0;
+      --success-tx: #065f46;
+      --warn-bg: #eff6ff;
+      --warn-bd: #bfdbfe;
+      --warn-tx: #1e3a8a;
+      --danger: #dc2626;
+      --shadow: 0 10px 25px rgba(15, 23, 42, 0.08);
+      --radius: 22px;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: Inter, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      background: linear-gradient(to bottom, var(--bg), #fcfbf8, #ffffff);
+      color: var(--text);
+    }
+    .page {
+      max-width: 1200px;
+      margin: 0 auto;
+      padding: 20px;
+    }
+    .layout {
+      display: grid;
+      grid-template-columns: 280px 1fr;
+      gap: 24px;
+      align-items: start;
+    }
+    .sidebar, .card { background: var(--card); border-radius: 28px; box-shadow: var(--shadow); }
+    .sidebar { overflow: hidden; position: sticky; top: 20px; }
+    .brand {
+      background: var(--primary);
+      color: white;
+      padding: 20px;
+    }
+    .brand-logo {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: rgba(255,255,255,.1);
+      border-radius: 18px;
+      padding: 12px;
+      margin-bottom: 16px;
+      min-height: 96px;
+    }
+    .brand-logo img {
+      width: 140px;
+      height: auto;
+      object-fit: contain;
+      display: block;
+    }
+    .brand h1 { margin: 6px 0 4px; font-size: 22px; }
+    .brand p { margin: 0; color: rgba(255,255,255,.8); font-size: 13px; line-height: 1.5; }
+    .progress-wrap { padding: 18px 20px 8px; }
+    .progress-label { display:flex; justify-content:space-between; font-size:14px; color: var(--muted); margin-bottom: 8px; }
+    .progress-bar { height: 8px; background:#e5e7eb; border-radius:999px; overflow:hidden; }
+    .progress-fill { height:100%; width: 16.66%; background: var(--primary); transition: width .25s ease; }
+    .steps { padding: 8px 14px 18px; }
+    .step {
+      display:flex; gap:12px; align-items:center; padding:12px; border-radius:18px; color:#64748b; margin-bottom:8px;
+      transition: .2s ease;
+    }
+    .step-icon {
+      width: 38px; height: 38px; border-radius: 12px; background:#f1f5f9; display:flex; align-items:center; justify-content:center;
+      font-size: 16px;
+    }
+    .step.active { background: var(--soft); color: var(--primary); }
+    .step.done { background: #ecfdf5; color: #047857; }
+    .step.active .step-icon, .step.done .step-icon { background:#fff; }
+    .card-header {
+      padding: 24px 28px;
+      border-bottom: 1px solid var(--border);
+      display:flex; gap:14px; align-items:center;
+    }
+    .hero-icon {
+      width: 48px; height: 48px; border-radius: 16px; background: var(--soft); color: var(--primary);
+      display:flex; align-items:center; justify-content:center; font-size:22px;
+    }
+    .card-header h2 { margin:0; font-size: 28px; }
+    .card-header p { margin:5px 0 0; color: var(--muted); }
+    .card-body { padding: 28px; }
+    .grid { display:grid; gap:20px; }
+    .grid-2 { grid-template-columns: repeat(2, minmax(0,1fr)); }
+    .field label, .group-label {
+      display:block; font-size:14px; font-weight:600; margin-bottom:8px;
+    }
+    .required { color: var(--danger); }
+    input[type="text"], input[type="email"], textarea, select {
+      width:100%; height:48px; border:1px solid var(--border); border-radius:14px; padding:0 14px;
+      font-size:15px; outline:none; background:white;
+    }
+    textarea { min-height: 120px; padding: 12px 14px; resize: vertical; }
+    input:focus, textarea:focus, select:focus { border-color: var(--primary); box-shadow: 0 0 0 4px rgba(45,35,99,.08); }
+    .uppercase { text-transform: uppercase; }
+    .hint { margin-top:6px; color: var(--muted); font-size:12px; line-height:1.45; }
+    .radio-grid, .check-grid { display:grid; gap:12px; }
+    .radio-grid.two { grid-template-columns: repeat(2, minmax(0,1fr)); }
+    .choice {
+      border:1px solid var(--border); border-radius:16px; padding:14px; display:flex; gap:10px; align-items:flex-start; cursor:pointer;
+      background:white;
+    }
+    .choice input { margin-top: 2px; }
+    .info-box, .success-box {
+      border-radius: 22px; padding: 18px; font-size: 14px; line-height: 1.6;
+    }
+    .info-box { background: var(--warn-bg); border:1px solid var(--warn-bd); color:var(--warn-tx); }
+    .success-box { background: var(--success-bg); border:1px solid var(--success-bd); color:var(--success-tx); }
+    .download-card, .file-row, .review-box {
+      border:1px solid var(--border); border-radius:18px; padding:16px; background:white;
+    }
+    .download-row, .file-row-head, .actions { display:flex; gap:12px; align-items:center; justify-content:space-between; }
+    .download-row strong, .file-row-head strong { display:block; margin-bottom:4px; }
+    .btn {
+      border:none; border-radius: 16px; padding: 12px 18px; cursor:pointer; font-weight:600; font-size:14px;
+      transition:.2s ease; display:inline-flex; align-items:center; justify-content:center; gap:8px; text-decoration: none;
+    }
+    .btn.primary { background: var(--primary); color:white; }
+    .btn.primary:hover { background: var(--primary-2); }
+    .btn.outline { background:white; color: var(--text); border:1px solid var(--border); }
+    .btn.outline:hover { background:#f8fafc; }
+    .btn:disabled { opacity:.5; cursor:not-allowed; }
+    .search-select { position: relative; }
+    .search-select-input {
+      width: 100%;
+      height: 48px;
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      padding: 0 42px 0 14px;
+      font-size: 15px;
+      outline: none;
+      background: white;
+    }
+    .search-select-input:focus {
+      border-color: var(--primary);
+      box-shadow: 0 0 0 4px rgba(45,35,99,.08);
+    }
+    .search-select-caret {
+      position: absolute;
+      right: 14px;
+      top: 50%;
+      transform: translateY(-50%);
+      color: var(--muted);
+      pointer-events: none;
+      font-size: 12px;
+    }
+    .search-select-menu {
+      position: absolute;
+      top: calc(100% + 6px);
+      left: 0;
+      right: 0;
+      max-height: 240px;
+      overflow-y: auto;
+      background: white;
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      box-shadow: var(--shadow);
+      z-index: 50;
+      padding: 6px;
+    }
+    .search-select-option {
+      padding: 10px 12px;
+      border-radius: 10px;
+      cursor: pointer;
+      font-size: 14px;
+    }
+    .search-select-option:hover,
+    .search-select-option.active {
+      background: var(--soft);
+      color: var(--primary);
+    }
+    .search-select-empty {
+      padding: 10px 12px;
+      color: var(--muted);
+      font-size: 13px;
+    }
+    .hidden { display:none !important; }
+    .review-grid { display:grid; gap:18px; grid-template-columns: repeat(2, minmax(0,1fr)); }
+    .review-box h3 { margin:0 0 12px; font-size:16px; }
+    .review-box p { margin: 7px 0; font-size:14px; color:#475569; }
+    .section-gap { display:grid; gap:16px; }
+    .footer-nav {
+      margin-top: 28px; padding-top: 22px; border-top:1px solid var(--border);
+      display:flex; justify-content:space-between; gap:12px; flex-wrap:wrap;
+    }
+    .status { margin-bottom:18px; }
+    .small { font-size: 13px; color: var(--muted); }
+    @media (max-width: 980px) {
+      .layout { grid-template-columns: 1fr; }
+      .sidebar { position: relative; top: 0; }
+    }
+    @media (max-width: 720px) {
+      .grid-2, .review-grid, .radio-grid.two { grid-template-columns: 1fr; }
+      .download-row, .file-row-head, .actions, .card-header { flex-direction: column; align-items: stretch; }
+      .card-header h2 { font-size: 24px; }
+      .page { padding: 14px; }
+      .card-body, .card-header { padding: 20px; }
+    }
+  </style>
+</head>
+<body>
+  <div class="page">
+    <div class="layout">
+      <aside class="sidebar">
+        <div class="brand">
+          <div class="brand-logo">
+            <img
+              src="https://lh3.googleusercontent.com/d/1aecshfxYsbjQ5W21IkSTW-CxDq_Fp_Tf=s1000"
+              alt="IUC Logo"
+            />
+          </div>
+          <h1>IPGS Admission Form</h1>
+          <p>Application for Admission</p>
+        </div>
+        <div class="progress-wrap">
+          <div class="progress-label"><span>Progress</span><span id="progressText">1 / 6</span></div>
+          <div class="progress-bar"><div class="progress-fill" id="progressFill"></div></div>
+        </div>
+        <div class="steps" id="stepsList"></div>
+      </aside>
+
+      <main class="card">
+        <div class="card-header">
+          <div class="hero-icon" id="heroIcon">✉️</div>
+          <div>
+            <h2 id="stepTitle">Programme Selection</h2>
+            <p>Please complete all required information before continuing.</p>
+          </div>
+        </div>
+        <div class="card-body">
+          <form id="admissionForm">
+            <section class="step-panel" data-step="0"></section>
+            <section class="step-panel hidden" data-step="1"></section>
+            <section class="step-panel hidden" data-step="2"></section>
+            <section class="step-panel hidden" data-step="3"></section>
+            <section class="step-panel hidden" data-step="4"></section>
+            <section class="step-panel hidden" data-step="5"></section>
+
+            <div class="footer-nav">
+              <button type="button" class="btn outline" id="backBtn">Back</button>
+              <div class="actions">
+                <button type="button" class="btn outline" id="resetBtn">Reset Form</button>
+                <button type="button" class="btn primary" id="nextBtn">Continue</button>
+                <button type="submit" class="btn primary hidden" id="submitBtn">Submit Application</button>
+              </div>
+            </div>
+
+            <div id="statusBox" class="status hidden" style="margin-top:16px;"></div>
+          </form>
+        </div>
+      </main>
+    </div>
+  </div>
+
+  <script>
+    const APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbxUfpVy465jjKtaQ0VC_8J5zZSqpgNU1oALekGpZqD51MY_QPiMgck5bjzhCHhMBWE/exec";
+    const MAX_FILE_SIZE_MB = 7;
+    const PASSPORT_PHOTO_MAX_MB = 2;
+    const INTERNATIONAL_ADMISSION_FORM_URL = "https://drive.google.com/uc?export=download&id=15tJxq0xnvf0Ujwqpm8IfpHc201WLGQLP";
+    const INTERNATIONAL_HEALTH_FORM_URL = "https://drive.google.com/uc?export=download&id=1P7VUusSZLuj4sSMLFzotO2mip-zNltDK";
+
+    const STEPS = [
+      { key: "programme", title: "Programme Selection", icon: "✉️" },
+      { key: "student", title: "Student Information", icon: "👤" },
+      { key: "emergency", title: "Emergency Contact", icon: "📞" },
+      { key: "documents", title: "Document Upload", icon: "📁" },
+      { key: "payment", title: "Payment Details", icon: "💳" },
+      { key: "review", title: "Review & Submit", icon: "🛡️" },
+    ];
+
+    const PROGRAMME_OPTIONS = {
+      Diploma: [],
+      Bachelor: ["BBA - Bachelor in Business Administration"],
+      Master: ["MBA - Master of Business Administration", "MBM - Master in Business Management", "MHUM - Master in Hajj & Umrah Management"],
+      Doctorate: ["PhD - Doctor of Philosophy in Management", "DBA - Doctorate of Business Administration"],
+      Package: ["MBM + PhD - Master in Business Management & PhD (Package)", "MBA + PhD - Master of Business Administration & PhD (Package)"],
+      Other: ["Other"]
+    };
+
+    const COUNTRIES = ["Malaysia", "Afghanistan", "Bangladesh", "Brunei", "Cambodia", "China", "India", "Indonesia", "Nepal", "Pakistan", "Singapore", "Sri Lanka", "Thailand", "Vietnam", "Zimbabwe", "Other"];
+    const NATIONALITIES = ["Malaysian", "Bruneian", "Indonesian", "Singaporean", "Thai", "Filipino", "Chinese (China)", "Indian (India)", "Bangladeshi", "Nepalese", "Pakistani", "Sri Lankan", "Vietnamese", "Cambodian", "Other"];
+    const RACES = ["Bajau", "Bidayuh", "Bisaya", "Brunei", "Bugis", "Bumiputera Sabah", "Bumiputera Sarawak", "Dusun", "Iban", "India", "Indian Muslim", "Jakun", "Jawa", "Kadazan", "Kayan", "Kelabit", "Kedayan", "Kenyah", "Malay", "Melanau", "Murut", "Other"];
+    const RELIGIONS = ["Islam", "Christianity (Christian)", "Buddhism", "Hinduism", "Sikhism", "Taoism", "Confucianism", "Bahai", "Judaism", "No Religion", "Others"];
+    const MARITAL_STATUSES = ["Single", "Married", "Married (Separated)", "Divorced", "Widowed"];
+    const RELATIONSHIPS = ["Father", "Mother", "Spouse", "Friend", "Guardian", "Sibling", "Other"];
+    const REFERRAL_SOURCES = ["Direct / Self Enquiry", "Agent / Partner", "Education Consultant", "Friend / Family", "Social Media", "Walk-in / Direct Enquiry"];
+    let PARTNER_CODES = [];
+    const ENTRY_QUALIFICATION_TYPES = ["Academic Qualification", "APEL", "SKM / TVET / Skills Qualification", "Professional / Other Qualification"];
+    const LEVELS_OF_STUDY = ["Diploma", "Bachelor", "Master", "Doctorate", "Package", "Other"];
+    const INTAKE_OPTIONS = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
+
+    const DOC_LABELS = {
+      identityDocument: 'Identity Document',
+      passportPhoto: 'Passport Photo',
+      apelCertificate: 'APEL Certificate',
+      transcript: 'Transcript',
+      certificate: 'Certificate',
+      otherSupportingDocument: 'Supporting Document',
+      englishCertificate: 'English Certificate',
+      cvResume: 'Resume / CV',
+      passportCopyInternational: 'Passport Copy',
+      completedAdmissionForm: 'Admission Form',
+      completedHealthDeclaration: 'Health Declaration',
+      emgsPaymentReceipt: 'EMGS Receipt'
+    };
+
+    const fileKeys = [
+      "identityDocument", "passportPhoto", "apelCertificate", "transcript", "certificate", "otherSupportingDocument",
+      "englishCertificate", "cvResume", "passportCopyInternational", "completedAdmissionForm", "completedHealthDeclaration", "emgsPaymentReceipt"
+    ];
+
+    let currentStep = 0;
+    let submitting = false;
+
+    const formState = {
+      capturedEmail: "",
+      applicantType: "",
+      levelOfStudy: "",
+      programme: "",
+      intake: "",
+      entryQualificationType: "",
+      proposedSupervisor: "",
+      referralSource: "",
+      partnerCode: "",
+      fullName: "",
+      idPassport: "",
+      gender: "",
+      email: "",
+      phoneNumber: "",
+      country: "",
+      fullAddress: "",
+      placeOfBirth: "",
+      nationality: "",
+      race: "",
+      religion: "",
+      maritalStatus: "",
+      emergencyName: "",
+      emergencyRelationship: "",
+      emergencyPhone: "",
+      emergencyAddress: "",
+      emergencySameAsApplicant: false,
+      paymentArrangement: "",
+      installmentFrequency: "",
+      paymentSource: "",
+      paymentSourceOther: "",
+      declarationAccepted: false,
+      documents: Object.fromEntries(fileKeys.map(k => [k, null]))
+    };
+
+    const stepsList = document.getElementById("stepsList");
+    const stepTitle = document.getElementById("stepTitle");
+    const heroIcon = document.getElementById("heroIcon");
+    const progressFill = document.getElementById("progressFill");
+    const progressText = document.getElementById("progressText");
+    const panels = Array.from(document.querySelectorAll(".step-panel"));
+    const backBtn = document.getElementById("backBtn");
+    const nextBtn = document.getElementById("nextBtn");
+    const submitBtn = document.getElementById("submitBtn");
+    const resetBtn = document.getElementById("resetBtn");
+    const formEl = document.getElementById("admissionForm");
+    const statusBox = document.getElementById("statusBox");
+
+    function escapeHtml(value) {
+      return String(value ?? "")
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/\"/g, "&quot;")
+        .replace(/'/g, "&#039;");
+    }
+
+    function titleCase(value) {
+      return String(value || "")
+        .toLowerCase()
+        .trim()
+        .split(/\s+/)
+        .filter(Boolean)
+        .map(w => w.charAt(0).toUpperCase() + w.slice(1))
+        .join(" ");
+    }
+
+    function syncEmailFields_(changedField) {
+      const captured = String(formState.capturedEmail || '').trim();
+      const student = String(formState.email || '').trim();
+
+      if (changedField === 'capturedEmail') {
+      if (!student || student === captured || student === String(formState._lastCapturedEmail || '').trim()) {
+          formState.email = captured;
+      }
+        formState._lastCapturedEmail = captured;
+        return;
+      }
+
+      if (changedField === 'email') {
+        formState.email = student;
+      }
+    }
+
+    function selectOptions(arr, placeholder, value) {
+      const opts = [`<option value="">${placeholder}</option>`];
+      arr.forEach(item => {
+        const selected = item === value ? "selected" : "";
+        opts.push(`<option value="${escapeHtml(item)}" ${selected}>${escapeHtml(item)}</option>`);
+      });
+      return opts.join("");
+    }
+
+    function partnerCodeOptions(arr) {
+      return arr.map(item => {
+       const label = `${item.code} - ${item.name}`;
+       return `<option value="${escapeHtml(item.code)}">${escapeHtml(label)}</option>`;
+     }).join("");
+
+    }
+
+    function setStatus(type, message) {
+      if (!message) {
+        statusBox.className = "status hidden";
+        statusBox.innerHTML = "";
+        return;
+      }
+      statusBox.className = `status ${type === "success" ? "success-box" : "info-box"}`;
+      statusBox.innerHTML = message;
+    }
+
+    function isInternational() {
+      return formState.applicantType === "International (Non-Malaysian Citizen)";
+    }
+
+    function isPartnerFlow() {
+      return ["Agent / Partner", "Education Consultant"].includes(formState.referralSource);
+    }
+
+    function visibleDocumentFields() {
+      return {
+        showApelCertificate: formState.entryQualificationType === "APEL",
+        showTranscript: formState.entryQualificationType === "Academic Qualification",
+        showAcademicCertificate: ["Academic Qualification", "SKM / TVET / Skills Qualification"].includes(formState.entryQualificationType),
+        showOtherSupportingDocument: !!formState.entryQualificationType,
+        showEnglishCertificate: !!formState.entryQualificationType,
+        showCvResume: !!formState.entryQualificationType,
+        showPassportCopyInternational: isInternational(),
+        showCompletedAdmissionForm: isInternational(),
+        showCompletedHealthDeclaration: isInternational(),
+        showEmgsPaymentReceipt: isInternational(),
+      };
+    }
+
+    function getProgrammeOptions() {
+      return PROGRAMME_OPTIONS[formState.levelOfStudy] || [];
+    }
+
+    function getFilteredPartnerCodes(query) {
+      const q = String(query || '').trim().toLowerCase();
+      if (!q) return PARTNER_CODES;
+
+      return PARTNER_CODES.filter(item => {
+        const code = String(item.code || '').toLowerCase();
+        const name = String(item.name || '').toLowerCase();
+        const org = String(item.organisation || '').toLowerCase();
+        return code.includes(q) || name.includes(q) || org.includes(q);
+      });
+    }
+
+    function getPartnerDisplayValue(code) {
+      if (!code) return '';
+      const match = PARTNER_CODES.find(item => String(item.code || '').toUpperCase() === String(code || '').toUpperCase());
+      if (!match) return code;
+      return `${match.code} - ${match.name}`;
+    }
+
+    function isValidPartnerCode(code) {
+      return PARTNER_CODES.some(item => String(item.code || '').toUpperCase() === String(code || '').toUpperCase());
+    }
+
+    function renderSteps() {
+      stepsList.innerHTML = STEPS.map((step, idx) => {
+        let cls = "step";
+        if (idx === currentStep) cls += " active";
+        if (idx < currentStep) cls += " done";
+        return `<div class="${cls}"><div class="step-icon">${step.icon}</div><div><div style="font-size:13px;font-weight:600">Step ${idx + 1}</div><div style="font-size:14px">${escapeHtml(step.title)}</div></div></div>`;
+      }).join("");
+    }
+
+    function fileRow(key, label, required, note) {
+      const file = formState.documents[key];
+      return `
+        <div class="file-row">
+          <div class="file-row-head">
+            <div>
+              <strong>${escapeHtml(label)} ${required ? '<span class="required">*</span>' : ''}</strong>
+              <div class="small">${escapeHtml(note || '')}</div>
+              ${file ? `<div class="hint" style="color:#047857">Selected: ${escapeHtml(file.name)}</div>` : ''}
+            </div>
+            <div>
+              <input type="file" id="file_${key}" accept=".pdf,.jpg,.jpeg,.png" />
+            </div>
+          </div>
+        </div>
+      `;
+    }
+
+    function renderProgrammePanel() {
+      const programmeDisabled = !formState.levelOfStudy || formState.levelOfStudy === "Diploma";
+      const internationalBlock = isInternational() ? `
+        <div class="info-box">
+          <strong>International Applicant Information</strong><br>
+          Please download, complete, and upload the required international forms in the Document Upload section.
+          <div class="section-gap" style="margin-top:14px">
+            <div class="download-card">
+              <div class="download-row">
+                <div>
+                  <strong>Admission Form</strong>
+                  <div class="small">Download, complete, and upload the signed admission form in the document section.</div>
+                </div>
+                <a href="${INTERNATIONAL_ADMISSION_FORM_URL}" class="btn outline" download>Download PDF</a>
+              </div>
+            </div>
+
+            <div class="download-card">
+              <div class="download-row">
+                <div>
+                  <strong>Health Declaration Form</strong>
+                  <div class="small">Download, complete, sign, and upload together with your international application documents.</div>
+                </div>
+                <a href="${INTERNATIONAL_HEALTH_FORM_URL}" class="btn outline" download>Download PDF</a>
+              </div>
+            </div>
+          </div>
+
+          <div class="review-box" style="margin-top:14px;background:#fff">
+            <strong>International Fee Summary</strong>
+            <div class="section-gap" style="margin-top:10px">
+              <div>EMGS and Visa Processing Fee – MYR 3,200</div>
+              <div>Application Fee – MYR 500</div>
+              <div>Registration Fee – MYR 4,000</div>
+              <div>Airport Transfer – MYR 250</div>
+            </div>
+            <div style="margin-top:12px;font-weight:700;color:var(--primary)">Total: MYR 7,950</div>
+          </div>
+        </div>` : "";
+
+      return `
+        <div class="grid">
+          <div class="field"><label>Email <span class="required">*</span></label><input type="email" data-field="capturedEmail" value="${escapeHtml(formState.capturedEmail)}" placeholder="yourname@email.com"></div>
+
+          <div class="field">
+            <div class="group-label">Applicant Type <span class="required">*</span></div>
+            <div class="radio-grid two">
+              <label class="choice"><input type="radio" name="applicantType" value="Local (Malaysian Citizen)" ${formState.applicantType === "Local (Malaysian Citizen)" ? "checked" : ""}><span>Local (Malaysian Citizen)</span></label>
+              <label class="choice"><input type="radio" name="applicantType" value="International (Non-Malaysian Citizen)" ${isInternational() ? "checked" : ""}><span>International (Non-Malaysian Citizen)</span></label>
+            </div>
+          </div>
+
+          ${internationalBlock}
+
+          <div class="field"><label>Level of Study <span class="required">*</span></label><select data-field="levelOfStudy">${selectOptions(LEVELS_OF_STUDY, "Select level of study", formState.levelOfStudy)}</select>${formState.levelOfStudy === "Diploma" ? '<div class="hint">Diploma option is intentionally disabled for IPGS current release.</div>' : ''}</div>
+          <div class="field"><label>Intended Programme of Study <span class="required">*</span></label><select data-field="programme" ${programmeDisabled ? "disabled" : ""}>${selectOptions(getProgrammeOptions(), programmeDisabled ? "Please select level of study first" : "Select programme", formState.programme)}</select></div>
+          <div class="field"><label>Intake <span class="required">*</span></label><select data-field="intake">${selectOptions(INTAKE_OPTIONS, "Select intake month", formState.intake)}</select></div>
+          <div class="field"><label>Entry Qualification Type <span class="required">*</span></label><select data-field="entryQualificationType">${selectOptions(ENTRY_QUALIFICATION_TYPES, "Select entry qualification type", formState.entryQualificationType)}</select></div>
+          <div class="field"><label>Proposed Supervisor (if any)</label><input type="text" data-field="proposedSupervisor" value="${escapeHtml(formState.proposedSupervisor)}" placeholder="Enter supervisor name"></div>
+          <div class="field"><label>How did you hear about us / Referral Source</label><select data-field="referralSource">${selectOptions(REFERRAL_SOURCES, "Select referral source", formState.referralSource)}</select></div>
+          ${isPartnerFlow() ? `
+          <div class="field">
+            <label>Registered Partner / Agent Code <span class="required">*</span></label>
+            <div class="search-select">
+              <input
+                type="text"
+                id="partnerCodeSearch"
+                class="search-select-input"
+                placeholder="Type or select partner / agent code"
+                autocomplete="off"
+                value="${escapeHtml(getPartnerDisplayValue(formState.partnerCode || ''))}"
+              >
+              <span class="search-select-caret">▼</span>
+              <div id="partnerCodeMenu" class="search-select-menu hidden"></div>
+            </div>
+            <div class="hint">
+              Type code, agent name, or organisation. You must select one registered partner / agent code before continuing.
+            </div>
+          </div>
+          ` : ""}
+                  </div>
+                `;
+     }
+
+    function renderStudentPanel() {
+      return `
+        <div class="grid grid-2">
+          <div class="field"><label>Full Name <span class="required">*</span></label><input type="text" class="uppercase" data-field="fullName" value="${escapeHtml(formState.fullName)}"><div class="hint">Stored in uppercase. Preview format: ${escapeHtml(titleCase(formState.fullName || 'ahmad bin ali'))}</div></div>
+          <div class="field"><label>ID / Passport Number <span class="required">*</span></label><input type="text" data-field="idPassport" value="${escapeHtml(formState.idPassport)}"></div>
+          <div class="field"><div class="group-label">Gender <span class="required">*</span></div><div class="radio-grid two"><label class="choice"><input type="radio" name="gender" value="Male" ${formState.gender === 'Male' ? 'checked' : ''}><span>Male</span></label><label class="choice"><input type="radio" name="gender" value="Female" ${formState.gender === 'Female' ? 'checked' : ''}><span>Female</span></label></div></div>
+          <div class="field"><label>Email Address <span class="required">*</span></label><input type="email" data-field="email" value="${escapeHtml(formState.email)}"></div>
+          <div class="field"><label>Phone Number <span class="required">*</span></label><input type="text" data-field="phoneNumber" value="${escapeHtml(formState.phoneNumber)}"></div>
+          <div class="field"><label>Country <span class="required">*</span></label><select data-field="country">${selectOptions(COUNTRIES, "Select country", formState.country)}</select></div>
+          <div class="field" style="grid-column:1 / -1"><label>Full Address <span class="required">*</span></label><textarea class="uppercase" data-field="fullAddress">${escapeHtml(formState.fullAddress)}</textarea></div>
+          <div class="field"><label>Place of Birth (Include State of Birth) <span class="required">*</span></label><input type="text" data-field="placeOfBirth" value="${escapeHtml(formState.placeOfBirth)}" placeholder="Hospital Besar Alor Setar"></div>
+          <div class="field"><label>Nationality <span class="required">*</span></label><select data-field="nationality">${selectOptions(NATIONALITIES, "Select nationality", formState.nationality)}</select></div>
+          <div class="field"><label>Race <span class="required">*</span></label><select data-field="race">${selectOptions(RACES, "Select race", formState.race)}</select></div>
+          <div class="field"><label>Religion <span class="required">*</span></label><select data-field="religion">${selectOptions(RELIGIONS, "Select religion", formState.religion)}</select></div>
+          <div class="field"><label>Marital Status <span class="required">*</span></label><select data-field="maritalStatus">${selectOptions(MARITAL_STATUSES, "Select marital status", formState.maritalStatus)}</select></div>
+        </div>
+      `;
+    }
+
+    function renderEmergencyPanel() {
+      return `
+        <div class="grid grid-2">
+          <div class="field"><label>Full Name of Emergency Contact <span class="required">*</span></label><input type="text" data-field="emergencyName" value="${escapeHtml(formState.emergencyName)}"></div>
+          <div class="field"><label>Relationship to Applicant <span class="required">*</span></label><select data-field="emergencyRelationship">${selectOptions(RELATIONSHIPS, "Select relationship", formState.emergencyRelationship)}</select></div>
+          <div class="field"><label>Emergency Contact Phone Number <span class="required">*</span></label><input type="text" data-field="emergencyPhone" value="${escapeHtml(formState.emergencyPhone)}"></div>
+          <div class="field" style="grid-column:1 / -1"><label class="choice"><input type="checkbox" data-field="emergencySameAsApplicant" ${formState.emergencySameAsApplicant ? 'checked' : ''}><span>Emergency contact address is the same as applicant address</span></label></div>
+          <div class="field" style="grid-column:1 / -1"><label>Emergency Contact Address</label><textarea class="uppercase" data-field="emergencyAddress" ${formState.emergencySameAsApplicant ? 'disabled' : ''}>${escapeHtml(formState.emergencyAddress)}</textarea></div>
+        </div>
+      `;
+    }
+
+    function renderDocumentsPanel() {
+      const visible = visibleDocumentFields();
+      return `
+        <div class="section-gap">
+          <div class="info-box"><strong>Upload Instruction</strong><br>Accepted file types: PDF, JPG, JPEG, PNG. Maximum size: 7MB per document and 2MB for passport size photo. Please compress your file before upload if your file size exceeds the allowed limit.${isInternational() ? ' For passport copy upload, maximum recommended size is 7MB.' : ''}</div>
+          ${fileRow('identityDocument', isInternational() ? 'Identity Document (National ID, if available)' : 'Identity Document (IC/Passport)', !isInternational(), 'Accepted file types: PDF, JPG, JPEG, PNG. Maximum size: 5MB.')}
+          ${fileRow('passportPhoto', 'Passport Size Photo', true, 'This photo will be used for Student ID Card and Student Portal profile. Maximum size 2MB.')}
+          ${visible.showPassportCopyInternational ? fileRow('passportCopyInternational', 'Passport Copy', true, 'Upload full passport bio-data page in clear and readable format. Maximum recommended size 7MB.') : ''}
+          ${visible.showApelCertificate ? fileRow('apelCertificate', 'APEL Certificate', true, 'Required for applicants applying through APEL pathway.') : ''}
+          ${visible.showTranscript ? fileRow('transcript', 'Highest Academic Transcript', true, 'Required for academic qualification pathway.') : ''}
+          ${visible.showAcademicCertificate ? fileRow('certificate', formState.entryQualificationType === 'SKM / TVET / Skills Qualification' ? 'Relevant Skills Certificate' : 'Highest Academic Certificate', true, 'Upload the relevant supporting academic or skills certificate.') : ''}
+          ${visible.showOtherSupportingDocument ? fileRow('otherSupportingDocument', 'Other Supporting Document', formState.entryQualificationType === 'Professional / Other Qualification', 'Upload any supporting document relevant to your admission pathway.') : ''}
+          ${visible.showEnglishCertificate ? fileRow('englishCertificate', 'English Language Proficiency Certificate', false, 'International applicants may be required to provide this document.') : ''}
+          ${visible.showCvResume ? fileRow('cvResume', 'Curriculum Vitae (CV) / Resume', ['APEL', 'Professional / Other Qualification'].includes(formState.entryQualificationType), 'Include academic background and work experience.') : ''}
+          ${visible.showCompletedAdmissionForm ? fileRow('completedAdmissionForm', 'Completed Admission Form', true, 'Upload the completed international admission form downloaded earlier.') : ''}
+          ${visible.showCompletedHealthDeclaration ? fileRow('completedHealthDeclaration', 'Completed Health Declaration Form', true, 'Upload the completed and signed health declaration form.') : ''}
+          ${visible.showEmgsPaymentReceipt ? fileRow('emgsPaymentReceipt', 'EMGS / Visa Related Payment Receipt', true, 'Upload the payment receipt for international fee processing.') : ''}
+        </div>
+      `;
+    }
+
+    function renderPaymentPanel() {
+      return `
+        <div class="grid">
+          <div class="field">
+            <div class="group-label">Payment Arrangement <span class="required">*</span></div>
+            <div class="radio-grid two">
+              <label class="choice"><input type="radio" name="paymentArrangement" value="Lump Sum" ${formState.paymentArrangement === 'Lump Sum' ? 'checked' : ''}><span>Lump Sum (One-time payment)</span></label>
+              <label class="choice"><input type="radio" name="paymentArrangement" value="Installment Plan" ${formState.paymentArrangement === 'Installment Plan' ? 'checked' : ''}><span>Installment Plan (Every 7th each month)</span></label>
+              <label class="choice"><input type="radio" name="paymentArrangement" value="Semester Based Payment" ${formState.paymentArrangement === 'Semester Based Payment' ? 'checked' : ''}><span>Semester Based Payment</span></label>
+            </div>
+          </div>
+          ${formState.paymentArrangement === 'Installment Plan' ? `<div class="field"><label>Preferred Frequency</label><select data-field="installmentFrequency"><option value="">Select installment frequency</option><option value="6 months" ${formState.installmentFrequency === '6 months' ? 'selected' : ''}>6 months</option><option value="12 months" ${formState.installmentFrequency === '12 months' ? 'selected' : ''}>12 months</option></select><div class="hint">Available only for installment plan.</div></div>` : ''}
+          <div class="field">
+            <div class="group-label">Payment Source <span class="required">*</span></div>
+            <div class="radio-grid two">
+              ${(
+                (formState.applicantType === 'International (Non-Malaysian Citizen)')
+                  ? ['Cash / Online Transfer', 'Sponsorship / Staff Benefit', 'Loan / Financing', 'Other']
+                  : ['EPF Withdrawal (KWSP)', 'Cash / Online Transfer', 'Sponsorship / Staff Benefit', 'Loan / Financing', 'Other']
+              ).map(item => `<label class="choice"><input type="radio" name="paymentSource" value="${escapeHtml(item)}" ${formState.paymentSource === item ? 'checked' : ''}><span>${escapeHtml(item)}</span></label>`).join('')}
+            </div>
+          </div>
+          ${formState.paymentSource === 'Other' ? `<div class="field"><label>Please Specify</label><input type="text" data-field="paymentSourceOther" value="${escapeHtml(formState.paymentSourceOther)}"></div>` : ''}
+          ${formState.paymentSource === 'EPF Withdrawal (KWSP)' ? `<div class="info-box"><strong>EPF / KWSP Notification</strong><br>This application will be flagged for bursar follow-up. The EPF submission progress can be monitored internally after form submission.</div>` : ''}
+        </div>
+      `;
+    }
+
+    function renderReviewPanel() {
+      const docs = Object.entries(formState.documents)
+        .filter(([, file]) => !!file)
+        .map(([key, file]) => `<p><strong>${escapeHtml(DOC_LABELS[key] || key)}:</strong> ${escapeHtml(file.name)}</p>`)
+        .join('') || '<p>-</p>';
+      const referralDisplay = formState.partnerCode && isPartnerFlow() ? `${formState.referralSource} (${formState.partnerCode})` : (formState.referralSource || '-');
+      const paymentSourceDisplay = formState.paymentSource === 'Other' ? (formState.paymentSourceOther || 'Other') : (formState.paymentSource || '-');
+      return `
+        <div class="section-gap">
+          <div class="review-box" style="background:#f8fafc"><strong>Review Your Application</strong><div class="small" style="margin-top:6px">Please review the summary before submitting.</div></div>
+          <div class="review-grid">
+            <div class="review-box"><h3>Programme</h3><p><strong>Email:</strong> ${escapeHtml(formState.capturedEmail || '-')}</p><p><strong>Applicant Type:</strong> ${escapeHtml(formState.applicantType || '-')}</p><p><strong>Level of Study:</strong> ${escapeHtml(formState.levelOfStudy || '-')}</p><p><strong>Programme:</strong> ${escapeHtml(formState.programme || '-')}</p><p><strong>Intake:</strong> ${escapeHtml(formState.intake || '-')}</p><p><strong>Entry Qualification Type:</strong> ${escapeHtml(formState.entryQualificationType || '-')}</p><p><strong>Supervisor:</strong> ${escapeHtml(formState.proposedSupervisor || '-')}</p><p><strong>Referral:</strong> ${escapeHtml(referralDisplay)}</p></div>
+            <div class="review-box"><h3>Student Information</h3><p><strong>Full Name:</strong> ${escapeHtml(titleCase(formState.fullName) || '-')}</p><p><strong>ID / Passport:</strong> ${escapeHtml(formState.idPassport || '-')}</p><p><strong>Email:</strong> ${escapeHtml(formState.email || '-')}</p><p><strong>Phone:</strong> ${escapeHtml(formState.phoneNumber || '-')}</p><p><strong>Country:</strong> ${escapeHtml(formState.country || '-')}</p><p><strong>Nationality:</strong> ${escapeHtml(formState.nationality || '-')}</p></div>
+            <div class="review-box"><h3>Emergency Contact</h3><p><strong>Name:</strong> ${escapeHtml(formState.emergencyName || '-')}</p><p><strong>Relationship:</strong> ${escapeHtml(formState.emergencyRelationship || '-')}</p><p><strong>Phone:</strong> ${escapeHtml(formState.emergencyPhone || '-')}</p><p><strong>Address:</strong> ${escapeHtml(formState.emergencyAddress || '-')}</p></div>
+            <div class="review-box"><h3>Payment</h3><p><strong>Arrangement:</strong> ${escapeHtml(formState.paymentArrangement || '-')}</p><p><strong>Frequency:</strong> ${escapeHtml(formState.installmentFrequency || '-')}</p><p><strong>Source:</strong> ${escapeHtml(paymentSourceDisplay)}</p></div>
+            <div class="review-box" style="grid-column:1 / -1"><h3>Uploaded Documents</h3>${docs}</div>
+          </div>
+          <label class="choice"><input type="checkbox" data-field="declarationAccepted" ${formState.declarationAccepted ? 'checked' : ''}><span>I hereby confirm that all information and documents submitted in this form are true, complete, and accurate to the best of my knowledge. I understand that Innovative University College reserves the right to reject, defer, withdraw, or revoke this application or any offer issued if any information or document provided is found to be false, misleading, incomplete, or invalid.</span></label>
+        </div>
+      `;
+    }
+
+    function renderPanels() {
+      panels[0].innerHTML = renderProgrammePanel();
+      panels[1].innerHTML = renderStudentPanel();
+      panels[2].innerHTML = renderEmergencyPanel();
+      panels[3].innerHTML = renderDocumentsPanel();
+      panels[4].innerHTML = renderPaymentPanel();
+      panels[5].innerHTML = renderReviewPanel();
+      bindDynamicInputs();
+      bindPartnerCodeSearch();
+    }
+
+    function bindDynamicInputs() {
+      document.querySelectorAll('[data-field]').forEach(el => {
+        const field = el.getAttribute('data-field');
+        if (!field) return;
+
+        if (el.type === 'checkbox') {
+          el.onchange = () => {
+            formState[field] = !!el.checked;
+            if (field === 'emergencySameAsApplicant' && el.checked) {
+              formState.emergencyAddress = formState.fullAddress || '';
+            }
+            render();
+          };
+          return;
+        }
+
+        const tag = (el.tagName || '').toLowerCase();
+        const isTextLike = tag === 'textarea' || (tag === 'input' && ['text', 'email'].includes((el.type || '').toLowerCase()));
+        const needsUppercaseOnBlur = ['fullName', 'fullAddress', 'emergencyAddress'].includes(field);
+
+            if (isTextLike) {
+              el.oninput = () => {
+                formState[field] = el.value;
+
+                if (field === 'capturedEmail' || field === 'email') {
+                  syncEmailFields_(field);
+                }
+
+                if (field === 'fullAddress' && formState.emergencySameAsApplicant) {
+                  formState.emergencyAddress = formState.fullAddress;
+                }
+              };
+          el.onblur = () => {
+            if (needsUppercaseOnBlur) {
+              formState[field] = String(formState[field] || '').toUpperCase();
+              el.value = formState[field];
+              if (field === 'fullAddress' && formState.emergencySameAsApplicant) {
+                formState.emergencyAddress = formState.fullAddress;
+              }
+              render();
+            }
+          };
+
+        }
+
+        el.onchange = () => {
+          formState[field] = el.value;
+
+            if (field === 'capturedEmail' || field === 'email') {
+             syncEmailFields_(field);
+        }
+
+          if (field === 'levelOfStudy') formState.programme = '';
+          if (field === 'referralSource') formState.partnerCode = '';
+          render();
+        };
+      });
+
+      document.querySelectorAll('input[name="applicantType"]').forEach(el => {
+        el.onchange = () => {
+          formState.applicantType = el.value;
+          if (!isInternational()) {
+            formState.documents.passportCopyInternational = null;
+            formState.documents.completedAdmissionForm = null;
+            formState.documents.completedHealthDeclaration = null;
+            formState.documents.emgsPaymentReceipt = null;
+          }
+          render();
+        };
+      });
+
+      document.querySelectorAll('input[name="gender"]').forEach(el => {
+        el.onchange = () => { formState.gender = el.value; render(); };
+      });
+
+      document.querySelectorAll('input[name="paymentArrangement"]').forEach(el => {
+        el.onchange = () => {
+          formState.paymentArrangement = el.value;
+          if (el.value !== 'Installment Plan') formState.installmentFrequency = '';
+          render();
+        };
+      });
+
+      document.querySelectorAll('input[name="paymentSource"]').forEach(el => {
+        el.onchange = () => {
+          formState.paymentSource = el.value;
+          if (el.value !== 'Other') formState.paymentSourceOther = '';
+          render();
+        };
+      });
+
+      fileKeys.forEach(key => {
+        const input = document.getElementById(`file_${key}`);
+        if (!input) return;
+        input.onchange = () => {
+          const file = input.files && input.files[0] ? input.files[0] : null;
+          if (file) {
+            const maxMb = key === 'passportPhoto' ? PASSPORT_PHOTO_MAX_MB : MAX_FILE_SIZE_MB;
+            if (file.size > maxMb * 1024 * 1024) {
+              alert(`File too large for ${key}. Maximum allowed is ${maxMb}MB.`);
+              input.value = '';
+              return;
+            }
+          }
+          formState.documents[key] = file;
+          render();
+        };
+      });
+    }
+
+    function getInitialFormState() {
+      return {
+        capturedEmail: "",
+        applicantType: "",
+        levelOfStudy: "",
+        programme: "",
+        intake: "",
+        entryQualificationType: "",
+        proposedSupervisor: "",
+        referralSource: "",
+        partnerCode: "",
+        fullName: "",
+        idPassport: "",
+        gender: "",
+        email: "",
+        _lastCapturedEmail: "",
+        phoneNumber: "",
+        country: "",
+        fullAddress: "",
+        placeOfBirth: "",
+        nationality: "",
+        race: "",
+        religion: "",
+        maritalStatus: "",
+        emergencyName: "",
+        emergencyRelationship: "",
+        emergencyPhone: "",
+        emergencyAddress: "",
+        emergencySameAsApplicant: false,
+        paymentArrangement: "",
+        installmentFrequency: "",
+        paymentSource: "",
+        paymentSourceOther: "",
+        declarationAccepted: false,
+        documents: Object.fromEntries(fileKeys.map(k => [k, null]))
+      };
+    }
+
+    function resetFormState() {
+      Object.assign(formState, getInitialFormState());
+      currentStep = 0;
+      setStatus('', '');
+    }
+
+    function renderPartnerCodeMenu(query) {
+      const menu = document.getElementById('partnerCodeMenu');
+      if (!menu) return;
+
+      const matches = getFilteredPartnerCodes(query).slice(0, 50);
+
+      if (!matches.length) {
+        menu.innerHTML = '<div class="search-select-empty">No matching partner / agent found.</div>';
+        return;
+      }
+
+      menu.innerHTML = matches.map(item => `
+        <div
+          class="search-select-option"
+          data-code="${escapeHtml(item.code)}"
+          data-label="${escapeHtml(`${item.code} - ${item.name}`)}"
+        >
+          <strong>${escapeHtml(item.code)}</strong> - ${escapeHtml(item.name)}<br>
+          <span class="small">${escapeHtml(item.organisation || '')}</span>
+        </div>
+      `).join('');
+    }
+
+    function bindPartnerCodeSearch() {
+      const input = document.getElementById('partnerCodeSearch');
+      const menu = document.getElementById('partnerCodeMenu');
+      if (!input || !menu) return;
+
+      const openMenu = () => {
+        renderPartnerCodeMenu(input.value);
+        menu.classList.remove('hidden');
+      };
+
+      const closeMenu = () => {
+        window.setTimeout(() => menu.classList.add('hidden'), 150);
+      };
+
+      input.addEventListener('focus', openMenu);
+      input.addEventListener('click', openMenu);
+      input.addEventListener('input', () => {
+        formState.partnerCode = '';
+        renderPartnerCodeMenu(input.value);
+        menu.classList.remove('hidden');
+      });
+      input.addEventListener('blur', closeMenu);
+
+      menu.addEventListener('mousedown', (event) => {
+        const option = event.target.closest('.search-select-option');
+        if (!option) return;
+
+        const code = option.getAttribute('data-code') || '';
+        const label = option.getAttribute('data-label') || code;
+        formState.partnerCode = code;
+        input.value = label;
+        menu.classList.add('hidden');
+      });
+    }
+
+    function render() {
+      renderSteps();
+      renderPanels();
+      panels.forEach((panel, idx) => panel.classList.toggle('hidden', idx !== currentStep));
+      stepTitle.textContent = STEPS[currentStep].title;
+      heroIcon.textContent = STEPS[currentStep].icon;
+      progressText.textContent = `${currentStep + 1} / ${STEPS.length}`;
+      progressFill.style.width = `${((currentStep + 1) / STEPS.length) * 100}%`;
+      backBtn.disabled = currentStep === 0 || submitting;
+      nextBtn.classList.toggle('hidden', currentStep === STEPS.length - 1);
+      submitBtn.classList.toggle('hidden', currentStep !== STEPS.length - 1);
+      nextBtn.disabled = submitting;
+      submitBtn.disabled = submitting;
+      resetBtn.disabled = submitting;
+    }
+
+    function validateStep(stepIndex) {
+      if (stepIndex === 0) {
+        if (!formState.capturedEmail || !formState.applicantType || !formState.levelOfStudy || !formState.programme || !formState.intake || !formState.entryQualificationType) {
+          return 'Please complete all required fields in Programme Selection.';
+        }
+        if (isPartnerFlow() && !formState.partnerCode) return 'Please select the registered partner / agent code.';
+        if (isPartnerFlow() && !isValidPartnerCode(formState.partnerCode)) return 'Please select a valid registered partner / agent code from the dropdown list.';
+      }
+      if (stepIndex === 1) {
+        const required = ['fullName','idPassport','gender','email','phoneNumber','country','fullAddress','placeOfBirth','nationality','race','religion','maritalStatus'];
+        if (required.some(k => !String(formState[k] || '').trim())) return 'Please complete all required fields in Student Information.';
+      }
+      if (stepIndex === 2) {
+        if (!formState.emergencyName || !formState.emergencyRelationship || !formState.emergencyPhone) return 'Please complete all required fields in Emergency Contact.';
+        if (!formState.emergencySameAsApplicant && !formState.emergencyAddress) return 'Please provide the emergency contact address.';
+      }
+      if (stepIndex === 3) {
+        const visible = visibleDocumentFields();
+        if (!isInternational() && !formState.documents.identityDocument) return 'Please upload the Identity Document.';
+        if (!formState.documents.passportPhoto) return 'Please upload the Passport Size Photo.';
+        if (visible.showPassportCopyInternational && !formState.documents.passportCopyInternational) return 'Please upload the Passport Copy.';
+        if (visible.showApelCertificate && !formState.documents.apelCertificate) return 'Please upload the APEL Certificate.';
+        if (visible.showTranscript && !formState.documents.transcript) return 'Please upload the Highest Academic Transcript.';
+        if (visible.showAcademicCertificate && !formState.documents.certificate) return 'Please upload the required Certificate.';
+        if (formState.entryQualificationType === 'Professional / Other Qualification' && !formState.documents.otherSupportingDocument) return 'Please upload the Other Supporting Document.';
+        if (['APEL', 'Professional / Other Qualification'].includes(formState.entryQualificationType) && !formState.documents.cvResume) return 'Please upload the CV / Resume.';
+        if (visible.showCompletedAdmissionForm && !formState.documents.completedAdmissionForm) return 'Please upload the Completed Admission Form.';
+        if (visible.showCompletedHealthDeclaration && !formState.documents.completedHealthDeclaration) return 'Please upload the Completed Health Declaration Form.';
+        if (visible.showEmgsPaymentReceipt && !formState.documents.emgsPaymentReceipt) return 'Please upload the EMGS / Visa Related Payment Receipt.';
+      }
+      if (stepIndex === 4) {
+        if (!formState.paymentArrangement || !formState.paymentSource) return 'Please complete all required fields in Payment Details.';
+        if (formState.paymentArrangement === 'Installment Plan' && !formState.installmentFrequency) return 'Please select the installment frequency.';
+        if (formState.paymentSource === 'Other' && !formState.paymentSourceOther) return 'Please specify the payment source.';
+      }
+      if (stepIndex === 5) {
+        if (!formState.declarationAccepted) return 'Please accept the declaration before submission.';
+      }
+      return '';
+    }
+
+    function loadPartnerCodes() {
+      if (typeof google !== 'undefined' && google.script && google.script.run) {
+        google.script.run
+          .withSuccessHandler((result) => {
+            PARTNER_CODES = Array.isArray(result) ? result : [];
+            render();
+          })
+          .withFailureHandler(() => {
+            PARTNER_CODES = [];
+            render();
+          })
+          .getActiveAgentCodes();
+        return;
+      }
+
+      PARTNER_CODES = [];
+    }
+
+    function fileToBase64(file) {
+      return new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => {
+          const result = String(reader.result || '');
+          const base64 = result.includes(',') ? result.split(',')[1] : result;
+          resolve({
+            fileName: file.name,
+            mimeType: file.type || 'application/octet-stream',
+            size: file.size,
+            base64,
+          });
+        };
+        reader.onerror = reject;
+        reader.readAsDataURL(file);
+      });
+    }
+
+    async function buildPayload() {
+      const documents = {};
+      for (const key of fileKeys) {
+        const file = formState.documents[key];
+        if (file) documents[key] = await fileToBase64(file);
+      }
+      const payload = JSON.parse(JSON.stringify(formState));
+      payload.documents = documents;
+      payload.meta = {
+        submittedAt: new Date().toISOString(),
+        source: 'IUC Admission Standalone Frontend',
+        userAgent: navigator.userAgent,
+      };
+      return payload;
+    }
+
+    async function submitForm(evt) {
+      evt.preventDefault();
+      const err = validateStep(5);
+      if (err) {
+        setStatus('info', err);
+        return;
+      }
+      try {
+        submitting = true;
+        render();
+        setStatus('info', 'Submitting application. Please wait while files are being prepared and uploaded.');
+        const payload = await buildPayload();
+
+        if (typeof google !== 'undefined' && google.script && google.script.run) {
+          google.script.run
+            .withSuccessHandler((result) => {
+              if (!result || !result.ok) {
+                setStatus('info', `Submission failed: ${escapeHtml((result && result.message) || 'Unknown error')}`);
+                submitting = false;
+                render();
+                return;
+              }
+              setStatus('success', `Application submitted successfully.<br>Reference: <strong>${escapeHtml(result.reference || '-')}</strong>`);
+              formEl.reset();
+              resetFormState();
+              submitting = false;
+              render();
+              window.scrollTo({ top: 0, behavior: 'smooth' });
+            })
+            .withFailureHandler((error) => {
+              const message = error && error.message ? error.message : String(error || 'Unknown error');
+              setStatus('info', `Submission failed: ${escapeHtml(message)}`);
+              submitting = false;
+              render();
+            })
+            .submitAdmissionForm(payload);
+          return;
+        }
+
+        if (!APPS_SCRIPT_URL) {
+          setStatus('info', 'APPS_SCRIPT_URL is empty. If you host this form inside Apps Script, no URL is needed. If you host it outside Apps Script, paste your deployed Web App URL into APPS_SCRIPT_URL.');
+          submitting = false;
+          render();
+          return;
+        }
+
+        const res = await fetch(APPS_SCRIPT_URL, {
+          method: 'POST',
+          headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+          body: JSON.stringify(payload),
+        });
+        const text = await res.text();
+        let json;
+        try { json = JSON.parse(text); } catch { json = { ok: false, message: text || 'Unknown response from server.' }; }
+        if (!res.ok || !json.ok) throw new Error(json.message || 'Submission failed.');
+        setStatus('success', `Application submitted successfully.<br>Reference: <strong>${escapeHtml(json.reference || '-')}</strong>`);
+        formEl.reset();
+        resetFormState();
+      } catch (error) {
+        setStatus('info', `Submission failed: ${escapeHtml(error.message || 'Unknown error')}`);
+      } finally {
+        submitting = false;
+        render();
+      }
+    }
+
+    backBtn.onclick = () => {
+      currentStep = Math.max(0, currentStep - 1);
+      setStatus('', '');
+      render();
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    };
+
+    nextBtn.onclick = () => {
+      const err = validateStep(currentStep);
+      if (err) {
+        setStatus('info', err);
+        return;
+      }
+      setStatus('', '');
+      currentStep = Math.min(STEPS.length - 1, currentStep + 1);
+      render();
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    };
+
+    resetBtn.onclick = () => {
+      formEl.reset();
+      resetFormState();
+      render();
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    };
+
+    formEl.addEventListener('submit', submitForm);
+    render();
+    loadPartnerCodes();
+  </script>
+</body>
+</html>
