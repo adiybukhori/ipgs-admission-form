@@ -85,23 +85,34 @@
       transition: .2s ease;
     }
     .step-icon {
-      width: 40px;
-      height: 40px;
-      border-radius: 12px;
-      background: #f5f6fa;
-    
+      width: 38px;
+      height: 38px;
+      border-radius: 999px;
+      background: #f3f0fb;
+      color: var(--primary);
       display: flex;
       align-items: center;
       justify-content: center;
-      font-size: 18px;
+      font-size: 0;
+      font-weight: 700;
+      box-shadow: inset 0 0 0 1px rgba(45,35,99,.08);
+    }
     
-      /* soften emoji */
-      filter: grayscale(1) brightness(0.7);
-      
-      /* bagi timbul */
-      box-shadow: 
-        0 6px 14px rgba(0,0,0,0.06),
-        inset 0 1px 0 rgba(255,255,255,0.8);
+    .step:nth-child(1) .step-icon::before { content: "1"; }
+    .step:nth-child(2) .step-icon::before { content: "2"; }
+    .step:nth-child(3) .step-icon::before { content: "3"; }
+    .step:nth-child(4) .step-icon::before { content: "4"; }
+    .step:nth-child(5) .step-icon::before { content: "5"; }
+    .step:nth-child(6) .step-icon::before { content: "6"; }
+    
+    .step-icon::before {
+      font-size: 14px;
+    }
+    
+    .step.active .step-icon,
+    .step.done .step-icon {
+      background: var(--primary);
+      color: #fff;
     }
     
     .step.active .step-icon,
