@@ -85,18 +85,23 @@
       transition: .2s ease;
     }
     .step-icon {
-      width: 40px;
-      height: 40px;
-      border-radius: 14px;
-      background: rgba(255,255,255,.55);
-      border: 1px solid rgba(255,255,255,.65);
-      box-shadow: inset 0 1px 0 rgba(255,255,255,.8), 0 8px 18px rgba(45,35,99,.08);
-      backdrop-filter: blur(12px);
-      -webkit-backdrop-filter: blur(12px);
+      width: 38px;
+      height: 38px;
+      border-radius: 12px;
+      background: rgba(45,35,99,.06);
       display: flex;
       align-items: center;
       justify-content: center;
-      font-size: 0;
+      position: relative;
+    }
+    
+    .step-icon::before {
+      content: "";
+      width: 10px;
+      height: 10px;
+      border-radius: 4px;
+      background: var(--primary);
+      opacity: .7;
     }
     
     .step-icon::before {
@@ -110,7 +115,12 @@
     
     .step.active .step-icon,
     .step.done .step-icon {
-      background: rgba(255,255,255,.75);
+      background: var(--primary);
+    }
+    
+    .step.active .step-icon::before,
+    .step.done .step-icon::before {
+      background: #fff;
     }
     .card-header {
       padding: 24px 28px;
