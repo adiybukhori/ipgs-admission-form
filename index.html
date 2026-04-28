@@ -1069,6 +1069,7 @@
               resetFormState();
               submitting = false;
               render();
+              setStatus('success', `Application submitted successfully.<br>Reference: <strong>${escapeHtml(result.reference || '-')}</strong>`);
               window.scrollTo({ top: 0, behavior: 'smooth' });
             })
             .withFailureHandler((error) => {
