@@ -982,22 +982,31 @@
     }
 
     function loadPartnerCodes() {
-      if (typeof google !== 'undefined' && google.script && google.script.run) {
-        google.script.run
-          .withSuccessHandler((result) => {
-            PARTNER_CODES = Array.isArray(result) ? result : [];
+        if (typeof google !== 'undefined' && google.script && google.script.run) {
+          google.script.run
+            .withSuccessHandler((result) => {
+              PARTNER_CODES = Array.isArray(result) ? result : [];
+              render();
+            })
+            .withFailureHandler(() => {
+              PARTNER_CODES = [];
+              render();
+            })
+            .getActiveAgentCodes();
+          return;
+        }
+
+        fetch(APPS_SCRIPT_URL + '?action=agents')
+          .then(res => res.json())
+          .then(data => {
+            PARTNER_CODES = Array.isArray(data.agents) ? data.agents : [];
             render();
           })
-          .withFailureHandler(() => {
+          .catch(() => {
             PARTNER_CODES = [];
             render();
-          })
-          .getActiveAgentCodes();
-        return;
+          });
       }
-
-      PARTNER_CODES = [];
-    }
 
     function fileToBase64(file) {
       return new Promise((resolve, reject) => {
