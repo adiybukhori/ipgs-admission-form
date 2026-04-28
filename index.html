@@ -1098,9 +1098,9 @@
         let json;
         try { json = JSON.parse(text); } catch { json = { ok: false, message: text || 'Unknown response from server.' }; }
         if (!res.ok || !json.ok) throw new Error(json.message || 'Submission failed.');
-        setStatus('success', `Application submitted successfully.<br>Reference: <strong>${escapeHtml(json.reference || '-')}</strong>`);
         formEl.reset();
         resetFormState();
+        setStatus('success', `Application submitted successfully.<br>Reference: <strong>${escapeHtml(json.reference || '-')}</strong>`);
       } catch (error) {
         setStatus('info', `Submission failed: ${escapeHtml(error.message || 'Unknown error')}`);
       } finally {
