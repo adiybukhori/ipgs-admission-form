@@ -443,7 +443,7 @@
     }
 
     function isPartnerFlow() {
-      return ["Agent / Partner", "Education Consultant"].includes(formState.referralSource);
+      return formState.referralSource === "Education Consultant";
     }
 
     function visibleDocumentFields() {
