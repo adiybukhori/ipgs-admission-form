@@ -569,230 +569,97 @@
           <div id="pUploadedFiles" class="doc-list"></div>
         </div>
 
-        <div class="box full soft">
-          <h3>Application Processing</h3>
-        
-          <div class="field-grid">
-            <div class="field">
-              <label>Application Status</label>
-              <select id="fApplicationStatus">
-                <option value="">Select status</option>
-                <option value="New Application">New Application</option>
-                <option value="Pending Document Review">Pending Document Review</option>
-                <option value="Document Incomplete">Document Incomplete</option>
-                <option value="Document Complete">Document Complete</option>
-                <option value="Pending SAC">Pending SAC</option>
-                <option value="Pending APEL">Pending APEL</option>
-                <option value="Pending Rigorous Test">Pending Rigorous Test</option>
-                <option value="Pending Prerequisite Course">Pending Prerequisite Course</option>
-                <option value="Pending Prospect Update">Pending Prospect Update</option>
-                <option value="Pending Registration / Activation">Pending Registration / Activation</option>
-                <option value="Registered / Activated">Registered / Activated</option>
-                <option value="Rejected / Withdrawn">Rejected / Withdrawn</option>
-              </select>
+          <div class="box full soft">
+            <h3>Application Processing</h3>
+          
+            <div class="field-grid">
+          
+              <div class="field">
+                <label>Application Status</label>
+                <select id="fApplicationStatus">
+                  <option value="">Select status</option>
+                  <option value="New Application">New Application</option>
+                  <option value="Pending Document Review">Pending Document Review</option>
+                  <option value="Document Incomplete">Document Incomplete</option>
+                  <option value="Document Complete">Document Complete</option>
+                  <option value="Pending SAC">Pending SAC</option>
+                  <option value="Pending APEL">Pending APEL</option>
+                  <option value="Pending Rigorous Test">Pending Rigorous Test</option>
+                  <option value="Pending Prerequisite Course">Pending Prerequisite Course</option>
+                  <option value="Pending Prospect Update">Pending Prospect Update</option>
+                  <option value="Pending Registration / Activation">Pending Registration / Activation</option>
+                  <option value="Registered / Activated">Registered / Activated</option>
+                  <option value="Rejected / Withdrawn">Rejected / Withdrawn</option>
+                </select>
+              </div>
+          
+              <div class="field">
+                <label>Qualification Status</label>
+                <select id="fQualificationStatus">
+                  <option value="">Select qualification status</option>
+                  <option value="Pending Review">Pending Review</option>
+                  <option value="Qualified">Qualified</option>
+                  <option value="Not Qualified">Not Qualified</option>
+                  <option value="Conditional - APEL Required">Conditional - APEL Required</option>
+                  <option value="Conditional - Rigorous Test Required">Conditional - Rigorous Test Required</option>
+                  <option value="Conditional - Prerequisite Course Required">Conditional - Prerequisite Course Required</option>
+                  <option value="Need Further Verification">Need Further Verification</option>
+                </select>
+              </div>
+          
+              <div class="field">
+                <label>Document Check Status</label>
+                <select id="fDocumentCheckStatus">
+                  <option value="">Select document status</option>
+                  <option value="Pending Review">Pending Review</option>
+                  <option value="Complete">Complete</option>
+                  <option value="Incomplete">Incomplete</option>
+                  <option value="Need Resubmission">Need Resubmission</option>
+                </select>
+              </div>
+          
+              <div class="field">
+                <label>SAC Date</label>
+                <input type="text" id="fSacDate" placeholder="e.g. 01/07/2026">
+              </div>
+          
+              <div class="field">
+                <label>SAC Sitting / Sidang</label>
+                <input type="text" id="fSacSitting" placeholder="e.g. SAC 03/2026 or Sidang 2/2026">
+              </div>
+          
+              <div class="field">
+                <label>Prospect Status</label>
+                <input type="text" id="fProspectStatusView" readonly placeholder="Auto from prospect update form">
+              </div>
+          
+              <div class="field">
+                <label>Fee Group</label>
+                <input type="text" id="fFeeGroupView" readonly placeholder="Auto from prospect update form">
+              </div>
+          
+              <div class="field">
+                <label>Prospect Updated At</label>
+                <input type="text" id="fProspectUpdatedAtView" readonly placeholder="Auto updated">
+              </div>
+          
+              <div class="field full">
+                <label>Admin Remarks</label>
+                <textarea id="fAdminRemarks" placeholder="Write admin note here. Example: Candidate to complete APEL before SAC."></textarea>
+              </div>
+          
+              <div class="field full">
+                <label>Prospect Remarks</label>
+                <textarea id="fProspectRemarksView" readonly placeholder="Auto from prospect update form"></textarea>
+              </div>
+          
             </div>
-        
-            <div class="field">
-              <label>Qualification Status</label>
-              <select id="fQualificationStatus">
-                <option value="">Select qualification status</option>
-                <option value="Pending Review">Pending Review</option>
-                <option value="Qualified">Qualified</option>
-                <option value="Not Qualified">Not Qualified</option>
-                <option value="Conditional - APEL Required">Conditional - APEL Required</option>
-                <option value="Conditional - Rigorous Test Required">Conditional - Rigorous Test Required</option>
-                <option value="Conditional - Prerequisite Course Required">Conditional - Prerequisite Course Required</option>
-                <option value="Need Further Verification">Need Further Verification</option>
-              </select>
+          
+            <div class="actions">
+              <button onclick="saveApplicationUpdate()">Save Update</button>
+              <button class="secondary" onclick="loadApplications()">Refresh Data</button>
             </div>
-        
-            <div class="field">
-              <label>Document Check Status</label>
-              <select id="fDocumentCheckStatus">
-                <option value="">Select document status</option>
-                <option value="Pending Review">Pending Review</option>
-                <option value="Complete">Complete</option>
-                <option value="Incomplete">Incomplete</option>
-                <option value="Need Resubmission">Need Resubmission</option>
-              </select>
-            </div>
-        
-            <div class="field">
-              <label>SAC Date</label>
-              <input type="text" id="fSacDate" placeholder="e.g. 01/07/2026">
-            </div>
-        
-            <div class="field">
-              <label>SAC Sitting / Sidang</label>
-              <input type="text" id="fSacSitting" placeholder="e.g. SAC 03/2026 or Sidang 2/2026">
-            </div>
-        
-            <div class="field">
-              <label>Prospect Status</label>
-              <input type="text" id="fProspectStatusView" readonly placeholder="Auto from prospect update form">
-            </div>
-        
-            <div class="field">
-              <label>Fee Group</label>
-              <input type="text" id="fFeeGroupView" readonly placeholder="Auto from prospect update form">
-            </div>
-        
-            <div class="field">
-              <label>Prospect Updated At</label>
-              <input type="text" id="fProspectUpdatedAtView" readonly placeholder="Auto updated">
-            </div>
-        
-            <div class="field full">
-              <label>Admin Remarks</label>
-              <textarea id="fAdminRemarks" placeholder="Write admin note here. Example: Candidate to complete APEL before SAC."></textarea>
-            </div>
-        
-            <div class="field full">
-              <label>Prospect Remarks</label>
-              <textarea id="fProspectRemarksView" readonly placeholder="Auto from prospect update form"></textarea>
-            </div>
-          </div>
-        
-          <div class="actions">
-            <button onclick="saveApplicationUpdate()">Save Update</button>
-            <button class="secondary" onclick="loadApplications()">Refresh Data</button>
-          </div>
-        
-          <div id="saveMessage" class="message"></div>
-        </div>
-            <div class="field">
-              <label>Document Check Status</label>
-              <select id="fDocumentCheckStatus">
-                <option value="">Select document status</option>
-                <option value="Pending Review">Pending Review</option>
-                <option value="Complete">Complete</option>
-                <option value="Incomplete">Incomplete</option>
-                <option value="Invalid / Need Resubmission">Invalid / Need Resubmission</option>
-              </select>
-            </div>
-
-            <div class="field">
-              <label>RO PIC</label>
-              <input type="text" id="fRoPic" placeholder="e.g. Adiy / Arisya / Puspa">
-            </div>
-
-            <div class="field">
-              <label>SAC Status</label>
-              <select id="fSacStatus">
-                <option value="">Select SAC status</option>
-                <option value="Not Started">Not Started</option>
-                <option value="Pending SAC">Pending SAC</option>
-                <option value="Approved">Approved</option>
-                <option value="Rejected">Rejected</option>
-                <option value="Deferred">Deferred</option>
-              </select>
-            </div>
-
-            <div class="field">
-              <label>SAC Date</label>
-              <input type="text" id="fSacDate" placeholder="e.g. 01/07/2026">
-            </div>
-
-            <div class="field">
-              <label>Offer Letter Status</label>
-              <select id="fOfferLetterStatus">
-                <option value="">Select offer letter status</option>
-                <option value="Not Generated">Not Generated</option>
-                <option value="COL Generated">COL Generated</option>
-                <option value="COL Issued">COL Issued</option>
-                <option value="Need Revision">Need Revision</option>
-              </select>
-            </div>
-
-            <div class="field">
-              <label>Acceptance Status</label>
-              <select id="fAcceptanceStatus">
-                <option value="">Select acceptance status</option>
-                <option value="Pending / Not Updated">Pending / Not Updated</option>
-                <option value="Acceptance Pending">Acceptance Pending</option>
-                <option value="Accepted">Accepted</option>
-                <option value="Declined">Declined</option>
-              </select>
-            </div>
-
-            <div class="field">
-              <label>Prospect Status</label>
-              <select id="fProspectStatus">
-                <option value="">Select prospect status</option>
-                <option value="Pending Prospect Update">Pending Prospect Update</option>
-                <option value="Prospect Created">Prospect Created</option>
-                <option value="Prospect Issue">Prospect Issue</option>
-                <option value="Not Required">Not Required</option>
-              </select>
-            </div>
-
-            <div class="field">
-              <label>Fee Group</label>
-              <input type="text" id="fFeeGroup" placeholder="Enter fee group">
-            </div>
-
-            <div class="field">
-              <label>Sky Prospect ID</label>
-              <input type="text" id="fSkyProspectId" placeholder="Enter Sky prospect ID">
-            </div>
-
-            <div class="field">
-              <label>Registration Status</label>
-              <select id="fRegistrationStatus">
-                <option value="">Select registration status</option>
-                <option value="Not Registered">Not Registered</option>
-                <option value="Pending Activation">Pending Activation</option>
-                <option value="Registered / Activated">Registered / Activated</option>
-              </select>
-            </div>
-
-            <div class="field">
-              <label>Student ID / Matric No</label>
-              <input type="text" id="fStudentId" placeholder="Enter matric number">
-            </div>
-
-            <div class="field">
-              <label>Bursar Status</label>
-              <select id="fBursarStatus">
-                <option value="">Select bursar status</option>
-                <option value="Not Required">Not Required</option>
-                <option value="Pending Payment">Pending Payment</option>
-                <option value="Payment Verified">Payment Verified</option>
-                <option value="EPF Follow-up">EPF Follow-up</option>
-              </select>
-            </div>
-
-            <div class="field">
-              <label>ISO Status</label>
-              <select id="fIsoStatus">
-                <option value="">Select ISO status</option>
-                <option value="Not Checked">Not Checked</option>
-                <option value="Checked">Checked</option>
-                <option value="Issue Found">Issue Found</option>
-              </select>
-            </div>
-
-            <div class="field full">
-              <label>Document Remarks</label>
-              <textarea id="fDocumentRemarks" placeholder="Example: Transcript unclear. Please request student to resubmit."></textarea>
-            </div>
-
-            <div class="field full">
-              <label>Registry Remark</label>
-              <textarea id="fRegistryRemark" placeholder="Internal registry note"></textarea>
-            </div>
-
-            <div class="field full">
-              <label>Internal Remarks</label>
-              <textarea id="fInternalRemarks" placeholder="General internal notes"></textarea>
-            </div>
-          </div>
-
-          <div class="actions">
-            <button onclick="saveApplicationUpdate()">Save Update</button>
-            <button class="secondary" onclick="loadApplications()">Refresh Data</button>
-          </div>
-
+          
           <div id="saveMessage" class="message"></div>
         </div>
       </div>
