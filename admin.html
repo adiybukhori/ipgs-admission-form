@@ -452,15 +452,14 @@
           <option value="">All Application Status</option>
           <option value="New Application">New Application</option>
           <option value="Pending Document Review">Pending Document Review</option>
-          <option value="Document Complete">Document Complete</option>
           <option value="Document Incomplete">Document Incomplete</option>
-          <option value="Pending SAC Endorsement">Pending SAC Endorsement</option>
-          <option value="SAC Approved">SAC Approved</option>
-          <option value="SAC Rejected">SAC Rejected</option>
-          <option value="COL Issued">COL Issued</option>
-          <option value="Acceptance Pending">Acceptance Pending</option>
-          <option value="Accepted">Accepted</option>
-          <option value="Prospect Created">Prospect Created</option>
+          <option value="Document Complete">Document Complete</option>
+          <option value="Pending SAC">Pending SAC</option>
+          <option value="Pending APEL">Pending APEL</option>
+          <option value="Pending Rigorous Test">Pending Rigorous Test</option>
+          <option value="Pending Prerequisite Course">Pending Prerequisite Course</option>
+          <option value="Pending Prospect Update">Pending Prospect Update</option>
+          <option value="Pending Registration / Activation">Pending Registration / Activation</option>
           <option value="Registered / Activated">Registered / Activated</option>
           <option value="Rejected / Withdrawn">Rejected / Withdrawn</option>
         </select>
@@ -470,7 +469,7 @@
           <option value="Pending Review">Pending Review</option>
           <option value="Complete">Complete</option>
           <option value="Incomplete">Incomplete</option>
-          <option value="Invalid / Need Resubmission">Invalid / Need Resubmission</option>
+          <option value="Need Resubmission">Need Resubmission</option>
         </select>
 
         <button onclick="loadApplications()">Refresh</button>
@@ -572,7 +571,7 @@
 
         <div class="box full soft">
           <h3>Application Processing</h3>
-
+        
           <div class="field-grid">
             <div class="field">
               <label>Application Status</label>
@@ -580,35 +579,87 @@
                 <option value="">Select status</option>
                 <option value="New Application">New Application</option>
                 <option value="Pending Document Review">Pending Document Review</option>
-                <option value="Document Complete">Document Complete</option>
                 <option value="Document Incomplete">Document Incomplete</option>
-                <option value="Pending SAC Endorsement">Pending SAC Endorsement</option>
-                <option value="SAC Approved">SAC Approved</option>
-                <option value="SAC Rejected">SAC Rejected</option>
-                <option value="COL Issued">COL Issued</option>
-                <option value="Acceptance Pending">Acceptance Pending</option>
-                <option value="Accepted">Accepted</option>
-                <option value="Prospect Created">Prospect Created</option>
+                <option value="Document Complete">Document Complete</option>
+                <option value="Pending SAC">Pending SAC</option>
+                <option value="Pending APEL">Pending APEL</option>
+                <option value="Pending Rigorous Test">Pending Rigorous Test</option>
+                <option value="Pending Prerequisite Course">Pending Prerequisite Course</option>
+                <option value="Pending Prospect Update">Pending Prospect Update</option>
+                <option value="Pending Registration / Activation">Pending Registration / Activation</option>
                 <option value="Registered / Activated">Registered / Activated</option>
                 <option value="Rejected / Withdrawn">Rejected / Withdrawn</option>
               </select>
             </div>
-
+        
             <div class="field">
-              <label>Application Stage</label>
-              <select id="fApplicationStage">
-                <option value="">Select stage</option>
-                <option value="New Submission">New Submission</option>
-                <option value="Document Review">Document Review</option>
-                <option value="SAC Review">SAC Review</option>
-                <option value="Offer Letter">Offer Letter</option>
-                <option value="Acceptance">Acceptance</option>
-                <option value="Prospect Update">Prospect Update</option>
-                <option value="Registration / Activation">Registration / Activation</option>
-                <option value="Completed">Completed</option>
+              <label>Qualification Status</label>
+              <select id="fQualificationStatus">
+                <option value="">Select qualification status</option>
+                <option value="Pending Review">Pending Review</option>
+                <option value="Qualified">Qualified</option>
+                <option value="Not Qualified">Not Qualified</option>
+                <option value="Conditional - APEL Required">Conditional - APEL Required</option>
+                <option value="Conditional - Rigorous Test Required">Conditional - Rigorous Test Required</option>
+                <option value="Conditional - Prerequisite Course Required">Conditional - Prerequisite Course Required</option>
+                <option value="Need Further Verification">Need Further Verification</option>
               </select>
             </div>
-
+        
+            <div class="field">
+              <label>Document Check Status</label>
+              <select id="fDocumentCheckStatus">
+                <option value="">Select document status</option>
+                <option value="Pending Review">Pending Review</option>
+                <option value="Complete">Complete</option>
+                <option value="Incomplete">Incomplete</option>
+                <option value="Need Resubmission">Need Resubmission</option>
+              </select>
+            </div>
+        
+            <div class="field">
+              <label>SAC Date</label>
+              <input type="text" id="fSacDate" placeholder="e.g. 01/07/2026">
+            </div>
+        
+            <div class="field">
+              <label>SAC Sitting / Sidang</label>
+              <input type="text" id="fSacSitting" placeholder="e.g. SAC 03/2026 or Sidang 2/2026">
+            </div>
+        
+            <div class="field">
+              <label>Prospect Status</label>
+              <input type="text" id="fProspectStatusView" readonly placeholder="Auto from prospect update form">
+            </div>
+        
+            <div class="field">
+              <label>Fee Group</label>
+              <input type="text" id="fFeeGroupView" readonly placeholder="Auto from prospect update form">
+            </div>
+        
+            <div class="field">
+              <label>Prospect Updated At</label>
+              <input type="text" id="fProspectUpdatedAtView" readonly placeholder="Auto updated">
+            </div>
+        
+            <div class="field full">
+              <label>Admin Remarks</label>
+              <textarea id="fAdminRemarks" placeholder="Write admin note here. Example: Candidate to complete APEL before SAC."></textarea>
+            </div>
+        
+            <div class="field full">
+              <label>Prospect Remarks</label>
+              <textarea id="fProspectRemarksView" readonly placeholder="Auto from prospect update form"></textarea>
+            </div>
+          </div>
+        
+          <div class="actions">
+            <button onclick="saveApplicationUpdate()">Save Update</button>
+            <button class="secondary" onclick="loadApplications()">Refresh Data</button>
+          </div>
+        
+          <div id="saveMessage" class="message"></div>
+        </div>
             <div class="field">
               <label>Document Check Status</label>
               <select id="fDocumentCheckStatus">
@@ -1000,23 +1051,16 @@
       renderUploadedFiles(app);
 
       setFieldValue("fApplicationStatus", getValue(app, ["Application Status"]) || "New Application");
-      setFieldValue("fApplicationStage", getValue(app, ["Application Stage"]) || "New Submission");
+      setFieldValue("fQualificationStatus", getValue(app, ["Qualification Status"]) || "Pending Review");
       setFieldValue("fDocumentCheckStatus", getValue(app, ["Document Check Status"]) || "Pending Review");
-      setFieldValue("fDocumentRemarks", getValue(app, ["Document Remarks"]));
-      setFieldValue("fRoPic", getValue(app, ["RO PIC"]));
-      setFieldValue("fSacStatus", getValue(app, ["SAC Status"]) || "Not Started");
       setFieldValue("fSacDate", getValue(app, ["SAC Date"]));
-      setFieldValue("fOfferLetterStatus", getValue(app, ["Offer Letter Status"]) || "COL Generated");
-      setFieldValue("fAcceptanceStatus", getValue(app, ["Acceptance Status"]) || "Pending / Not Updated");
-      setFieldValue("fProspectStatus", getValue(app, ["Prospect Status"]) || "Pending Prospect Update");
-      setFieldValue("fFeeGroup", getValue(app, ["Fee Group"]));
-      setFieldValue("fSkyProspectId", getValue(app, ["Sky Prospect ID"]));
-      setFieldValue("fRegistrationStatus", getValue(app, ["Registration Status"]) || "Not Registered");
-      setFieldValue("fStudentId", getValue(app, ["Student ID / Matric No"]));
-      setFieldValue("fBursarStatus", getValue(app, ["Bursar Status"]));
-      setFieldValue("fIsoStatus", getValue(app, ["ISO Status"]));
-      setFieldValue("fRegistryRemark", getValue(app, ["Registry Remark"]));
-      setFieldValue("fInternalRemarks", getValue(app, ["Internal Remarks"]));
+      setFieldValue("fSacSitting", getValue(app, ["SAC Sitting"]));
+      setFieldValue("fAdminRemarks", getValue(app, ["Admin Remarks"]));
+      
+      setFieldValue("fProspectStatusView", getValue(app, ["Prospect Status"]));
+      setFieldValue("fFeeGroupView", getValue(app, ["Fee Group"]));
+      setFieldValue("fProspectUpdatedAtView", getValue(app, ["Prospect Updated At"]));
+      setFieldValue("fProspectRemarksView", getValue(app, ["Prospect Remarks"]));
 
       document.getElementById("saveMessage").innerHTML = "";
       document.getElementById("studentModal").style.display = "flex";
@@ -1036,26 +1080,13 @@
       const data = {
         rowNumber: selectedApplication.rowNumber,
         applicationStatus: getInputValue("fApplicationStatus"),
-        applicationStage: getInputValue("fApplicationStage"),
+        qualificationStatus: getInputValue("fQualificationStatus"),
         documentCheckStatus: getInputValue("fDocumentCheckStatus"),
-        documentRemarks: getInputValue("fDocumentRemarks"),
-        roPic: getInputValue("fRoPic"),
-        sacStatus: getInputValue("fSacStatus"),
         sacDate: getInputValue("fSacDate"),
-        offerLetterStatus: getInputValue("fOfferLetterStatus"),
-        acceptanceStatus: getInputValue("fAcceptanceStatus"),
-        prospectStatus: getInputValue("fProspectStatus"),
-        feeGroup: getInputValue("fFeeGroup"),
-        skyProspectId: getInputValue("fSkyProspectId"),
-        registrationStatus: getInputValue("fRegistrationStatus"),
-        studentId: getInputValue("fStudentId"),
-        bursarStatus: getInputValue("fBursarStatus"),
-        isoStatus: getInputValue("fIsoStatus"),
-        registryRemark: getInputValue("fRegistryRemark"),
-        internalRemarks: getInputValue("fInternalRemarks"),
+        sacSitting: getInputValue("fSacSitting"),
+        adminRemarks: getInputValue("fAdminRemarks"),
         updatedBy: "Admin Portal"
       };
-
       const payload = {
         action: "updateApplication",
         token: adminToken,
