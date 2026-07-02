@@ -161,7 +161,7 @@
       width: 100%;
       border-collapse: collapse;
       background: white;
-      min-width: 1200px;
+      min-width: 1450px;
     }
 
     th, td {
@@ -489,6 +489,7 @@
             <th>Type</th>
             <th>Status</th>
             <th>Document</th>
+            <th>LOA / Acceptance / Sky</th>
             <th>Partner / Prospect</th>
             <th>Updated</th>
             <th>Folder</th>
@@ -496,7 +497,7 @@
           </tr>
         </thead>
         <tbody id="applicationTable">
-          <tr><td colspan="11">Loading data...</td></tr>
+          <tr><td colspan="12">Loading data...</td></tr>
         </tbody>
       </table>
     </div>
@@ -892,7 +893,7 @@
     
         const tbody = document.getElementById("applicationTable");
         if (tbody) {
-          tbody.innerHTML = '<tr><td colspan="11">No data loaded yet. Please click Refresh.</td></tr>';
+          tbody.innerHTML = '<tr><td colspan="12">No data loaded yet. Please click Refresh.</td></tr>';
         }
       }
     }
@@ -953,7 +954,7 @@
       });
 
       if (!filtered.length) {
-        tbody.innerHTML = '<tr><td colspan="11">No application found.</td></tr>';
+        tbody.innerHTML = '<tr><td colspan="12">No application found.</td></tr>';
         return;
       }
 
@@ -976,6 +977,11 @@
         const folder = getValue(app, ["Student Folder URL"]);
         const appStatus = getValue(app, ["Application Status"]) || "New Application";
         const docStatus = getValue(app, ["Document Check Status"]) || "Pending Review";
+        
+        const offerLetterStatus = getValue(app, ["Offer Letter Status"]) || "Not Issued";
+        const acceptanceStatus = getValue(app, ["Acceptance Status"]) || "Pending Acceptance";
+        const skyDocumentUploadStatus = getValue(app, ["Sky Document Upload Status"]) || "Not Started";
+        
         const lastUpdated = getValue(app, ["Last Updated"]) || "-";
 
         const folderLink = folder
@@ -991,6 +997,27 @@
           <td><span class="badge">${escapeHtml(type || "-")}</span></td>
           <td><span class="${getStatusBadgeClass(appStatus)}">${escapeHtml(appStatus)}</span></td>
           <td><span class="${getDocumentBadgeClass(docStatus)}">${escapeHtml(docStatus)}</span></td>
+
+          <td>
+            <div style="display:grid;gap:6px;">
+              <div>
+                <span class="${getOfferLetterBadgeClass(offerLetterStatus)}">
+                  LOA: ${escapeHtml(offerLetterStatus)}
+                </span>
+              </div>
+              <div>
+                <span class="${getAcceptanceBadgeClass(acceptanceStatus)}">
+                  Acceptance: ${escapeHtml(acceptanceStatus)}
+                </span>
+              </div>
+              <div>
+                <span class="${getSkyDocumentBadgeClass(skyDocumentUploadStatus)}">
+                  Sky: ${escapeHtml(skyDocumentUploadStatus)}
+                </span>
+              </div>
+            </div>
+          </td>
+          
           <td>
             <div><b>${escapeHtml(partnerDisplay || "-")}</b></div>
             <div style="margin-top:6px;">
@@ -1339,6 +1366,46 @@
     function getDocumentBadgeClass(status) {
       if (status === "Complete") return "badge success";
       if (status === "Incomplete" || status === "Need Resubmission") return "badge danger";
+      return "badge warning";
+    }
+
+    function getOfferLetterBadgeClass(status) {
+      if (status === "Issued" || status === "Re-Issued") {
+        return "badge success";
+      }
+    
+      if (status === "On Hold") {
+        return "badge danger";
+      }
+    
+      return "badge warning";
+    }
+    
+    function getAcceptanceBadgeClass(status) {
+      if (status === "Accepted") {
+        return "badge success";
+      }
+    
+      if (status === "Declined" || status === "Expired / No Response") {
+        return "badge danger";
+      }
+    
+      return "badge warning";
+    }
+    
+    function getSkyDocumentBadgeClass(status) {
+      if (status === "Completed") {
+        return "badge success";
+      }
+    
+      if (status === "Partial Done") {
+        return "badge warning";
+      }
+    
+      if (status === "Need Correction") {
+        return "badge danger";
+      }
+    
       return "badge warning";
     }
 
