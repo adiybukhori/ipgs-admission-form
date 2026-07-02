@@ -489,7 +489,7 @@
             <th>Type</th>
             <th>Status</th>
             <th>Document</th>
-            <th>Payment</th>
+            <th>Partner / Prospect</th>
             <th>Updated</th>
             <th>Folder</th>
             <th>Action</th>
@@ -893,7 +893,14 @@
         const programme = getValue(app, ["Programme"]);
         const intake = getValue(app, ["Intake"]);
         const type = getValue(app, ["Applicant Type"]);
-        const payment = getValue(app, ["Payment Source"]);
+        
+        const referral = getValue(app, ["Referral Source"]);
+        const partnerCode = getValue(app, ["Partner Code"]);
+        const prospectStatus = getValue(app, ["Prospect Status"]) || "Pending Prospect Update";
+        const feeGroup = getValue(app, ["Fee Group"]);
+        const prospectUpdatedAt = getValue(app, ["Prospect Updated At"]);
+        const partnerDisplay = getPartnerDisplayLabel(referral, partnerCode);
+        
         const folder = getValue(app, ["Student Folder URL"]);
         const appStatus = getValue(app, ["Application Status"]) || "New Application";
         const docStatus = getValue(app, ["Document Check Status"]) || "Pending Review";
@@ -912,7 +919,20 @@
           <td><span class="badge">${escapeHtml(type || "-")}</span></td>
           <td><span class="${getStatusBadgeClass(appStatus)}">${escapeHtml(appStatus)}</span></td>
           <td><span class="${getDocumentBadgeClass(docStatus)}">${escapeHtml(docStatus)}</span></td>
-          <td>${escapeHtml(payment || "-")}</td>
+          <td>
+            <div><b>${escapeHtml(partnerDisplay || "-")}</b></div>
+            <div style="margin-top:6px;">
+              <span class="${getProspectBadgeClass(prospectStatus)}">${escapeHtml(prospectStatus)}</span>
+            </div>
+            <div class="muted" style="margin-top:6px;font-size:12px;">
+              Fee Group: ${escapeHtml(feeGroup || "-")}
+            </div>
+            ${prospectUpdatedAt ? `
+              <div class="muted" style="margin-top:4px;font-size:12px;">
+                Updated: ${escapeHtml(prospectUpdatedAt)}
+              </div>
+            ` : ""}
+          </td>
           <td>${escapeHtml(lastUpdated)}</td>
           <td>${folderLink}</td>
           <td><button class="small" onclick="openStudent(${Number(app.rowNumber)})">Open</button></td>
@@ -1223,6 +1243,53 @@
       return "badge warning";
     }
 
+    function getPartnerDisplayLabel(referral, partnerCode) {
+      const r = String(referral || "").trim();
+      const p = String(partnerCode || "").trim();
+    
+      if (p) {
+        return p;
+      }
+    
+      if (r === "Education Consultant") {
+        return "Education Consultant";
+      }
+    
+      if (r === "Innovative Staff") {
+        return "Internal IUC / Staff";
+      }
+    
+      if (r === "Direct / Self Enquiry") {
+        return "Internal IUC / Direct";
+      }
+    
+      if (r === "Social Media") {
+        return "Internal IUC / Social Media";
+      }
+    
+      if (r === "Friend / Family") {
+        return "Referral / Friend or Family";
+      }
+    
+      return r || "Internal IUC";
+    }
+    
+    function getProspectBadgeClass(status) {
+      if (status === "Prospect Updated") {
+        return "badge success";
+      }
+    
+      if (status === "Pending Prospect Update") {
+        return "badge warning";
+      }
+    
+      if (!status) {
+        return "badge warning";
+      }
+    
+      return "badge";
+    }
+    
     function escapeHtml(value) {
       return String(value ?? "")
         .replace(/&/g, "&amp;")
