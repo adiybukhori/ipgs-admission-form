@@ -569,97 +569,95 @@
           <div id="pUploadedFiles" class="doc-list"></div>
         </div>
 
-          <div class="box full soft">
-            <h3>Application Processing</h3>
-          
-            <div class="field-grid">
-          
-              <div class="field">
-                <label>Application Status</label>
-                <select id="fApplicationStatus">
-                  <option value="">Select status</option>
-                  <option value="New Application">New Application</option>
-                  <option value="Pending Document Review">Pending Document Review</option>
-                  <option value="Document Incomplete">Document Incomplete</option>
-                  <option value="Document Complete">Document Complete</option>
-                  <option value="Pending SAC">Pending SAC</option>
-                  <option value="Pending APEL">Pending APEL</option>
-                  <option value="Pending Rigorous Test">Pending Rigorous Test</option>
-                  <option value="Pending Prerequisite Course">Pending Prerequisite Course</option>
-                  <option value="Pending Prospect Update">Pending Prospect Update</option>
-                  <option value="Pending Registration / Activation">Pending Registration / Activation</option>
-                  <option value="Registered / Activated">Registered / Activated</option>
-                  <option value="Rejected / Withdrawn">Rejected / Withdrawn</option>
-                </select>
-              </div>
-          
-              <div class="field">
-                <label>Qualification Status</label>
-                <select id="fQualificationStatus">
-                  <option value="">Select qualification status</option>
-                  <option value="Pending Review">Pending Review</option>
-                  <option value="Qualified">Qualified</option>
-                  <option value="Not Qualified">Not Qualified</option>
-                  <option value="Conditional - APEL Required">Conditional - APEL Required</option>
-                  <option value="Conditional - Rigorous Test Required">Conditional - Rigorous Test Required</option>
-                  <option value="Conditional - Prerequisite Course Required">Conditional - Prerequisite Course Required</option>
-                  <option value="Need Further Verification">Need Further Verification</option>
-                </select>
-              </div>
-          
-              <div class="field">
-                <label>Document Check Status</label>
-                <select id="fDocumentCheckStatus">
-                  <option value="">Select document status</option>
-                  <option value="Pending Review">Pending Review</option>
-                  <option value="Complete">Complete</option>
-                  <option value="Incomplete">Incomplete</option>
-                  <option value="Need Resubmission">Need Resubmission</option>
-                </select>
-              </div>
-          
-              <div class="field">
-                <label>SAC Date</label>
-                <input type="text" id="fSacDate" placeholder="e.g. 01/07/2026">
-              </div>
-          
-              <div class="field">
-                <label>SAC Sitting / Sidang</label>
-                <input type="text" id="fSacSitting" placeholder="e.g. SAC 03/2026 or Sidang 2/2026">
-              </div>
-          
-              <div class="field">
-                <label>Prospect Status</label>
-                <input type="text" id="fProspectStatusView" readonly placeholder="Auto from prospect update form">
-              </div>
-          
-              <div class="field">
-                <label>Fee Group</label>
-                <input type="text" id="fFeeGroupView" readonly placeholder="Auto from prospect update form">
-              </div>
-          
-              <div class="field">
-                <label>Prospect Updated At</label>
-                <input type="text" id="fProspectUpdatedAtView" readonly placeholder="Auto updated">
-              </div>
-          
-              <div class="field full">
-                <label>Admin Remarks</label>
-                <textarea id="fAdminRemarks" placeholder="Write admin note here. Example: Candidate to complete APEL before SAC."></textarea>
-              </div>
-          
-              <div class="field full">
-                <label>Prospect Remarks</label>
-                <textarea id="fProspectRemarksView" readonly placeholder="Auto from prospect update form"></textarea>
-              </div>
-          
+        <div class="box full soft">
+          <h3>Application Processing</h3>
+
+          <div class="field-grid">
+            <div class="field">
+              <label>Application Status</label>
+              <select id="fApplicationStatus">
+                <option value="">Select status</option>
+                <option value="New Application">New Application</option>
+                <option value="Pending Document Review">Pending Document Review</option>
+                <option value="Document Incomplete">Document Incomplete</option>
+                <option value="Document Complete">Document Complete</option>
+                <option value="Pending SAC">Pending SAC</option>
+                <option value="Pending APEL">Pending APEL</option>
+                <option value="Pending Rigorous Test">Pending Rigorous Test</option>
+                <option value="Pending Prerequisite Course">Pending Prerequisite Course</option>
+                <option value="Pending Prospect Update">Pending Prospect Update</option>
+                <option value="Pending Registration / Activation">Pending Registration / Activation</option>
+                <option value="Registered / Activated">Registered / Activated</option>
+                <option value="Rejected / Withdrawn">Rejected / Withdrawn</option>
+              </select>
             </div>
-          
-            <div class="actions">
-              <button onclick="saveApplicationUpdate()">Save Update</button>
-              <button class="secondary" onclick="loadApplications(true)">Refresh Data</button>
+
+            <div class="field">
+              <label>Qualification Status</label>
+              <select id="fQualificationStatus">
+                <option value="">Select qualification status</option>
+                <option value="Pending Review">Pending Review</option>
+                <option value="Qualified">Qualified</option>
+                <option value="Not Qualified">Not Qualified</option>
+                <option value="Conditional - APEL Required">Conditional - APEL Required</option>
+                <option value="Conditional - Rigorous Test Required">Conditional - Rigorous Test Required</option>
+                <option value="Conditional - Prerequisite Course Required">Conditional - Prerequisite Course Required</option>
+                <option value="Need Further Verification">Need Further Verification</option>
+              </select>
             </div>
-          
+
+            <div class="field">
+              <label>Document Check Status</label>
+              <select id="fDocumentCheckStatus">
+                <option value="">Select document status</option>
+                <option value="Pending Review">Pending Review</option>
+                <option value="Complete">Complete</option>
+                <option value="Incomplete">Incomplete</option>
+                <option value="Need Resubmission">Need Resubmission</option>
+              </select>
+            </div>
+
+            <div class="field">
+              <label>SAC Date</label>
+              <input type="text" id="fSacDate" placeholder="e.g. 01/07/2026">
+            </div>
+
+            <div class="field">
+              <label>SAC Sitting / Sidang</label>
+              <input type="text" id="fSacSitting" placeholder="e.g. SAC 03/2026 or Sidang 2/2026">
+            </div>
+
+            <div class="field">
+              <label>Prospect Status</label>
+              <input type="text" id="fProspectStatusView" readonly placeholder="Auto from prospect update form">
+            </div>
+
+            <div class="field">
+              <label>Fee Group</label>
+              <input type="text" id="fFeeGroupView" readonly placeholder="Auto from prospect update form">
+            </div>
+
+            <div class="field">
+              <label>Prospect Updated At</label>
+              <input type="text" id="fProspectUpdatedAtView" readonly placeholder="Auto updated">
+            </div>
+
+            <div class="field full">
+              <label>Admin Remarks</label>
+              <textarea id="fAdminRemarks" placeholder="Write admin note here. Example: Candidate to complete APEL before SAC."></textarea>
+            </div>
+
+            <div class="field full">
+              <label>Prospect Remarks</label>
+              <textarea id="fProspectRemarksView" readonly placeholder="Auto from prospect update form"></textarea>
+            </div>
+          </div>
+
+          <div class="actions">
+            <button onclick="saveApplicationUpdate()">Save Update</button>
+            <button class="secondary" onclick="loadApplications(true)">Refresh Data</button>
+          </div>
+
           <div id="saveMessage" class="message"></div>
         </div>
       </div>
@@ -667,14 +665,15 @@
   </div>
 
   <script>
-    const APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbxHNDZyi9MS-ctW5zCLR9OtdkQvu8c8I3Y8oxNLarvzlg57iR47RxogELLLV4Xvyl4/exec";
+    const APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzYng04E0DhwBrFNem30NyvSAsYwOu9sJxK1ItCG7bC60x7MyCrZokZdjzQte_t3ws/exec";
 
     let applications = [];
     let selectedApplication = null;
     let adminToken = localStorage.getItem("ipgsAdminToken") || "";
+
     const CACHE_KEY = "ipgsAdmissionApplicationsCache";
     const CACHE_TIME_KEY = "ipgsAdmissionApplicationsCacheTime";
-    const CACHE_MAX_AGE_MS = 5 * 60 * 1000; // 5 minutes
+    const CACHE_MAX_AGE_MS = 5 * 60 * 1000;
 
     window.onload = function () {
       if (adminToken) {
@@ -697,15 +696,15 @@
       localStorage.setItem("ipgsAdminToken", adminToken);
 
       showApp();
-      loadApplications();
+      loadApplications(true);
     }
 
     function logout() {
       localStorage.removeItem("ipgsAdminToken");
-      clearApplicationsCache();
       adminToken = "";
       applications = [];
       selectedApplication = null;
+      clearApplicationsCache();
       showLogin();
     }
 
@@ -719,13 +718,12 @@
       document.getElementById("appView").classList.remove("hidden");
     }
 
-
     function saveApplicationsCache(data) {
       try {
         localStorage.setItem(CACHE_KEY, JSON.stringify(data || []));
         localStorage.setItem(CACHE_TIME_KEY, String(Date.now()));
       } catch (e) {
-        console.warn("Unable to save application cache", e);
+        console.warn("Unable to save cache:", e);
       }
     }
 
@@ -748,13 +746,13 @@
         const minutesAgo = Math.max(1, Math.round(age / 60000));
 
         setMainMessage(
-          "Showing cached data from " + minutesAgo + " minute(s) ago. Refreshing latest data...",
+          "Showing saved data from " + minutesAgo + " minute(s) ago. Refreshing latest data...",
           "info"
         );
 
         return age <= CACHE_MAX_AGE_MS;
       } catch (e) {
-        console.warn("Unable to load application cache", e);
+        console.warn("Unable to load cache:", e);
         return false;
       }
     }
@@ -764,87 +762,52 @@
         localStorage.removeItem(CACHE_KEY);
         localStorage.removeItem(CACHE_TIME_KEY);
       } catch (e) {
-        console.warn("Unable to clear application cache", e);
+        console.warn("Unable to clear cache:", e);
       }
-    }
-
-    function jsonpRequest(url) {
-      return new Promise((resolve, reject) => {
-        const callbackName = "jsonp_callback_" + Date.now() + "_" + Math.floor(Math.random() * 100000);
-        const separator = url.includes("?") ? "&" : "?";
-        const script = document.createElement("script");
-
-        let timeoutId = null;
-
-        window[callbackName] = function(data) {
-          cleanup();
-          resolve(data);
-        };
-
-        function cleanup() {
-          if (timeoutId) clearTimeout(timeoutId);
-          if (script && script.parentNode) script.parentNode.removeChild(script);
-
-          try {
-            delete window[callbackName];
-          } catch (e) {
-            window[callbackName] = undefined;
-          }
-        }
-
-        script.onerror = function() {
-          cleanup();
-          reject(new Error("Failed to connect to Apps Script API. Please check deployment access and APPS_SCRIPT_URL."));
-        };
-
-        timeoutId = setTimeout(function() {
-          cleanup();
-          reject(new Error("Apps Script API timeout. Please try again."));
-        }, 30000);
-
-        script.src = url + separator + "callback=" + encodeURIComponent(callbackName);
-        document.body.appendChild(script);
-      });
     }
 
     async function loadApplications(forceRefresh = false) {
       if (!forceRefresh) {
         loadApplicationsCache();
       }
-    
-      setMainMessage("Refreshing latest data from server...", "info");
-    
+
+      setMainMessage("Refreshing latest data...", "info");
+
       try {
         const url = APPS_SCRIPT_URL + "?action=applications&token=" + encodeURIComponent(adminToken);
         const json = await jsonpRequest(url);
-    
+
         if (!json.ok && !json.success) {
           if (String(json.message || "").toLowerCase().includes("invalid admin password")) {
             logout();
           }
           throw new Error(json.message || "Failed to load applications.");
         }
-    
+
         applications = Array.isArray(json.applications) ? json.applications : [];
-    
         saveApplicationsCache(applications);
-    
+
         setMainMessage("Loaded " + applications.length + " application(s).", "success");
         renderSummary();
         renderTable();
-    
+
       } catch (error) {
+        console.warn("Applications refresh failed:", error);
+
         if (applications.length) {
-          setMainMessage(
-            "Unable to refresh latest data. Showing cached data. " + (error.message || ""),
-            "error"
-          );
+          setMainMessage("Showing saved data. Latest data is still syncing.", "info");
           return;
         }
-    
-        setMainMessage(error.message || "Failed to load data.", "error");
+
+        setMainMessage("Data is not ready yet. Please click Refresh, or try again in a few seconds.", "info");
+
+        const tbody = document.getElementById("applicationTable");
+        if (tbody) {
+          tbody.innerHTML = '<tr><td colspan="11">No data loaded yet. Please click Refresh.</td></tr>';
+        }
       }
     }
+
     function renderSummary() {
       const total = applications.length;
 
@@ -856,13 +819,12 @@
       const incomplete = applications.filter(app => {
         const doc = getValue(app, ["Document Check Status"]);
         const s = getValue(app, ["Application Status"]);
-        return doc === "Incomplete" || doc === "Invalid / Need Resubmission" || s === "Document Incomplete";
+        return doc === "Incomplete" || doc === "Need Resubmission" || s === "Document Incomplete";
       }).length;
 
       const registered = applications.filter(app => {
-        const reg = getValue(app, ["Registration Status"]);
         const s = getValue(app, ["Application Status"]);
-        return reg === "Registered / Activated" || s === "Registered / Activated";
+        return s === "Registered / Activated";
       }).length;
 
       setText("totalApplications", total);
@@ -1020,7 +982,7 @@
       setFieldValue("fSacDate", getValue(app, ["SAC Date"]));
       setFieldValue("fSacSitting", getValue(app, ["SAC Sitting"]));
       setFieldValue("fAdminRemarks", getValue(app, ["Admin Remarks"]));
-      
+
       setFieldValue("fProspectStatusView", getValue(app, ["Prospect Status"]));
       setFieldValue("fFeeGroupView", getValue(app, ["Fee Group"]));
       setFieldValue("fProspectUpdatedAtView", getValue(app, ["Prospect Updated At"]));
@@ -1053,31 +1015,40 @@
       };
 
       const payload = {
+        action: "updateApplication",
+        token: adminToken,
         data: data
       };
 
       setSaveMessage("Saving update...", "info");
 
       try {
-        const url =
-          APPS_SCRIPT_URL +
-          "?action=updateApplication" +
-          "&token=" + encodeURIComponent(adminToken) +
-          "&payload=" + encodeURIComponent(JSON.stringify(payload));
+        const response = await fetch(APPS_SCRIPT_URL, {
+          method: "POST",
+          headers: { "Content-Type": "text/plain;charset=utf-8" },
+          body: JSON.stringify(payload)
+        });
 
-        const json = await jsonpRequest(url);
+        const text = await response.text();
+
+        let json;
+        try {
+          json = JSON.parse(text);
+        } catch (e) {
+          throw new Error("Invalid response from server.");
+        }
 
         if (!json.ok && !json.success) {
           throw new Error(json.message || "Failed to save update.");
         }
 
         setSaveMessage("Application updated successfully.", "success");
-
         clearApplicationsCache();
         await loadApplications(true);
 
       } catch (error) {
-        setSaveMessage(error.message || "Failed to save update.", "error");
+        console.warn("Save update failed:", error);
+        setSaveMessage("Unable to save update. Please try again.", "error");
       }
     }
 
@@ -1121,13 +1092,54 @@
       }).join("");
     }
 
+    function jsonpRequest(url) {
+      return new Promise((resolve, reject) => {
+        const callbackName = "jsonp_callback_" + Date.now() + "_" + Math.floor(Math.random() * 100000);
+        const separator = url.includes("?") ? "&" : "?";
+        const script = document.createElement("script");
+
+        let timeoutId = null;
+
+        window[callbackName] = function(data) {
+          cleanup();
+          resolve(data);
+        };
+
+        function cleanup() {
+          if (timeoutId) clearTimeout(timeoutId);
+          if (script && script.parentNode) script.parentNode.removeChild(script);
+
+          try {
+            delete window[callbackName];
+          } catch (e) {
+            window[callbackName] = undefined;
+          }
+        }
+
+        script.onerror = function() {
+          cleanup();
+          reject(new Error("Connection failed"));
+        };
+
+        timeoutId = setTimeout(function() {
+          cleanup();
+          reject(new Error("Connection timeout"));
+        }, 30000);
+
+        script.src = url + separator + "callback=" + encodeURIComponent(callbackName);
+        document.body.appendChild(script);
+      });
+    }
+
     function getValue(app, keys) {
       for (let i = 0; i < keys.length; i++) {
         const key = keys[i];
+
         if (app[key] !== undefined && app[key] !== null && String(app[key]).trim() !== "") {
           return String(app[key]);
         }
       }
+
       return "";
     }
 
