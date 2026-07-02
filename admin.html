@@ -665,7 +665,7 @@
   </div>
 
   <script>
-    const APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbyNRbS2-msq0KCTPq1QaU1EW9W-keZatVRbRNnfmLpvqNiI-S9BIzWv4HlfqTlNdkE/exec";
+    const APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbxQHTrnzIV03t_lFWCNYUdmoRYYjZg37Rgyx7zQGCrg_SrYbgAPnsEPJtzZQiU1M7o/exec";
 
     let applications = [];
     let selectedApplication = null;
@@ -770,37 +770,54 @@
       if (!forceRefresh) {
         loadApplicationsCache();
       }
-
+    
       setMainMessage("Refreshing latest data...", "info");
-
+    
       try {
-        const url = APPS_SCRIPT_URL + "?action=applications&token=" + encodeURIComponent(adminToken);
-        const json = await jsonpRequest(url);
-
+        const payload = {
+          action: "applications",
+          token: adminToken
+        };
+    
+        const response = await fetch(APPS_SCRIPT_URL, {
+          method: "POST",
+          headers: { "Content-Type": "text/plain;charset=utf-8" },
+          body: JSON.stringify(payload)
+        });
+    
+        const text = await response.text();
+    
+        let json;
+        try {
+          json = JSON.parse(text);
+        } catch (e) {
+          throw new Error("Invalid response from server.");
+        }
+    
         if (!json.ok && !json.success) {
           if (String(json.message || "").toLowerCase().includes("invalid admin password")) {
             logout();
           }
           throw new Error(json.message || "Failed to load applications.");
         }
-
+    
         applications = Array.isArray(json.applications) ? json.applications : [];
         saveApplicationsCache(applications);
-
+    
         setMainMessage("Loaded " + applications.length + " application(s).", "success");
         renderSummary();
         renderTable();
-
+    
       } catch (error) {
         console.warn("Applications refresh failed:", error);
-
+    
         if (applications.length) {
           setMainMessage("Showing saved data. Latest data is still syncing.", "info");
           return;
         }
-
+    
         setMainMessage("Data is not ready yet. Please click Refresh, or try again in a few seconds.", "info");
-
+    
         const tbody = document.getElementById("applicationTable");
         if (tbody) {
           tbody.innerHTML = '<tr><td colspan="11">No data loaded yet. Please click Refresh.</td></tr>';
