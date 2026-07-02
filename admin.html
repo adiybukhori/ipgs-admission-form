@@ -653,6 +653,78 @@
             </div>
           </div>
 
+          <div class="field full">
+            <hr style="border:none;border-top:1px solid #e5e7eb;margin:8px 0;">
+          </div>
+          
+          <div class="field">
+            <label>Offer Letter Status</label>
+            <select id="fOfferLetterStatus">
+              <option value="">Select status</option>
+              <option value="Not Issued">Not Issued</option>
+              <option value="Issued">Issued</option>
+              <option value="Re-Issued">Re-Issued</option>
+              <option value="On Hold">On Hold</option>
+            </select>
+          </div>
+          
+          <div class="field">
+            <label>Offer Letter Issued At</label>
+            <input type="text" id="fOfferLetterIssuedAt" placeholder="e.g. 02/07/2026">
+          </div>
+          
+          <div class="field full">
+            <label>Offer Letter Remarks</label>
+            <textarea id="fOfferLetterRemarks" placeholder="Example: LOA sent by email with acceptance form."></textarea>
+          </div>
+          
+          <div class="field">
+            <label>Acceptance Status</label>
+            <select id="fAcceptanceStatus">
+              <option value="">Select status</option>
+              <option value="Pending Acceptance">Pending Acceptance</option>
+              <option value="Accepted">Accepted</option>
+              <option value="Declined">Declined</option>
+              <option value="Expired / No Response">Expired / No Response</option>
+            </select>
+          </div>
+          
+          <div class="field">
+            <label>Acceptance Received At</label>
+            <input type="text" id="fAcceptanceReceivedAt" placeholder="e.g. 03/07/2026">
+          </div>
+          
+          <div class="field full">
+            <label>Acceptance Remarks</label>
+            <textarea id="fAcceptanceRemarks" placeholder="Example: Student replied acceptance by email."></textarea>
+          </div>
+          
+          <div class="field">
+            <label>Skyvialing Document Upload Status</label>
+            <select id="fSkyDocumentUploadStatus">
+              <option value="">Select status</option>
+              <option value="Not Started">Not Started</option>
+              <option value="Partial Done">Partial Done</option>
+              <option value="Completed">Completed</option>
+              <option value="Need Correction">Need Correction</option>
+            </select>
+          </div>
+          
+          <div class="field">
+            <label>Sky Uploaded At</label>
+            <input type="text" id="fSkyUploadedAt" placeholder="e.g. 04/07/2026">
+          </div>
+          
+          <div class="field">
+            <label>Sky Upload PIC</label>
+            <input type="text" id="fSkyUploadPic" placeholder="e.g. Huzaifah">
+          </div>
+          
+          <div class="field full">
+            <label>Sky Document Remarks</label>
+            <textarea id="fSkyDocumentRemarks" placeholder="Example: IC and photo uploaded. Transcript pending."></textarea>
+          </div>
+
           <div class="actions">
             <button onclick="saveApplicationUpdate()">Save Update</button>
             <button class="secondary" onclick="loadApplications(true)">Refresh Data</button>
@@ -665,7 +737,7 @@
   </div>
 
   <script>
-    const APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbwOE9CYoUld9Hdgbn-N5Dbo_B6TOxx7i2JMhx09eLXfLzJfpa9xn2jm20HhY2NK6xc/exec";
+    const APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbykgeFffQrUR7m4X2OewJ18JDciYPY9Yu5PKxaFFb7tz6Eznnp3lOECyh1dC4halmc/exec";
 
     let applications = [];
     let selectedApplication = null;
@@ -1025,6 +1097,19 @@
       setFieldValue("fProspectUpdatedAtView", getValue(app, ["Prospect Updated At"]));
       setFieldValue("fProspectRemarksView", getValue(app, ["Prospect Remarks"]));
 
+      setFieldValue("fOfferLetterStatus", getValue(app, ["Offer Letter Status"]) || "Not Issued");
+      setFieldValue("fOfferLetterIssuedAt", getValue(app, ["COL Issued At"]));
+      setFieldValue("fOfferLetterRemarks", getValue(app, ["Offer Letter Remarks"]));
+      
+      setFieldValue("fAcceptanceStatus", getValue(app, ["Acceptance Status"]) || "Pending Acceptance");
+      setFieldValue("fAcceptanceReceivedAt", getValue(app, ["Acceptance Received At"]));
+      setFieldValue("fAcceptanceRemarks", getValue(app, ["Acceptance Remarks"]));
+      
+      setFieldValue("fSkyDocumentUploadStatus", getValue(app, ["Sky Document Upload Status"]) || "Not Started");
+      setFieldValue("fSkyUploadedAt", getValue(app, ["Sky Uploaded At"]));
+      setFieldValue("fSkyUploadPic", getValue(app, ["Sky Upload PIC"]));
+      setFieldValue("fSkyDocumentRemarks", getValue(app, ["Sky Document Remarks"]));
+
       document.getElementById("saveMessage").innerHTML = "";
       document.getElementById("studentModal").style.display = "flex";
     }
@@ -1048,6 +1133,20 @@
         sacDate: getInputValue("fSacDate"),
         sacSitting: getInputValue("fSacSitting"),
         adminRemarks: getInputValue("fAdminRemarks"),
+      
+        offerLetterStatus: getInputValue("fOfferLetterStatus"),
+        offerLetterIssuedAt: getInputValue("fOfferLetterIssuedAt"),
+        offerLetterRemarks: getInputValue("fOfferLetterRemarks"),
+      
+        acceptanceStatus: getInputValue("fAcceptanceStatus"),
+        acceptanceReceivedAt: getInputValue("fAcceptanceReceivedAt"),
+        acceptanceRemarks: getInputValue("fAcceptanceRemarks"),
+      
+        skyDocumentUploadStatus: getInputValue("fSkyDocumentUploadStatus"),
+        skyUploadedAt: getInputValue("fSkyUploadedAt"),
+        skyUploadPic: getInputValue("fSkyUploadPic"),
+        skyDocumentRemarks: getInputValue("fSkyDocumentRemarks"),
+      
         updatedBy: "Admin Portal"
       };
 
