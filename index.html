@@ -310,7 +310,7 @@
   </div>
 
   <script>
-    const APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbxBBgjRfL4tG5Ah9KXqpxyNGcdyziwC1GAjbM-jwyN3J7cZUO00wF_VzaVMf3IYq5Y/exec";
+    const APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbwOE9CYoUld9Hdgbn-N5Dbo_B6TOxx7i2JMhx09eLXfLzJfpa9xn2jm20HhY2NK6xc/exec";
     const MAX_FILE_SIZE_MB = 7;
     const PASSPORT_PHOTO_MAX_MB = 2;
     const INTERNATIONAL_ADMISSION_FORM_URL = "https://drive.google.com/uc?export=download&id=15tJxq0xnvf0Ujwqpm8IfpHc201WLGQLP";
@@ -393,6 +393,7 @@
       maritalStatus: "",
       employmentStatus: "",
       employmentSector: "",
+      salaryRange: "",
       nonWorkingCategory: "",
       emergencyName: "",
       emergencyRelationship: "",
@@ -674,20 +675,34 @@
             </div>
             
             ${formState.employmentStatus === 'Working' ? `
-              <div class="field" style="grid-column:1 / -1">
-                <label>Employment Sector <span class="required">*</span></label>
-                <select data-field="employmentSector">
-                  ${selectOptions([
-                    "Government / Public Sector",
-                    "Private Sector",
-                    "GLC / Statutory Body",
-                    "Self-Employed / Business Owner",
-                    "NGO / Non-Profit Organisation",
-                    "Other"
-                  ], "Select employment sector", formState.employmentSector)}
-                </select>
-              </div>
-            ` : ""}
+            <div class="field">
+              <label>Employment Sector <span class="required">*</span></label>
+              <select data-field="employmentSector">
+                ${selectOptions([
+                  "Government / Public Sector",
+                  "Private Sector",
+                  "GLC / Statutory Body",
+                  "Self-Employed / Business Owner",
+                  "NGO / Non-Profit Organisation",
+                  "Other"
+                ], "Select employment sector", formState.employmentSector)}
+              </select>
+            </div>
+          
+            <div class="field">
+              <label>Monthly Salary Range <span class="required">*</span></label>
+              <select data-field="salaryRange">
+                ${selectOptions([
+                  "Below RM1,500",
+                  "RM1,500 - RM2,999",
+                  "RM3,000 - RM4,999",
+                  "RM5,000 - RM7,999",
+                  "RM8,000 - RM10,999",
+                  "RM11,000 and above"
+                ], "Select salary range", formState.salaryRange)}
+              </select>
+            </div>
+          ` : ""}
             
             ${formState.employmentStatus === 'Not Working' ? `
               <div class="field" style="grid-column:1 / -1">
@@ -785,6 +800,7 @@
             <div class="review-box"><h3>Student Information</h3><p><strong>Full Name:</strong> ${escapeHtml(titleCase(formState.fullName) || '-')}</p><p><strong>ID / Passport:</strong> ${escapeHtml(formState.idPassport || '-')}</p><p><strong>Email:</strong> ${escapeHtml(formState.email || '-')}</p><p><strong>Phone:</strong> ${escapeHtml(formState.phoneNumber || '-')}</p><p><strong>Country:</strong> ${escapeHtml(formState.country || '-')}</p><p><strong>Nationality:</strong> ${escapeHtml(formState.nationality || '-')}</p>
             <p><strong>Employment Status:</strong> ${escapeHtml(formState.employmentStatus || '-')}</p>
             <p><strong>Employment Sector:</strong> ${escapeHtml(formState.employmentSector || '-')}</p>
+            <p><strong>Salary Range:</strong> ${escapeHtml(formState.salaryRange || '-')}</p>
             <p><strong>Current Profile:</strong> ${escapeHtml(formState.nonWorkingCategory || '-')}</p></div>
             <div class="review-box"><h3>Emergency Contact</h3><p><strong>Name:</strong> ${escapeHtml(formState.emergencyName || '-')}</p><p><strong>Relationship:</strong> ${escapeHtml(formState.emergencyRelationship || '-')}</p><p><strong>Phone:</strong> ${escapeHtml(formState.emergencyPhone || '-')}</p><p><strong>Address:</strong> ${escapeHtml(formState.emergencyAddress || '-')}</p></div>
             <div class="review-box"><h3>Payment</h3><p><strong>Arrangement:</strong> ${escapeHtml(formState.paymentArrangement || '-')}</p><p><strong>Frequency:</strong> ${escapeHtml(formState.installmentFrequency || '-')}</p><p><strong>Source:</strong> ${escapeHtml(paymentSourceDisplay)}</p></div>
@@ -881,20 +897,21 @@
         el.onchange = () => { formState.gender = el.value; render(); };
       });
       document.querySelectorAll('input[name="employmentStatus"]').forEach(el => {
-        el.onchange = () => {
-          formState.employmentStatus = el.value;
-      
-          if (el.value === "Working") {
-            formState.nonWorkingCategory = "";
-          }
-      
-          if (el.value === "Not Working") {
-            formState.employmentSector = "";
-          }
-      
-          render();
-        };
-      });
+      el.onchange = () => {
+        formState.employmentStatus = el.value;
+    
+        if (el.value === "Working") {
+          formState.nonWorkingCategory = "";
+        }
+    
+        if (el.value === "Not Working") {
+          formState.employmentSector = "";
+          formState.salaryRange = "";
+        }
+    
+        render();
+      };
+    });
 
       document.querySelectorAll('input[name="paymentArrangement"]').forEach(el => {
         el.onchange = () => {
@@ -957,6 +974,7 @@
         maritalStatus: "",
         employmentStatus: "",
         employmentSector: "",
+        salaryRange: "",
         nonWorkingCategory: "",
         emergencyName: "",
         emergencyRelationship: "",
@@ -1083,6 +1101,10 @@
       
         if (formState.employmentStatus === 'Working' && !formState.employmentSector) {
           return 'Please select your employment sector.';
+        }
+        
+        if (formState.employmentStatus === 'Working' && !formState.salaryRange) {
+          return 'Please select your monthly salary range.';
         }
       
         if (formState.employmentStatus === 'Not Working' && !formState.nonWorkingCategory) {
