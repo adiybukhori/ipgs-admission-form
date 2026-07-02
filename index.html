@@ -310,7 +310,7 @@
   </div>
 
   <script>
-    const APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbxQHTrnzIV03t_lFWCNYUdmoRYYjZg37Rgyx7zQGCrg_SrYbgAPnsEPJtzZQiU1M7o/exec";
+    const APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbxBBgjRfL4tG5Ah9KXqpxyNGcdyziwC1GAjbM-jwyN3J7cZUO00wF_VzaVMf3IYq5Y/exec";
     const MAX_FILE_SIZE_MB = 7;
     const PASSPORT_PHOTO_MAX_MB = 2;
     const INTERNATIONAL_ADMISSION_FORM_URL = "https://drive.google.com/uc?export=download&id=15tJxq0xnvf0Ujwqpm8IfpHc201WLGQLP";
@@ -391,6 +391,9 @@
       race: "",
       religion: "",
       maritalStatus: "",
+      employmentStatus: "",
+      employmentSector: "",
+      nonWorkingCategory: "",
       emergencyName: "",
       emergencyRelationship: "",
       emergencyPhone: "",
@@ -616,7 +619,7 @@
           <div class="field"><label>Intake <span class="required">*</span></label><select data-field="intake">${selectOptions(INTAKE_OPTIONS, "Select intake month", formState.intake)}</select></div>
           <div class="field"><label>Entry Qualification Type <span class="required">*</span></label><select data-field="entryQualificationType">${selectOptions(ENTRY_QUALIFICATION_TYPES, "Select entry qualification type", formState.entryQualificationType)}</select></div>
           <div class="field"><label>Proposed Supervisor (if any)</label><input type="text" data-field="proposedSupervisor" value="${escapeHtml(formState.proposedSupervisor)}" placeholder="Enter supervisor name"></div>
-          <div class="field"><label>How did you hear about us / Referral Source</label><select data-field="referralSource">${selectOptions(REFERRAL_SOURCES, "Select referral source", formState.referralSource)}</select></div>
+          <div class="field"><label>How did you hear about us / Referral Source<span class="required">*</span></label><select data-field="referralSource">${selectOptions(REFERRAL_SOURCES, "Select referral source", formState.referralSource)}</select></div>
           ${isPartnerFlow() ? `
           <div class="field">
             <label>Registered Partner / Agent Code <span class="required">*</span></label>
@@ -656,6 +659,52 @@
           <div class="field"><label>Race <span class="required">*</span></label><select data-field="race">${selectOptions(RACES, "Select race", formState.race)}</select></div>
           <div class="field"><label>Religion <span class="required">*</span></label><select data-field="religion">${selectOptions(RELIGIONS, "Select religion", formState.religion)}</select></div>
           <div class="field"><label>Marital Status <span class="required">*</span></label><select data-field="maritalStatus">${selectOptions(MARITAL_STATUSES, "Select marital status", formState.maritalStatus)}</select></div>
+            <div class="field" style="grid-column:1 / -1">
+              <div class="group-label">Are you currently working? <span class="required">*</span></div>
+              <div class="radio-grid two">
+                <label class="choice">
+                  <input type="radio" name="employmentStatus" value="Working" ${formState.employmentStatus === 'Working' ? 'checked' : ''}>
+                  <span>Yes, I am currently working</span>
+                </label>
+                <label class="choice">
+                  <input type="radio" name="employmentStatus" value="Not Working" ${formState.employmentStatus === 'Not Working' ? 'checked' : ''}>
+                  <span>No, I am not currently working</span>
+                </label>
+              </div>
+            </div>
+            
+            ${formState.employmentStatus === 'Working' ? `
+              <div class="field" style="grid-column:1 / -1">
+                <label>Employment Sector <span class="required">*</span></label>
+                <select data-field="employmentSector">
+                  ${selectOptions([
+                    "Government / Public Sector",
+                    "Private Sector",
+                    "GLC / Statutory Body",
+                    "Self-Employed / Business Owner",
+                    "NGO / Non-Profit Organisation",
+                    "Other"
+                  ], "Select employment sector", formState.employmentSector)}
+                </select>
+              </div>
+            ` : ""}
+            
+            ${formState.employmentStatus === 'Not Working' ? `
+              <div class="field" style="grid-column:1 / -1">
+                <label>Current Profile / Background <span class="required">*</span></label>
+                <select data-field="nonWorkingCategory">
+                  ${selectOptions([
+                    "SPM Leaver",
+                    "STPM / Foundation / Diploma Leaver",
+                    "Fresh Graduate",
+                    "Housewife / Homemaker",
+                    "Unemployed / Seeking Employment",
+                    "Retired",
+                    "Other"
+                  ], "Select current profile", formState.nonWorkingCategory)}
+                </select>
+              </div>
+            ` : ""}
         </div>
       `;
     }
@@ -733,7 +782,10 @@
           <div class="review-box" style="background:#f8fafc"><strong>Review Your Application</strong><div class="small" style="margin-top:6px">Please review the summary before submitting.</div></div>
           <div class="review-grid">
             <div class="review-box"><h3>Programme</h3><p><strong>Email:</strong> ${escapeHtml(formState.capturedEmail || '-')}</p><p><strong>Applicant Type:</strong> ${escapeHtml(formState.applicantType || '-')}</p><p><strong>Level of Study:</strong> ${escapeHtml(formState.levelOfStudy || '-')}</p><p><strong>Programme:</strong> ${escapeHtml(formState.programme || '-')}</p><p><strong>Intake:</strong> ${escapeHtml(formState.intake || '-')}</p><p><strong>Entry Qualification Type:</strong> ${escapeHtml(formState.entryQualificationType || '-')}</p><p><strong>Supervisor:</strong> ${escapeHtml(formState.proposedSupervisor || '-')}</p><p><strong>Referral:</strong> ${escapeHtml(referralDisplay)}</p></div>
-            <div class="review-box"><h3>Student Information</h3><p><strong>Full Name:</strong> ${escapeHtml(titleCase(formState.fullName) || '-')}</p><p><strong>ID / Passport:</strong> ${escapeHtml(formState.idPassport || '-')}</p><p><strong>Email:</strong> ${escapeHtml(formState.email || '-')}</p><p><strong>Phone:</strong> ${escapeHtml(formState.phoneNumber || '-')}</p><p><strong>Country:</strong> ${escapeHtml(formState.country || '-')}</p><p><strong>Nationality:</strong> ${escapeHtml(formState.nationality || '-')}</p></div>
+            <div class="review-box"><h3>Student Information</h3><p><strong>Full Name:</strong> ${escapeHtml(titleCase(formState.fullName) || '-')}</p><p><strong>ID / Passport:</strong> ${escapeHtml(formState.idPassport || '-')}</p><p><strong>Email:</strong> ${escapeHtml(formState.email || '-')}</p><p><strong>Phone:</strong> ${escapeHtml(formState.phoneNumber || '-')}</p><p><strong>Country:</strong> ${escapeHtml(formState.country || '-')}</p><p><strong>Nationality:</strong> ${escapeHtml(formState.nationality || '-')}</p>
+            <p><strong>Employment Status:</strong> ${escapeHtml(formState.employmentStatus || '-')}</p>
+            <p><strong>Employment Sector:</strong> ${escapeHtml(formState.employmentSector || '-')}</p>
+            <p><strong>Current Profile:</strong> ${escapeHtml(formState.nonWorkingCategory || '-')}</p></div>
             <div class="review-box"><h3>Emergency Contact</h3><p><strong>Name:</strong> ${escapeHtml(formState.emergencyName || '-')}</p><p><strong>Relationship:</strong> ${escapeHtml(formState.emergencyRelationship || '-')}</p><p><strong>Phone:</strong> ${escapeHtml(formState.emergencyPhone || '-')}</p><p><strong>Address:</strong> ${escapeHtml(formState.emergencyAddress || '-')}</p></div>
             <div class="review-box"><h3>Payment</h3><p><strong>Arrangement:</strong> ${escapeHtml(formState.paymentArrangement || '-')}</p><p><strong>Frequency:</strong> ${escapeHtml(formState.installmentFrequency || '-')}</p><p><strong>Source:</strong> ${escapeHtml(paymentSourceDisplay)}</p></div>
             <div class="review-box" style="grid-column:1 / -1"><h3>Uploaded Documents</h3>${docs}</div>
@@ -828,6 +880,21 @@
       document.querySelectorAll('input[name="gender"]').forEach(el => {
         el.onchange = () => { formState.gender = el.value; render(); };
       });
+      document.querySelectorAll('input[name="employmentStatus"]').forEach(el => {
+        el.onchange = () => {
+          formState.employmentStatus = el.value;
+      
+          if (el.value === "Working") {
+            formState.nonWorkingCategory = "";
+          }
+      
+          if (el.value === "Not Working") {
+            formState.employmentSector = "";
+          }
+      
+          render();
+        };
+      });
 
       document.querySelectorAll('input[name="paymentArrangement"]').forEach(el => {
         el.onchange = () => {
@@ -888,6 +955,9 @@
         race: "",
         religion: "",
         maritalStatus: "",
+        employmentStatus: "",
+        employmentSector: "",
+        nonWorkingCategory: "",
         emergencyName: "",
         emergencyRelationship: "",
         emergencyPhone: "",
@@ -991,8 +1061,33 @@
         if (isPartnerFlow() && !isValidPartnerCode(formState.partnerCode)) return 'Please select a valid registered partner / agent code from the dropdown list.';
       }
       if (stepIndex === 1) {
-        const required = ['fullName','idPassport','gender','email','phoneNumber','country','fullAddress','placeOfBirth','nationality','race','religion','maritalStatus'];
-        if (required.some(k => !String(formState[k] || '').trim())) return 'Please complete all required fields in Student Information.';
+        const required = [
+          'fullName',
+          'idPassport',
+          'gender',
+          'email',
+          'phoneNumber',
+          'country',
+          'fullAddress',
+          'placeOfBirth',
+          'nationality',
+          'race',
+          'religion',
+          'maritalStatus',
+          'employmentStatus'
+        ];
+      
+        if (required.some(k => !String(formState[k] || '').trim())) {
+          return 'Please complete all required fields in Student Information.';
+        }
+      
+        if (formState.employmentStatus === 'Working' && !formState.employmentSector) {
+          return 'Please select your employment sector.';
+        }
+      
+        if (formState.employmentStatus === 'Not Working' && !formState.nonWorkingCategory) {
+          return 'Please select your current profile / background.';
+        }
       }
       if (stepIndex === 2) {
         if (!formState.emergencyName || !formState.emergencyRelationship || !formState.emergencyPhone) return 'Please complete all required fields in Emergency Contact.';
