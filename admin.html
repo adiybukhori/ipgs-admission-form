@@ -759,6 +759,18 @@
             <button class="secondary" onclick="loadApplications(true)">Refresh Data</button>
           </div>
 
+          <div class="field">
+            <label>Orientation Status</label>
+            <select id="fOrientationStatus">
+              <option value="">Select orientation status</option>
+              <option value="Not Updated">Not Updated</option>
+              <option value="Not Yet Attended">Not Yet Attended</option>
+              <option value="Attended">Attended</option>
+              <option value="Absent / Did Not Attend">Absent / Did Not Attend</option>
+              <option value="Exempted / Not Required">Exempted / Not Required</option>
+            </select>
+          </div>
+
           <div id="saveMessage" class="message"></div>
         </div>
       </div>
@@ -1180,6 +1192,7 @@
       setFieldValue("fApplicationStatus", getValue(app, ["Application Status"]) || "New Application");
       setFieldValue("fQualificationStatus", getValue(app, ["Qualification Status"]) || "Pending Review");
       setFieldValue("fDocumentCheckStatus", getValue(app, ["Document Check Status"]) || "Pending Review");
+      setFieldValue("fOrientationStatus", getValue(app, ["Orientation Status"]) || "Not Updated");
       setFieldValue("fSacDate", getValue(app, ["SAC Date"]));
       setFieldValue("fSacSitting", getValue(app, ["SAC Sitting"]));
       setFieldValue("fAdminRemarks", getValue(app, ["Admin Remarks"]));
@@ -1222,6 +1235,7 @@
         applicationStatus: getInputValue("fApplicationStatus"),
         qualificationStatus: getInputValue("fQualificationStatus"),
         documentCheckStatus: getInputValue("fDocumentCheckStatus"),
+        orientationStatus: getInputValue("fOrientationStatus"),
         sacDate: getInputValue("fSacDate"),
         sacSitting: getInputValue("fSacSitting"),
         adminRemarks: getInputValue("fAdminRemarks"),
