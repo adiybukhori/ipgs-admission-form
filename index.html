@@ -1114,31 +1114,110 @@
       `;
     }
 
-    function renderReviewPanel() {
-      const docs = Object.entries(formState.documents)
-        .filter(([, file]) => !!file)
-        .map(([key, file]) => `<p><strong>${escapeHtml(DOC_LABELS[key] || key)}:</strong> ${escapeHtml(file.name)}</p>`)
-        .join('') || '<p>-</p>';
-      const referralDisplay = formState.partnerCode && isPartnerFlow() ? `${formState.referralSource} (${formState.partnerCode})` : (formState.referralSource || '-');
-      const paymentSourceDisplay = formState.paymentSource === 'Other' ? (formState.paymentSourceOther || 'Other') : (formState.paymentSource || '-');
-      return `
-        <div class="section-gap">
-          <div class="review-box" style="background:#f8fafc"><strong>Review Your Application</strong><div class="small" style="margin-top:6px">Please review the summary before submitting.</div></div>
-          <div class="review-grid">
-            <div class="review-box"><h3>Programme</h3><p><strong>Email:</strong> ${escapeHtml(formState.capturedEmail || '-')}</p><p><strong>Applicant Type:</strong> ${escapeHtml(formState.applicantType || '-')}</p><p><strong>Level of Study:</strong> ${escapeHtml(formState.levelOfStudy || '-')}</p><p><strong>Programme:</strong> ${escapeHtml(formState.programme || '-')}</p><p><strong>Intake:</strong> ${escapeHtml(formState.intake || '-')}</p><p><strong>Entry Qualification Type:</strong> ${escapeHtml(formState.entryQualificationType || '-')}</p><p><strong>Supervisor:</strong> ${escapeHtml(formState.proposedSupervisor || '-')}</p><p><strong>Referral:</strong> ${escapeHtml(referralDisplay)}</p></div>
-            <div class="review-box"><h3>Student Information</h3><p><strong>Full Name:</strong> ${escapeHtml(titleCase(formState.fullName) || '-')}</p><p><strong>ID / Passport:</strong> ${escapeHtml(formState.idPassport || '-')}</p><p><strong>Email:</strong> ${escapeHtml(formState.email || '-')}</p><p><strong>Phone:</strong> ${escapeHtml(formState.phoneNumber || '-')}</p><p><strong>Country:</strong> ${escapeHtml(formState.country || '-')}</p><p><strong>Nationality:</strong> ${escapeHtml(formState.nationality || '-')}</p>
-            <p><strong>Employment Status:</strong> ${escapeHtml(formState.employmentStatus || '-')}</p>
-            <p><strong>Employment Sector:</strong> ${escapeHtml(formState.employmentSector || '-')}</p>
-            <p><strong>Salary Range:</strong> ${escapeHtml(formState.salaryRange || '-')}</p>
-            <p><strong>Current Profile:</strong> ${escapeHtml(formState.nonWorkingCategory || '-')}</p></div>
-            <div class="review-box"><h3>Emergency Contact</h3><p><strong>Name:</strong> ${escapeHtml(formState.emergencyName || '-')}</p><p><strong>Relationship:</strong> ${escapeHtml(formState.emergencyRelationship || '-')}</p><p><strong>Phone:</strong> ${escapeHtml(formState.emergencyPhone || '-')}</p><p><strong>Address:</strong> ${escapeHtml(formState.emergencyAddress || '-')}</p></div>
-            <div class="review-box"><h3>Payment</h3><p><strong>Arrangement:</strong> ${escapeHtml(formState.paymentArrangement || '-')}</p><p><strong>Frequency:</strong> ${escapeHtml(formState.installmentFrequency || '-')}</p><p><strong>Source:</strong> ${escapeHtml(paymentSourceDisplay)}</p></div>
-            <div class="review-box" style="grid-column:1 / -1"><h3>Uploaded Documents</h3>${docs}</div>
-          </div>
-          <label class="choice"><input type="checkbox" data-field="declarationAccepted" ${formState.declarationAccepted ? 'checked' : ''}><span>I hereby confirm that all information and documents submitted in this form are true, complete, and accurate to the best of my knowledge. I understand that Innovative University College reserves the right to reject, defer, withdraw, or revoke this application or any offer issued if any information or document provided is found to be false, misleading, incomplete, or invalid.</span></label>
+   function renderReviewPanel() {
+  const docs = Object.entries(formState.documents)
+    .filter(([, file]) => !!file)
+    .map(([key, file]) => `<p><strong>${escapeHtml(DOC_LABELS[key] || key)}:</strong> ${escapeHtml(file.name)}</p>`)
+    .join('') || '<p>-</p>';
+
+  const referralDisplay = formState.partnerCode && isPartnerFlow()
+    ? `${formState.referralSource} (${formState.partnerCode})`
+    : (formState.referralSource || '-');
+
+  const paymentSourceDisplay = formState.paymentSource === 'Other'
+    ? (formState.paymentSourceOther || 'Other')
+    : (formState.paymentSource || '-');
+
+  return `
+    <div class="section-gap">
+      <div class="review-box" style="background:#f8fafc">
+        <strong>Review Your Application</strong>
+        <div class="small" style="margin-top:6px">Please review the summary before submitting.</div>
+      </div>
+
+      <div class="review-grid">
+        <div class="review-box">
+          <h3>Programme</h3>
+          <p><strong>Email:</strong> ${escapeHtml(formState.capturedEmail || '-')}</p>
+          <p><strong>Applicant Type:</strong> ${escapeHtml(formState.applicantType || '-')}</p>
+          <p><strong>Level of Study:</strong> ${escapeHtml(formState.levelOfStudy || '-')}</p>
+          <p><strong>Programme:</strong> ${escapeHtml(formState.programme || '-')}</p>
+          <p><strong>Intake:</strong> ${escapeHtml(formState.intake || '-')}</p>
+          <p><strong>Entry Qualification Type:</strong> ${escapeHtml(formState.entryQualificationType || '-')}</p>
+          <p><strong>Supervisor:</strong> ${escapeHtml(formState.proposedSupervisor || '-')}</p>
+          <p><strong>Referral:</strong> ${escapeHtml(referralDisplay)}</p>
         </div>
-      `;
-    }
+
+        <div class="review-box">
+          <h3>Student Information</h3>
+          <p><strong>Full Name:</strong> ${escapeHtml(titleCase(formState.fullName) || '-')}</p>
+          <p><strong>ID / Passport:</strong> ${escapeHtml(formState.idPassport || '-')}</p>
+          <p><strong>Gender:</strong> ${escapeHtml(formState.gender || '-')}</p>
+          <p><strong>Email:</strong> ${escapeHtml(formState.email || '-')}</p>
+          <p><strong>Phone:</strong> ${escapeHtml(formState.phoneNumber || '-')}</p>
+          <p><strong>Country:</strong> ${escapeHtml(formState.country || '-')}</p>
+          <p><strong>Nationality:</strong> ${escapeHtml(formState.nationality || '-')}</p>
+          <p><strong>Race:</strong> ${escapeHtml(formState.race || '-')}</p>
+          <p><strong>Religion:</strong> ${escapeHtml(formState.religion || '-')}</p>
+          <p><strong>Marital Status:</strong> ${escapeHtml(formState.maritalStatus || '-')}</p>
+        </div>
+
+        <div class="review-box">
+          <h3>Academic Qualification</h3>
+          <p><strong>Highest Qualification:</strong> ${escapeHtml(formState.highestQualification || '-')}</p>
+          <p><strong>Last Institution / Awarding Body:</strong> ${escapeHtml(formState.lastInstitution || '-')}</p>
+          <p><strong>Field of Study / Qualification Area:</strong> ${escapeHtml(formState.fieldOfStudy || '-')}</p>
+          <p><strong>Year of Completion:</strong> ${escapeHtml(formState.yearOfCompletion || '-')}</p>
+          <p><strong>Academic Result / CGPA / Grade:</strong> ${escapeHtml(formState.academicResult || '-')}</p>
+          <p><strong>Certificate / Reference No.:</strong> ${escapeHtml(formState.certificateReferenceNo || '-')}</p>
+        </div>
+
+        <div class="review-box">
+          <h3>Student Profiling</h3>
+          <p><strong>Employment Status:</strong> ${escapeHtml(formState.employmentStatus || '-')}</p>
+          <p><strong>Employment Sector:</strong> ${escapeHtml(formState.employmentSector || '-')}</p>
+          <p><strong>Salary Range:</strong> ${escapeHtml(formState.salaryRange || '-')}</p>
+          <p><strong>Current Profile:</strong> ${escapeHtml(formState.nonWorkingCategory || '-')}</p>
+        </div>
+
+        <div class="review-box">
+          <h3>Health & OKU Declaration</h3>
+          <p><strong>Health Declaration:</strong> ${escapeHtml(formState.healthDeclaration || '-')}</p>
+          <p><strong>Health Remarks:</strong> ${escapeHtml(formState.healthDeclarationRemarks || '-')}</p>
+          <p><strong>OKU / Disability Status:</strong> ${escapeHtml(formState.okuStatus || '-')}</p>
+          <p><strong>OKU Category:</strong> ${escapeHtml(formState.okuCategory || '-')}</p>
+          <p><strong>OKU Card Number:</strong> ${escapeHtml(formState.okuCardNumber || '-')}</p>
+          <p><strong>Support Required:</strong> ${escapeHtml(formState.supportRequired || '-')}</p>
+        </div>
+
+        <div class="review-box">
+          <h3>Emergency Contact</h3>
+          <p><strong>Name:</strong> ${escapeHtml(formState.emergencyName || '-')}</p>
+          <p><strong>Relationship:</strong> ${escapeHtml(formState.emergencyRelationship || '-')}</p>
+          <p><strong>Phone:</strong> ${escapeHtml(formState.emergencyPhone || '-')}</p>
+          <p><strong>Address:</strong> ${escapeHtml(formState.emergencyAddress || '-')}</p>
+        </div>
+
+        <div class="review-box">
+          <h3>Payment</h3>
+          <p><strong>Arrangement:</strong> ${escapeHtml(formState.paymentArrangement || '-')}</p>
+          <p><strong>Frequency:</strong> ${escapeHtml(formState.installmentFrequency || '-')}</p>
+          <p><strong>Source:</strong> ${escapeHtml(paymentSourceDisplay)}</p>
+        </div>
+
+        <div class="review-box" style="grid-column:1 / -1">
+          <h3>Uploaded Documents</h3>
+          ${docs}
+        </div>
+      </div>
+
+      <label class="choice">
+        <input type="checkbox" data-field="declarationAccepted" ${formState.declarationAccepted ? 'checked' : ''}>
+        <span>I hereby confirm that all information and documents submitted in this form are true, complete, and accurate to the best of my knowledge. I understand that Innovative University College reserves the right to reject, defer, withdraw, or revoke this application or any offer issued if any information or document provided is found to be false, misleading, incomplete, or invalid.</span>
+      </label>
+    </div>
+  `;
+}
 
     function renderPanels() {
       panels[0].innerHTML = renderProgrammePanel();
@@ -1421,102 +1500,230 @@
     }
 
     function validateStep(stepIndex) {
-      if (stepIndex === 0) {
-        if (!formState.capturedEmail || !formState.applicantType || !formState.levelOfStudy || !formState.programme || !formState.intake || !formState.entryQualificationType) {
-          return 'Please complete all required fields in Programme Selection.';
-        }
-        if (isPartnerFlow() && !formState.partnerCode) return 'Please select the registered partner / agent code.';
-        if (isPartnerFlow() && !isValidPartnerCode(formState.partnerCode)) return 'Please select a valid registered partner / agent code from the dropdown list.';
-      }
-      if (stepIndex === 1) {
-        const required = [
-          'fullName',
-          'idPassport',
-          'gender',
-          'email',
-          'phoneNumber',
-          'country',
-          'fullAddress',
-          'placeOfBirth',
-          'nationality',
-          'race',
-          'religion',
-          'maritalStatus',
-          'employmentStatus'
-        ];
-      
-        if (required.some(k => !String(formState[k] || '').trim())) {
-          return 'Please complete all required fields in Student Information.';
-        }
-      
-        if (formState.employmentStatus === 'Working' && !formState.employmentSector) {
-          return 'Please select your employment sector.';
-        }
-        
-        if (formState.employmentStatus === 'Working' && !formState.salaryRange) {
-          return 'Please select your monthly salary range.';
-        }
-      
-        if (formState.employmentStatus === 'Not Working' && !formState.nonWorkingCategory) {
-          return 'Please select your current profile / background.';
-        }
-      }
-      if (stepIndex === 2) {
-        if (!formState.emergencyName || !formState.emergencyRelationship || !formState.emergencyPhone) return 'Please complete all required fields in Emergency Contact.';
-        if (!formState.emergencySameAsApplicant && !formState.emergencyAddress) return 'Please provide the emergency contact address.';
-      }
-      if (stepIndex === 3) {
-        const visible = visibleDocumentFields();
-        if (!isInternational() && !formState.documents.identityDocument) return 'Please upload the Identity Document.';
-        if (!formState.documents.passportPhoto) return 'Please upload the Passport Size Photo.';
-        if (visible.showPassportCopyInternational && !formState.documents.passportCopyInternational) return 'Please upload the Passport Copy.';
-        if (visible.showApelCertificate && !formState.documents.apelCertificate) return 'Please upload the APEL Certificate.';
-        if (visible.showTranscript && !formState.documents.transcript) return 'Please upload the Highest Academic Transcript.';
-        if (visible.showAcademicCertificate && !formState.documents.certificate) return 'Please upload the required Certificate.';
-        if (formState.entryQualificationType === 'Professional / Other Qualification' && !formState.documents.otherSupportingDocument) return 'Please upload the Other Supporting Document.';
-        if (['APEL', 'Professional / Other Qualification'].includes(formState.entryQualificationType) && !formState.documents.cvResume) return 'Please upload the CV / Resume.';
-        if (visible.showCompletedAdmissionForm && !formState.documents.completedAdmissionForm) return 'Please upload the Completed Admission Form.';
-        if (visible.showCompletedHealthDeclaration && !formState.documents.completedHealthDeclaration) return 'Please upload the Completed Health Declaration Form.';
-        if (visible.showEmgsPaymentReceipt && !formState.documents.emgsPaymentReceipt) return 'Please upload the EMGS / Visa Related Payment Receipt.';
-      }
-      if (stepIndex === 4) {
-        if (!formState.paymentArrangement || !formState.paymentSource) return 'Please complete all required fields in Payment Details.';
-        if (formState.paymentArrangement === 'Installment Plan' && !formState.installmentFrequency) return 'Please select the installment frequency.';
-        if (formState.paymentSource === 'Other' && !formState.paymentSourceOther) return 'Please specify the payment source.';
-      }
-      if (stepIndex === 5) {
-        if (!formState.declarationAccepted) return 'Please accept the declaration before submission.';
-      }
-      return '';
+  if (stepIndex === 0) {
+    if (
+      !formState.capturedEmail ||
+      !formState.applicantType ||
+      !formState.levelOfStudy ||
+      !formState.programme ||
+      !formState.intake ||
+      !formState.entryQualificationType
+    ) {
+      return 'Please complete all required fields in Programme Selection.';
     }
 
-    function loadPartnerCodes() {
-        if (typeof google !== 'undefined' && google.script && google.script.run) {
-          google.script.run
-            .withSuccessHandler((result) => {
-              PARTNER_CODES = Array.isArray(result) ? result : [];
-              render();
-            })
-            .withFailureHandler(() => {
-              PARTNER_CODES = [];
-              render();
-            })
-            .getActiveAgentCodes();
-          return;
-        }
+    if (isPartnerFlow() && !formState.partnerCode) {
+      return 'Please select the registered partner / agent code.';
+    }
 
-        fetch(APPS_SCRIPT_URL + '?action=agents')
-          .then(res => res.json())
-          .then(data => {
-            PARTNER_CODES = Array.isArray(data.agents) ? data.agents : [];
-            render();
-          })
-          .catch(() => {
-            PARTNER_CODES = [];
-            render();
-          });
+    if (isPartnerFlow() && !isValidPartnerCode(formState.partnerCode)) {
+      return 'Please select a valid registered partner / agent code from the dropdown list.';
+    }
+  }
+
+  if (stepIndex === 1) {
+    const required = [
+      'fullName',
+      'idPassport',
+      'gender',
+      'email',
+      'phoneNumber',
+      'country',
+      'fullAddress',
+      'placeOfBirth',
+      'nationality',
+      'race',
+      'religion',
+      'maritalStatus',
+
+      'highestQualification',
+      'lastInstitution',
+      'yearOfCompletion',
+
+      'employmentStatus',
+      'healthDeclaration',
+      'okuStatus'
+    ];
+
+    if (required.some(k => !String(formState[k] || '').trim())) {
+      return 'Please complete all required fields in Student Information.';
+    }
+
+    if (formState.entryQualificationType === 'Academic Qualification') {
+      if (!formState.highestQualification) {
+        return 'Please select your highest academic qualification.';
       }
 
+      if (!formState.lastInstitution) {
+        return 'Please enter your last institution / awarding body.';
+      }
+
+      if (!formState.yearOfCompletion) {
+        return 'Please enter your year of completion.';
+      }
+    }
+
+    if (formState.entryQualificationType === 'APEL') {
+      if (!formState.highestQualification) {
+        return 'Please select your APEL qualification / level.';
+      }
+
+      if (!formState.lastInstitution) {
+        return 'Please enter the APEL awarding body.';
+      }
+
+      if (!formState.yearOfCompletion) {
+        return 'Please enter your year of award.';
+      }
+    }
+
+    if (formState.entryQualificationType === 'SKM / TVET / Skills Qualification') {
+      if (!formState.highestQualification) {
+        return 'Please select your skills qualification level.';
+      }
+
+      if (!formState.lastInstitution) {
+        return 'Please enter your institution / awarding body.';
+      }
+
+      if (!formState.yearOfCompletion) {
+        return 'Please enter your year of completion.';
+      }
+    }
+
+    if (formState.entryQualificationType === 'Professional / Other Qualification') {
+      if (!formState.highestQualification) {
+        return 'Please enter your qualification name.';
+      }
+
+      if (!formState.lastInstitution) {
+        return 'Please enter your awarding body / institution.';
+      }
+
+      if (!formState.yearOfCompletion) {
+        return 'Please enter your year of completion.';
+      }
+    }
+
+    if (formState.employmentStatus === 'Working' && !formState.employmentSector) {
+      return 'Please select your employment sector.';
+    }
+
+    if (formState.employmentStatus === 'Working' && !formState.salaryRange) {
+      return 'Please select your monthly salary range.';
+    }
+
+    if (formState.employmentStatus === 'Not Working' && !formState.nonWorkingCategory) {
+      return 'Please select your current profile / background.';
+    }
+
+    if (
+      formState.healthDeclaration &&
+      formState.healthDeclaration !== 'I declare that I am physically and mentally fit to undertake my studies.' &&
+      !formState.healthDeclarationRemarks
+    ) {
+      return 'Please provide your health declaration remarks.';
+    }
+
+    if (
+      formState.okuStatus &&
+      String(formState.okuStatus).startsWith('Yes') &&
+      !formState.okuCategory
+    ) {
+      return 'Please select your OKU category.';
+    }
+  }
+
+  if (stepIndex === 2) {
+    if (
+      !formState.emergencyName ||
+      !formState.emergencyRelationship ||
+      !formState.emergencyPhone
+    ) {
+      return 'Please complete all required fields in Emergency Contact.';
+    }
+
+    if (!formState.emergencySameAsApplicant && !formState.emergencyAddress) {
+      return 'Please provide the emergency contact address.';
+    }
+  }
+
+  if (stepIndex === 3) {
+    const visible = visibleDocumentFields();
+
+    if (!isInternational() && !formState.documents.identityDocument) {
+      return 'Please upload the Identity Document.';
+    }
+
+    if (!formState.documents.passportPhoto) {
+      return 'Please upload the Passport Size Photo.';
+    }
+
+    if (visible.showPassportCopyInternational && !formState.documents.passportCopyInternational) {
+      return 'Please upload the Passport Copy.';
+    }
+
+    if (visible.showApelCertificate && !formState.documents.apelCertificate) {
+      return 'Please upload the APEL Certificate.';
+    }
+
+    if (visible.showTranscript && !formState.documents.transcript) {
+      return 'Please upload the Highest Academic Transcript.';
+    }
+
+    if (visible.showAcademicCertificate && !formState.documents.certificate) {
+      return 'Please upload the required Certificate.';
+    }
+
+    if (
+      formState.entryQualificationType === 'Professional / Other Qualification' &&
+      !formState.documents.otherSupportingDocument
+    ) {
+      return 'Please upload the Other Supporting Document.';
+    }
+
+    if (
+      ['APEL', 'Professional / Other Qualification'].includes(formState.entryQualificationType) &&
+      !formState.documents.cvResume
+    ) {
+      return 'Please upload the CV / Resume.';
+    }
+
+    if (visible.showCompletedAdmissionForm && !formState.documents.completedAdmissionForm) {
+      return 'Please upload the Completed Admission Form.';
+    }
+
+    if (visible.showCompletedHealthDeclaration && !formState.documents.completedHealthDeclaration) {
+      return 'Please upload the Completed Health Declaration Form.';
+    }
+
+    if (visible.showEmgsPaymentReceipt && !formState.documents.emgsPaymentReceipt) {
+      return 'Please upload the EMGS / Visa Related Payment Receipt.';
+    }
+  }
+
+  if (stepIndex === 4) {
+    if (!formState.paymentArrangement || !formState.paymentSource) {
+      return 'Please complete all required fields in Payment Details.';
+    }
+
+    if (formState.paymentArrangement === 'Installment Plan' && !formState.installmentFrequency) {
+      return 'Please select the installment frequency.';
+    }
+
+    if (formState.paymentSource === 'Other' && !formState.paymentSourceOther) {
+      return 'Please specify the payment source.';
+    }
+  }
+
+  if (stepIndex === 5) {
+    if (!formState.declarationAccepted) {
+      return 'Please accept the declaration before submission.';
+    }
+  }
+
+  return '';
+}
     function fileToBase64(file) {
       return new Promise((resolve, reject) => {
         const reader = new FileReader();
