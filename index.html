@@ -379,10 +379,12 @@
       proposedSupervisor: "",
       referralSource: "",
       partnerCode: "",
+    
       fullName: "",
       idPassport: "",
       gender: "",
       email: "",
+      _lastCapturedEmail: "",
       phoneNumber: "",
       country: "",
       fullAddress: "",
@@ -391,23 +393,43 @@
       race: "",
       religion: "",
       maritalStatus: "",
+    
+      // Academic Qualification Details
+      highestQualification: "",
+      lastInstitution: "",
+      fieldOfStudy: "",
+      yearOfCompletion: "",
+      academicResult: "",
+      certificateReferenceNo: "",
+    
+      // Student Profiling
       employmentStatus: "",
       employmentSector: "",
       salaryRange: "",
       nonWorkingCategory: "",
+    
+      // Health & OKU Declaration
+      healthDeclaration: "",
+      healthDeclarationRemarks: "",
+      okuStatus: "",
+      okuCategory: "",
+      okuCardNumber: "",
+      supportRequired: "",
+    
       emergencyName: "",
       emergencyRelationship: "",
       emergencyPhone: "",
       emergencyAddress: "",
       emergencySameAsApplicant: false,
+    
       paymentArrangement: "",
       installmentFrequency: "",
       paymentSource: "",
       paymentSourceOther: "",
+    
       declarationAccepted: false,
       documents: Object.fromEntries(fileKeys.map(k => [k, null]))
     };
-
 
     const stepsList = document.getElementById("stepsList");
     const stepTitle = document.getElementById("stepTitle");
@@ -647,84 +669,390 @@
      }
 
     function renderStudentPanel() {
+      const qType = formState.entryQualificationType || "";
+    
+      const academicQualificationOptions = [
+        "SPM / O-Level",
+        "STPM / A-Level / Foundation",
+        "Certificate",
+        "Diploma",
+        "Bachelor Degree",
+        "Master Degree",
+        "Doctorate Degree"
+      ];
+    
+      const apelQualificationOptions = [
+        "APEL.A T-4",
+        "APEL.A T-6",
+        "APEL.A T-7",
+        "APEL.C",
+        "Other"
+      ];
+    
+      const skillsQualificationOptions = [
+        "SKM Level 3",
+        "DKM Level 4",
+        "DLKM Level 5",
+        "Other"
+      ];
+    
+      const employmentStatusOptions = [
+        "Working",
+        "Not Working"
+      ];
+    
+      const employmentSectorOptions = [
+        "Government / Public Sector",
+        "Private Sector",
+        "GLC / Statutory Body",
+        "Self-Employed / Business Owner",
+        "NGO / Non-Profit Organisation",
+        "Other"
+      ];
+    
+      const salaryRangeOptions = [
+        "Below RM1,500",
+        "RM1,500 - RM2,999",
+        "RM3,000 - RM4,999",
+        "RM5,000 - RM7,999",
+        "RM8,000 - RM10,999",
+        "RM11,000 and above"
+      ];
+    
+      const nonWorkingCategoryOptions = [
+        "SPM Leaver",
+        "STPM / Foundation / Diploma Leaver",
+        "Fresh Graduate",
+        "Housewife / Homemaker",
+        "Unemployed / Seeking Employment",
+        "Retired",
+        "Other"
+      ];
+    
+      const healthDeclarationOptions = [
+        "I declare that I am physically and mentally fit to undertake my studies.",
+        "I have a medical condition that the University should be aware of.",
+        "I require special assistance or academic support due to health condition."
+      ];
+    
+      const okuStatusOptions = [
+        "No",
+        "Yes, registered with JKM",
+        "Yes, not registered with JKM",
+        "Prefer not to disclose"
+      ];
+    
+      const okuCategoryOptions = [
+        "Physical Disability",
+        "Visual Impairment",
+        "Hearing Impairment",
+        "Speech Disability",
+        "Learning Disability",
+        "Mental / Psychosocial Disability",
+        "Multiple Disabilities",
+        "Other"
+      ];
+    
+      let qualificationBlock = "";
+    
+      if (qType === "Academic Qualification") {
+        qualificationBlock = `
+          <div class="field">
+            <label>Highest Academic Qualification <span class="required">*</span></label>
+            <select data-field="highestQualification">
+              ${selectOptions(academicQualificationOptions, "Select highest academic qualification", formState.highestQualification)}
+            </select>
+          </div>
+    
+          <div class="field">
+            <label>Last Institution / Awarding Body <span class="required">*</span></label>
+            <input type="text" data-field="lastInstitution" value="${escapeHtml(formState.lastInstitution)}" placeholder="Example: Universiti Teknologi MARA">
+          </div>
+    
+          <div class="field">
+            <label>Programme / Field of Study</label>
+            <input type="text" data-field="fieldOfStudy" value="${escapeHtml(formState.fieldOfStudy)}" placeholder="Example: Bachelor of Business Administration">
+          </div>
+    
+          <div class="field">
+            <label>Year of Completion <span class="required">*</span></label>
+            <input type="text" data-field="yearOfCompletion" value="${escapeHtml(formState.yearOfCompletion)}" placeholder="Example: 2022">
+          </div>
+    
+          <div class="field">
+            <label>Academic Result / CGPA / Grade</label>
+            <input type="text" data-field="academicResult" value="${escapeHtml(formState.academicResult)}" placeholder="Example: CGPA 3.20 / Second Class Upper / 5 Credits">
+          </div>
+    
+          <div class="field">
+            <label>Certificate / Reference No.</label>
+            <input type="text" data-field="certificateReferenceNo" value="${escapeHtml(formState.certificateReferenceNo)}" placeholder="Optional">
+          </div>
+        `;
+      } else if (qType === "APEL") {
+        qualificationBlock = `
+          <div class="field">
+            <label>APEL Qualification / Level <span class="required">*</span></label>
+            <select data-field="highestQualification">
+              ${selectOptions(apelQualificationOptions, "Select APEL level", formState.highestQualification)}
+            </select>
+          </div>
+    
+          <div class="field">
+            <label>Awarding Body <span class="required">*</span></label>
+            <input type="text" data-field="lastInstitution" value="${escapeHtml(formState.lastInstitution)}" placeholder="Example: Malaysian Qualifications Agency (MQA)">
+          </div>
+    
+          <div class="field">
+            <label>Year of Award <span class="required">*</span></label>
+            <input type="text" data-field="yearOfCompletion" value="${escapeHtml(formState.yearOfCompletion)}" placeholder="Example: 2024">
+          </div>
+    
+          <div class="field">
+            <label>APEL Certificate / Reference No.</label>
+            <input type="text" data-field="certificateReferenceNo" value="${escapeHtml(formState.certificateReferenceNo)}" placeholder="Example: APEL/2024/xxxx">
+          </div>
+        `;
+      } else if (qType === "SKM / TVET / Skills Qualification") {
+        qualificationBlock = `
+          <div class="field">
+            <label>Skills Qualification Level <span class="required">*</span></label>
+            <select data-field="highestQualification">
+              ${selectOptions(skillsQualificationOptions, "Select skills qualification level", formState.highestQualification)}
+            </select>
+          </div>
+    
+          <div class="field">
+            <label>Institution / Awarding Body <span class="required">*</span></label>
+            <input type="text" data-field="lastInstitution" value="${escapeHtml(formState.lastInstitution)}" placeholder="Example: JPK / ILP / Kolej Komuniti">
+          </div>
+    
+          <div class="field">
+            <label>Field / Area of Skills</label>
+            <input type="text" data-field="fieldOfStudy" value="${escapeHtml(formState.fieldOfStudy)}" placeholder="Example: Business Administration / Management / Technical Field">
+          </div>
+    
+          <div class="field">
+            <label>Year of Completion <span class="required">*</span></label>
+            <input type="text" data-field="yearOfCompletion" value="${escapeHtml(formState.yearOfCompletion)}" placeholder="Example: 2022">
+          </div>
+    
+          <div class="field">
+            <label>Certificate / Reference No.</label>
+            <input type="text" data-field="certificateReferenceNo" value="${escapeHtml(formState.certificateReferenceNo)}" placeholder="Optional">
+          </div>
+        `;
+      } else if (qType === "Professional / Other Qualification") {
+        qualificationBlock = `
+          <div class="field">
+            <label>Qualification Name <span class="required">*</span></label>
+            <input type="text" data-field="highestQualification" value="${escapeHtml(formState.highestQualification)}" placeholder="Example: ACCA / CIMA / Professional Certificate">
+          </div>
+    
+          <div class="field">
+            <label>Awarding Body / Institution <span class="required">*</span></label>
+            <input type="text" data-field="lastInstitution" value="${escapeHtml(formState.lastInstitution)}" placeholder="Example: ACCA / CIMA / Professional Body">
+          </div>
+    
+          <div class="field">
+            <label>Field / Qualification Area</label>
+            <input type="text" data-field="fieldOfStudy" value="${escapeHtml(formState.fieldOfStudy)}" placeholder="Example: Accounting / Management / Business">
+          </div>
+    
+          <div class="field">
+            <label>Year of Completion <span class="required">*</span></label>
+            <input type="text" data-field="yearOfCompletion" value="${escapeHtml(formState.yearOfCompletion)}" placeholder="Example: 2023">
+          </div>
+    
+          <div class="field">
+            <label>Result / Status</label>
+            <input type="text" data-field="academicResult" value="${escapeHtml(formState.academicResult)}" placeholder="Example: Completed / Passed / Exempted / In Progress">
+          </div>
+    
+          <div class="field">
+            <label>Certificate / Reference No.</label>
+            <input type="text" data-field="certificateReferenceNo" value="${escapeHtml(formState.certificateReferenceNo)}" placeholder="Optional">
+          </div>
+        `;
+      } else {
+        qualificationBlock = `
+          <div class="field" style="grid-column:1 / -1">
+            <div class="info-box">
+              Please select Entry Qualification Type in Step 1 before completing academic qualification details.
+            </div>
+          </div>
+        `;
+      }
+    
+      const employmentBlock = formState.employmentStatus === "Working" ? `
+        <div class="field">
+          <label>Employment Sector <span class="required">*</span></label>
+          <select data-field="employmentSector">
+            ${selectOptions(employmentSectorOptions, "Select employment sector", formState.employmentSector)}
+          </select>
+        </div>
+    
+        <div class="field">
+          <label>Monthly Salary Range <span class="required">*</span></label>
+          <select data-field="salaryRange">
+            ${selectOptions(salaryRangeOptions, "Select salary range", formState.salaryRange)}
+          </select>
+        </div>
+      ` : formState.employmentStatus === "Not Working" ? `
+        <div class="field">
+          <label>Current Profile / Background <span class="required">*</span></label>
+          <select data-field="nonWorkingCategory">
+            ${selectOptions(nonWorkingCategoryOptions, "Select current profile", formState.nonWorkingCategory)}
+          </select>
+        </div>
+      ` : "";
+    
+      const healthRemarksBlock = formState.healthDeclaration &&
+        formState.healthDeclaration !== "I declare that I am physically and mentally fit to undertake my studies." ? `
+        <div class="field" style="grid-column:1 / -1">
+          <label>Health Declaration Remarks <span class="required">*</span></label>
+          <textarea data-field="healthDeclarationRemarks" placeholder="Please briefly state the condition or support required.">${escapeHtml(formState.healthDeclarationRemarks)}</textarea>
+        </div>
+      ` : "";
+    
+      const okuDetailsBlock = formState.okuStatus && formState.okuStatus.startsWith("Yes") ? `
+        <div class="field">
+          <label>OKU Category <span class="required">*</span></label>
+          <select data-field="okuCategory">
+            ${selectOptions(okuCategoryOptions, "Select OKU category", formState.okuCategory)}
+          </select>
+        </div>
+    
+        <div class="field">
+          <label>OKU Card Number</label>
+          <input type="text" data-field="okuCardNumber" value="${escapeHtml(formState.okuCardNumber)}" placeholder="Optional">
+        </div>
+    
+        <div class="field" style="grid-column:1 / -1">
+          <label>Support Required</label>
+          <textarea data-field="supportRequired" placeholder="Example: wheelchair access, extra time, learning support, accessible materials">${escapeHtml(formState.supportRequired)}</textarea>
+        </div>
+      ` : "";
+    
       return `
         <div class="grid grid-2">
-          <div class="field"><label>Full Name <span class="required">*</span></label><input type="text" class="uppercase" data-field="fullName" value="${escapeHtml(formState.fullName)}"><div class="hint">Stored in uppercase. Preview format: ${escapeHtml(titleCase(formState.fullName || 'ahmad bin ali'))}</div></div>
-          <div class="field"><label>ID / Passport Number <span class="required">*</span></label><input type="text" data-field="idPassport" value="${escapeHtml(formState.idPassport)}"></div>
-          <div class="field"><div class="group-label">Gender <span class="required">*</span></div><div class="radio-grid two"><label class="choice"><input type="radio" name="gender" value="Male" ${formState.gender === 'Male' ? 'checked' : ''}><span>Male</span></label><label class="choice"><input type="radio" name="gender" value="Female" ${formState.gender === 'Female' ? 'checked' : ''}><span>Female</span></label></div></div>
-          <div class="field"><label>Email Address <span class="required">*</span></label><input type="email" data-field="email" value="${escapeHtml(formState.email)}"></div>
-          <div class="field"><label>Phone Number <span class="required">*</span></label><input type="text" data-field="phoneNumber" value="${escapeHtml(formState.phoneNumber)}"></div>
-          <div class="field"><label>Country <span class="required">*</span></label><select data-field="country">${selectOptions(COUNTRIES, "Select country", formState.country)}</select></div>
-          <div class="field" style="grid-column:1 / -1"><label>Full Address <span class="required">*</span></label><textarea class="uppercase" data-field="fullAddress">${escapeHtml(formState.fullAddress)}</textarea></div>
-          <div class="field"><label>Place of Birth (Include State of Birth) <span class="required">*</span></label><input type="text" data-field="placeOfBirth" value="${escapeHtml(formState.placeOfBirth)}" placeholder="Hospital Besar Alor Setar"></div>
-          <div class="field"><label>Nationality <span class="required">*</span></label><select data-field="nationality">${selectOptions(NATIONALITIES, "Select nationality", formState.nationality)}</select></div>
-          <div class="field"><label>Race <span class="required">*</span></label><select data-field="race">${selectOptions(RACES, "Select race", formState.race)}</select></div>
-          <div class="field"><label>Religion <span class="required">*</span></label><select data-field="religion">${selectOptions(RELIGIONS, "Select religion", formState.religion)}</select></div>
-          <div class="field"><label>Marital Status <span class="required">*</span></label><select data-field="maritalStatus">${selectOptions(MARITAL_STATUSES, "Select marital status", formState.maritalStatus)}</select></div>
-            <div class="field" style="grid-column:1 / -1">
-              <div class="group-label">Are you currently working? <span class="required">*</span></div>
-              <div class="radio-grid two">
-                <label class="choice">
-                  <input type="radio" name="employmentStatus" value="Working" ${formState.employmentStatus === 'Working' ? 'checked' : ''}>
-                  <span>Yes, I am currently working</span>
-                </label>
-                <label class="choice">
-                  <input type="radio" name="employmentStatus" value="Not Working" ${formState.employmentStatus === 'Not Working' ? 'checked' : ''}>
-                  <span>No, I am not currently working</span>
-                </label>
-              </div>
+          <div class="field">
+            <label>Full Name <span class="required">*</span></label>
+            <input type="text" class="uppercase" data-field="fullName" value="${escapeHtml(formState.fullName)}">
+            <div class="hint">Stored in uppercase. Preview format: ${escapeHtml(titleCase(formState.fullName || 'ahmad bin ali'))}</div>
+          </div>
+    
+          <div class="field">
+            <label>ID / Passport Number <span class="required">*</span></label>
+            <input type="text" data-field="idPassport" value="${escapeHtml(formState.idPassport)}">
+          </div>
+    
+          <div class="field">
+            <div class="group-label">Gender <span class="required">*</span></div>
+            <div class="radio-grid two">
+              <label class="choice"><input type="radio" name="gender" value="Male" ${formState.gender === 'Male' ? 'checked' : ''}><span>Male</span></label>
+              <label class="choice"><input type="radio" name="gender" value="Female" ${formState.gender === 'Female' ? 'checked' : ''}><span>Female</span></label>
             </div>
-            
-            ${formState.employmentStatus === 'Working' ? `
-            <div class="field">
-              <label>Employment Sector <span class="required">*</span></label>
-              <select data-field="employmentSector">
-                ${selectOptions([
-                  "Government / Public Sector",
-                  "Private Sector",
-                  "GLC / Statutory Body",
-                  "Self-Employed / Business Owner",
-                  "NGO / Non-Profit Organisation",
-                  "Other"
-                ], "Select employment sector", formState.employmentSector)}
-              </select>
+          </div>
+    
+          <div class="field">
+            <label>Email Address <span class="required">*</span></label>
+            <input type="email" data-field="email" value="${escapeHtml(formState.email)}">
+          </div>
+    
+          <div class="field">
+            <label>Phone Number <span class="required">*</span></label>
+            <input type="text" data-field="phoneNumber" value="${escapeHtml(formState.phoneNumber)}">
+          </div>
+    
+          <div class="field">
+            <label>Country <span class="required">*</span></label>
+            <select data-field="country">${selectOptions(COUNTRIES, "Select country", formState.country)}</select>
+          </div>
+    
+          <div class="field" style="grid-column:1 / -1">
+            <label>Full Address <span class="required">*</span></label>
+            <textarea class="uppercase" data-field="fullAddress">${escapeHtml(formState.fullAddress)}</textarea>
+          </div>
+    
+          <div class="field">
+            <label>Place of Birth (Include State of Birth) <span class="required">*</span></label>
+            <input type="text" data-field="placeOfBirth" value="${escapeHtml(formState.placeOfBirth)}" placeholder="Hospital Besar Alor Setar">
+          </div>
+    
+          <div class="field">
+            <label>Nationality <span class="required">*</span></label>
+            <select data-field="nationality">${selectOptions(NATIONALITIES, "Select nationality", formState.nationality)}</select>
+          </div>
+    
+          <div class="field">
+            <label>Race <span class="required">*</span></label>
+            <select data-field="race">${selectOptions(RACES, "Select race", formState.race)}</select>
+          </div>
+    
+          <div class="field">
+            <label>Religion <span class="required">*</span></label>
+            <select data-field="religion">${selectOptions(RELIGIONS, "Select religion", formState.religion)}</select>
+          </div>
+    
+          <div class="field">
+            <label>Marital Status <span class="required">*</span></label>
+            <select data-field="maritalStatus">${selectOptions(MARITAL_STATUSES, "Select marital status", formState.maritalStatus)}</select>
+          </div>
+    
+          <div class="field" style="grid-column:1 / -1">
+            <div class="info-box">
+              <strong>Academic Qualification</strong><br>
+              Please provide your latest qualification details based on the entry qualification type selected in Step 1.
             </div>
-          
-            <div class="field">
-              <label>Monthly Salary Range <span class="required">*</span></label>
-              <select data-field="salaryRange">
-                ${selectOptions([
-                  "Below RM1,500",
-                  "RM1,500 - RM2,999",
-                  "RM3,000 - RM4,999",
-                  "RM5,000 - RM7,999",
-                  "RM8,000 - RM10,999",
-                  "RM11,000 and above"
-                ], "Select salary range", formState.salaryRange)}
-              </select>
+          </div>
+    
+          ${qualificationBlock}
+    
+          <div class="field" style="grid-column:1 / -1">
+            <div class="info-box">
+              <strong>Student Profiling</strong><br>
+              This information is used for internal student profiling and support planning.
             </div>
-          ` : ""}
-            
-            ${formState.employmentStatus === 'Not Working' ? `
-              <div class="field" style="grid-column:1 / -1">
-                <label>Current Profile / Background <span class="required">*</span></label>
-                <select data-field="nonWorkingCategory">
-                  ${selectOptions([
-                    "SPM Leaver",
-                    "STPM / Foundation / Diploma Leaver",
-                    "Fresh Graduate",
-                    "Housewife / Homemaker",
-                    "Unemployed / Seeking Employment",
-                    "Retired",
-                    "Other"
-                  ], "Select current profile", formState.nonWorkingCategory)}
-                </select>
-              </div>
-            ` : ""}
+          </div>
+    
+          <div class="field">
+            <label>Are you currently working? <span class="required">*</span></label>
+            <select data-field="employmentStatus">
+              ${selectOptions(employmentStatusOptions, "Select employment status", formState.employmentStatus)}
+            </select>
+          </div>
+    
+          ${employmentBlock}
+    
+          <div class="field" style="grid-column:1 / -1">
+            <div class="info-box">
+              <strong>Health & OKU Declaration</strong><br>
+              Please declare your health and disability status to help the University provide appropriate academic support where necessary.
+            </div>
+          </div>
+    
+          <div class="field" style="grid-column:1 / -1">
+            <label>Health Declaration <span class="required">*</span></label>
+            <select data-field="healthDeclaration">
+              ${selectOptions(healthDeclarationOptions, "Select health declaration", formState.healthDeclaration)}
+            </select>
+          </div>
+    
+          ${healthRemarksBlock}
+    
+          <div class="field">
+            <label>OKU / Disability Status <span class="required">*</span></label>
+            <select data-field="okuStatus">
+              ${selectOptions(okuStatusOptions, "Select OKU / disability status", formState.okuStatus)}
+            </select>
+          </div>
+    
+          ${okuDetailsBlock}
         </div>
       `;
     }
-
+    
     function renderEmergencyPanel() {
       return `
         <div class="grid grid-2">
@@ -960,6 +1288,7 @@
         proposedSupervisor: "",
         referralSource: "",
         partnerCode: "",
+    
         fullName: "",
         idPassport: "",
         gender: "",
@@ -973,24 +1302,44 @@
         race: "",
         religion: "",
         maritalStatus: "",
+    
+        // Academic Qualification Details
+        highestQualification: "",
+        lastInstitution: "",
+        fieldOfStudy: "",
+        yearOfCompletion: "",
+        academicResult: "",
+        certificateReferenceNo: "",
+    
+        // Student Profiling
         employmentStatus: "",
         employmentSector: "",
         salaryRange: "",
         nonWorkingCategory: "",
+    
+        // Health & OKU Declaration
+        healthDeclaration: "",
+        healthDeclarationRemarks: "",
+        okuStatus: "",
+        okuCategory: "",
+        okuCardNumber: "",
+        supportRequired: "",
+    
         emergencyName: "",
         emergencyRelationship: "",
         emergencyPhone: "",
         emergencyAddress: "",
         emergencySameAsApplicant: false,
+    
         paymentArrangement: "",
         installmentFrequency: "",
         paymentSource: "",
         paymentSourceOther: "",
+    
         declarationAccepted: false,
         documents: Object.fromEntries(fileKeys.map(k => [k, null]))
       };
     }
-
     function resetFormState() {
       Object.assign(formState, getInitialFormState());
       currentStep = 0;
