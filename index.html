@@ -668,8 +668,30 @@
                 `;
      }
 
+    function getFieldOfStudyOptions() {
+      return [
+        "Business, Management & Administration",
+        "Accounting, Finance & Economics",
+        "Marketing, Sales & Entrepreneurship",
+        "Human Resource & Organisational Development",
+        "Information Technology / Computer Science / Digital Technology",
+        "Education & Training",
+        "Islamic Studies / Shariah / Usuluddin",
+        "Tourism, Hospitality, Hajj & Umrah",
+        "Social Sciences",
+        "Communication, Media & Creative Arts",
+        "Law, Governance & Public Administration",
+        "Science, Health & Medical Field",
+        "Engineering, Technical & Vocational Field",
+        "Security, Safety & Enforcement",
+        "Other Related Field",
+        "Other / Non-related Field"
+      ];
+    }
+    
     function renderStudentPanel() {
       const qType = formState.entryQualificationType || "";
+      const fieldOfStudyOptions = getFieldOfStudyOptions();
     
       const academicQualificationOptions = [
         "SPM / O-Level",
@@ -770,8 +792,10 @@
           </div>
     
           <div class="field">
-            <label>Programme / Field of Study</label>
-            <input type="text" data-field="fieldOfStudy" value="${escapeHtml(formState.fieldOfStudy)}" placeholder="Example: Bachelor of Business Administration">
+            <label>Programme / Field of Study <span class="required">*</span></label>
+            <select data-field="fieldOfStudy">
+              ${selectOptions(fieldOfStudyOptions, "Select field of study", formState.fieldOfStudy)}
+            </select>
           </div>
     
           <div class="field">
@@ -828,8 +852,10 @@
           </div>
     
           <div class="field">
-            <label>Field / Area of Skills</label>
-            <input type="text" data-field="fieldOfStudy" value="${escapeHtml(formState.fieldOfStudy)}" placeholder="Example: Business Administration / Management / Technical Field">
+            <label>Field / Area of Skills <span class="required">*</span></label>
+            <select data-field="fieldOfStudy">
+              ${selectOptions(fieldOfStudyOptions, "Select field of study", formState.fieldOfStudy)}
+            </select>
           </div>
     
           <div class="field">
@@ -855,8 +881,10 @@
           </div>
     
           <div class="field">
-            <label>Field / Qualification Area</label>
-            <input type="text" data-field="fieldOfStudy" value="${escapeHtml(formState.fieldOfStudy)}" placeholder="Example: Accounting / Management / Business">
+            <label>Field / Qualification Area <span class="required">*</span></label>
+            <select data-field="fieldOfStudy">
+              ${selectOptions(fieldOfStudyOptions, "Select field of study", formState.fieldOfStudy)}
+            </select>
           </div>
     
           <div class="field">
@@ -1078,7 +1106,7 @@
           ${visible.showAcademicCertificate ? fileRow('certificate', formState.entryQualificationType === 'SKM / TVET / Skills Qualification' ? 'Relevant Skills Certificate' : 'Highest Academic Certificate', true, 'Upload the relevant supporting academic or skills certificate.') : ''}
           ${visible.showOtherSupportingDocument ? fileRow('otherSupportingDocument', 'Other Supporting Document', formState.entryQualificationType === 'Professional / Other Qualification', 'Upload any supporting document relevant to your admission pathway.') : ''}
           ${visible.showEnglishCertificate ? fileRow('englishCertificate', 'English Language Proficiency Certificate', false, 'International applicants may be required to provide this document.') : ''}
-          ${visible.showCvResume ? fileRow('cvResume', 'Curriculum Vitae (CV) / Resume', ['APEL', 'Professional / Other Qualification'].includes(formState.entryQualificationType), 'Include academic background and work experience.') : ''}
+          ${visible.showCvResume ? fileRow('cvResume', 'Curriculum Vitae (CV) / Resume', true, 'Required for all applicants. Please include academic background and work experience.') : ''}
           ${visible.showCompletedAdmissionForm ? fileRow('completedAdmissionForm', 'Completed Admission Form', true, 'Upload the completed international admission form downloaded earlier.') : ''}
           ${visible.showCompletedHealthDeclaration ? fileRow('completedHealthDeclaration', 'Completed Health Declaration Form', true, 'Upload the completed and signed health declaration form.') : ''}
           ${visible.showEmgsPaymentReceipt ? fileRow('emgsPaymentReceipt', 'EMGS / Visa Related Payment Receipt', true, 'Upload the payment receipt for international fee processing.') : ''}
@@ -1538,6 +1566,7 @@
 
       'highestQualification',
       'lastInstitution',
+      'fieldOfStudy',
       'yearOfCompletion',
 
       'employmentStatus',
@@ -1682,11 +1711,8 @@
       return 'Please upload the Other Supporting Document.';
     }
 
-    if (
-      ['APEL', 'Professional / Other Qualification'].includes(formState.entryQualificationType) &&
-      !formState.documents.cvResume
-    ) {
-      return 'Please upload the CV / Resume.';
+    if (!formState.documents.cvResume) {
+  return 'Please upload the CV / Resume.';
     }
 
     if (visible.showCompletedAdmissionForm && !formState.documents.completedAdmissionForm) {
