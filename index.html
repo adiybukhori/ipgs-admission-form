@@ -344,7 +344,8 @@
     let PARTNER_CODES = [];
     const ENTRY_QUALIFICATION_TYPES = ["Academic Qualification", "APEL", "SKM / TVET / Skills Qualification", "Professional / Other Qualification"];
     const LEVELS_OF_STUDY = ["Diploma", "Bachelor", "Master", "Doctorate", "Package", "Other"];
-    const INTAKE_OPTIONS = ["January", "March", "May", "July", "September", "November"];
+    const INTAKE_OPTIONS = ["January", "May", "September"];
+    const STUDY_MODE_OPTIONS = ["Full-Time", "Part-Time"];
 
     const DOC_LABELS = {
       identityDocument: 'Identity Document',
@@ -375,6 +376,7 @@
       levelOfStudy: "",
       programme: "",
       intake: "",
+      studyMode: "",
       entryQualificationType: "",
       proposedSupervisor: "",
       referralSource: "",
@@ -641,6 +643,19 @@
           <div class="field"><label>Level of Study <span class="required">*</span></label><select data-field="levelOfStudy">${selectOptions(LEVELS_OF_STUDY, "Select level of study", formState.levelOfStudy)}</select>${formState.levelOfStudy === "Diploma" ? '<div class="hint">Diploma option is intentionally disabled for IPGS current release.</div>' : ''}</div>
           <div class="field"><label>Intended Programme of Study <span class="required">*</span></label><select data-field="programme" ${programmeDisabled ? "disabled" : ""}>${selectOptions(getProgrammeOptions(), programmeDisabled ? "Please select level of study first" : "Select programme", formState.programme)}</select></div>
           <div class="field"><label>Intake <span class="required">*</span></label><select data-field="intake">${selectOptions(INTAKE_OPTIONS, "Select intake month", formState.intake)}</select></div>
+          <div class="field">
+            <label>Mode of Study <span class="required">*</span></label>
+            <select data-field="studyMode">
+              ${selectOptions(STUDY_MODE_OPTIONS, "Select mode of study", formState.studyMode)}
+            </select>
+          </div>
+          
+          ${formState.studyMode === "Part-Time" ? `
+            <div class="info-box" style="grid-column:1 / -1">
+              <strong>Part-Time Study Mode Notice</strong><br>
+              Please note that the expected duration of study may be extended by approximately one (1) to two (2) years, subject to the approved programme structure and the applicable requirements stipulated by KPT and MQA.
+            </div>
+          ` : ""}
           <div class="field"><label>Entry Qualification Type <span class="required">*</span></label><select data-field="entryQualificationType">${selectOptions(ENTRY_QUALIFICATION_TYPES, "Select entry qualification type", formState.entryQualificationType)}</select></div>
           <div class="field"><label>Proposed Supervisor (if any)</label><input type="text" data-field="proposedSupervisor" value="${escapeHtml(formState.proposedSupervisor)}" placeholder="Enter supervisor name"></div>
           <div class="field"><label>How did you hear about us / Referral Source<span class="required">*</span></label><select data-field="referralSource">${selectOptions(REFERRAL_SOURCES, "Select referral source", formState.referralSource)}</select></div>
@@ -1172,6 +1187,7 @@
           <p><strong>Level of Study:</strong> ${escapeHtml(formState.levelOfStudy || '-')}</p>
           <p><strong>Programme:</strong> ${escapeHtml(formState.programme || '-')}</p>
           <p><strong>Intake:</strong> ${escapeHtml(formState.intake || '-')}</p>
+          <p><strong>Mode of Study:</strong> ${escapeHtml(formState.studyMode || '-')}</p>
           <p><strong>Entry Qualification Type:</strong> ${escapeHtml(formState.entryQualificationType || '-')}</p>
           <p><strong>Supervisor:</strong> ${escapeHtml(formState.proposedSupervisor || '-')}</p>
           <p><strong>Referral:</strong> ${escapeHtml(referralDisplay)}</p>
@@ -1392,6 +1408,7 @@
         levelOfStudy: "",
         programme: "",
         intake: "",
+        studyMode: "",
         entryQualificationType: "",
         proposedSupervisor: "",
         referralSource: "",
@@ -1536,6 +1553,7 @@
       !formState.levelOfStudy ||
       !formState.programme ||
       !formState.intake ||
+      !formState.studyMode ||
       !formState.entryQualificationType
     ) {
       return 'Please complete all required fields in Programme Selection.';
