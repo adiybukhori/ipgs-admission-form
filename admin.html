@@ -545,6 +545,34 @@
         </div>
 
         <div class="box">
+          <h3>Academic Qualification</h3>
+          <p><b>Highest Qualification:</b> <span id="pHighestQualification"></span></p>
+          <p><b>Institution / Awarding Body:</b> <span id="pLastInstitution"></span></p>
+          <p><b>Field of Study:</b> <span id="pFieldOfStudy"></span></p>
+          <p><b>Year of Completion:</b> <span id="pYearOfCompletion"></span></p>
+          <p><b>Result / CGPA / Grade:</b> <span id="pAcademicResult"></span></p>
+          <p><b>Certificate / Ref No.:</b> <span id="pCertificateReferenceNo"></span></p>
+        </div>
+        
+        <div class="box">
+          <h3>Student Profiling</h3>
+          <p><b>Employment Status:</b> <span id="pEmploymentStatus"></span></p>
+          <p><b>Employment Sector:</b> <span id="pEmploymentSector"></span></p>
+          <p><b>Salary Range:</b> <span id="pSalaryRange"></span></p>
+          <p><b>Current Profile:</b> <span id="pNonWorkingCategory"></span></p>
+        </div>
+        
+        <div class="box full">
+          <h3>Health & OKU Declaration</h3>
+          <p><b>Health Declaration:</b> <span id="pHealthDeclaration"></span></p>
+          <p><b>Health Remarks:</b> <span id="pHealthDeclarationRemarks"></span></p>
+          <p><b>OKU / Disability Status:</b> <span id="pOkuStatus"></span></p>
+          <p><b>OKU Category:</b> <span id="pOkuCategory"></span></p>
+          <p><b>OKU Card Number:</b> <span id="pOkuCardNumber"></span></p>
+          <p><b>Support Required:</b> <span id="pSupportRequired"></span></p>
+        </div>
+
+        <div class="box">
           <h3>Payment & Folder</h3>
           <p><b>Payment Arrangement:</b> <span id="pPaymentArrangement"></span></p>
           <p><b>Installment Frequency:</b> <span id="pInstallmentFrequency"></span></p>
@@ -1071,6 +1099,25 @@
       const address = getValue(app, ["Full Address"]);
       const folder = getValue(app, ["Student Folder URL"]);
 
+      const highestQualification = getValue(app, ["Highest Qualification"]);
+      const lastInstitution = getValue(app, ["Last Institution / Awarding Body"]);
+      const fieldOfStudy = getValue(app, ["Field of Study / Qualification Area"]);
+      const yearOfCompletion = getValue(app, ["Year of Completion"]);
+      const academicResult = getValue(app, ["Academic Result / CGPA / Grade"]);
+      const certificateReferenceNo = getValue(app, ["Certificate / Reference No."]);
+      
+      const employmentStatus = getValue(app, ["Employment Status"]);
+      const employmentSector = getValue(app, ["Employment Sector"]);
+      const salaryRange = getValue(app, ["Salary Range"]);
+      const nonWorkingCategory = getValue(app, ["Non-Working Category"]);
+      
+      const healthDeclaration = getValue(app, ["Health Declaration"]);
+      const healthDeclarationRemarks = getValue(app, ["Health Declaration Remarks"]);
+      const okuStatus = getValue(app, ["OKU Status"]);
+      const okuCategory = getValue(app, ["OKU Category"]);
+      const okuCardNumber = getValue(app, ["OKU Card Number"]);
+      const supportRequired = getValue(app, ["Support Required"]);
+
       const emergencyName = getValue(app, ["Emergency Contact Name"]);
       const emergencyRelationship = getValue(app, ["Emergency Relationship"]);
       const emergencyPhone = getValue(app, ["Emergency Phone"]);
@@ -1097,6 +1144,24 @@
       setText("pEntry", entry);
       setText("pReferral", referral);
       setText("pPartner", partner);
+      setText("pHighestQualification", highestQualification);
+      setText("pLastInstitution", lastInstitution);
+      setText("pFieldOfStudy", fieldOfStudy);
+      setText("pYearOfCompletion", yearOfCompletion);
+      setText("pAcademicResult", academicResult);
+      setText("pCertificateReferenceNo", certificateReferenceNo);
+      
+      setText("pEmploymentStatus", employmentStatus);
+      setText("pEmploymentSector", employmentSector);
+      setText("pSalaryRange", salaryRange);
+      setText("pNonWorkingCategory", nonWorkingCategory);
+      
+      setText("pHealthDeclaration", healthDeclaration);
+      setText("pHealthDeclarationRemarks", healthDeclarationRemarks);
+      setText("pOkuStatus", okuStatus);
+      setText("pOkuCategory", okuCategory);
+      setText("pOkuCardNumber", okuCardNumber);
+      setText("pSupportRequired", supportRequired);
       setText("pPaymentArrangement", paymentArrangement);
       setText("pInstallmentFrequency", installmentFrequency);
       setText("pPaymentSource", paymentSource);
