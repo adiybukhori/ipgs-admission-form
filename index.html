@@ -242,6 +242,46 @@
     }
     .status { margin-bottom:18px; }
     .small { font-size: 13px; color: var(--muted); }
+        .submit-progress-wrap {
+      display: grid;
+      gap: 10px;
+    }
+
+    .submit-progress-title {
+      font-weight: 700;
+      color: var(--warn-tx);
+    }
+
+    .submit-progress-track {
+      width: 100%;
+      height: 12px;
+      background: #dbeafe;
+      border-radius: 999px;
+      overflow: hidden;
+      border: 1px solid #bfdbfe;
+    }
+
+    .submit-progress-fill {
+      height: 100%;
+      width: 0%;
+      background: var(--primary);
+      border-radius: 999px;
+      animation: submitProgress 18s ease-out forwards;
+    }
+
+    .submit-progress-fill.done {
+      width: 100%;
+      animation: none;
+      background: #047857;
+    }
+
+    @keyframes submitProgress {
+      0% { width: 5%; }
+      25% { width: 35%; }
+      55% { width: 68%; }
+      80% { width: 88%; }
+      100% { width: 96%; }
+    }
     @media (max-width: 980px) {
       .layout { grid-template-columns: 1fr; }
       .sidebar { position: relative; top: 0; }
@@ -310,7 +350,7 @@
   </div>
 
   <script>
-    const APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbyqhZLqKmfuU65bNdgl_gSyOANtW87Vd9xMLga0JlA0IXb11brd9Fb0ndlJ9INI0kM/exec";
+    const APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbw22-UOsHkaap3dzU16aOjA6XFr7jWGr9qQPfp8F1CQrXboP7YdRZJKKJhHijC3us4/exec";
     const MAX_FILE_SIZE_MB = 7;
     const PASSPORT_PHOTO_MAX_MB = 2;
     const INTERNATIONAL_ADMISSION_FORM_URL = "https://drive.google.com/uc?export=download&id=15tJxq0xnvf0Ujwqpm8IfpHc201WLGQLP";
@@ -1813,7 +1853,15 @@
       try {
         submitting = true;
         render();
-        setStatus('info', 'Submitting application. Please wait while files are being prepared and uploaded.');
+        setStatus('info', `
+          <div class="submit-progress-wrap">
+            <div class="submit-progress-title">Submitting your application...</div>
+            <div class="small">Please wait while your documents are being uploaded and your admission record is being generated.</div>
+            <div class="submit-progress-track">
+              <div class="submit-progress-fill"></div>
+            </div>
+          </div>
+        `);
         const payload = await buildPayload();
 
         if (typeof google !== 'undefined' && google.script && google.script.run) {
@@ -1861,7 +1909,15 @@
         if (!res.ok || !json.ok) throw new Error(json.message || 'Submission failed.');
         formEl.reset();
         resetFormState();
-        setStatus('success', `Application submitted successfully.<br>Reference: <strong>${escapeHtml(json.reference || '-')}</strong>`);
+        setStatus('success', `
+          <div class="submit-progress-wrap">
+            <div><strong>Application submitted successfully.</strong></div>
+            <div>Reference: <strong>${escapeHtml(json.reference || '-')}</strong></div>
+            <div class="submit-progress-track">
+              <div class="submit-progress-fill done"></div>
+            </div>
+          </div>
+        `);
       } catch (error) {
         setStatus('info', `Submission failed: ${escapeHtml(error.message || 'Unknown error')}`);
       } finally {
