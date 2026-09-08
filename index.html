@@ -350,7 +350,7 @@
   </div>
 
   <script>
-    const APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbw22-UOsHkaap3dzU16aOjA6XFr7jWGr9qQPfp8F1CQrXboP7YdRZJKKJhHijC3us4/exec";
+    const APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbxasT_HgtRSvTbR_bsa8p17Cm-C2PKn20Ok1kU-AyJmxiKX8kX5EGOtRLwVwNlAL7JB/exec";
     const MAX_FILE_SIZE_MB = 7;
     const PASSPORT_PHOTO_MAX_MB = 2;
     const INTERNATIONAL_ADMISSION_FORM_URL = "https://drive.google.com/uc?export=download&id=15tJxq0xnvf0Ujwqpm8IfpHc201WLGQLP";
@@ -1887,7 +1887,7 @@
               submitting = false;
               render();
             })
-            .submitAdmissionForm(payload);
+            .submitAdmissionFormV2(payload);
           return;
         }
 
@@ -1901,7 +1901,10 @@
         const res = await fetch(APPS_SCRIPT_URL, {
           method: 'POST',
           headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-          body: JSON.stringify(payload),
+          body: JSON.stringify({
+            action: 'v2SubmitAdmission',
+            data: payload
+          }),
         });
         const text = await res.text();
         let json;
