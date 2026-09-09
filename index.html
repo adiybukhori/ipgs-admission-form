@@ -1898,7 +1898,7 @@
           return;
         }
 
-        const res = await fetch(APPS_SCRIPT_URL, {
+        const res = await fetch('/api/admission', {
           method: 'POST',
           headers: { 'Content-Type': 'text/plain;charset=utf-8' },
           body: JSON.stringify({
