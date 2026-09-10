@@ -1,0 +1,73 @@
+name: Admission Proxy Smoke Test
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/admission-proxy-smoke.yml'
+  workflow_dispatch:
+
+jobs:
+  smoke-test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Test live admission proxy
+        shell: bash
+        run: |
+          STAMP=$(date -u +%Y%m%d%H%M%S)
+          cat > payload.json <<EOF
+          {
+            "action": "v2SubmitAdmission",
+            "data": {
+              "applicantType": "Local (Malaysian Citizen)",
+              "levelOfStudy": "Master",
+              "programme": "MBA - Master of Business Administration",
+              "intake": "SEPTEMBER 2026",
+              "studyMode": "Online",
+              "entryQualificationType": "Normal Entry",
+              "fullName": "LIVE PROXY SMOKE TEST ${STAMP}",
+              "idPassport": "LIVE-${STAMP}",
+              "email": "adiybukhori@innovative.edu.my",
+              "phoneNumber": "TEST-NO-PHONE",
+              "highestQualification": "Bachelor Degree",
+              "lastInstitution": "IUC Test Environment",
+              "fieldOfStudy": "Business Administration",
+              "yearOfCompletion": "2026",
+              "academicResult": "3.00",
+              "isTransferApplicant": false,
+              "referralSource": "Direct Application",
+              "partnerCode": "",
+              "declarationAccepted": true,
+              "documents": {}
+            }
+          }
+          EOF
+
+          echo "Posting to live production domain..."
+          HTTP_CODE=$(curl -sS -L -o response.txt -w "%{http_code}" \
+            -X POST \
+            -H 'Content-Type: text/plain;charset=utf-8' \
+            --data-binary @payload.json \
+            'https://ipgs-admission-form.innovative.edu.my/api/admission')
+
+          echo "HTTP_CODE=${HTTP_CODE}"
+          cat response.txt
+          echo
+
+          python - <<'PY'
+          import json, sys
+          text = open('response.txt', encoding='utf-8').read()
+          try:
+              data = json.loads(text)
+          except Exception:
+              print('Response is not JSON')
+              sys.exit(1)
+          if not data.get('ok'):
+              print('Live proxy returned ok=false:', data.get('message'))
+              sys.exit(1)
+          print('LIVE_SUBMISSION_OK')
+          print('REFERENCE=' + str(data.get('reference', '')))
+          print('FOLDER_URL=' + str(data.get('folderUrl', '')))
+          print('PDF_URL=' + str(data.get('admissionFormPdfUrl', '')))
+          PY
