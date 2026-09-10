@@ -15,8 +15,9 @@ jobs:
         run: |
           set -e
           URL='https://script.google.com/macros/s/AKfycbw22-UOsHkaap3dzU16aOjA6XFr7jWGr9qQPfp8F1CQrXboP7YdRZJKKJhHijC3us4/exec'
-          for q in 'action=applications' 'action=v2Bootstrap' 'action=health'; do
-            echo "--- $q ---"
-            curl -sS -L "$URL?$q" | tail -c 1600
-            echo
-          done
+          echo '--- POST v2ListWorkflow no token ---'
+          curl -sS -L -X POST -H 'Content-Type: text/plain;charset=utf-8' --data-binary '{"action":"v2ListWorkflow"}' "$URL" | tail -c 2000
+          echo
+          echo '--- POST v2RecordDocumentReview no token ---'
+          curl -sS -L -X POST -H 'Content-Type: text/plain;charset=utf-8' --data-binary '{"action":"v2RecordDocumentReview","reference":"TEST"}' "$URL" | tail -c 2000
+          echo
