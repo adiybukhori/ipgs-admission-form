@@ -1,0 +1,24 @@
+name: V2 Admin API Probe
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/v2-admin-api-probe.yml'
+  workflow_dispatch:
+
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Probe V2 admin route without credentials
+        shell: bash
+        run: |
+          URL='https://script.google.com/macros/s/AKfycbxasT_HgtRSvTbR_bsa8p17Cm-C2PKn20Ok1kU-AyJmxiKX8kX5EGOtRLwVwNlAL7JB/exec'
+          echo '--- GET bootstrap route ---'
+          curl -sS -L "$URL?action=v2Bootstrap" | tail -c 1200
+          echo
+          echo '--- POST list workflow route ---'
+          curl -sS -L -X POST -H 'Content-Type: text/plain;charset=utf-8' --data-binary '{"action":"v2ListWorkflow"}' "$URL" | tail -c 1200
+          echo
