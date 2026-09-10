@@ -1,0 +1,45 @@
+name: Fix Admin Sidebar Logos
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/fix-admin-sidebar-logos.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+      - name: Patch sidebar logos
+        shell: python
+        run: |
+          from pathlib import Path
+          p = Path('admin.html')
+          s = p.read_text()
+          old = '      <div class="side-brand"><div class="small">IUC · IPGS</div><div class="title">Admission<br/>Command Center</div></div>'
+          new = '''      <div class="side-brand">
+        <div class="brand-logos" aria-label="IUC and IPGS">
+          <div class="logo-box"><img src="https://lh3.googleusercontent.com/d/135uWJ59t0Gs5fey1Ef7548V-HBWsOiCk=s1000" alt="Innovative University College logo"></div>
+          <div class="logo-box"><img src="https://lh3.googleusercontent.com/d/1iKsYwAVivYw9uRl2kLzt0LcKK7CAJPvd=s1000" alt="Institute of Postgraduate Studies logo"></div>
+        </div>
+        <div class="small">IUC · IPGS</div>
+        <div class="title">Admission<br/>Command Center</div>
+      </div>'''
+          if old not in s:
+              raise SystemExit('Expected sidebar brand markup not found')
+          p.write_text(s.replace(old, new, 1))
+      - name: Commit sidebar logo patch
+        shell: bash
+        run: |
+          git config user.name 'adiybukhori'
+          git config user.email 'muhammadadiy93@gmail.com'
+          git add admin.html
+          git commit -m 'Show IUC and IPGS logos in Admin V2 sidebar'
+          git push origin main
