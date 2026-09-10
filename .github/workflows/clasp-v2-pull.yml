@@ -1,0 +1,69 @@
+name: Clasp V2 Pull Snapshot
+
+on:
+  push:
+    branches:
+      - apps-script-v2-dev
+    paths:
+      - '.clasp-ready'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  pull-v2:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout V2 branch
+        uses: actions/checkout@v4
+        with:
+          ref: apps-script-v2-dev
+
+      - name: Verify clasp credential is configured
+        env:
+          CLASPRC_JSON: ${{ secrets.CLASPRC_JSON }}
+        run: |
+          if [ -z "$CLASPRC_JSON" ]; then
+            echo "CLASPRC_JSON secret is not configured."
+            exit 1
+          fi
+
+      - name: Install clasp
+        run: npm install --global @google/clasp@latest
+
+      - name: Restore clasp credential
+        env:
+          CLASPRC_JSON: ${{ secrets.CLASPRC_JSON }}
+        run: |
+          printf '%s' "$CLASPRC_JSON" > "$HOME/.clasprc.json"
+          chmod 600 "$HOME/.clasprc.json"
+
+      - name: Verify locked V2 target
+        run: node tools/verify-clasp-target.mjs
+
+      - name: Pull current Apps Script source only
+        run: clasp pull
+
+      - name: Sanity-check pulled source
+        run: |
+          test -d apps-script-v2
+          test -n "$(find apps-script-v2 -maxdepth 1 -type f | head -n 1)"
+          echo "Pulled files:"
+          find apps-script-v2 -maxdepth 1 -type f -printf '%f\n' | sort
+
+      - name: Commit pull snapshot to V2 branch
+        run: |
+          git config user.name 'adiybukhori'
+          git config user.email 'muhammadadiy93@gmail.com'
+          git add apps-script-v2
+          if git diff --cached --quiet; then
+            echo 'No Apps Script source changes detected.'
+          else
+            git commit -m 'Snapshot current Apps Script V2 source'
+            git push origin apps-script-v2-dev
+          fi
+
+      - name: Remove local clasp credential
+        if: always()
+        run: rm -f "$HOME/.clasprc.json"
