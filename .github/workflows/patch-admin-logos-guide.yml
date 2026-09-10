@@ -1,0 +1,208 @@
+name: Patch Admin V2 Logos and Guide
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/patch-admin-logos-guide.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+
+      - name: Patch admin.html
+        shell: python
+        run: |
+          from pathlib import Path
+
+          path = Path('admin.html')
+          html = path.read_text()
+
+          IUC = 'https://lh3.googleusercontent.com/d/135uWJ59t0Gs5fey1Ef7548V-HBWsOiCk=s1000'
+          IPGS = 'https://lh3.googleusercontent.com/d/1iKsYwAVivYw9uRl2kLzt0LcKK7CAJPvd=s1000'
+
+          css = r'''
+              .brand-logos{display:flex;align-items:center;gap:12px;margin-bottom:18px}
+              .brand-logos .logo-box{flex:1;min-height:64px;background:#fff;border:1px solid var(--line);border-radius:14px;display:flex;align-items:center;justify-content:center;padding:10px 12px;overflow:hidden}
+              .brand-logos img{display:block;max-width:100%;max-height:48px;object-fit:contain}
+              .side-brand .brand-logos{display:grid;grid-template-columns:1fr;gap:8px;margin:0 0 14px}
+              .side-brand .brand-logos .logo-box{min-height:46px;border-color:rgba(255,255,255,.15);padding:7px 9px}
+              .side-brand .brand-logos img{max-height:31px}
+              .guide-intro{display:grid;grid-template-columns:minmax(0,1.2fr) minmax(300px,.8fr);gap:18px;margin-bottom:18px}
+              .guide-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px}
+              .guide-card{border:1px solid var(--line);border-radius:15px;padding:16px;background:#fff}
+              .guide-card h4{margin:0 0 8px;font-size:14px;color:var(--purple)}
+              .guide-card p{margin:0;color:var(--muted);font-size:12px;line-height:1.55}
+              .guide-steps{display:grid;gap:10px}
+              .guide-step{display:grid;grid-template-columns:34px 1fr;gap:11px;align-items:start}
+              .guide-step .n{width:30px;height:30px;border-radius:50%;display:grid;place-items:center;background:var(--purpleSoft);color:var(--purple);font-size:11px;font-weight:900}
+              .guide-step .t{font-size:12px;font-weight:850;margin:2px 0 3px}
+              .guide-step .d{font-size:11px;color:var(--muted);line-height:1.5}
+              .guide-flow{display:flex;flex-wrap:wrap;gap:7px;align-items:center}
+              .guide-flow .flow-item{display:inline-flex;align-items:center;gap:6px;border:1px solid var(--line);border-radius:999px;background:#fff;padding:8px 11px;font-size:10px;font-weight:800;color:#4b5565}
+              .guide-flow .arrow{color:#9aa3b1;font-weight:900}
+              .guide-callout{border-radius:14px;padding:14px 15px;font-size:11px;line-height:1.55}
+              .guide-callout.green{background:var(--greenSoft);color:#096047;border:1px solid #ccebdd}
+              .guide-callout.amber{background:var(--amberSoft);color:#7c5200;border:1px solid #f0ddb0}
+              .guide-callout.blue{background:var(--blueSoft);color:#184e7d;border:1px solid #d2e6fa}
+              .guide-list{margin:0;padding-left:18px;color:#4b5565;font-size:11px;line-height:1.65}
+              .guide-list li+li{margin-top:3px}
+              .guide-table{width:100%;min-width:0}
+              .guide-table td,.guide-table th{font-size:11px;padding:10px 11px}
+              .guide-table th{position:static}
+              .guide-badge{display:inline-flex;align-items:center;border-radius:999px;padding:5px 8px;font-size:10px;font-weight:850}
+              .guide-badge.green{background:var(--greenSoft);color:var(--green)}
+              .guide-badge.amber{background:var(--amberSoft);color:var(--amber)}
+              .guide-badge.red{background:var(--redSoft);color:var(--red)}
+              .guide-badge.purple{background:var(--purpleSoft);color:var(--purple)}
+              .guide-badge.blue{background:var(--blueSoft);color:var(--blue)}
+          '''
+
+          if '.brand-logos{' not in html:
+              html = html.replace('    @media(max-width:1100px){', css + '\n    @media(max-width:1100px){')
+
+          html = html.replace(
+              '.side-brand,.side-footer{display:none}.nav{display:grid;grid-template-columns:repeat(5,1fr);gap:3px}',
+              '.side-brand,.side-footer{display:none}.nav{display:grid;grid-template-columns:repeat(6,1fr);gap:3px}'
+          )
+          html = html.replace(
+              '.kpi .value{font-size:25px}.detail-grid{grid-template-columns:1fr}.detail-card.full{grid-column:auto}.progress{grid-template-columns:repeat(4,1fr)}',
+              '.kpi .value{font-size:25px}.detail-grid,.guide-grid,.guide-intro{grid-template-columns:1fr}.detail-card.full{grid-column:auto}.progress{grid-template-columns:repeat(4,1fr)}'
+          )
+
+          login_old = '''      <div class="brand-kicker">IUC · IPGS</div>\n      <h1>Admission Command Center</h1>'''
+          login_new = f'''      <div class="brand-logos" aria-label="Innovative University College and IPGS">\n        <div class="logo-box"><img src="{IUC}" alt="Innovative University College logo"></div>\n        <div class="logo-box"><img src="{IPGS}" alt="Institute of Postgraduate Studies logo"></div>\n      </div>\n      <div class="brand-kicker">IUC · IPGS</div>\n      <h1>Admission Command Center</h1>'''
+          if 'Innovative University College and IPGS' not in html:
+              html = html.replace(login_old, login_new)
+
+          side_old = '''      <div class="side-brand">\n        <div class="small">IUC · IPGS</div>\n        <div class="title">Admission<br/>Command Center</div>\n      </div>'''
+          side_new = f'''      <div class="side-brand">\n        <div class="brand-logos" aria-label="IUC and IPGS">\n          <div class="logo-box"><img src="{IUC}" alt="Innovative University College logo"></div>\n          <div class="logo-box"><img src="{IPGS}" alt="Institute of Postgraduate Studies logo"></div>\n        </div>\n        <div class="small">IUC · IPGS</div>\n        <div class="title">Admission<br/>Command Center</div>\n      </div>'''
+          if 'aria-label="IUC and IPGS"' not in html:
+              html = html.replace(side_old, side_new)
+
+          reports_btn = '''        <button data-section="reports" onclick="go('reports',this)">▥ <span>Reports</span></button>'''
+          guide_btn = '''        <button data-section="guide" onclick="go('guide',this)">? <span>System Guide</span></button>'''
+          if 'data-section="guide"' not in html:
+              html = html.replace(reports_btn, reports_btn + '\n' + guide_btn)
+
+          guide = r'''
+                  <section id="guide" class="section">
+                    <div class="hero">
+                      <div><h2>System Guide</h2><p>Quick tutorial for daily use of the IPGS Admission Command Center.</p></div>
+                      <span class="badge green">LIVE V2 GUIDE</span>
+                    </div>
+
+                    <div class="guide-intro">
+                      <div class="panel">
+                        <div class="panel-head"><h3>Quick start</h3><span>Recommended daily routine</span></div>
+                        <div class="panel-body"><div class="guide-steps">
+                          <div class="guide-step"><div class="n">1</div><div><div class="t">Open Dashboard</div><div class="d">Start with the Action Center. It shows where applications are waiting and which stage needs attention.</div></div></div>
+                          <div class="guide-step"><div class="n">2</div><div><div class="t">Open Applications</div><div class="d">Search by applicant name, reference number, ID/Passport, email or programme. Use intake, programme and stage filters to narrow the list.</div></div></div>
+                          <div class="guide-step"><div class="n">3</div><div><div class="t">Review one applicant</div><div class="d">Click <b>Open</b>. Use Overview, Documents, Screening, SAC / Assessment, Offer & Acceptance and Activity tabs.</div></div></div>
+                          <div class="guide-step"><div class="n">4</div><div><div class="t">Monitor the current route</div><div class="d">Follow the progress tracker from Application to Documents, Screening, SAC, IA/PREREQ, Offer and Accepted.</div></div></div>
+                          <div class="guide-step"><div class="n">5</div><div><div class="t">Use Reports</div><div class="d">Review the funnel and distributions. Export the filtered Applications list to CSV when required.</div></div></div>
+                        </div></div>
+                      </div>
+
+                      <div class="panel">
+                        <div class="panel-head"><h3>Admission journey</h3><span>V2 process reference</span></div>
+                        <div class="panel-body">
+                          <div class="guide-flow">
+                            <span class="flow-item">Application Received</span><span class="arrow">→</span>
+                            <span class="flow-item">Document Review</span><span class="arrow">→</span>
+                            <span class="flow-item">Screening</span><span class="arrow">→</span>
+                            <span class="flow-item">SAC</span><span class="arrow">→</span>
+                            <span class="flow-item">IA / PREREQ if required</span><span class="arrow">→</span>
+                            <span class="flow-item">Eligible for Offer</span><span class="arrow">→</span>
+                            <span class="flow-item">Offer Issued</span><span class="arrow">→</span>
+                            <span class="flow-item">Accepted</span>
+                          </div>
+                          <div class="guide-callout blue" style="margin-top:14px"><b>Direct Entry:</b> after SAC endorsement, a qualified Direct Entry case can bypass IA / Prerequisite and proceed towards offer eligibility.</div>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div class="panel" style="margin-bottom:18px">
+                      <div class="panel-head"><h3>How to use each module</h3><span>What each screen is for</span></div>
+                      <div class="panel-body"><div class="guide-grid">
+                        <div class="guide-card"><h4>Dashboard</h4><p>Use KPI cards, Action Center, programme distribution, intake distribution and the workflow funnel to identify bottlenecks quickly.</p></div>
+                        <div class="guide-card"><h4>Applications</h4><p>Search, filter, open an applicant, view the Drive folder / Admission Form PDF and export the current filtered result to CSV.</p></div>
+                        <div class="guide-card"><h4>Applicant Drawer</h4><p>Use Overview, Documents, Screening, SAC / Assessment, Offer & Acceptance and Activity as the applicant's single portal view.</p></div>
+                        <div class="guide-card"><h4>SAC Monitoring</h4><p>Review SAC sessions, candidate load and decision progress to identify pending candidates or decisions.</p></div>
+                        <div class="guide-card"><h4>IA / PREREQ</h4><p>Track assessment route, status, submission, interview, result and latest update for cases routed by SAC.</p></div>
+                        <div class="guide-card"><h4>Reports</h4><p>Use for management reporting: workflow funnel, programme, intake and referral-source distribution.</p></div>
+                      </div></div>
+                    </div>
+
+                    <div class="grid-2">
+                      <div class="panel">
+                        <div class="panel-head"><h3>Status colour guide</h3><span>Fast visual reading</span></div>
+                        <div class="table-wrap"><table class="guide-table"><thead><tr><th>Colour</th><th>Typical meaning</th></tr></thead><tbody>
+                          <tr><td><span class="guide-badge green">Green</span></td><td>Completed / accepted / qualified / successful</td></tr>
+                          <tr><td><span class="guide-badge amber">Amber</span></td><td>Pending / waiting / ready for action / review required</td></tr>
+                          <tr><td><span class="guide-badge purple">Purple</span></td><td>SAC / IA / PREREQ / assessment-related route</td></tr>
+                          <tr><td><span class="guide-badge red">Red</span></td><td>Rejected / not qualified / incomplete / declined</td></tr>
+                          <tr><td><span class="guide-badge blue">Blue</span></td><td>General active stage / information status</td></tr>
+                        </tbody></table></div>
+                      </div>
+
+                      <div class="panel">
+                        <div class="panel-head"><h3>Current system availability</h3><span>What is live now</span></div>
+                        <div class="panel-body">
+                          <div class="guide-callout green"><b>Available now:</b> live V2 dashboard, Action Center, Applications registry, applicant detail, document links, screening/SAC/assessment visibility, management reports and CSV export.</div>
+                          <div class="guide-callout amber" style="margin-top:10px"><b>Operational actions:</b> workflow-changing buttons such as document review completion, screening, SAC finalisation, IA/PREREQ result updates and offer generation will be activated only after the protected V2 action routes are safely connected.</div>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div class="panel" style="margin-top:18px">
+                      <div class="panel-head"><h3>Troubleshooting & good practice</h3><span>Use these checks first</span></div>
+                      <div class="panel-body"><div class="guide-grid">
+                        <div><ul class="guide-list">
+                          <li>If numbers look outdated, click <b>Refresh</b> in the top-right corner.</li>
+                          <li>If an applicant cannot be found, clear all filters and search using the reference number or ID/Passport.</li>
+                          <li>Open Drive folders and PDFs from the applicant drawer instead of manually browsing the master Drive structure.</li>
+                          <li>Use the application reference number as the primary identifier when discussing a case internally.</li>
+                        </ul></div>
+                        <div><ul class="guide-list">
+                          <li>Do not treat a screening recommendation as a final SAC decision.</li>
+                          <li>For IA / PREREQ candidates, confirm the assessment result before moving towards Offer.</li>
+                          <li>Offer generation should only happen after the case is eligible for offer.</li>
+                          <li>The admission process in this portal ends at <b>ACCEPTED</b>; activation, orientation and academic handover belong to the subsequent process.</li>
+                        </ul></div>
+                      </div></div>
+                    </div>
+                  </section>
+          '''
+
+          if 'id="guide"' not in html:
+              marker = '      </div>\n    </main>'
+              html = html.replace(marker, guide + '\n' + marker, 1)
+
+          html = html.replace(
+              "const names = {dashboard:'Dashboard',applications:'Applications',sac:'SAC Monitoring',assessment:'IA / Prerequisite',reports:'Reports'};",
+              "const names = {dashboard:'Dashboard',applications:'Applications',sac:'SAC Monitoring',assessment:'IA / Prerequisite',reports:'Reports',guide:'System Guide'};"
+          )
+
+          path.write_text(html)
+
+      - name: Commit patch
+        shell: bash
+        run: |
+          git config user.name 'adiybukhori'
+          git config user.email 'muhammadadiy93@gmail.com'
+          git add admin.html
+          if git diff --cached --quiet; then
+            echo 'No changes required.'
+            exit 0
+          fi
+          git commit -m 'Add IUC IPGS logos and System Guide to Admin V2'
+          git push origin main
