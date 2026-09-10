@@ -1,0 +1,28 @@
+name: Admin V2 UI Smoke
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/admin-v2-ui-smoke.yml'
+  workflow_dispatch:
+
+jobs:
+  smoke:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Check production Admin V2 UI and health route
+        shell: bash
+        run: |
+          set -e
+          echo '--- admin.html ---'
+          curl -fsSL 'https://ipgs-admission-form.innovative.edu.my/admin.html' -o admin.html
+          grep -q 'Admission Command Center' admin.html
+          grep -q '/api/admin-data' admin.html
+          echo 'ADMIN_UI_OK'
+          echo '--- admin data health ---'
+          curl -fsSL 'https://ipgs-admission-form.innovative.edu.my/api/admin-data?health=1' -o health.json
+          cat health.json
+          grep -q 'ADMIN_DATA_V2_20260910' health.json
+          echo 'ADMIN_DATA_HEALTH_OK'
