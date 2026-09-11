@@ -1,0 +1,831 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <base target="_top">
+
+  <meta
+    name="viewport"
+    content="width=device-width, initial-scale=1">
+
+  <style>
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      font-family: Arial, sans-serif;
+      background: #f4f6fb;
+      color: #202124;
+    }
+
+    .page {
+      min-height: 100vh;
+      padding: 30px 18px;
+    }
+
+    .shell {
+      max-width: 760px;
+      margin: 0 auto;
+    }
+
+    .brand {
+      text-align: center;
+      margin-bottom: 24px;
+    }
+
+    .brand h1 {
+      margin: 0;
+      color: #2d2363;
+      font-size: 26px;
+    }
+
+    .brand p {
+      margin: 7px 0 0;
+      color: #666;
+    }
+
+    .card {
+      background: #fff;
+      border-radius: 14px;
+      padding: 24px;
+      margin-bottom: 18px;
+      box-shadow:
+        0 4px 20px rgba(0,0,0,.08);
+    }
+
+    h2,
+    h3 {
+      color: #2d2363;
+    }
+
+    .info {
+      display: grid;
+      grid-template-columns:
+        repeat(auto-fit, minmax(200px, 1fr));
+      gap: 12px;
+    }
+
+    .info-box {
+      background: #f8f8fc;
+      padding: 14px;
+      border-radius: 10px;
+    }
+
+    .info-box small {
+      color: #777;
+    }
+
+    .info-box strong {
+      display: block;
+      margin-top: 5px;
+    }
+
+    label {
+      display: block;
+      font-weight: 600;
+      margin: 16px 0 7px;
+    }
+
+    input[type="text"] {
+      width: 100%;
+      padding: 12px;
+      border: 1px solid #d7dae0;
+      border-radius: 8px;
+      font-size: 15px;
+    }
+
+    .signature-wrap {
+      border: 1px solid #d7dae0;
+      border-radius: 10px;
+      background: white;
+      overflow: hidden;
+    }
+
+    canvas {
+      width: 100%;
+      height: 190px;
+      display: block;
+      touch-action: none;
+      cursor: crosshair;
+    }
+
+    button {
+      border: 0;
+      border-radius: 8px;
+      padding: 12px 16px;
+      font-weight: 700;
+      cursor: pointer;
+    }
+
+    .primary {
+      width: 100%;
+      margin-top: 20px;
+      background: #2d2363;
+      color: white;
+    }
+
+    .secondary {
+      margin-top: 8px;
+      background: #eceaf6;
+      color: #2d2363;
+    }
+
+    .message {
+      display: none;
+      margin-top: 15px;
+      padding: 12px;
+      border-radius: 8px;
+    }
+
+    .success {
+      display: block;
+      background: #e9f7ed;
+      color: #176b32;
+    }
+
+    .error {
+      display: block;
+      background: #fdecec;
+      color: #a61b1b;
+    }
+
+    .hidden {
+      display: none !important;
+    }
+
+    .declaration {
+      margin-top: 20px;
+      display: flex;
+      gap: 10px;
+      align-items: flex-start;
+      line-height: 1.5;
+    }
+
+    .completed {
+      text-align: center;
+      padding: 35px 15px;
+    }
+
+    @media(max-width:600px) {
+      .card {
+        padding: 18px;
+      }
+    }
+  </style>
+</head>
+
+<body>
+
+<div class="page">
+<div class="shell">
+
+  <div class="brand">
+    <h1>IUC Acceptance of Offer</h1>
+    <p>Innovative University College</p>
+  </div>
+
+
+  <div
+    id="loadingCard"
+    class="card">
+
+    Validating acceptance link...
+
+  </div>
+
+
+  <div
+    id="acceptanceView"
+    class="hidden">
+
+    <div class="card">
+
+      <h2>Acceptance of Offer</h2>
+
+      <p>
+        Please review your admission information
+        before accepting the offer.
+      </p>
+
+      <div class="info">
+
+        <div class="info-box">
+          <small>Student Name</small>
+          <strong id="studentName">-</strong>
+        </div>
+
+        <div class="info-box">
+          <small>Programme</small>
+          <strong id="programme">-</strong>
+        </div>
+
+        <div class="info-box">
+          <small>Intake</small>
+          <strong id="intake">-</strong>
+        </div>
+
+        <div class="info-box">
+          <small>Reference No.</small>
+          <strong id="referenceNo">-</strong>
+        </div>
+
+      </div>
+
+    </div>
+
+
+    <div class="card">
+
+      <h3>Electronic Acceptance</h3>
+
+      <label>
+        Full Name
+      </label>
+
+      <input
+        id="signedName"
+        type="text"
+        placeholder="Enter your full name">
+
+
+      <label>
+        Electronic Signature
+      </label>
+
+      <div class="signature-wrap">
+
+        <canvas
+          id="signatureCanvas">
+        </canvas>
+
+      </div>
+
+      <button
+        type="button"
+        class="secondary"
+        onclick="clearSignature()">
+
+        Clear Signature
+
+      </button>
+
+
+      <div class="declaration">
+
+        <input
+          id="declaration"
+          type="checkbox">
+
+        <label
+          for="declaration"
+          style="margin:0;font-weight:normal;">
+
+          I confirm that I have read,
+          understood and accepted the offer
+          and the applicable terms and
+          conditions of Innovative University College.
+
+        </label>
+
+      </div>
+
+
+      <button
+        id="acceptButton"
+        class="primary"
+        onclick="submitAcceptance()">
+
+        Accept Offer
+
+      </button>
+
+
+      <div
+        id="formMessage"
+        class="message">
+      </div>
+
+    </div>
+
+  </div>
+
+
+  <div
+    id="completedView"
+    class="card completed hidden">
+
+    <h2>Offer Accepted</h2>
+
+    <p>
+      Your electronic acceptance has been
+      successfully recorded.
+    </p>
+
+    <p>
+      Your signed Acceptance of Offer PDF
+      has also been generated.
+    </p>
+
+  </div>
+
+
+  <div
+    id="errorView"
+    class="card hidden">
+
+    <h2>Unable to Open Acceptance</h2>
+
+    <p id="errorText">
+      This acceptance link is invalid or
+      no longer available.
+    </p>
+
+  </div>
+
+</div>
+</div>
+
+
+<script>
+
+const ACCEPTANCE_TOKEN =
+  <?!= JSON.stringify(token || '') ?>;
+
+let signatureCanvas;
+let signatureContext;
+
+let drawing = false;
+let signatureUsed = false;
+
+
+window.addEventListener(
+  'load',
+  function() {
+
+    setupSignatureCanvas();
+    validateToken();
+
+  }
+);
+
+
+function validateToken() {
+
+  if (!ACCEPTANCE_TOKEN) {
+
+    showError(
+      'Invalid or missing acceptance link.'
+    );
+
+    return;
+  }
+
+
+  google.script.run
+
+    .withSuccessHandler(function(result) {
+
+      document
+        .getElementById('loadingCard')
+        .classList.add('hidden');
+
+
+      if (
+        String(
+          result.acceptanceStatus || ''
+        ) === 'ACCEPTED'
+      ) {
+
+        document
+          .getElementById('completedView')
+          .classList.remove('hidden');
+
+        return;
+      }
+
+
+      document.getElementById(
+        'studentName'
+      ).textContent =
+        result.studentName || '-';
+
+
+      document.getElementById(
+        'programme'
+      ).textContent =
+        result.programme || '-';
+
+
+      document.getElementById(
+        'intake'
+      ).textContent =
+        result.intake || '-';
+
+
+      document.getElementById(
+        'referenceNo'
+      ).textContent =
+        result.referenceNo || '-';
+
+
+      document.getElementById(
+        'signedName'
+      ).value =
+        result.studentName || '';
+
+
+      document
+        .getElementById(
+          'acceptanceView'
+        )
+        .classList.remove('hidden');
+
+    })
+
+    .withFailureHandler(function(error) {
+
+      showError(
+        error.message ||
+        'This acceptance link is invalid or expired.'
+      );
+
+    })
+
+    .v2ValidateAcceptanceToken_(
+      ACCEPTANCE_TOKEN
+    );
+}
+
+
+
+function setupSignatureCanvas() {
+
+  signatureCanvas =
+    document.getElementById(
+      'signatureCanvas'
+    );
+
+  signatureContext =
+    signatureCanvas.getContext('2d');
+
+
+  resizeCanvas();
+
+
+  window.addEventListener(
+    'resize',
+    resizeCanvas
+  );
+
+
+  signatureCanvas.addEventListener(
+    'pointerdown',
+    startDrawing
+  );
+
+
+  signatureCanvas.addEventListener(
+    'pointermove',
+    draw
+  );
+
+
+  signatureCanvas.addEventListener(
+    'pointerup',
+    stopDrawing
+  );
+
+
+  signatureCanvas.addEventListener(
+    'pointerleave',
+    stopDrawing
+  );
+}
+
+
+
+function resizeCanvas() {
+
+  if (!signatureCanvas) {
+    return;
+  }
+
+
+  const ratio =
+    window.devicePixelRatio || 1;
+
+
+  const rect =
+    signatureCanvas
+      .getBoundingClientRect();
+
+
+  const oldImage =
+    signatureUsed
+      ? signatureCanvas.toDataURL()
+      : null;
+
+
+  signatureCanvas.width =
+    rect.width * ratio;
+
+
+  signatureCanvas.height =
+    190 * ratio;
+
+
+  signatureContext =
+    signatureCanvas.getContext('2d');
+
+
+  signatureContext.scale(
+    ratio,
+    ratio
+  );
+
+
+  signatureContext.lineWidth = 2;
+  signatureContext.lineCap = 'round';
+  signatureContext.lineJoin = 'round';
+
+
+  if (oldImage) {
+
+    const img = new Image();
+
+    img.onload = function() {
+
+      signatureContext.drawImage(
+        img,
+        0,
+        0,
+        rect.width,
+        190
+      );
+
+    };
+
+    img.src = oldImage;
+  }
+}
+
+
+
+function pointerPosition(event) {
+
+  const rect =
+    signatureCanvas
+      .getBoundingClientRect();
+
+
+  return {
+
+    x:
+      event.clientX -
+      rect.left,
+
+    y:
+      event.clientY -
+      rect.top
+
+  };
+}
+
+
+
+function startDrawing(event) {
+
+  drawing = true;
+  signatureUsed = true;
+
+  const point =
+    pointerPosition(event);
+
+
+  signatureContext.beginPath();
+
+  signatureContext.moveTo(
+    point.x,
+    point.y
+  );
+}
+
+
+
+function draw(event) {
+
+  if (!drawing) {
+    return;
+  }
+
+
+  const point =
+    pointerPosition(event);
+
+
+  signatureContext.lineTo(
+    point.x,
+    point.y
+  );
+
+
+  signatureContext.stroke();
+}
+
+
+
+function stopDrawing() {
+
+  drawing = false;
+}
+
+
+
+function clearSignature() {
+
+  const rect =
+    signatureCanvas
+      .getBoundingClientRect();
+
+
+  signatureContext.clearRect(
+    0,
+    0,
+    rect.width,
+    190
+  );
+
+
+  signatureUsed = false;
+}
+
+
+
+function submitAcceptance() {
+
+  const signedName =
+    document.getElementById(
+      'signedName'
+    ).value.trim();
+
+
+  const declarationAccepted =
+    document.getElementById(
+      'declaration'
+    ).checked;
+
+
+  if (!signedName) {
+
+    showMessage(
+      'Please enter your full name.',
+      false
+    );
+
+    return;
+  }
+
+
+  if (!signatureUsed) {
+
+    showMessage(
+      'Please provide your electronic signature.',
+      false
+    );
+
+    return;
+  }
+
+
+  if (!declarationAccepted) {
+
+    showMessage(
+      'Please confirm the declaration before accepting the offer.',
+      false
+    );
+
+    return;
+  }
+
+
+  const signatureDataUrl =
+    signatureCanvas.toDataURL(
+      'image/png'
+    );
+
+
+  const button =
+    document.getElementById(
+      'acceptButton'
+    );
+
+
+  button.disabled = true;
+  button.textContent =
+    'Processing...';
+
+
+  google.script.run
+
+    .withSuccessHandler(function(result) {
+
+      document
+        .getElementById(
+          'acceptanceView'
+        )
+        .classList.add('hidden');
+
+
+      document
+        .getElementById(
+          'completedView'
+        )
+        .classList.remove('hidden');
+
+    })
+
+    .withFailureHandler(function(error) {
+
+      button.disabled = false;
+      button.textContent =
+        'Accept Offer';
+
+
+      showMessage(
+        error.message ||
+        'Unable to submit acceptance.',
+        false
+      );
+
+    })
+
+    .v2SubmitSignedAcceptance(
+      ACCEPTANCE_TOKEN,
+      {
+        signedName:
+          signedName,
+
+        signatureDataUrl:
+          signatureDataUrl,
+
+        declarationAccepted:
+          true
+      }
+    );
+}
+
+
+
+function showMessage(
+  text,
+  success
+) {
+
+  const box =
+    document.getElementById(
+      'formMessage'
+    );
+
+
+  box.textContent =
+    text;
+
+
+  box.className =
+    'message ' +
+    (
+      success
+        ? 'success'
+        : 'error'
+    );
+}
+
+
+
+function showError(text) {
+
+  document
+    .getElementById(
+      'loadingCard'
+    )
+    .classList.add('hidden');
+
+
+  document.getElementById(
+    'errorText'
+  ).textContent =
+    text;
+
+
+  document
+    .getElementById(
+      'errorView'
+    )
+    .classList.remove('hidden');
+}
+
+</script>
+
+</body>
+</html>

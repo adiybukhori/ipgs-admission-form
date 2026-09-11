@@ -1,0 +1,166 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <base target="_top">
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>IUC Prospect & Fee Group Update</title>
+  <style>
+    :root { --primary:#2d2363; --primary2:#4b3d86; --bg:#f6f7fb; --border:#dde2ea; --text:#1f2937; --muted:#667085; --success:#147a4b; --danger:#b42318; }
+    * { box-sizing:border-box; }
+    body { margin:0; font-family:Arial,Helvetica,sans-serif; background:var(--bg); color:var(--text); }
+    .wrap { max-width:760px; margin:32px auto; padding:0 16px 40px; }
+    .card { background:#fff; border:1px solid var(--border); border-radius:14px; box-shadow:0 8px 26px rgba(45,35,99,.08); overflow:hidden; }
+    .head { padding:24px 26px; background:linear-gradient(135deg,var(--primary),var(--primary2)); color:#fff; }
+    .head h1 { margin:0 0 6px; font-size:22px; }
+    .head p { margin:0; opacity:.9; font-size:14px; }
+    .body { padding:26px; }
+    .summary { display:grid; grid-template-columns:1fr 1fr; gap:12px; margin-bottom:22px; }
+    .summary .item { border:1px solid var(--border); background:#fafbfc; border-radius:10px; padding:12px; }
+    .k { font-size:11px; text-transform:uppercase; letter-spacing:.06em; color:var(--muted); margin-bottom:5px; }
+    .v { font-size:14px; font-weight:700; word-break:break-word; }
+    label { display:block; font-weight:700; font-size:13px; margin:16px 0 7px; }
+    input, textarea { width:100%; border:1px solid #cfd6df; border-radius:9px; padding:11px 12px; font:inherit; background:#fff; }
+    input:focus, textarea:focus { outline:2px solid rgba(75,61,134,.18); border-color:var(--primary2); }
+    textarea { min-height:92px; resize:vertical; }
+    .hint { color:var(--muted); font-size:12px; margin-top:6px; }
+    button { width:100%; margin-top:22px; padding:12px 16px; border:0; border-radius:9px; background:var(--primary); color:#fff; font-weight:700; font-size:14px; cursor:pointer; }
+    button:disabled { opacity:.55; cursor:not-allowed; }
+    .msg { margin-top:16px; padding:12px 14px; border-radius:9px; font-size:13px; display:none; }
+    .msg.show { display:block; }
+    .msg.ok { background:#ecfdf3; color:var(--success); border:1px solid #abefc6; }
+    .msg.err { background:#fef3f2; color:var(--danger); border:1px solid #fecdca; }
+    .loading { text-align:center; padding:34px 10px; color:var(--muted); }
+    .footer { text-align:center; color:var(--muted); font-size:11px; padding-top:14px; }
+    .hidden { display:none !important; }
+    @media (max-width:600px){ .summary{grid-template-columns:1fr}.head,.body{padding:20px}.wrap{margin-top:18px} }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="card">
+      <div class="head">
+        <h1>Prospect & Fee Group Update</h1>
+        <p>Innovative University College · IPGS Admission V2</p>
+      </div>
+      <div class="body">
+        <div id="loading" class="loading">Checking your secure action link…</div>
+
+        <div id="panel" class="hidden">
+          <div class="summary">
+            <div class="item"><div class="k">Reference No.</div><div class="v" id="referenceNo">-</div></div>
+            <div class="item"><div class="k">Student</div><div class="v" id="studentName">-</div></div>
+            <div class="item"><div class="k">Programme</div><div class="v" id="programme">-</div></div>
+            <div class="item"><div class="k">Partner / Agent Code</div><div class="v" id="partnerCode">-</div></div>
+          </div>
+
+          <label for="skyProspectId">SKY Prospect ID</label>
+          <input id="skyProspectId" type="text" autocomplete="off" placeholder="Enter SKY Prospect ID" maxlength="100">
+
+          <label for="feeGroup">Fee Group</label>
+          <input id="feeGroup" list="feeGroupOptions" type="text" autocomplete="off" placeholder="Type to search or select a Fee Group">
+          <datalist id="feeGroupOptions"></datalist>
+          <div class="hint">The list is loaded from FEE_GROUP_MASTER and cached for 5 minutes.</div>
+
+          <label for="remarks">Remarks <span style="font-weight:400;color:#667085">(optional)</span></label>
+          <textarea id="remarks" maxlength="1000" placeholder="Optional remarks for Registry"></textarea>
+
+          <button id="submitBtn" type="button" onclick="submitUpdate()">Confirm Prospect & Fee Group</button>
+          <div id="message" class="msg"></div>
+        </div>
+      </div>
+    </div>
+    <div class="footer">This secure link is unique to one admission action. No login is required.</div>
+  </div>
+
+  <script>
+    const ACTION_TOKEN = <?!= JSON.stringify(token || '') ?>;
+    let feeGroups = [];
+
+    function setMessage(text, type) {
+      const el = document.getElementById('message');
+      el.textContent = text || '';
+      el.className = 'msg show ' + (type === 'ok' ? 'ok' : 'err');
+    }
+
+    function loadAction() {
+      if (!ACTION_TOKEN) {
+        document.getElementById('loading').textContent = 'Invalid or missing action link.';
+        return;
+      }
+      google.script.run
+        .withSuccessHandler(renderAction)
+        .withFailureHandler(function(err){ document.getElementById('loading').textContent = err && err.message ? err.message : String(err); })
+        .v2AgentGetAction(ACTION_TOKEN);
+    }
+
+    function renderAction(res) {
+      if (!res || !res.ok) {
+        document.getElementById('loading').textContent = (res && res.message) || 'This action link is not available.';
+        return;
+      }
+
+      document.getElementById('loading').classList.add('hidden');
+      document.getElementById('panel').classList.remove('hidden');
+      document.getElementById('referenceNo').textContent = res.referenceNo || '-';
+      document.getElementById('studentName').textContent = res.studentName || '-';
+      document.getElementById('programme').textContent = res.programme || '-';
+      document.getElementById('partnerCode').textContent = res.partnerCode || '-';
+      document.getElementById('skyProspectId').value = res.skyProspectId || '';
+      document.getElementById('feeGroup').value = res.feeGroup || '';
+      document.getElementById('remarks').value = res.remarks || '';
+
+      feeGroups = Array.isArray(res.feeGroups) ? res.feeGroups : [];
+      const list = document.getElementById('feeGroupOptions');
+      list.innerHTML = feeGroups.map(function(v){
+        const o = document.createElement('option');
+        o.value = v;
+        return o.outerHTML;
+      }).join('');
+
+      if (res.submitted) {
+        document.getElementById('skyProspectId').disabled = true;
+        document.getElementById('feeGroup').disabled = true;
+        document.getElementById('remarks').disabled = true;
+        document.getElementById('submitBtn').disabled = true;
+        setMessage(res.message || 'This update has already been submitted.', 'ok');
+      }
+    }
+
+    function submitUpdate() {
+      const skyProspectId = document.getElementById('skyProspectId').value.trim();
+      const feeGroup = document.getElementById('feeGroup').value.trim();
+      const remarks = document.getElementById('remarks').value.trim();
+      const btn = document.getElementById('submitBtn');
+
+      if (!skyProspectId) return setMessage('Please enter the SKY Prospect ID.', 'err');
+      if (!feeGroup) return setMessage('Please select a Fee Group.', 'err');
+      if (feeGroups.indexOf(feeGroup) === -1) return setMessage('Please select a valid Fee Group from the master list.', 'err');
+
+      btn.disabled = true;
+      btn.textContent = 'Saving…';
+      google.script.run
+        .withSuccessHandler(function(res){
+          btn.textContent = 'Confirm Prospect & Fee Group';
+          if (!res || !res.ok) {
+            btn.disabled = !!(res && res.duplicate);
+            setMessage((res && res.message) || 'Unable to save the update.', res && res.duplicate ? 'ok' : 'err');
+            return;
+          }
+          document.getElementById('skyProspectId').disabled = true;
+          document.getElementById('feeGroup').disabled = true;
+          document.getElementById('remarks').disabled = true;
+          setMessage(res.message || 'Saved successfully.', 'ok');
+        })
+        .withFailureHandler(function(err){
+          btn.disabled = false;
+          btn.textContent = 'Confirm Prospect & Fee Group';
+          setMessage(err && err.message ? err.message : String(err), 'err');
+        })
+        .v2AgentSubmitAction(ACTION_TOKEN, { skyProspectId: skyProspectId, feeGroup: feeGroup, remarks: remarks });
+    }
+
+    loadAction();
+  </script>
+</body>
+</html>

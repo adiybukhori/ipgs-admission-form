@@ -1,0 +1,933 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <base target="_top">
+
+  <meta name="viewport"
+        content="width=device-width, initial-scale=1">
+
+  <style>
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      font-family: Arial, sans-serif;
+      background: #f4f6fb;
+      color: #202124;
+    }
+
+    .page {
+      min-height: 100vh;
+      padding: 32px 18px;
+    }
+
+    .shell {
+      max-width: 1000px;
+      margin: 0 auto;
+    }
+
+    .brand {
+      text-align: center;
+      margin-bottom: 24px;
+    }
+
+    .brand h1 {
+      margin: 0;
+      color: #2d2363;
+      font-size: 26px;
+    }
+
+    .brand p {
+      margin: 7px 0 0;
+      color: #666;
+    }
+
+    .card {
+      background: white;
+      border-radius: 14px;
+      padding: 24px;
+      box-shadow:
+        0 4px 20px rgba(0,0,0,.08);
+      margin-bottom: 20px;
+    }
+
+    .login-card {
+      max-width: 440px;
+      margin: 50px auto 0;
+    }
+
+    label {
+      display: block;
+      margin: 14px 0 6px;
+      font-weight: 600;
+    }
+
+    input {
+      width: 100%;
+      padding: 12px;
+      border: 1px solid #d6d9e0;
+      border-radius: 8px;
+      font-size: 15px;
+    }
+
+    button {
+      border: 0;
+      border-radius: 8px;
+      padding: 12px 16px;
+      font-weight: 700;
+      cursor: pointer;
+    }
+
+    .primary {
+      width: 100%;
+      margin-top: 18px;
+      background: #2d2363;
+      color: white;
+    }
+
+    .secondary {
+      background: #eceaf6;
+      color: #2d2363;
+    }
+
+    .danger {
+      background: #f5e7e7;
+      color: #9b1c1c;
+    }
+
+    .message {
+      margin-top: 14px;
+      padding: 10px;
+      border-radius: 8px;
+      display: none;
+    }
+
+    .error {
+      display: block;
+      background: #fdecec;
+      color: #a61b1b;
+    }
+
+    .success {
+      display: block;
+      background: #e8f6ec;
+      color: #176b32;
+    }
+
+    .hidden {
+      display: none !important;
+    }
+
+    .topbar {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 15px;
+      margin-bottom: 20px;
+    }
+
+    .topbar h2 {
+      margin: 0;
+      color: #2d2363;
+    }
+
+    .actions {
+      display: flex;
+      gap: 8px;
+    }
+
+    .grid {
+      display: grid;
+      grid-template-columns:
+        repeat(auto-fit, minmax(200px, 1fr));
+      gap: 14px;
+    }
+
+    .stat {
+      background: #f8f8fc;
+      border-radius: 10px;
+      padding: 16px;
+    }
+
+    .stat small {
+      color: #777;
+    }
+
+    .stat strong {
+      display: block;
+      margin-top: 6px;
+      color: #2d2363;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-top: 15px;
+    }
+
+    th,
+    td {
+      padding: 11px 9px;
+      border-bottom: 1px solid #eee;
+      text-align: left;
+      vertical-align: top;
+      font-size: 14px;
+    }
+
+    th {
+      background: #2d2363;
+      color: white;
+    }
+
+    .empty {
+      padding: 20px;
+      text-align: center;
+      color: #777;
+    }
+
+    @media(max-width:600px) {
+      .topbar {
+        display: block;
+      }
+
+      .actions {
+        margin-top: 12px;
+      }
+
+      .card {
+        padding: 18px;
+      }
+
+      table {
+        display: block;
+        overflow-x: auto;
+      }
+    }
+  </style>
+</head>
+
+<body>
+
+<div class="page">
+<div class="shell">
+
+  <div class="brand">
+    <h1>IUC IPGS Assessment Portal</h1>
+    <p>
+      Internal Assessment & Prerequisite
+    </p>
+  </div>
+
+
+  <!-- LOGIN -->
+  <div id="loginView"
+       class="card login-card">
+
+    <h2>Student Login</h2>
+
+    <label>Login ID</label>
+    <input
+      id="loginId"
+      autocomplete="username"
+      placeholder="IC / Passport No">
+
+    <label>Password</label>
+    <input
+      id="password"
+      type="password"
+      autocomplete="current-password"
+      placeholder="Password">
+
+    <button
+      class="primary"
+      onclick="login()">
+      Login
+    </button>
+
+    <div id="loginMessage"
+         class="message"></div>
+
+    <p style="font-size:13px;color:#777;margin-top:18px;">
+      First-time login uses your IC / Passport number
+      without spaces or symbols as the default password.
+    </p>
+  </div>
+
+
+  <!-- PORTAL -->
+  <div id="portalView"
+       class="hidden">
+
+    <div class="topbar">
+      <div>
+        <h2 id="studentName">
+          Student Portal
+        </h2>
+
+        <small id="referenceNo"></small>
+      </div>
+
+      <div class="actions">
+
+        <button
+          class="secondary"
+          onclick="openPasswordBox()">
+          Change Password
+        </button>
+
+        <button
+          class="danger"
+          onclick="logout()">
+          Logout
+        </button>
+
+      </div>
+    </div>
+
+
+    <div class="card">
+
+      <div class="card">
+
+  <h3>Assessment Action</h3>
+
+  <div class="grid">
+
+    <div>
+      <label>Assessment Type</label>
+
+      <select id="assessmentType"
+              style="
+                width:100%;
+                padding:12px;
+                border:1px solid #d6d9e0;
+                border-radius:8px;
+                font-size:15px;
+              ">
+
+        <option value="INTERNAL_ASSESSMENT">
+          Internal Assessment
+        </option>
+
+        <option value="PREREQUISITE">
+          Prerequisite
+        </option>
+
+      </select>
+    </div>
+
+    <div>
+      <label>Sequence</label>
+
+      <input
+        id="assessmentSequence"
+        type="number"
+        min="1"
+        value="1">
+    </div>
+
+  </div>
+
+
+  <hr style="
+    border:0;
+    border-top:1px solid #eee;
+    margin:24px 0;
+  ">
+
+
+  <h4>Submit Work</h4>
+
+  <label>Submission URL</label>
+
+  <input
+    id="submissionUrl"
+    type="url"
+    placeholder="https://drive.google.com/...">
+
+  <button
+    class="primary"
+    onclick="submitAssessmentWork()">
+    Submit Work
+  </button>
+
+  <div
+    id="submissionMessage"
+    class="message">
+  </div>
+
+
+  <hr style="
+    border:0;
+    border-top:1px solid #eee;
+    margin:24px 0;
+  ">
+
+
+  <h4>Book Interview Slot</h4>
+
+  <label>Select Date & Time</label>
+
+  <input
+    id="interviewSlot"
+    type="datetime-local">
+
+  <button
+    class="primary"
+    onclick="bookInterviewSlot()">
+    Save Interview Slot
+  </button>
+
+  <div
+    id="interviewMessage"
+    class="message">
+  </div>
+
+</div>
+      
+      <h3>Student Information</h3>
+
+      <div class="grid">
+
+        <div class="stat">
+          <small>Programme</small>
+          <strong id="programme">-</strong>
+        </div>
+
+        <div class="stat">
+          <small>Intake</small>
+          <strong id="intake">-</strong>
+        </div>
+
+        <div class="stat">
+          <small>Application Stage</small>
+          <strong id="applicationStage">-</strong>
+        </div>
+
+        <div class="stat">
+          <small>Assessment Status</small>
+          <strong id="assessmentStatus">-</strong>
+        </div>
+
+        <div class="stat">
+          <small>Prerequisite Status</small>
+          <strong id="prerequisiteStatus">-</strong>
+        </div>
+
+      </div>
+
+    </div>
+
+
+    <div class="card">
+
+      <h3>Assessment Progress</h3>
+
+      <div id="progressArea">
+        Loading...
+      </div>
+
+    </div>
+
+
+    <div id="passwordBox"
+         class="card hidden">
+
+      <h3>Change Password</h3>
+
+      <label>Current Password</label>
+      <input
+        id="currentPassword"
+        type="password">
+
+      <label>New Password</label>
+      <input
+        id="newPassword"
+        type="password">
+
+      <button
+        class="primary"
+        onclick="changePassword()">
+        Update Password
+      </button>
+
+      <div id="passwordMessage"
+           class="message"></div>
+
+    </div>
+
+  </div>
+
+</div>
+</div>
+
+
+<script>
+
+let assessmentSessionToken = '';
+
+
+function showMessage(id, text, success) {
+  const box =
+    document.getElementById(id);
+
+  box.className =
+    'message ' +
+    (success ? 'success' : 'error');
+
+  box.textContent = text;
+}
+
+
+function login() {
+
+  const loginId =
+    document.getElementById('loginId')
+      .value.trim();
+
+  const password =
+    document.getElementById('password')
+      .value;
+
+  if (!loginId || !password) {
+    showMessage(
+      'loginMessage',
+      'Enter Login ID and password.',
+      false
+    );
+    return;
+  }
+
+
+  google.script.run
+
+    .withSuccessHandler(function(result) {
+
+      assessmentSessionToken =
+        result.sessionToken;
+
+      document
+        .getElementById('loginView')
+        .classList.add('hidden');
+
+      document
+        .getElementById('portalView')
+        .classList.remove('hidden');
+
+      loadPortal();
+
+    })
+
+    .withFailureHandler(function(error) {
+
+      showMessage(
+        'loginMessage',
+        error.message ||
+          'Login failed.',
+        false
+      );
+
+    })
+
+    .v2AssessmentLogin(
+      loginId,
+      password
+    );
+}
+
+
+function loadPortal() {
+
+  google.script.run
+
+    .withSuccessHandler(function(data) {
+
+      const student =
+        data.student || {};
+
+      const workflow =
+        data.workflow || {};
+
+      document.getElementById(
+        'studentName'
+      ).textContent =
+        student.studentName ||
+        'Student Portal';
+
+      document.getElementById(
+        'referenceNo'
+      ).textContent =
+        student.referenceNo || '';
+
+      document.getElementById(
+        'programme'
+      ).textContent =
+        student.programme || '-';
+
+      document.getElementById(
+        'intake'
+      ).textContent =
+        student.intake || '-';
+
+      document.getElementById(
+        'applicationStage'
+      ).textContent =
+        workflow.applicationStage || '-';
+
+      document.getElementById(
+        'assessmentStatus'
+      ).textContent =
+        workflow.assessmentStatus || '-';
+
+      document.getElementById(
+        'prerequisiteStatus'
+      ).textContent =
+        workflow.prerequisiteStatus || '-';
+
+
+      renderProgress(
+        data.assessmentProgress || []
+      );
+
+    })
+
+    .withFailureHandler(function(error) {
+
+      alert(
+        error.message ||
+        'Unable to load portal.'
+      );
+
+      logout();
+
+    })
+
+    .v2AssessmentGetPortalData(
+      assessmentSessionToken
+    );
+}
+
+
+function renderProgress(rows) {
+
+  const area =
+    document.getElementById(
+      'progressArea'
+    );
+
+  if (!rows.length) {
+
+    area.innerHTML =
+      '<div class="empty">' +
+      'No assessment activity recorded yet.' +
+      '</div>';
+
+    return;
+  }
+
+
+  let html = `
+    <table>
+      <thead>
+        <tr>
+          <th>Type</th>
+          <th>Component</th>
+          <th>Status</th>
+          <th>Submission</th>
+          <th>Interview</th>
+          <th>Result</th>
+          <th>Remarks</th>
+        </tr>
+      </thead>
+      <tbody>
+  `;
+
+
+  rows.forEach(function(row) {
+
+    const submission =
+      row['Submission URL']
+        ? '<a href="' +
+          escapeHtml(row['Submission URL']) +
+          '" target="_blank">View</a>'
+        : '-';
+
+    html += `
+      <tr>
+
+        <td>
+          ${escapeHtml(
+            row['Assessment Type'] || ''
+          )}
+        </td>
+
+        <td>
+          ${escapeHtml(
+            row['Component'] || ''
+          )}
+        </td>
+
+        <td>
+          ${escapeHtml(
+            row['Status'] || ''
+          )}
+        </td>
+
+        <td>
+          ${submission}
+        </td>
+
+        <td>
+          ${escapeHtml(
+            row['Interview Slot'] || '-'
+          )}
+        </td>
+
+        <td>
+          ${escapeHtml(
+            row['Panel Result'] || '-'
+          )}
+        </td>
+
+        <td>
+          ${escapeHtml(
+            row['Panel Remarks'] || '-'
+          )}
+        </td>
+
+      </tr>
+    `;
+  });
+
+
+  html += `
+      </tbody>
+    </table>
+  `;
+
+  area.innerHTML = html;
+}
+
+
+function openPasswordBox() {
+  document
+    .getElementById('passwordBox')
+    .classList.toggle('hidden');
+}
+
+
+function changePassword() {
+
+  const currentPassword =
+    document.getElementById(
+      'currentPassword'
+    ).value;
+
+  const newPassword =
+    document.getElementById(
+      'newPassword'
+    ).value;
+
+
+  google.script.run
+
+    .withSuccessHandler(function() {
+
+      showMessage(
+        'passwordMessage',
+        'Password updated successfully.',
+        true
+      );
+
+      document.getElementById(
+        'currentPassword'
+      ).value = '';
+
+      document.getElementById(
+        'newPassword'
+      ).value = '';
+
+    })
+
+    .withFailureHandler(function(error) {
+
+      showMessage(
+        'passwordMessage',
+        error.message ||
+          'Unable to change password.',
+        false
+      );
+
+    })
+
+    .v2AssessmentChangePassword(
+      assessmentSessionToken,
+      currentPassword,
+      newPassword
+    );
+}
+
+function submitAssessmentWork() {
+
+  const assessmentType =
+    document.getElementById(
+      'assessmentType'
+    ).value;
+
+  const sequence =
+    Number(
+      document.getElementById(
+        'assessmentSequence'
+      ).value || 1
+    );
+
+  const submissionUrl =
+    document.getElementById(
+      'submissionUrl'
+    ).value.trim();
+
+  if (!submissionUrl) {
+    showMessage(
+      'submissionMessage',
+      'Enter your submission URL.',
+      false
+    );
+    return;
+  }
+
+  google.script.run
+    .withSuccessHandler(function() {
+
+      showMessage(
+        'submissionMessage',
+        'Submission saved successfully.',
+        true
+      );
+
+      loadPortal();
+
+    })
+    .withFailureHandler(function(error) {
+
+      showMessage(
+        'submissionMessage',
+        error.message ||
+          'Unable to save submission.',
+        false
+      );
+
+    })
+    .v2AssessmentSubmitStudentWork(
+      assessmentSessionToken,
+      assessmentType,
+      sequence,
+      submissionUrl
+    );
+}
+
+
+
+function bookInterviewSlot() {
+
+  const assessmentType =
+    document.getElementById(
+      'assessmentType'
+    ).value;
+
+  const sequence =
+    Number(
+      document.getElementById(
+        'assessmentSequence'
+      ).value || 1
+    );
+
+  const rawSlot =
+    document.getElementById(
+      'interviewSlot'
+    ).value;
+
+  if (!rawSlot) {
+    showMessage(
+      'interviewMessage',
+      'Select an interview date and time.',
+      false
+    );
+    return;
+  }
+
+  const interviewSlot =
+    rawSlot.replace('T', ' ');
+
+  google.script.run
+    .withSuccessHandler(function() {
+
+      showMessage(
+        'interviewMessage',
+        'Interview slot saved successfully.',
+        true
+      );
+
+      loadPortal();
+
+    })
+    .withFailureHandler(function(error) {
+
+      showMessage(
+        'interviewMessage',
+        error.message ||
+          'Unable to save interview slot.',
+        false
+      );
+
+    })
+    .v2AssessmentBookInterviewSlot(
+      assessmentSessionToken,
+      assessmentType,
+      sequence,
+      interviewSlot
+    );
+}
+
+function logout() {
+
+  if (assessmentSessionToken) {
+
+    google.script.run
+      .v2AssessmentLogout(
+        assessmentSessionToken
+      );
+
+  }
+
+  assessmentSessionToken = '';
+
+  document
+    .getElementById('portalView')
+    .classList.add('hidden');
+
+  document
+    .getElementById('loginView')
+    .classList.remove('hidden');
+
+  document.getElementById(
+    'password'
+  ).value = '';
+}
+
+
+function escapeHtml(value) {
+
+  return String(value || '')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#039;');
+}
+
+</script>
+
+</body>
+</html>
