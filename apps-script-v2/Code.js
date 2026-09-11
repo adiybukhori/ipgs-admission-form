@@ -255,17 +255,26 @@ function doPost(e) {
     }
 
     const payload = JSON.parse(e.postData.contents);
+    const action = String(payload && payload.action ? payload.action : '');
 
-    // Allow ONLY public Admission V2 submission.
-    if (payload && payload.action === 'v2SubmitAdmission') {
+    // Public Admission V2 submission remains available without admin token.
+    if (action === 'v2SubmitAdmission') {
       const result = handleV2Post_(payload);
-
       return ContentService
         .createTextOutput(JSON.stringify(result))
         .setMimeType(ContentService.MimeType.JSON);
     }
 
-    // All other legacy / unsupported POST operations remain locked.
+    // Protected V2 admin actions. handleV2Post_ verifies the V2 admin password
+    // before dispatching any non-public action.
+    if (action.indexOf('v2') === 0 && payload.token) {
+      const result = handleV2Post_(payload);
+      return ContentService
+        .createTextOutput(JSON.stringify(result))
+        .setMimeType(ContentService.MimeType.JSON);
+    }
+
+    // V1 / legacy / unauthenticated operations remain locked.
     assertDevOperationsLocked_();
 
   } catch (error) {

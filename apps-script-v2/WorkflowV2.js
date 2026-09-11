@@ -339,6 +339,23 @@ function handleV2Post_(payload) {
   if (action === 'v2ListWorkflow') return v2ListWorkflow_(payload);
   if (action === 'v2SyncApplication') return v2SyncApplication_(payload.data || {});
   if (action === 'v2UpdateStage') return v2UpdateStage_(payload.data || {}, payload.updatedBy);
+  if (action === 'v2RunDocumentReview') {
+    const data = payload.data || {};
+    return v2RunDocumentReview(
+      data.referenceNo,
+      payload.updatedBy || data.reviewer || 'Admin Portal V2',
+      data.remarks || ''
+    );
+  }
+  if (action === 'v2RunQualificationScreening') {
+    const data = payload.data || {};
+    return v2RunQualificationScreening(data.referenceNo, {
+      fieldClassification: data.fieldClassification,
+      relevantWorkExperience: data.relevantWorkExperience,
+      screenedBy: payload.updatedBy || data.screenedBy || 'Admin Portal V2',
+      remarks: data.remarks || ''
+    });
+  }
   if (action === 'v2CreateSacSession') return v2CreateSacSession_(payload.data || {}, payload.updatedBy);
   if (action === 'v2AssignSacCandidate') return v2AssignSacCandidate_(payload.data || {}, payload.updatedBy);
   if (action === 'v2RecordSacDecision') return v2RecordSacDecision_(payload.data || {}, payload.updatedBy);
