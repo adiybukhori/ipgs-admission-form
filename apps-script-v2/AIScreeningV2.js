@@ -359,6 +359,11 @@ function v2AiConfigNumber_(key, fallback) {
 
 function v2AiScreeningControlledTest() {
   assertDevIdentity_();
+  const testToken = String(PropertiesService.getScriptProperties().getProperty('V2_ADMIN_API_PASSWORD') || CONFIG.adminApiPassword || '').trim();
+  v2VerifyAdminApiAccess_(testToken);
+  function callTestRoute(action, data) {
+    return handleV2Post_({ action: action, token: testToken, data: data, updatedBy: 'Controlled AI Screening Test' });
+  }
   const stamp = Utilities.formatDate(new Date(), CONFIG.timezone || 'Asia/Kuala_Lumpur', 'yyyyMMdd-HHmmss');
   const reference = 'V2-AI-SCREENING-TEST-' + stamp;
   const now = new Date().toISOString();
@@ -385,7 +390,7 @@ function v2AiScreeningControlledTest() {
     'Version': 'CONTROLLED_AI_SCREENING_TEST'
   });
 
-  const recorded = v2RecordAiScreeningResult_({
+  const recorded = callTestRoute('v2RecordAiScreeningResult', {
     referenceNo: reference,
     provider: 'WORK',
     model: 'PILOT',
@@ -402,29 +407,33 @@ function v2AiScreeningControlledTest() {
       evidence: ['Transcript states Engineering degree.', 'CV shows management responsibilities.'],
       flags: []
     }
-  }, 'Controlled AI Screening Test');
+  });
 
-  const confirmed = v2ConfirmAiScreening_({
+  const unconfirmedInput = v2GetConfirmedAiScreeningInput_(reference);
+  const confirmed = callTestRoute('v2ConfirmAiScreening', {
     referenceNo: reference,
     fieldClassification: 'PARTIALLY_RELATED',
     relevantWorkExperience: 'YES',
     remarks: 'Controlled test confirmation.'
-  }, 'Controlled AI Screening Test');
+  });
 
   const input = v2GetConfirmedAiScreeningInput_(reference);
   const checks = {
     resultRecorded: recorded && recorded.ok === true,
     humanConfirmationRequired: recorded.humanReviewStatus === 'PENDING',
     noAutoDecision: recorded.autoDecisionMade === false,
+    unconfirmedInputBlocked: unconfirmedInput === null,
     confirmationSaved: confirmed && confirmed.confirmedForRuleEngine === true,
     confirmedInputAvailable: input && input.fieldClassification === 'PARTIALLY_RELATED' && input.relevantWorkExperience === 'YES'
   };
 
-  return {
+  const report = {
     ok: Object.keys(checks).every(function(k) { return checks[k] === true; }),
     referenceNo: reference,
     checks: checks,
     emailSent: false,
     v1Touched: false
   };
+  Logger.log(JSON.stringify(report));
+  return report;
 }
