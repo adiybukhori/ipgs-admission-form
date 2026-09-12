@@ -1,6 +1,7 @@
 name: Validate Apps Script V2
 
 on:
+  workflow_dispatch:
   push:
     branches: [apps-script-v2-dev]
     paths:
