@@ -1,0 +1,39 @@
+name: Validate Apps Script V2
+
+on:
+  push:
+    branches: [apps-script-v2-dev]
+    paths:
+      - 'apps-script-v2/**'
+      - '.clasp.json'
+      - 'tools/verify-clasp-target.mjs'
+      - '.github/workflows/validate-apps-script-v2.yml'
+  pull_request:
+    branches: [apps-script-v2-dev]
+    paths:
+      - 'apps-script-v2/**'
+      - '.clasp.json'
+      - 'tools/verify-clasp-target.mjs'
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: apps-script-v2-dev
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+      - name: Verify clasp target lock
+        run: node tools/verify-clasp-target.mjs
+      - name: Syntax check Apps Script JavaScript
+        run: |
+          set -e
+          for f in apps-script-v2/*.js; do
+            echo "Checking $f"
+            node --check "$f"
+          done
