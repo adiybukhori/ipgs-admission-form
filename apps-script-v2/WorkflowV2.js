@@ -361,6 +361,11 @@ function handleV2Post_(payload) {
   if (action === 'v2CreateSacSession') return v2CreateSacSession_(payload.data || {}, payload.updatedBy);
   if (action === 'v2AssignSacCandidate') return v2AssignSacCandidate_(payload.data || {}, payload.updatedBy);
   if (action === 'v2RecordSacDecision') return v2RecordSacDecision_(payload.data || {}, payload.updatedBy);
+  if (action === 'v2CreateSacSessionManual') return v2CreateSacSessionManual_(payload.data || {}, payload.updatedBy);
+  if (action === 'v2SendSacCalendarInvitationManual') return v2SendSacCalendarInvitationManual_(payload.data || {}, payload.updatedBy);
+  if (action === 'v2RecordSacDecisionManual') return v2RecordSacDecisionManual_(payload.data || {}, payload.updatedBy);
+  if (action === 'v2FinalizeSacSessionManual') return v2FinalizeSacSessionManual_(payload.data || {}, payload.updatedBy);
+  if (action === 'v2SacManualPhase1Status') return v2SacManualPhase1Status_();
   if (action === 'v2UpdateAssessment') return v2UpdateAssessment_(payload.data || {}, payload.updatedBy);
   if (action === 'v2UpsertOrientationSession') return v2UpsertOrientationSession_(payload.data || {}, payload.updatedBy);
   if (action === 'v2UpdateOrientation') return v2UpdateOrientation_(payload.data || {}, payload.updatedBy);
