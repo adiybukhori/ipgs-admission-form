@@ -502,9 +502,7 @@ function v2GenerateSacMinutesEndorsement_(data, actor) {
     sacData.decisionCounts.DIRECT_ENTRY +
     ' Direct Entry, ' +
     sacData.decisionCounts.INTERNAL_ASSESSMENT +
-    ' Internal Assessment, ' +
-    sacData.decisionCounts.PREREQUISITE +
-    ' Prerequisite, and ' +
+    ' Internal Assessment, and ' +
     sacData.decisionCounts.REJECTED +
     ' Rejected.'
   );
@@ -538,8 +536,8 @@ function v2GenerateSacMinutesEndorsement_(data, actor) {
   );
 
   body.appendParagraph(
-    'Candidates endorsed for Prerequisite shall complete the approved ' +
-    'Prerequisite process before progression.'
+    'Prerequisite is not a direct SAC decision in Phase 1. Where required, ' +
+    'it may only be assigned after the Internal Assessment panel result.'
   );
 
 
@@ -562,7 +560,7 @@ function v2GenerateSacMinutesEndorsement_(data, actor) {
       'To be actioned'
     ],
     [
-      'Arrange Internal Assessment / Prerequisite process for applicable candidates.',
+      'Arrange Internal Assessment for applicable candidates. Any prerequisite requirement must arise from the IA panel result.',
       'Registry / IPGS',
       'To be actioned'
     ]
