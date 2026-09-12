@@ -6,6 +6,8 @@ const ALLOWED_ACTIONS = new Set([
   'v2UpdateStage',
   'v2RunDocumentReview',
   'v2RunQualificationScreening',
+  'v2RecordAiScreeningResult',
+  'v2ConfirmAiScreening',
   'v2CreateSacSession',
   'v2AssignSacCandidate',
   'v2RecordSacDecision',
