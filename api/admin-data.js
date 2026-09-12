@@ -5,6 +5,7 @@ const SHEETS = [
   'V2_APPLICATIONS',
   'V2_WORKFLOW',
   'V2_DOCUMENT_REVIEW',
+  'V2_AI_SCREENING',
   'V2_QUALIFICATION_SCREENING',
   'V2_SAC_SESSIONS',
   'V2_SAC_CANDIDATES',
@@ -75,7 +76,7 @@ export default async function handler(req, res) {
   res.setHeader('Cache-Control', 'no-store, max-age=0');
 
   if (req.method === 'GET' && String(req.query?.health || '') === '1') {
-    return res.status(200).json({ ok: true, service: 'IPGS Admission Admin Data V2', build: 'ADMIN_DATA_V2_20260910' });
+    return res.status(200).json({ ok: true, service: 'IPGS Admission Admin Data V2', build: 'ADMIN_DATA_V2_20260912' });
   }
   if (req.method !== 'POST') return res.status(405).json({ ok: false, message: 'Method not allowed.' });
 
@@ -103,5 +104,5 @@ export default async function handler(req, res) {
     }
   });
 
-  return res.status(200).json({ ok: true, build: 'ADMIN_DATA_V2_20260910', loadedAt: new Date().toISOString(), warnings, data });
+  return res.status(200).json({ ok: true, build: 'ADMIN_DATA_V2_20260912', loadedAt: new Date().toISOString(), warnings, data });
 }
