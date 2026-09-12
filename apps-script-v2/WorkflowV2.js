@@ -356,6 +356,8 @@ function handleV2Post_(payload) {
       remarks: data.remarks || ''
     });
   }
+  if (action === 'v2RecordAiScreeningResult') return v2RecordAiScreeningResult_(payload.data || {}, payload.updatedBy);
+  if (action === 'v2ConfirmAiScreening') return v2ConfirmAiScreening_(payload.data || {}, payload.updatedBy);
   if (action === 'v2CreateSacSession') return v2CreateSacSession_(payload.data || {}, payload.updatedBy);
   if (action === 'v2AssignSacCandidate') return v2AssignSacCandidate_(payload.data || {}, payload.updatedBy);
   if (action === 'v2RecordSacDecision') return v2RecordSacDecision_(payload.data || {}, payload.updatedBy);
