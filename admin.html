@@ -266,9 +266,27 @@
         </section>
 
         <section id="sac" class="section">
-          <div class="hero"><div><h2>SAC monitoring</h2><p>Session readiness, candidate load and decision status in one view.</p></div></div>
-          <div class="kpis"><div class="kpi"><div class="label">SESSIONS</div><div id="sacSessionsKpi" class="value">0</div><div class="meta">V2 SAC sessions</div></div><div class="kpi"><div class="label">CANDIDATES</div><div id="sacCandidatesKpi" class="value">0</div><div class="meta">Assigned candidates</div></div><div class="kpi"><div class="label">PENDING DECISION</div><div id="sacPendingKpi" class="value">0</div><div class="meta">Not finalised</div></div><div class="kpi"><div class="label">FINALISED</div><div id="sacFinalKpi" class="value">0</div><div class="meta">Completed candidate decisions</div></div></div>
-          <div class="panel"><div class="panel-head"><h3>SAC sessions</h3><span>Live from V2_SAC_SESSIONS</span></div><div class="table-wrap"><table><thead><tr><th>Session</th><th>Date</th><th>Status</th><th>Chairperson</th><th>Candidates</th><th>Documents</th></tr></thead><tbody id="sacBody"></tbody></table></div></div>
+          <div class="hero"><div><h2>SAC monitoring</h2><p>Phase 1: physical/manual SAC meeting with automated administration. SAC reviewer portal remains disabled.</p></div><span class="badge purple">MANUAL MEETING · PORTAL OFF</span></div>
+          <div class="kpis"><div class="kpi"><div class="label">SESSIONS</div><div id="sacSessionsKpi" class="value">0</div><div class="meta">V2 SAC sessions</div></div><div class="kpi"><div class="label">CANDIDATES</div><div id="sacCandidatesKpi" class="value">0</div><div class="meta">Assigned candidates</div></div><div class="kpi"><div class="label">PENDING DECISION</div><div id="sacPendingKpi" class="value">0</div><div class="meta">Awaiting manual SAC result</div></div><div class="kpi"><div class="label">FINALISED</div><div id="sacFinalKpi" class="value">0</div><div class="meta">Completed candidate decisions</div></div></div>
+
+          <div class="panel" style="margin-bottom:18px">
+            <div class="panel-head"><h3>Create SAC Session</h3><span>Physical meeting · calendar invitation is safety-gated</span></div>
+            <div class="panel-body">
+              <div class="warning-banner">Current operating mode: <b>Manual / Physical SAC</b>. Committee portal and digital voting are not active. Admin will record the authorised result after the meeting. Prerequisite cannot be selected directly at SAC; it can only arise after IA.</div>
+              <div class="detail-grid">
+                <div class="field"><label>SAC Name</label><input id="sacCreateName" placeholder="e.g. SAC Sept Bil 2/26" /></div>
+                <div class="field"><label>Meeting Date</label><input id="sacCreateDate" type="date" /></div>
+                <div class="field"><label>Meeting Time</label><input id="sacCreateTime" type="time" value="10:00" /></div>
+                <div class="field"><label>Chairperson</label><input id="sacCreateChair" placeholder="Chairperson / position" /></div>
+                <div class="field full"><label>Physical Venue</label><input id="sacCreateVenue" placeholder="Meeting room / campus venue" /></div>
+                <div class="field full"><label>SAC Committee Emails</label><textarea id="sacCommitteeEmails" rows="3" placeholder="committee1@innovative.edu.my, committee2@innovative.edu.my" style="width:100%;border:1px solid #d7dce6;border-radius:12px;padding:12px 13px;background:white;color:var(--ink);outline:none;resize:vertical"></textarea><div class="subline">Leave blank to use active default members from SAC_COMMITTEE_MASTER. Calendar invitation will only send when the backend invitation mode is explicitly enabled.</div></div>
+              </div>
+              <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-top:8px"><button class="primary" onclick="createSacSession()">Create SAC Session</button><span class="badge amber">Invitation safety gate active</span></div>
+              <div id="sacCreateMessage" class="message" style="display:none"></div>
+            </div>
+          </div>
+
+          <div class="panel"><div class="panel-head"><h3>SAC sessions</h3><span>Assign candidates → physical meeting → admin result → minutes & endorsement</span></div><div class="table-wrap"><table><thead><tr><th>Session</th><th>Date</th><th>Mode</th><th>Status</th><th>Chairperson</th><th>Candidates</th><th>Invitation</th><th>Documents</th><th>Action</th></tr></thead><tbody id="sacBody"></tbody></table></div></div>
         </section>
 
         <section id="assessment" class="section">
@@ -421,7 +439,29 @@
     function fillSelect(id,values,prettify=false){const el=document.getElementById(id),keep=el.value,first=el.options[0].outerHTML;el.innerHTML=first+values.map(v=>`<option value="${esc(v)}">${esc(prettify?pretty(v):v)}</option>`).join('');if(values.includes(keep))el.value=keep}
     function filteredApplications(){const q=document.getElementById('searchInput')?.value.toLowerCase().trim()||'',intake=document.getElementById('intakeFilter')?.value||'',programme=document.getElementById('programmeFilter')?.value||'',st=document.getElementById('stageFilter')?.value||'';return records.filter(r=>{const hay=[r.ref,r.app['Student Name'],r.app['ID / Passport No'],r.app['Personal Email'],r.app['Programme']].join(' ').toLowerCase();return(!q||hay.includes(q))&&(!intake||r.app['Intake']===intake)&&(!programme||r.app['Programme']===programme)&&(!st||stage(r)===st)})}
     function renderApplications(){const body=document.getElementById('applicationsBody');if(!body)return;const list=filteredApplications();body.innerHTML=list.map(r=>`<tr><td><div class="student">${esc(r.app['Student Name']||'-')}</div><div class="subline">${esc(r.ref)}</div></td><td>${esc(r.app['Programme']||'-')}<div class="subline">${esc(r.app['Study Mode']||'')}</div></td><td>${esc(r.app['Intake']||'-')}</td><td><span class="badge ${classifyBadge(stage(r))}">${esc(pretty(stage(r)))}</span></td><td>${decision(r)?`<span class="badge ${classifyBadge(decision(r))}">${esc(pretty(decision(r)))}</span>`:'-'}</td><td><span class="badge ${classifyBadge(status(r))}">${esc(pretty(status(r)))}</span></td><td>${esc(formatDate(val(r,'Last Updated',r.app['Last Updated']||r.app['Submitted At']||'')))}</td><td><button class="ghost" onclick="openRecord('${esc(r.ref)}')">Open</button></td></tr>`).join('')||'<tr><td colspan="8" class="empty">No applications match the selected filters.</td></tr>'}
-    function renderSac(){const sessions=db.V2_SAC_SESSIONS||[],candidates=db.V2_SAC_CANDIDATES||[];document.getElementById('sacSessionsKpi').textContent=sessions.length;document.getElementById('sacCandidatesKpi').textContent=candidates.length;const final=candidates.filter(x=>/FINAL|ENDORSED|DIRECT|IA|PREREQ|REJECT/.test(String(x['Final Decision']||x['SAC Decision']||'').toUpperCase())).length;document.getElementById('sacFinalKpi').textContent=final;document.getElementById('sacPendingKpi').textContent=Math.max(0,candidates.length-final);document.getElementById('sacBody').innerHTML=sessions.map(s=>{const id=s['SAC Session ID']||s['Session ID']||'',n=candidates.filter(c=>(c['SAC Session ID']||c['Session ID'])===id).length,min=s['Minutes URL']||'',end=s['Endorsement URL']||'';return`<tr><td><div class="student">${esc(s['SAC Name']||id||'-')}</div><div class="subline">${esc(id)}</div></td><td>${esc([s['Meeting Date'],s['Meeting Time']].filter(Boolean).join(' · ')||'-')}</td><td><span class="badge ${classifyBadge(s['Status']||'')}">${esc(pretty(s['Status']||'-'))}</span></td><td>${esc(s['Chairperson']||'-')}</td><td>${n}</td><td>${min?`<a class="link" target="_blank" href="${esc(min)}">Minutes</a>`:''}${min&&end?' · ':''}${end?`<a class="link" target="_blank" href="${esc(end)}">Endorsement</a>`:''||'-'}</td></tr>`}).join('')||'<tr><td colspan="6" class="empty">No SAC sessions yet.</td></tr>'}
+    function renderSac(){
+      const sessions=db.V2_SAC_SESSIONS||[],candidates=db.V2_SAC_CANDIDATES||[];
+      document.getElementById('sacSessionsKpi').textContent=sessions.length;
+      document.getElementById('sacCandidatesKpi').textContent=candidates.length;
+      const final=candidates.filter(x=>/DIRECT_ENTRY|INTERNAL_ASSESSMENT|REJECTED/.test(String(x['Decision']||x['Final Decision']||x['SAC Decision']||'').toUpperCase())).length;
+      document.getElementById('sacFinalKpi').textContent=final;
+      document.getElementById('sacPendingKpi').textContent=Math.max(0,candidates.length-final);
+      document.getElementById('sacBody').innerHTML=sessions.map(s=>{
+        const id=s['SAC Session ID']||s['Session ID']||'';
+        const sessionCandidates=candidates.filter(c=>(c['SAC Session ID']||c['Session ID'])===id);
+        const n=sessionCandidates.length;
+        const pending=sessionCandidates.filter(c=>!String(c['Decision']||'').trim()||String(c['Decision']).toUpperCase()==='PENDING').length;
+        const min=s['Minutes URL']||'',end=s['Endorsement URL']||'';
+        const mode=s['Meeting Mode']||(/TEST/i.test(id)?'TEST':'MANUAL');
+        const cal=String(s['Calendar Status']||'NOT_CREATED').toUpperCase();
+        const inviteMode=String(s['Invitation Mode']||'DISABLED').toUpperCase();
+        const status=String(s['Status']||'DRAFT').toUpperCase();
+        const isFinal=/FINAL|CLOSED/.test(status);
+        const inviteAction=!isFinal&&cal!=='INVITED'?`<button class="ghost" onclick="sendSacInvite('${esc(id)}')">Send Invite</button>`:'';
+        const finalizeAction=!isFinal&&n>0&&pending===0?`<button class="primary" onclick="finalizeSacSession('${esc(id)}')">Finalize & Generate</button>`:(isFinal?'<span class="badge green">Finalized</span>':pending?`<span class="badge amber">${pending} pending</span>`:'<span class="badge blue">Assign candidates</span>');
+        return`<tr><td><div class="student">${esc(s['SAC Name']||id||'-')}</div><div class="subline">${esc(id)}</div></td><td>${esc([s['Meeting Date'],s['Meeting Time']].filter(Boolean).join(' · ')||'-')}</td><td><span class="badge purple">${esc(pretty(mode))}</span><div class="subline">Portal OFF</div></td><td><span class="badge ${classifyBadge(status)}">${esc(pretty(status))}</span></td><td>${esc(s['Chairperson']||'-')}</td><td>${n}<div class="subline">${pending} pending</div></td><td><span class="badge ${cal==='INVITED'?'green':'amber'}">${esc(pretty(cal))}</span><div class="subline">Mode: ${esc(pretty(inviteMode))}</div>${inviteAction?`<div style="margin-top:7px">${inviteAction}</div>`:''}</td><td>${min?`<a class="link" target="_blank" href="${esc(min)}">Minutes</a>`:''}${min&&end?' · ':''}${end?`<a class="link" target="_blank" href="${esc(end)}">Endorsement</a>`:''||'-'}</td><td>${finalizeAction}</td></tr>`
+      }).join('')||'<tr><td colspan="9" class="empty">No SAC sessions yet. Create the first Phase 1 manual SAC session above.</td></tr>'
+    }
     function renderAssessment(){const rows=db.V2_ASSESSMENT_PROGRESS||[],body=document.getElementById('assessmentBody');body.innerHTML=rows.map(x=>{const ref=x['Reference No']||'',r=records.find(z=>z.ref===ref),name=x['Student Name']||r?.app['Student Name']||'-',route=x['Assessment Type']||x['Route']||x['Assessment Route']||'-',stat=x['Status']||x['Assessment Status']||'-',sub=x['Submission URL']||x['Student Work URL']||'',interview=[x['Interview Date'],x['Interview Time']].filter(Boolean).join(' '),result=x['Result']||x['Final Result']||x['Assessment Result']||'-';return`<tr><td><div class="student">${esc(name)}</div><div class="subline">${esc(ref)}</div></td><td>${esc(pretty(route))}</td><td><span class="badge ${classifyBadge(stat)}">${esc(pretty(stat))}</span></td><td>${sub?`<a class="link" target="_blank" href="${esc(sub)}">Open work</a>`:'-'}</td><td>${esc(interview||'-')}</td><td><span class="badge ${classifyBadge(result)}">${esc(pretty(result))}</span></td><td>${esc(formatDate(x['Last Updated']||x['Updated At']||''))}</td></tr>`}).join('')||'<tr><td colspan="7" class="empty">No IA / Prerequisite progress records yet.</td></tr>'}
     function renderReports(){renderFunnel('reportFunnel');renderBars('reportProgramme',countBy(records,r=>r.app['Programme']||'Unspecified'),12);renderBars('reportIntake',countBy(records,r=>r.app['Intake']||'Unspecified'),12);renderBars('reportSource',countBy(records,r=>r.raw.referralSource||r.app['Agent Name']||'Direct / Unspecified'),12)}
     function openRecord(ref){selected=records.find(r=>r.ref===ref);if(!selected)return;document.getElementById('drawerName').textContent=selected.app['Student Name']||'Applicant';document.getElementById('drawerMeta').textContent=`${selected.ref} · ${selected.app['Programme']||'-'} · ${selected.app['Intake']||'-'}`;renderProgress(selected);renderQuickActions(selected);renderOperationalActions(selected);renderDetailTabs(selected);detailTab('overview',document.querySelector('.tabs button'));document.getElementById('drawerBackdrop').classList.add('open');document.getElementById('drawer').classList.add('open')}
@@ -431,7 +471,7 @@
     function currentSacSession(r){return r.workflow?.['SAC Session ID']||r.sac?.['SAC Session ID']||r.sac?.['Session ID']||''}
     function renderOperationalActions(r){
       const el=document.getElementById('opsPanel');if(!el)return;
-      const s=stage(r),sessions=(db.V2_SAC_SESSIONS||[]).filter(x=>!/FINAL|CLOSED/.test(String(x['Status']||'').toUpperCase()));
+      const s=stage(r),sessions=(db.V2_SAC_SESSIONS||[]).filter(x=>{const status=String(x['Status']||'').toUpperCase(),id=String(x['SAC Session ID']||''),name=String(x['SAC Name']||'');return !/FINAL|CLOSED/.test(status)&&!/TEST|CONTROLLED/i.test(id+' '+name)});
       let copy='Actions available for this stage.',actions='';
       if(s==='APPLICATION_RECEIVED'){
         copy='Run the V2 document completeness check. The system will compare submitted files against the required document set.';
@@ -458,7 +498,7 @@
         const opts=sessions.map(x=>{const id=x['SAC Session ID']||x['Session ID']||'';const name=x['SAC Name']||id;return `<option value="${esc(id)}">${esc(name)}</option>`}).join('');
         actions=opts?`<select id="opsSacSession" class="ops-select"><option value="">Select SAC session</option>${opts}</select><button class="ops-btn primary" onclick="assignSacSession()">Assign to SAC</button>`:'<button class="ops-btn" disabled>No open SAC session</button>';
       }else if(s==='SAC_REVIEW'||s==='SAC'){
-        copy='Record the authorised SAC outcome. Direct Entry proceeds to Offer eligibility; IA creates the assessment pathway.';
+        copy='Phase 1 uses a physical/manual SAC meeting. After the meeting, Admin records the authorised final result here. Direct Entry proceeds to Offer eligibility; IA creates the assessment pathway. Prerequisite can only be required later by the IA panel.';
         actions='<button class="ops-btn success" onclick="recordSacDecision(\'DIRECT_ENTRY\')">Direct Entry</button><button class="ops-btn" onclick="recordSacDecision(\'INTERNAL_ASSESSMENT\')">Internal Assessment</button><button class="ops-btn danger" onclick="recordSacDecision(\'REJECTED\')">Rejected</button>';
       }else if(s==='INTERNAL_ASSESSMENT'){
         copy='Record the authorised IA panel result. Prerequisite can only be required after IA.';
@@ -501,7 +541,39 @@
     function runDocumentReview(){if(!selected)return;runAdminAction('v2RunDocumentReview',{referenceNo:selected.ref,remarks:''},`Run document review for ${selected.app['Student Name']||selected.ref}?`)}
     function runQualificationScreening(){if(!selected)return;const field=document.getElementById('opsFieldClassification')?.value||'',exp=document.getElementById('opsWorkExperience')?.value||'';if(!field||!exp)return opsMsg('Select Field Relationship and Relevant Work Experience first.','error');runAdminAction('v2RunQualificationScreening',{referenceNo:selected.ref,fieldClassification:field,relevantWorkExperience:exp,remarks:''},`Run qualification screening for ${selected.app['Student Name']||selected.ref}?`)}
     function assignSacSession(){if(!selected)return;const el=document.getElementById('opsSacSession'),sessionId=el?.value||'';if(!sessionId)return opsMsg('Select a SAC session first.','error');runAdminAction('v2AssignSacCandidate',{referenceNo:selected.ref,sessionId},`Assign ${selected.app['Student Name']||selected.ref} to the selected SAC session?`)}
-    function recordSacDecision(decision){if(!selected)return;const sessionId=currentSacSession(selected);if(!sessionId)return opsMsg('SAC Session ID is missing for this applicant.','error');runAdminAction('v2RecordSacDecision',{referenceNo:selected.ref,sessionId,decision},`Confirm final SAC decision: ${pretty(decision)}? This changes the admission route.`)}
+    function recordSacDecision(decision){if(!selected)return;const sessionId=currentSacSession(selected);if(!sessionId)return opsMsg('SAC Session ID is missing for this applicant.','error');runAdminAction('v2RecordSacDecisionManual',{referenceNo:selected.ref,sessionId,decision,confirmed:true,remarks:''},`Confirm authorised manual SAC decision: ${pretty(decision)}? This changes the admission route and cannot use Prerequisite directly.`)}
+    function sacPageMsg(text,type='info'){const el=document.getElementById('sacCreateMessage');if(!el)return;el.style.display='block';el.className='message '+(type==='error'?'error':'');el.style.background=type==='ok'?'var(--greenSoft)':type==='error'?'var(--redSoft)':'var(--blueSoft)';el.style.color=type==='ok'?'var(--green)':type==='error'?'var(--red)':'var(--blue)';el.textContent=text}
+    async function runSacPageAction(action,data,confirmText){
+      if(confirmText&&!confirm(confirmText))return null;
+      sacPageMsg('Processing…','info');
+      try{
+        const res=await fetch(ACTION_API,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({password,action,data,updatedBy:'Admin Portal V2'})});
+        const out=await res.json().catch(()=>({ok:false,message:'Invalid response from action service.'}));
+        if(!res.ok||!out.ok)throw new Error(out.message||'Unable to complete SAC action.');
+        await loadData(true);
+        return out.result||out;
+      }catch(e){sacPageMsg(e.message||'Unable to complete SAC action.','error');return null}
+    }
+    async function createSacSession(){
+      const name=document.getElementById('sacCreateName')?.value.trim()||'',meetingDate=document.getElementById('sacCreateDate')?.value||'',meetingTime=document.getElementById('sacCreateTime')?.value||'10:00',chairperson=document.getElementById('sacCreateChair')?.value.trim()||'',venue=document.getElementById('sacCreateVenue')?.value.trim()||'',committeeEmails=document.getElementById('sacCommitteeEmails')?.value.trim()||'';
+      if(!name||!meetingDate)return sacPageMsg('Enter SAC Name and Meeting Date first.','error');
+      const result=await runSacPageAction('v2CreateSacSessionManual',{name,meetingDate,meetingTime,chairperson,venueLink:venue,committeeEmails,sendInvitation:true},`Create ${name} for ${meetingDate} ${meetingTime}?`);
+      if(!result)return;
+      const inv=result.invitation||{};
+      const invText=inv.sent?'Calendar invitation sent.':`Calendar invitation not sent (${pretty(inv.reason||inv.mode||'safety gate')}).`;
+      sacPageMsg(`SAC session created. ${invText}`,'ok');
+      ['sacCreateName','sacCreateChair','sacCreateVenue','sacCommitteeEmails'].forEach(id=>{const el=document.getElementById(id);if(el)el.value=''});
+    }
+    async function sendSacInvite(sessionId){
+      const result=await runSacPageAction('v2SendSacCalendarInvitationManual',{sessionId},'Send the calendar invitation for this SAC session?');
+      if(!result)return;
+      sacPageMsg(result.sent?`Calendar invitation sent to ${result.guestCount||0} guest(s).`:`Invitation not sent: ${pretty(result.reason||result.mode||'safety gate')}.`,result.sent?'ok':'info');
+    }
+    async function finalizeSacSession(sessionId){
+      const result=await runSacPageAction('v2FinalizeSacSessionManual',{sessionId,confirmed:true,generateDocuments:true},'Finalize this SAC session and generate the official Minutes / Endorsement? All candidate decisions must already be entered.');
+      if(!result)return;
+      sacPageMsg('SAC session finalized. Minutes and endorsement generated successfully.','ok');
+    }
     function recordAssessmentResult(panelResult){if(!selected)return;runAdminAction('v2UpdateAssessment',{referenceNo:selected.ref,assessmentType:'INTERNAL_ASSESSMENT',sequence:1,component:'OVERALL',status:'COMPLETED',panelResult},`Confirm IA panel result: ${pretty(panelResult)}?`)}
     function recordPrerequisiteResult(panelResult){if(!selected)return;runAdminAction('v2UpdateAssessment',{referenceNo:selected.ref,assessmentType:'PREREQUISITE',sequence:1,component:'OVERALL',status:'COMPLETED',panelResult},`Confirm Prerequisite result: ${pretty(panelResult)}?`)}
 
