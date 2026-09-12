@@ -1,0 +1,32 @@
+name: Patch AI Screening V2 Routes
+
+on:
+  push:
+    branches: [apps-script-v2-dev]
+    paths:
+      - '.github/scripts/patch_ai_screening_routes.py'
+      - '.github/workflows/patch-ai-screening-routes.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: apps-script-v2-dev
+      - name: Patch AI screening routes
+        run: python3 .github/scripts/patch_ai_screening_routes.py
+      - name: Commit and push
+        run: |
+          git config user.name 'adiybukhori'
+          git config user.email 'muhammadadiy93@gmail.com'
+          git add apps-script-v2/WorkflowV2.js
+          if git diff --cached --quiet; then
+            echo 'No AI screening route changes required.'
+          else
+            git commit -m 'Wire provider-agnostic AI screening routes'
+            git push origin apps-script-v2-dev
+          fi
