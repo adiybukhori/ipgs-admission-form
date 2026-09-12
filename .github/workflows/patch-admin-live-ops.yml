@@ -1,0 +1,32 @@
+name: Patch Admin V2 Live Operations
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/scripts/patch_admin_live_ops.py'
+      - '.github/workflows/patch-admin-live-ops.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+      - name: Patch Admin V2 live operations UI
+        run: python3 .github/scripts/patch_admin_live_ops.py
+      - name: Commit and push
+        run: |
+          git config user.name 'adiybukhori'
+          git config user.email 'muhammadadiy93@gmail.com'
+          git add admin.html
+          if git diff --cached --quiet; then
+            echo 'No Admin V2 UI changes required.'
+          else
+            git commit -m 'Activate Admin V2 document review and screening UI'
+            git push origin main
+          fi
