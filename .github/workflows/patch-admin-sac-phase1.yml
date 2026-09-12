@@ -1,0 +1,41 @@
+name: Patch Admin SAC Phase 1
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/scripts/patch_admin_sac_phase1.py'
+      - '.github/workflows/patch-admin-sac-phase1.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Apply guarded admin patch
+        run: python .github/scripts/patch_admin_sac_phase1.py
+      - name: Basic HTML JavaScript marker checks
+        run: |
+          grep -q "Create SAC Session" admin.html
+          grep -q "v2CreateSacSessionManual" admin.html
+          grep -q "v2RecordSacDecisionManual" admin.html
+          grep -q "v2FinalizeSacSessionManual" admin.html
+      - name: Commit patch if changed
+        run: |
+          if git diff --quiet; then
+            echo "No admin changes to commit."
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add admin.html
+          git commit -m "Add manual SAC session administration UI"
+          git push origin main
