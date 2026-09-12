@@ -1,0 +1,48 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "IPGS Admission V2 AI Screening Result",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "qualification",
+    "institution",
+    "fieldOfStudy",
+    "cgpaGrade",
+    "graduationYear",
+    "relevantWorkExperience",
+    "workExperienceSummary",
+    "fieldClassification",
+    "confidence",
+    "evidence",
+    "flags"
+  ],
+  "properties": {
+    "qualification": { "type": "string" },
+    "institution": { "type": "string" },
+    "fieldOfStudy": { "type": "string" },
+    "cgpaGrade": { "type": "string" },
+    "graduationYear": { "type": "string" },
+    "relevantWorkExperience": {
+      "type": "string",
+      "enum": ["YES", "NO", "UNKNOWN"]
+    },
+    "workExperienceSummary": { "type": "string" },
+    "fieldClassification": {
+      "type": "string",
+      "enum": ["RELATED", "PARTIALLY_RELATED", "NON_RELATED", "UNKNOWN"]
+    },
+    "confidence": {
+      "type": "number",
+      "minimum": 0,
+      "maximum": 1
+    },
+    "evidence": {
+      "type": "array",
+      "items": { "type": "string" }
+    },
+    "flags": {
+      "type": "array",
+      "items": { "type": "string" }
+    }
+  }
+}
