@@ -355,6 +355,7 @@
     const PASSPORT_PHOTO_MAX_MB = 2;
     const INTERNATIONAL_ADMISSION_FORM_URL = "https://drive.google.com/uc?export=download&id=15tJxq0xnvf0Ujwqpm8IfpHc201WLGQLP";
     const INTERNATIONAL_HEALTH_FORM_URL = "https://drive.google.com/uc?export=download&id=1P7VUusSZLuj4sSMLFzotO2mip-zNltDK";
+    const AGENT_REFERRAL_CODE = String(new URLSearchParams(window.location.search).get("agent") || "").trim().toUpperCase().replace(/[^A-Z0-9_-]/g, "");
 
     const STEPS = [
       { key: "programme", title: "Programme Selection", icon: "✉️" },
@@ -420,8 +421,8 @@
       studyMode: "",
       entryQualificationType: "",
       proposedSupervisor: "",
-      referralSource: "",
-      partnerCode: "",
+      referralSource: AGENT_REFERRAL_CODE ? "Education Consultant" : "",
+      partnerCode: AGENT_REFERRAL_CODE,
     
       fullName: "",
       idPassport: "",
@@ -577,6 +578,36 @@
       return PROGRAMME_OPTIONS[formState.levelOfStudy] || [];
     }
 
+    async function loadPartnerCodes() {
+      const applyAgents = (items) => {
+        PARTNER_CODES = Array.isArray(items) ? items.filter(item => item && item.code) : [];
+        if (AGENT_REFERRAL_CODE) {
+          formState.referralSource = "Education Consultant";
+          formState.partnerCode = AGENT_REFERRAL_CODE;
+          if (!isValidPartnerCode(AGENT_REFERRAL_CODE)) {
+            setStatus('info', 'This Academic Consultant referral link is invalid or inactive. Please contact IPGS Registry.');
+          }
+        }
+        render();
+      };
+
+      try {
+        if (typeof google !== 'undefined' && google.script && google.script.run) {
+          google.script.run
+            .withSuccessHandler(res => applyAgents(res && res.agents ? res.agents : []))
+            .withFailureHandler(() => applyAgents([]))
+            .v2PublicAgents();
+          return;
+        }
+        const res = await fetch('/api/agents', { cache: 'no-store' });
+        const out = await res.json();
+        if (!res.ok || !out.ok) throw new Error(out.message || 'Unable to load consultants.');
+        applyAgents(out.agents || []);
+      } catch (_) {
+        applyAgents([]);
+      }
+    }
+
     function getFilteredPartnerCodes(query) {
       const q = String(query || '').trim().toLowerCase();
       if (!q) return PARTNER_CODES;
@@ -699,8 +730,14 @@
           ` : ""}
           <div class="field"><label>Entry Qualification Type <span class="required">*</span></label><select data-field="entryQualificationType">${selectOptions(ENTRY_QUALIFICATION_TYPES, "Select entry qualification type", formState.entryQualificationType)}</select></div>
           <div class="field"><label>Proposed Supervisor (if any)</label><input type="text" data-field="proposedSupervisor" value="${escapeHtml(formState.proposedSupervisor)}" placeholder="Enter supervisor name"></div>
-          <div class="field"><label>How did you hear about us / Referral Source<span class="required">*</span></label><select data-field="referralSource">${selectOptions(REFERRAL_SOURCES, "Select referral source", formState.referralSource)}</select></div>
-          ${isPartnerFlow() ? `
+          ${AGENT_REFERRAL_CODE ? `
+            <div class="info-box">
+              <strong>Academic Consultant</strong><br>
+              ${escapeHtml(getPartnerDisplayValue(AGENT_REFERRAL_CODE))}
+              <div class="hint">This application is linked to the Academic Consultant referral link used to open this form.</div>
+            </div>
+          ` : `<div class="field"><label>How did you hear about us / Referral Source<span class="required">*</span></label><select data-field="referralSource">${selectOptions(REFERRAL_SOURCES, "Select referral source", formState.referralSource)}</select></div>`}
+          ${isPartnerFlow() && !AGENT_REFERRAL_CODE ? `
           <div class="field">
             <label>Registered Partner / Agent Code <span class="required">*</span></label>
             <div class="search-select">
@@ -1206,7 +1243,7 @@
     .join('') || '<p>-</p>';
 
   const referralDisplay = formState.partnerCode && isPartnerFlow()
-    ? `${formState.referralSource} (${formState.partnerCode})`
+    ? `${formState.referralSource} (${getPartnerDisplayValue(formState.partnerCode)})`
     : (formState.referralSource || '-');
 
   const paymentSourceDisplay = formState.paymentSource === 'Other'
@@ -1452,8 +1489,8 @@
         studyMode: "",
         entryQualificationType: "",
         proposedSupervisor: "",
-        referralSource: "",
-        partnerCode: "",
+        referralSource: AGENT_REFERRAL_CODE ? "Education Consultant" : "",
+        partnerCode: AGENT_REFERRAL_CODE,
     
         fullName: "",
         idPassport: "",
