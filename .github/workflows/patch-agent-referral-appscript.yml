@@ -1,0 +1,56 @@
+name: Patch Agent Referral Apps Script Form
+
+on:
+  push:
+    branches: [apps-script-v2-dev]
+    paths:
+      - '.github/workflows/patch-agent-referral-appscript.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: apps-script-v2-dev
+          fetch-depth: 0
+      - name: Patch Apps Script form referral attribution
+        shell: python
+        run: |
+          from pathlib import Path
+          p=Path('apps-script-v2/index.html')
+          s=p.read_text(encoding='utf-8')
+          anchor='    const INTERNATIONAL_HEALTH_FORM_URL = "https://drive.google.com/uc?export=download&id=1P7VUusSZLuj4sSMLFzotO2mip-zNltDK";\n'
+          insert=anchor+'    const AGENT_REFERRAL_CODE = String(new URLSearchParams(window.location.search).get("agent") || "").trim().toUpperCase().replace(/[^A-Z0-9_-]/g, "");\n'
+          if 'const AGENT_REFERRAL_CODE' not in s:
+              if anchor not in s: raise SystemExit('Referral constant anchor not found')
+              s=s.replace(anchor,insert,1)
+          s=s.replace('      referralSource: "",\n      partnerCode: "",','      referralSource: AGENT_REFERRAL_CODE ? "Education Consultant" : "",\n      partnerCode: AGENT_REFERRAL_CODE,',1)
+          s=s.replace('        referralSource: "",\n        partnerCode: "",','        referralSource: AGENT_REFERRAL_CODE ? "Education Consultant" : "",\n        partnerCode: AGENT_REFERRAL_CODE,',1)
+          anchor='    function getFilteredPartnerCodes(query) {\n'
+          loader='''    async function loadPartnerCodes() {\n      const applyAgents = (items) => {\n        PARTNER_CODES = Array.isArray(items) ? items.filter(item => item && item.code) : [];\n        if (AGENT_REFERRAL_CODE) {\n          formState.referralSource = "Education Consultant";\n          formState.partnerCode = AGENT_REFERRAL_CODE;\n          if (!isValidPartnerCode(AGENT_REFERRAL_CODE)) {\n            setStatus('info', 'This Academic Consultant referral link is invalid or inactive. Please contact IPGS Registry.');\n          }\n        }\n        render();\n      };\n      try {\n        if (typeof google !== 'undefined' && google.script && google.script.run) {\n          google.script.run\n            .withSuccessHandler(res => applyAgents(res && res.agents ? res.agents : []))\n            .withFailureHandler(() => applyAgents([]))\n            .v2PublicAgents();\n          return;\n        }\n        const res = await fetch('/api/agents', { cache: 'no-store' });\n        const out = await res.json();\n        if (!res.ok || !out.ok) throw new Error(out.message || 'Unable to load consultants.');\n        applyAgents(out.agents || []);\n      } catch (_) { applyAgents([]); }\n    }\n\n'''
+          if 'async function loadPartnerCodes()' not in s:
+              if anchor not in s: raise SystemExit('Partner loader anchor not found')
+              s=s.replace(anchor,loader+anchor,1)
+          old='''          <div class="field"><label>How did you hear about us / Referral Source<span class="required">*</span></label><select data-field="referralSource">${selectOptions(REFERRAL_SOURCES, "Select referral source", formState.referralSource)}</select></div>\n          ${isPartnerFlow() ? `\n'''
+          new='''          ${AGENT_REFERRAL_CODE ? `\n            <div class="info-box">\n              <strong>Academic Consultant</strong><br>\n              ${escapeHtml(getPartnerDisplayValue(AGENT_REFERRAL_CODE))}\n              <div class="hint">This application is linked to the Academic Consultant referral link used to open this form.</div>\n            </div>\n          ` : `<div class="field"><label>How did you hear about us / Referral Source<span class="required">*</span></label><select data-field="referralSource">${selectOptions(REFERRAL_SOURCES, "Select referral source", formState.referralSource)}</select></div>`}\n          ${isPartnerFlow() && !AGENT_REFERRAL_CODE ? `\n'''
+          if old not in s: raise SystemExit('Referral UI anchor not found')
+          s=s.replace(old,new,1)
+          s=s.replace('    ? `${formState.referralSource} (${formState.partnerCode})`','    ? `${formState.referralSource} (${getPartnerDisplayValue(formState.partnerCode)})`',1)
+          p.write_text(s,encoding='utf-8')
+      - name: Validate
+        run: |
+          grep -q 'const AGENT_REFERRAL_CODE' apps-script-v2/index.html
+          grep -q 'async function loadPartnerCodes' apps-script-v2/index.html
+          grep -q 'v2PublicAgents' apps-script-v2/index.html
+      - name: Commit
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add apps-script-v2/index.html
+          git diff --cached --quiet && exit 0
+          git commit -m "Auto-attribute consultant referral links in V2 form"
+          git push origin apps-script-v2-dev
