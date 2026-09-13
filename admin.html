@@ -421,6 +421,8 @@
   <script>
     const API = '/api/admin-data';
     const ACTION_API = '/api/admin-action';
+    // PHASE2_BACKEND_SYNC_GATE_V1: flip only after Apps Script deployment + controlled tests pass.
+    const PHASE2_BACKEND_READY = false;
     let password = sessionStorage.getItem('ipgsAdminPassword') || '';
     let db = {}, records = [], selected = null;
     const stageOrder = [['APPLICATION_RECEIVED','Application'],['DOCUMENT_REVIEW','Documents'],['QUALIFICATION_SCREENING','Screening'],['SAC','SAC'],['ASSESSMENT','IA / PREREQ'],['ELIGIBLE_FOR_OFFER','Offer Ready'],['OFFER_ISSUED','Offer'],['ACCEPTED','Accepted']];
@@ -495,9 +497,9 @@
       const exp=String(r.ai?.['Human Relevant Work Experience']||r.workflow?.['Relevant Work Experience']||r.screening?.['Relevant Work Experience']||r.ai?.['Relevant Work Experience']||'');
       const manualRequired=/YES|REQUIRED/.test(String(r.workflow?.['Manual Review Required']||'' ).toUpperCase())||/MANUAL_REVIEW_REQUIRED/.test(String(r.workflow?.['Qualification Screening Status']||'').toUpperCase());
       const aiClass=classifyBadge(aiStatus);
-      const base=`<div style="width:100%;display:flex;flex-wrap:wrap;gap:8px;align-items:center"><span class="badge ${aiClass}">AI Auto: ${esc(pretty(aiStatus))}</span><button class="ops-btn" onclick="retryAutoAiScreening()">Retry AI Auto</button><select id="opsFieldClassification" class="ops-select"><option value="">Field relationship</option><option value="RELATED" ${field==='RELATED'?'selected':''}>Related</option><option value="PARTIALLY_RELATED" ${field==='PARTIALLY_RELATED'?'selected':''}>Partially Related</option><option value="NON_RELATED" ${field==='NON_RELATED'?'selected':''}>Non-Related</option></select><select id="opsWorkExperience" class="ops-select"><option value="">Relevant work experience</option><option value="YES" ${exp==='YES'?'selected':''}>Yes</option><option value="NO" ${exp==='NO'?'selected':''}>No</option></select><button class="ops-btn primary" onclick="runQualificationScreening()">Run Manual Screening</button></div>`;
+      const base=`<div style="width:100%;display:flex;flex-wrap:wrap;gap:8px;align-items:center"><span class="badge ${aiClass}">AI Auto: ${esc(pretty(aiStatus))}</span>${PHASE2_BACKEND_READY?'<button class="ops-btn" onclick="retryAutoAiScreening()">Retry AI Auto</button>':'<button class="ops-btn" disabled>AI Auto · backend sync pending</button>'}<select id="opsFieldClassification" class="ops-select"><option value="">Field relationship</option><option value="RELATED" ${field==='RELATED'?'selected':''}>Related</option><option value="PARTIALLY_RELATED" ${field==='PARTIALLY_RELATED'?'selected':''}>Partially Related</option><option value="NON_RELATED" ${field==='NON_RELATED'?'selected':''}>Non-Related</option></select><select id="opsWorkExperience" class="ops-select"><option value="">Relevant work experience</option><option value="YES" ${exp==='YES'?'selected':''}>Yes</option><option value="NO" ${exp==='NO'?'selected':''}>No</option></select><button class="ops-btn primary" onclick="runQualificationScreening()">Run Manual Screening</button></div>`;
       if(!manualRequired)return base;
-      return base+`<div style="width:100%;margin-top:4px;padding-top:10px;border-top:1px solid #e7eaf0;display:flex;gap:8px;flex-wrap:wrap;align-items:center"><span class="badge amber">Manual decision required</span><select id="opsManualRecommendation" class="ops-select"><option value="">Manual recommendation</option><option value="DIRECT_ENTRY">Direct Entry</option><option value="NORMAL_ADMISSION_SCREENING">Normal Admission</option><option value="INTERNAL_ASSESSMENT">Internal Assessment</option><option value="NOT_ELIGIBLE_CONVENTIONAL">Not Eligible - Conventional</option></select><button class="ops-btn primary" onclick="completeManualScreening()">Complete Manual Review</button></div>`;
+      return base+`<div style="width:100%;margin-top:4px;padding-top:10px;border-top:1px solid #e7eaf0;display:flex;gap:8px;flex-wrap:wrap;align-items:center"><span class="badge amber">Manual decision required</span><select id="opsManualRecommendation" class="ops-select"><option value="">Manual recommendation</option><option value="DIRECT_ENTRY">Direct Entry</option><option value="NORMAL_ADMISSION_SCREENING">Normal Admission</option><option value="INTERNAL_ASSESSMENT">Internal Assessment</option><option value="NOT_ELIGIBLE_CONVENTIONAL">Not Eligible - Conventional</option></select>${PHASE2_BACKEND_READY?'<button class="ops-btn primary" onclick="completeManualScreening()">Complete Manual Review</button>':'<button class="ops-btn" disabled>Manual Override · backend sync pending</button>'}</div>`;
     }
     function renderOperationalActions(r){
       const el=document.getElementById('opsPanel');if(!el)return;
@@ -534,7 +536,7 @@
         actions='<button class="ops-btn success" onclick="recordPrerequisiteResult(\'QUALIFIED\')">Prerequisite Qualified</button><button class="ops-btn danger" onclick="recordPrerequisiteResult(\'NOT_QUALIFIED\')">Not Qualified</button>';
       }else if(s==='ELIGIBLE_FOR_OFFER'){
         copy='All admission gates are complete. Generate the official Offer Letter and send the secure e-sign Acceptance link to the student.';
-        actions='<button class="ops-btn primary" onclick="issueOffer()">Generate & Send Offer</button>';
+        actions=PHASE2_BACKEND_READY?'<button class="ops-btn primary" onclick="issueOffer()">Generate & Send Offer</button>':'<button class="ops-btn" disabled>Generate Offer · backend sync pending</button>';
       }else if(s==='OFFER_ISSUED'||s==='ACCEPTANCE_PENDING'){
         copy='Offer has been issued. Monitor the Acceptance status and signed PDF.';
         actions='<button class="ops-btn" disabled>Awaiting student acceptance</button>';
