@@ -1,0 +1,41 @@
+name: Patch Admin Academic Consultant Link
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/patch-admin-agent-link.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+      - name: Add consultant management link
+        shell: python
+        run: |
+          from pathlib import Path
+          p=Path('admin.html')
+          s=p.read_text(encoding='utf-8')
+          old='<div class="topbar"><div id="topTitle" class="page-title">Dashboard</div><div class="top-actions"><div id="freshness" class="freshness">Not loaded</div><button class="ghost" onclick="loadData(true)">Refresh</button></div></div>'
+          new='<div class="topbar"><div id="topTitle" class="page-title">Dashboard</div><div class="top-actions"><div id="freshness" class="freshness">Not loaded</div><a class="ghost" href="/agents.html" style="text-decoration:none">Academic Consultants</a><button class="ghost" onclick="loadData(true)">Refresh</button></div></div>'
+          if '/agents.html' not in s:
+              if old not in s: raise SystemExit('Topbar anchor not found')
+              s=s.replace(old,new,1)
+          p.write_text(s,encoding='utf-8')
+      - name: Validate
+        run: grep -q '/agents.html' admin.html
+      - name: Commit
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add admin.html
+          git diff --cached --quiet && exit 0
+          git commit -m "Link Academic Consultants from admin command center"
+          git push origin main
