@@ -23,9 +23,9 @@ function v2UpsertAgent_(data, actor) {
   const name = String(data.name || data.agentName || '').trim();
   const email = String(data.email || data.agentEmail || '').trim().toLowerCase();
   const organisation = String(data.organisation || '').trim();
-  const active = data.active === false || String(data.active || '').toUpperCase() === 'INACTIVE'
-    ? 'Inactive'
-    : 'Active';
+  const activeRaw = data.active;
+  const inactive = activeRaw === false || ['FALSE','NO','0','INACTIVE'].indexOf(String(activeRaw || '').trim().toUpperCase()) > -1;
+  const active = inactive ? 'Inactive' : 'Active';
 
   if (!name) throw new Error('Academic Consultant / Agent Name is required.');
   if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
@@ -45,7 +45,7 @@ function v2UpsertAgent_(data, actor) {
   );
 
   const rows = sheet.getLastRow() > 1 ? sheet.getDataRange().getValues() : [];
-  const headers = rows.length ? rows[0].map(function(v){ return String(v || '').trim(); }) : V2_AGENT_MASTER_HEADERS.slice();
+  const headers = rows.length ? rows[0].map(function(v){ return String(v || '').trim(); }) : v2Headers_(sheet);
   const codeIndex = headers.indexOf('Agent Code');
   const emailIndex = headers.indexOf('Agent Email');
 
@@ -76,7 +76,8 @@ function v2UpsertAgent_(data, actor) {
   if (existing) {
     v2SetRecordValues_(sheet, existing.rowNumber, updates);
   } else {
-    sheet.appendRow(V2_AGENT_MASTER_HEADERS.map(function(header){ return updates[header] || ''; }));
+    sheet.appendRow(new Array(Math.max(sheet.getLastColumn(), 1)).fill(''));
+    v2SetRecordValues_(sheet, sheet.getLastRow(), updates);
   }
 
   v2Audit_(
