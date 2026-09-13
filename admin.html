@@ -193,8 +193,21 @@
     .guide-badge.purple{background:var(--purpleSoft);color:var(--purple)}
     .guide-badge.blue{background:var(--blueSoft);color:var(--blue)}
 
+    .sac-mobile-list{display:none}
+    .sac-mobile-card{border:1px solid var(--line);border-radius:16px;background:#fff;padding:15px;box-shadow:0 4px 16px rgba(29,37,59,.05)}
+    .sac-mobile-head{display:flex;align-items:flex-start;justify-content:space-between;gap:10px;margin-bottom:12px}
+    .sac-mobile-title{font-size:14px;font-weight:900;line-height:1.3;color:var(--ink)}
+    .sac-mobile-id{font-size:10px;color:var(--muted);margin-top:3px;word-break:break-all}
+    .sac-mobile-meta{font-size:11px;color:var(--muted);margin-bottom:12px}
+    .sac-mobile-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:12px}
+    .sac-mobile-field{border:1px solid #eef0f4;border-radius:11px;padding:9px 10px;background:#fbfbfd}
+    .sac-mobile-field .label{font-size:9px;text-transform:uppercase;letter-spacing:.04em;color:#8a93a3;font-weight:800;margin-bottom:4px}
+    .sac-mobile-field .value{font-size:11px;font-weight:750;color:var(--ink);line-height:1.35}
+    .sac-mobile-actions{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+    .sac-mobile-actions .primary,.sac-mobile-actions .ghost{width:100%;text-align:center;justify-content:center;display:inline-flex;align-items:center;min-height:44px;text-decoration:none}
+
     @media(max-width:1100px){.app{grid-template-columns:78px 1fr}.side-brand .title,.side-brand .small,.nav button span,.side-footer .live span,.side-footer button span{display:none}.sidebar{padding:20px 10px}.nav button{text-align:center}.kpis{grid-template-columns:repeat(2,1fr)}.grid-2,.report-grid{grid-template-columns:1fr}}
-    @media(max-width:700px){.app{display:block}.sidebar{position:fixed;bottom:0;top:auto;left:0;right:0;height:64px;z-index:60;display:block;padding:7px;background:#21164f}.side-brand,.side-footer{display:none}.nav{display:grid;grid-template-columns:repeat(6,1fr);gap:3px}.nav button{padding:8px 4px;font-size:10px}.main{padding-bottom:66px}.topbar{padding:0 14px}.content{padding:18px 14px 30px}.hero{align-items:flex-start;flex-direction:column}.kpis{grid-template-columns:1fr 1fr}.kpi{padding:14px}.kpi .value{font-size:25px}.detail-grid,.guide-grid,.guide-intro{grid-template-columns:1fr}.detail-card.full{grid-column:auto}.progress{grid-template-columns:repeat(4,1fr)}}
+    @media(max-width:700px){.app{display:block}.sidebar{position:fixed;bottom:0;top:auto;left:0;right:0;height:64px;z-index:60;display:block;padding:7px;background:#21164f}.side-brand,.side-footer{display:none}.nav{display:grid;grid-template-columns:repeat(6,1fr);gap:3px}.nav button{padding:8px 4px;font-size:10px}.main{padding-bottom:76px}.topbar{padding:0 14px}.content{padding:18px 14px 30px}.hero{align-items:flex-start;flex-direction:column}.kpis{grid-template-columns:1fr 1fr}.kpi{padding:14px}.kpi .value{font-size:25px}.detail-grid,.guide-grid,.guide-intro{grid-template-columns:1fr}.detail-card.full{grid-column:auto}.progress{grid-template-columns:repeat(4,1fr)}#sac .sac-desktop-table{display:none}.sac-mobile-list{display:grid;gap:12px;padding:14px}.sac-mobile-grid{grid-template-columns:1fr 1fr}#sac .panel-head{align-items:flex-start}#sac .panel-head span{line-height:1.35}.sac-mobile-actions .badge{justify-content:center;min-height:36px;width:100%}}
   </style>
 </head>
 <body>
@@ -286,7 +299,7 @@
             </div>
           </div>
 
-          <div class="panel"><div class="panel-head"><h3>SAC sessions</h3><span>Assign candidates → physical meeting → admin result → minutes & endorsement</span></div><div class="table-wrap"><table><thead><tr><th>Session</th><th>Date</th><th>Mode</th><th>Status</th><th>Chairperson</th><th>Candidates</th><th>Invitation</th><th>Documents</th><th>Action</th></tr></thead><tbody id="sacBody"></tbody></table></div></div>
+          <div class="panel"><div class="panel-head"><h3>SAC sessions</h3><span>Assign candidates → physical meeting → admin result → minutes & endorsement</span></div><div class="table-wrap sac-desktop-table"><table><thead><tr><th>Session</th><th>Date</th><th>Mode</th><th>Status</th><th>Chairperson</th><th>Candidates</th><th>Invitation</th><th>Documents</th><th>Action</th></tr></thead><tbody id="sacBody"></tbody></table></div><div id="sacMobileCards" class="sac-mobile-list"></div></div>
         </section>
 
         <section id="assessment" class="section">
@@ -446,7 +459,7 @@
       const final=candidates.filter(x=>/DIRECT_ENTRY|INTERNAL_ASSESSMENT|REJECTED/.test(String(x['Decision']||x['Final Decision']||x['SAC Decision']||'').toUpperCase())).length;
       document.getElementById('sacFinalKpi').textContent=final;
       document.getElementById('sacPendingKpi').textContent=Math.max(0,candidates.length-final);
-      document.getElementById('sacBody').innerHTML=sessions.map(s=>{
+      const views=sessions.map(s=>{
         const id=s['SAC Session ID']||s['Session ID']||'';
         const sessionCandidates=candidates.filter(c=>(c['SAC Session ID']||c['Session ID'])===id);
         const n=sessionCandidates.length;
@@ -459,8 +472,12 @@
         const isFinal=/FINAL|CLOSED/.test(status);
         const inviteAction=!isFinal&&cal!=='INVITED'?`<button class="ghost" onclick="sendSacInvite('${esc(id)}')">Send Invite</button>`:'';
         const finalizeAction=!isFinal&&n>0&&pending===0?`<button class="primary" onclick="finalizeSacSession('${esc(id)}')">Finalize & Generate</button>`:(isFinal?'<a class="ghost" href="/sac-results.html">Review & Send Results</a>':pending?`<span class="badge amber">${pending} pending</span>`:'<span class="badge blue">Assign candidates</span>');
-        return`<tr><td><div class="student">${esc(s['SAC Name']||id||'-')}</div><div class="subline">${esc(id)}</div></td><td>${esc([s['Meeting Date'],s['Meeting Time']].filter(Boolean).join(' · ')||'-')}</td><td><span class="badge purple">${esc(pretty(mode))}</span><div class="subline">Portal OFF</div></td><td><span class="badge ${classifyBadge(status)}">${esc(pretty(status))}</span></td><td>${esc(s['Chairperson']||'-')}</td><td>${n}<div class="subline">${pending} pending</div></td><td><span class="badge ${cal==='INVITED'?'green':'amber'}">${esc(pretty(cal))}</span><div class="subline">Mode: ${esc(pretty(inviteMode))}</div>${inviteAction?`<div style="margin-top:7px">${inviteAction}</div>`:''}</td><td>${min?`<a class="link" target="_blank" href="${esc(min)}">Minutes</a>`:''}${min&&end?' · ':''}${end?`<a class="link" target="_blank" href="${esc(end)}">Endorsement</a>`:''||'-'}</td><td>${finalizeAction}</td></tr>`
-      }).join('')||'<tr><td colspan="9" class="empty">No SAC sessions yet. Create the first Phase 1 manual SAC session above.</td></tr>'
+        const documents=min||end?`${min?`<a class="link" target="_blank" href="${esc(min)}">Minutes</a>`:''}${min&&end?' · ':''}${end?`<a class="link" target="_blank" href="${esc(end)}">Endorsement</a>`:''}`:'-';
+        return {s,id,n,pending,mode,cal,inviteMode,status,inviteAction,finalizeAction,documents};
+      });
+      document.getElementById('sacBody').innerHTML=views.map(v=>`<tr><td><div class="student">${esc(v.s['SAC Name']||v.id||'-')}</div><div class="subline">${esc(v.id)}</div></td><td>${esc([v.s['Meeting Date'],v.s['Meeting Time']].filter(Boolean).join(' · ')||'-')}</td><td><span class="badge purple">${esc(pretty(v.mode))}</span><div class="subline">Portal OFF</div></td><td><span class="badge ${classifyBadge(v.status)}">${esc(pretty(v.status))}</span></td><td>${esc(v.s['Chairperson']||'-')}</td><td>${v.n}<div class="subline">${v.pending} pending</div></td><td><span class="badge ${v.cal==='INVITED'?'green':'amber'}">${esc(pretty(v.cal))}</span><div class="subline">Mode: ${esc(pretty(v.inviteMode))}</div>${v.inviteAction?`<div style="margin-top:7px">${v.inviteAction}</div>`:''}</td><td>${v.documents}</td><td>${v.finalizeAction}</td></tr>`).join('')||'<tr><td colspan="9" class="empty">No SAC sessions yet. Create the first Phase 1 manual SAC session above.</td></tr>';
+      const mobile=document.getElementById('sacMobileCards');
+      if(mobile) mobile.innerHTML=views.map(v=>`<article class="sac-mobile-card"><div class="sac-mobile-head"><div><div class="sac-mobile-title">${esc(v.s['SAC Name']||v.id||'-')}</div><div class="sac-mobile-id">${esc(v.id)}</div></div><span class="badge ${classifyBadge(v.status)}">${esc(pretty(v.status))}</span></div><div class="sac-mobile-meta">${esc([v.s['Meeting Date'],v.s['Meeting Time']].filter(Boolean).join(' · ')||'Date / time not set')} · ${esc(pretty(v.mode))} · Portal OFF</div><div class="sac-mobile-grid"><div class="sac-mobile-field"><div class="label">Chairperson</div><div class="value">${esc(v.s['Chairperson']||'-')}</div></div><div class="sac-mobile-field"><div class="label">Candidates</div><div class="value">${v.n} candidate${v.n===1?'':'s'} · ${v.pending} pending</div></div><div class="sac-mobile-field"><div class="label">Invitation</div><div class="value">${esc(pretty(v.cal))}<br><span class="subline">Mode: ${esc(pretty(v.inviteMode))}</span></div></div><div class="sac-mobile-field"><div class="label">Documents</div><div class="value">${v.documents}</div></div></div><div class="sac-mobile-actions">${v.inviteAction}${v.finalizeAction}</div></article>`).join('')||'<div class="empty">No SAC sessions yet.</div>';
     }
     function renderAssessment(){const rows=db.V2_ASSESSMENT_PROGRESS||[],body=document.getElementById('assessmentBody');body.innerHTML=rows.map(x=>{const ref=x['Reference No']||'',r=records.find(z=>z.ref===ref),name=x['Student Name']||r?.app['Student Name']||'-',route=x['Assessment Type']||x['Route']||x['Assessment Route']||'-',stat=x['Status']||x['Assessment Status']||'-',sub=x['Submission URL']||x['Student Work URL']||'',interview=[x['Interview Date'],x['Interview Time']].filter(Boolean).join(' '),result=x['Result']||x['Final Result']||x['Assessment Result']||'-';return`<tr><td><div class="student">${esc(name)}</div><div class="subline">${esc(ref)}</div></td><td>${esc(pretty(route))}</td><td><span class="badge ${classifyBadge(stat)}">${esc(pretty(stat))}</span></td><td>${sub?`<a class="link" target="_blank" href="${esc(sub)}">Open work</a>`:'-'}</td><td>${esc(interview||'-')}</td><td><span class="badge ${classifyBadge(result)}">${esc(pretty(result))}</span></td><td>${esc(formatDate(x['Last Updated']||x['Updated At']||''))}</td></tr>`}).join('')||'<tr><td colspan="7" class="empty">No IA / Prerequisite progress records yet.</td></tr>'}
     function renderReports(){renderFunnel('reportFunnel');renderBars('reportProgramme',countBy(records,r=>r.app['Programme']||'Unspecified'),12);renderBars('reportIntake',countBy(records,r=>r.app['Intake']||'Unspecified'),12);renderBars('reportSource',countBy(records,r=>r.raw.referralSource||r.app['Agent Name']||'Direct / Unspecified'),12)}
