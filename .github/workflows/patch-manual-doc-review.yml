@@ -1,0 +1,46 @@
+name: Patch Manual Document Review
+
+on:
+  push:
+    branches: [apps-script-v2-dev]
+    paths:
+      - '.github/workflows/patch-manual-doc-review.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: apps-script-v2-dev
+          fetch-depth: 0
+      - name: Wire dispatcher
+        shell: python
+        run: |
+          from pathlib import Path
+          p = Path('apps-script-v2/WorkflowV2.js')
+          s = p.read_text(encoding='utf-8')
+          marker = "if (action === 'v2CompleteManualDocumentReview')"
+          if marker not in s:
+              anchor = "  if (action === 'v2RunQualificationScreening') {"
+              route = "  if (action === 'v2CompleteManualDocumentReview') return v2CompleteManualDocumentReview_(payload.data || {}, payload.updatedBy || 'Admin Portal V2');\n"
+              if anchor not in s:
+                  raise SystemExit('Dispatcher anchor not found')
+              s = s.replace(anchor, route + anchor, 1)
+          p.write_text(s, encoding='utf-8')
+      - name: Validate
+        run: |
+          grep -q "v2CompleteManualDocumentReview" apps-script-v2/WorkflowV2.js
+          node --check apps-script-v2/WorkflowV2.js
+          node --check apps-script-v2/ManualDocumentReviewV2.js
+      - name: Commit
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add apps-script-v2/WorkflowV2.js
+          git diff --cached --quiet && exit 0
+          git commit -m "Wire manual document review action"
+          git push origin apps-script-v2-dev
