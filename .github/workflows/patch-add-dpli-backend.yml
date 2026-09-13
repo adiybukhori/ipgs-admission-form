@@ -1,0 +1,82 @@
+name: Patch DPLI backend integration
+
+on:
+  push:
+    branches: [apps-script-v2-dev]
+    paths:
+      - '.github/workflows/patch-add-dpli-backend.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: apps-script-v2-dev
+          fetch-depth: 0
+
+      - name: Patch DPLI integration
+        shell: python
+        run: |
+          from pathlib import Path
+
+          # 1) Keep Apps Script copy of the form aligned with the live form.
+          p = Path('apps-script-v2/index.html')
+          s = p.read_text(encoding='utf-8')
+          old_levels = 'const LEVELS_OF_STUDY = ["Diploma", "Bachelor", "Master", "Doctorate", "Package", "Other"];'
+          new_levels = 'const LEVELS_OF_STUDY = ["Diploma", "Postgraduate Diploma", "Bachelor", "Master", "Doctorate", "Package", "Other"];'
+          if old_levels in s:
+              s = s.replace(old_levels, new_levels, 1)
+          elif new_levels not in s:
+              raise SystemExit('Apps Script form LEVELS_OF_STUDY anchor not found; refusing to patch.')
+
+          old_programmes = '''    const PROGRAMME_OPTIONS = {\n      Diploma: [],\n      Bachelor: ["BBA - Bachelor in Business Administration"],'''
+          new_programmes = '''    const PROGRAMME_OPTIONS = {\n      Diploma: [],\n      "Postgraduate Diploma": ["DPLI - Postgraduate Diploma in Education"],\n      Bachelor: ["BBA - Bachelor in Business Administration"],'''
+          if old_programmes in s:
+              s = s.replace(old_programmes, new_programmes, 1)
+          elif 'DPLI - Postgraduate Diploma in Education' not in s:
+              raise SystemExit('Apps Script form PROGRAMME_OPTIONS anchor not found; refusing to patch.')
+          p.write_text(s, encoding='utf-8')
+
+          # 2) Allow DPLI Offer Letter reference generation using the existing approved LOA template/placeholders.
+          p = Path('apps-script-v2/OfferLetterV2.js')
+          s = p.read_text(encoding='utf-8')
+          anchor = """  if (\n    value.indexOf(\n      'MASTER OF BUSINESS ADMINISTRATION'\n    ) > -1\n  ) {\n    return 'MBA';\n  }\n"""
+          dpli = """  if (\n    /\\bDPLI\\b/.test(value) ||\n    value.indexOf(\n      'POSTGRADUATE DIPLOMA IN EDUCATION'\n    ) > -1\n  ) {\n    return 'DPLI';\n  }\n\n\n"""
+          if dpli.strip() not in s:
+              if anchor not in s:
+                  raise SystemExit('Offer programme-code anchor not found; refusing to patch.')
+              s = s.replace(anchor, dpli + anchor, 1)
+          p.write_text(s, encoding='utf-8')
+
+          # 3) Canonicalise DPLI in qualification screening. No entry rule is invented;
+          #    without an approved rule it safely remains MANUAL_ACADEMIC_REVIEW.
+          p = Path('apps-script-v2/QualificationScreeningV2.js')
+          s = p.read_text(encoding='utf-8')
+          anchor = """  if (\n    /\\bMBA\\b/i.test(value) ||\n    /MASTER OF BUSINESS ADMINISTRATION/i.test(value)\n  ) {\n    return 'MBA - Master of Business Administration';\n  }\n"""
+          dpli = """  if (\n    /\\bDPLI\\b/i.test(value) ||\n    /POSTGRADUATE DIPLOMA IN EDUCATION/i.test(value)\n  ) {\n    return 'DPLI - Postgraduate Diploma in Education';\n  }\n\n"""
+          if dpli.strip() not in s:
+              if anchor not in s:
+                  raise SystemExit('Qualification programme-normalisation anchor not found; refusing to patch.')
+              s = s.replace(anchor, dpli + anchor, 1)
+          p.write_text(s, encoding='utf-8')
+
+      - name: Validate patch
+        run: |
+          grep -q 'DPLI - Postgraduate Diploma in Education' apps-script-v2/index.html
+          grep -q "return 'DPLI';" apps-script-v2/OfferLetterV2.js
+          grep -q "return 'DPLI - Postgraduate Diploma in Education';" apps-script-v2/QualificationScreeningV2.js
+          node --check apps-script-v2/OfferLetterV2.js
+          node --check apps-script-v2/QualificationScreeningV2.js
+
+      - name: Commit patch
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add apps-script-v2/index.html apps-script-v2/OfferLetterV2.js apps-script-v2/QualificationScreeningV2.js
+          git diff --cached --quiet && exit 0
+          git commit -m "Add DPLI across Admission V2 programme flow"
+          git push origin apps-script-v2-dev
