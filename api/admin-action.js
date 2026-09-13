@@ -7,6 +7,7 @@ const ALLOWED_ACTIONS = new Set([
   'v2AgentAdminStatus',
   'v2UpdateStage',
   'v2RunDocumentReview',
+  'v2CompleteManualDocumentReview',
   'v2RunQualificationScreening',
   'v2RunAutoAiScreening',
   'v2CompleteManualQualificationScreening',
