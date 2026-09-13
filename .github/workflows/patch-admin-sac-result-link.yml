@@ -1,0 +1,38 @@
+name: Patch admin SAC result link
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/patch-admin-sac-result-link.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+      - name: Add Review and Send action for finalised SAC sessions
+        shell: python
+        run: |
+          from pathlib import Path
+          p = Path('admin.html')
+          s = p.read_text(encoding='utf-8')
+          old = "const finalizeAction=!isFinal&&n>0&&pending===0?`<button class=\"primary\" onclick=\"finalizeSacSession('${esc(id)}')\">Finalize & Generate</button>`:(isFinal?'<span class=\"badge green\">Finalized</span>':pending?`<span class=\"badge amber\">${pending} pending</span>`:'<span class=\"badge blue\">Assign candidates</span>');"
+          new = "const finalizeAction=!isFinal&&n>0&&pending===0?`<button class=\"primary\" onclick=\"finalizeSacSession('${esc(id)}')\">Finalize & Generate</button>`:(isFinal?'<a class=\"ghost\" href=\"/sac-results.html\">Review & Send Results</a>':pending?`<span class=\"badge amber\">${pending} pending</span>`:'<span class=\"badge blue\">Assign candidates</span>');"
+          if old not in s:
+              raise SystemExit('Admin SAC action target not found; refusing to patch.')
+          p.write_text(s.replace(old, new, 1), encoding='utf-8')
+      - name: Commit patch
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add admin.html
+          git diff --cached --quiet && exit 0
+          git commit -m "Link finalised SAC sessions to result review"
+          git push origin main
