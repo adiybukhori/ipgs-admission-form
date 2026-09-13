@@ -1,0 +1,42 @@
+name: Run Agent Patch V2
+
+on:
+  push:
+    branches:
+      - apps-script-v2-dev
+    paths:
+      - '.github/workflows/run-agent-patch-v2.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: apps-script-v2-dev
+          fetch-depth: 0
+      - name: Apply patch
+        run: python .github/scripts/patch_agent_v2.py
+      - name: Validate
+        run: |
+          node --check apps-script-v2/AgentAdminV2.js
+          node --check apps-script-v2/AgentProspectV2.js
+          node --check apps-script-v2/AdmissionV2.js
+          node --check apps-script-v2/WorkflowV2.js
+          grep -q "v2UpsertAgent" apps-script-v2/WorkflowV2.js
+          grep -q "v2SendAgentApplicationNotification_" apps-script-v2/AgentProspectV2.js
+          grep -q "agentNotificationStatus" apps-script-v2/AdmissionV2.js
+      - name: Commit source changes
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add apps-script-v2/AdmissionV2.js apps-script-v2/AgentProspectV2.js apps-script-v2/WorkflowV2.js apps-script-v2/agent-v2.html
+          if git diff --cached --quiet; then
+            echo "No source changes required."
+          else
+            git commit -m "Wire academic consultant referral and notification flow"
+            git push origin apps-script-v2-dev
+          fi
