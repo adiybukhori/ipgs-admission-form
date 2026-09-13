@@ -1,0 +1,29 @@
+name: Validate Agent Frontend
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/validate-agent-frontend.yml'
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Extract inline scripts
+        shell: python
+        run: |
+          from pathlib import Path
+          import re
+          for name in ['index.html','agents.html']:
+              text=Path(name).read_text(encoding='utf-8')
+              blocks=re.findall(r'<script[^>]*>([\s\S]*?)</script>', text, flags=re.I)
+              Path('/tmp/'+name+'.js').write_text('\n'.join(blocks),encoding='utf-8')
+      - name: Syntax checks
+        run: |
+          node --check /tmp/index.html.js
+          node --check /tmp/agents.html.js
+          node --check api/agents.js
+          node --check api/admin-action.js
+          node --check api/admin-data.js
