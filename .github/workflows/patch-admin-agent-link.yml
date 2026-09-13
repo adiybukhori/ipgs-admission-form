@@ -1,4 +1,4 @@
-name: Patch Admin Academic Consultant Link
+name: Patch Admin Mobile Dashboard
 
 on:
   push:
@@ -17,25 +17,95 @@ jobs:
         with:
           ref: main
           fetch-depth: 0
-      - name: Add consultant management link
+      - name: Polish mobile dashboard header and navigation
         shell: python
         run: |
           from pathlib import Path
-          p=Path('admin.html')
-          s=p.read_text(encoding='utf-8')
-          old='<div class="topbar"><div id="topTitle" class="page-title">Dashboard</div><div class="top-actions"><div id="freshness" class="freshness">Not loaded</div><button class="ghost" onclick="loadData(true)">Refresh</button></div></div>'
-          new='<div class="topbar"><div id="topTitle" class="page-title">Dashboard</div><div class="top-actions"><div id="freshness" class="freshness">Not loaded</div><a class="ghost" href="/agents.html" style="text-decoration:none">Academic Consultants</a><button class="ghost" onclick="loadData(true)">Refresh</button></div></div>'
-          if '/agents.html' not in s:
-              if old not in s: raise SystemExit('Topbar anchor not found')
-              s=s.replace(old,new,1)
-          p.write_text(s,encoding='utf-8')
-      - name: Validate
-        run: grep -q '/agents.html' admin.html
+
+          p = Path('admin.html')
+          s = p.read_text(encoding='utf-8')
+
+          css_marker = '/* MOBILE_DASHBOARD_POLISH_V1 */'
+          if css_marker not in s:
+              css = r'''
+    /* MOBILE_DASHBOARD_POLISH_V1 */
+    .mobile-shortcuts{display:none}
+    .refresh-icon{display:none}
+
+    @media(max-width:700px){
+      .topbar{height:64px;padding:0 16px;gap:12px}
+      .page-title{font-size:20px;line-height:1.1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+      .top-actions{gap:8px;flex:0 0 auto}
+      .top-actions .freshness,.top-actions .consultants-link{display:none}
+      .refresh-btn{width:42px;height:42px;padding:0;display:grid;place-items:center;border-radius:12px}
+      .refresh-btn .refresh-text{display:none}
+      .refresh-btn .refresh-icon{display:inline;font-size:21px;line-height:1}
+      .mobile-shortcuts{display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;padding:10px 14px 0;background:var(--bg);position:sticky;top:64px;z-index:19}
+      .mobile-shortcuts button,.mobile-shortcuts a{min-width:0;border:1px solid var(--line);border-radius:12px;background:#fff;color:#566074;text-decoration:none;text-align:center;padding:10px 8px;font-size:11px;font-weight:800;line-height:1.15;box-shadow:0 3px 10px rgba(29,37,59,.04)}
+      .mobile-shortcuts button.active{background:var(--purpleSoft);border-color:#d9d2f4;color:var(--purple)}
+      .content{padding:14px 14px 30px}
+      .hero{margin-bottom:18px;gap:10px}
+      .hero h2{font-size:26px;line-height:1.08;margin-bottom:8px}
+      .hero p{font-size:14px;line-height:1.45}
+      .kpis{gap:10px;margin-bottom:16px}
+      .kpi{padding:14px 13px;border-radius:16px}
+      .kpi .label{font-size:11px;line-height:1.2}
+      .kpi .value{font-size:27px;margin:7px 0 4px}
+      .kpi .meta{font-size:11px;line-height:1.35}
+      .grid-2{gap:14px;margin-bottom:14px}
+      .panel{border-radius:16px}
+      .panel-head{padding:15px 16px;align-items:flex-start}
+      .panel-head h3{font-size:15px;line-height:1.2}
+      .panel-head span{font-size:11px;line-height:1.3;text-align:right}
+      .panel-body{padding:16px}
+      .bar-row{grid-template-columns:minmax(92px,120px) 1fr 34px;gap:8px}
+      .funnel-row{grid-template-columns:minmax(110px,140px) 1fr 34px;gap:8px}
+    }
+
+    @media(max-width:390px){
+      .mobile-shortcuts{gap:6px;padding-left:10px;padding-right:10px}
+      .mobile-shortcuts button,.mobile-shortcuts a{padding:9px 5px;font-size:10px}
+      .content{padding-left:10px;padding-right:10px}
+      .kpi{padding:12px 11px}
+      .kpi .label{font-size:10px}
+      .kpi .meta{font-size:10px}
+    }
+'''
+              if '</style>' not in s:
+                  raise SystemExit('Style closing tag not found')
+              s = s.replace('</style>', css + '\n  </style>', 1)
+
+          old_top = '''      <div class="topbar"><div id="topTitle" class="page-title">Dashboard</div><div class="top-actions"><div id="freshness" class="freshness">Not loaded</div><a class="ghost" href="/agents.html" style="text-decoration:none">Academic Consultants</a><button class="ghost" onclick="loadData(true)">Refresh</button></div></div>'''
+          new_top = '''      <div class="topbar"><div id="topTitle" class="page-title">Dashboard</div><div class="top-actions"><div id="freshness" class="freshness">Not loaded</div><a class="ghost consultants-link" href="/agents.html" style="text-decoration:none">Academic Consultants</a><button class="ghost refresh-btn" onclick="loadData(true)" aria-label="Refresh dashboard"><span class="refresh-icon" aria-hidden="true">↻</span><span class="refresh-text">Refresh</span></button></div></div>
+      <div class="mobile-shortcuts" aria-label="Quick navigation"><button class="active" data-mobile-section="dashboard" onclick="goMobile('dashboard')">Overview</button><a href="/agents.html">Consultants</a><button data-mobile-section="applications" onclick="goMobile('applications')">Applications</button></div>'''
+          if 'class="mobile-shortcuts"' not in s:
+              if old_top not in s:
+                  raise SystemExit('Current topbar anchor not found')
+              s = s.replace(old_top, new_top, 1)
+
+          old_go = '''    function go(id,btn){document.querySelectorAll('.section').forEach(x=>x.classList.remove('active'));document.getElementById(id).classList.add('active');document.querySelectorAll('.nav button').forEach(x=>x.classList.remove('active'));btn.classList.add('active');const names={dashboard:'Dashboard',applications:'Applications',sac:'SAC Monitoring',assessment:'IA / Prerequisite',reports:'Reports'};document.getElementById('topTitle').textContent=names[id]||'Admission'}'''
+          new_go = '''    function go(id,btn){document.querySelectorAll('.section').forEach(x=>x.classList.remove('active'));document.getElementById(id).classList.add('active');document.querySelectorAll('.nav button').forEach(x=>x.classList.remove('active'));if(btn)btn.classList.add('active');const names={dashboard:'Dashboard',applications:'Applications',sac:'SAC Monitoring',assessment:'IA / Prerequisite',reports:'Reports',guide:'System Guide'};document.getElementById('topTitle').textContent=names[id]||'Admission';syncMobileShortcuts(id)}
+    function goMobile(id){const btn=document.querySelector('.nav button[data-section="'+id+'"]');if(btn)go(id,btn)}
+    function syncMobileShortcuts(id){document.querySelectorAll('[data-mobile-section]').forEach(x=>x.classList.toggle('active',x.dataset.mobileSection===id))}'''
+          if 'function goMobile(id)' not in s:
+              if old_go not in s:
+                  raise SystemExit('Navigation function anchor not found')
+              s = s.replace(old_go, new_go, 1)
+
+          p.write_text(s, encoding='utf-8')
+
+      - name: Validate mobile polish
+        run: |
+          grep -q 'MOBILE_DASHBOARD_POLISH_V1' admin.html
+          grep -q 'class="mobile-shortcuts"' admin.html
+          grep -q 'class="ghost refresh-btn"' admin.html
+          grep -q 'function goMobile(id)' admin.html
+
       - name: Commit
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add admin.html
           git diff --cached --quiet && exit 0
-          git commit -m "Link Academic Consultants from admin command center"
+          git commit -m "Polish Admission dashboard mobile view"
           git push origin main
