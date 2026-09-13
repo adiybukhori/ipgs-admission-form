@@ -16,6 +16,10 @@ const ALLOWED_ACTIONS = new Set([
   'v2RecordSacDecisionManual',
   'v2FinalizeSacSessionManual',
   'v2SacManualPhase1Status',
+  'v2SacResultStatus',
+  'v2PrepareSacResultDocument',
+  'v2PreviewSacResult',
+  'v2SendSacResultEmail',
   'v2UpdateAssessment'
 ]);
 
