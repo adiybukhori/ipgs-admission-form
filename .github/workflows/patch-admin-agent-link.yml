@@ -41,10 +41,17 @@ jobs:
               if old_go not in s:
                   raise SystemExit('Navigation function anchor not found')
               s = s.replace(old_go, new_go, 1)
+
+          scroll_marker = '/* MOBILE_SCROLL_FIX_V1 */'
+          if scroll_marker not in s:
+              scroll_css = '/* MOBILE_SCROLL_FIX_V1 */ @media(max-width:700px){.mobile-shortcuts{position:static!important;top:auto!important;z-index:auto}.main{height:calc(100vh - 64px);height:calc(100dvh - 64px - env(safe-area-inset-bottom));overflow-y:auto;overscroll-behavior-y:contain;padding-bottom:0}.sidebar{height:calc(64px + env(safe-area-inset-bottom));padding-bottom:calc(7px + env(safe-area-inset-bottom))}.content{padding-bottom:36px}}'
+              s = s.replace('</style>', scroll_css + '\n  </style>', 1)
+
           p.write_text(s, encoding='utf-8')
       - name: Validate mobile polish
         run: |
           grep -q 'MOBILE_DASHBOARD_POLISH_V1' admin.html
+          grep -q 'MOBILE_SCROLL_FIX_V1' admin.html
           grep -q 'class="mobile-shortcuts"' admin.html
           grep -q 'class="ghost refresh-btn"' admin.html
           grep -q 'function goMobile(id)' admin.html
@@ -54,5 +61,5 @@ jobs:
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add admin.html
           git diff --cached --quiet && exit 0
-          git commit -m "Polish Admission dashboard mobile view"
+          git commit -m "Fix mobile dashboard scroll overlap"
           git push origin main
