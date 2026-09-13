@@ -358,6 +358,9 @@ function handleV2Post_(payload) {
       remarks: data.remarks || ''
     });
   }
+  if (action === 'v2RunAutoAiScreening') return v2TryAutoAiScreening_((payload.data || {}).referenceNo, payload.updatedBy || 'Admin Portal V2');
+  if (action === 'v2CompleteManualQualificationScreening') return v2CompleteManualQualificationScreening_(payload.data || {}, payload.updatedBy || 'Admin Portal V2');
+  if (action === 'v2IssueOffer') return v2IssueOffer_((payload.data || {}).referenceNo, payload.updatedBy || 'Admin Portal V2', payload.data || {});
   if (action === 'v2RecordAiScreeningResult') return v2RecordAiScreeningResult_(payload.data || {}, payload.updatedBy);
   if (action === 'v2ConfirmAiScreening') return v2ConfirmAiScreening_(payload.data || {}, payload.updatedBy);
   if (action === 'v2CreateSacSession') return v2CreateSacSession_(payload.data || {}, payload.updatedBy);

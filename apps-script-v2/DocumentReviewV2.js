@@ -249,6 +249,25 @@ function v2RunDocumentReview(referenceNo, reviewer, remarks) {
 
   v2InvalidateCache_();
 
+  // V2_AUTO_AI_AFTER_DOCUMENT_REVIEW_V1
+  // AI gets the first automatic attempt. Any failure, missing API key or
+  // low-confidence result is non-blocking: Registry can immediately use the
+  // manual screening button as the second layer.
+  let autoAiScreening = null;
+  if (status === 'COMPLETE') {
+    try {
+      autoAiScreening = v2TryAutoAiScreening_(reference, 'Document Review Auto Trigger');
+    } catch (autoAiError) {
+      autoAiScreening = {
+        ok: false,
+        status: 'AUTO_FAILED',
+        message: String(autoAiError && autoAiError.message || autoAiError),
+        manualScreeningAvailable: true
+      };
+      Logger.log('V2 auto AI screening failed non-blocking: ' + autoAiScreening.message);
+    }
+  }
+
   const report = {
     ok: true,
     referenceNo: reference,
@@ -266,6 +285,8 @@ function v2RunDocumentReview(referenceNo, reviewer, remarks) {
         : 'REQUEST_MISSING_DOCUMENTS',
 
     applicationStage: 'DOCUMENT_REVIEW',
+    autoAiScreening: autoAiScreening,
+    manualScreeningAvailable: status === 'COMPLETE',
 
     emailSent: false,
     v1Touched: false

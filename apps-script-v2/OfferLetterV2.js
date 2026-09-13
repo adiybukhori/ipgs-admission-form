@@ -140,21 +140,15 @@ function v2PrepareOffer_(referenceNo, actor) {
     v2OfferHashToken_(rawToken);
 
 
-  const baseUrl =
-    String(
-      CONFIG.acceptanceSigningBaseUrl ||
-      ''
-    ).trim();
+  // Prefer the deployed Apps Script service itself so the e-sign page is
+  // always on the same backend version that validates the token.
+  const serviceUrl = String(ScriptApp.getService().getUrl() || '').trim();
+  const configuredBaseUrl = String(CONFIG.acceptanceSigningBaseUrl || '').trim();
+  const baseUrl = serviceUrl ? serviceUrl + '?page=acceptance-v2' : configuredBaseUrl;
 
-  const acceptanceUrl =
-    baseUrl
-      ? baseUrl +
-        (baseUrl.indexOf('?') > -1
-          ? '&'
-          : '?') +
-        'token=' +
-        encodeURIComponent(rawToken)
-      : '';
+  const acceptanceUrl = baseUrl
+    ? baseUrl + (baseUrl.indexOf('?') > -1 ? '&' : '?') + 'token=' + encodeURIComponent(rawToken)
+    : '';
 
 
   const now =
@@ -3438,3 +3432,67 @@ function v2RenderAcceptancePage_(params) {
       'IUC Acceptance of Offer'
     );
 }
+
+// V2_OFFER_ACCEPTANCE_E2E_V1
+function v2IssueOffer_(referenceNo, actor, options) {
+  assertDevIdentity_();
+  const reference = String(referenceNo || '').trim();
+  if (!reference) throw new Error('Reference No is required.');
+  const opts = options || {};
+  const prepared = v2PrepareOffer_(reference, actor || 'Offer Issuance');
+  const generated = v2GenerateOfferLetter_(reference, actor || 'Offer Issuance');
+  let email = {sent:false,mode:'NOT_REQUESTED'};
+  if (opts.sendEmail === true) {
+    email = v2SendOfferEmail_(reference, prepared.acceptanceSigningUrl, generated.pdfFileId, {testMode:opts.testMode === true,testRecipient:String(opts.testRecipient || '')});
+  }
+  return {ok:true,referenceNo:reference,offerLetterStatus:generated.offerLetterStatus,applicationStage:generated.applicationStage,offerLetterPdfUrl:generated.offerLetterPdfUrl,acceptanceSigningUrl:prepared.acceptanceSigningUrl,emailSent:!!email.sent,emailMode:email.mode || '',emailRecipient:email.recipient || '',v1Touched:false};
+}
+
+function v2SendOfferEmail_(referenceNo, acceptanceUrl, pdfFileId, options) {
+  const reference = String(referenceNo || '').trim();
+  const application = v2Find_('V2_APPLICATIONS','Reference No',reference);
+  const workflow = v2Find_('V2_WORKFLOW','Reference No',reference);
+  if (!application || !workflow) throw new Error('Application/workflow record not found.');
+  if (String(workflow.record['Offer Letter Status'] || '') !== 'ISSUED') throw new Error('Offer email blocked: Offer Letter is not ISSUED.');
+  const opts = options || {};
+  const actualRecipient = String(application.record['Personal Email'] || '').trim();
+  const testRecipient = String(opts.testRecipient || PropertiesService.getScriptProperties().getProperty('V2_TEST_EMAIL') || 'adiybukhori@innovative.edu.my').trim();
+  const recipient = opts.testMode === true ? testRecipient : actualRecipient;
+  if (!recipient) throw new Error('Offer email recipient is missing.');
+  if (!acceptanceUrl) throw new Error('Acceptance signing URL is missing.');
+  const student = String(application.record['Student Name'] || 'Student');
+  const programme = String(application.record['Programme'] || '');
+  const intake = String(application.record['Intake'] || '');
+  const subject = '[IUC IPGS] Offer Letter - ' + programme + ' - ' + reference;
+  const html = '<div style="font-family:Arial,sans-serif;max-width:680px;margin:auto;border:1px solid #e5e7eb;border-radius:16px;overflow:hidden"><div style="background:#2d2363;color:white;padding:24px"><h2 style="margin:0">Offer of Admission</h2></div><div style="padding:24px"><p>Dear ' + v2Html_(student) + ',</p><p>We are pleased to issue your Offer Letter for <strong>' + v2Html_(programme) + '</strong>.</p><p><strong>Reference:</strong> ' + v2Html_(reference) + '<br><strong>Intake:</strong> ' + v2Html_(intake) + '</p><p>Please review the attached Offer Letter. To accept the offer, complete your electronic acceptance using the secure link below:</p><p style="margin:24px 0"><a href="' + v2Html_(acceptanceUrl) + '" style="background:#2d2363;color:#fff;text-decoration:none;padding:12px 18px;border-radius:8px;font-weight:bold">Accept Offer</a></p><p>If the button does not open, copy this link into your browser:<br>' + v2Html_(acceptanceUrl) + '</p></div></div>';
+  const attachment = DriveApp.getFileById(pdfFileId).getBlob();
+  GmailApp.sendEmail(recipient, subject, 'Your IUC Offer Letter is attached. Acceptance link: ' + acceptanceUrl, {htmlBody:html,attachments:[attachment],name:'IUC IPGS Admission'});
+  v2Audit_(reference,'OFFER','SEND_OFFER_EMAIL',{}, {recipient:recipient,testMode:opts.testMode === true}, 'Offer Email', 'SUCCESS', '');
+  return {sent:true,mode:opts.testMode === true ? 'TEST' : 'LIVE',recipient:recipient};
+}
+
+function v2OfferAcceptanceEndToEndControlledTest() {
+  assertDevIdentity_();
+  const stamp = Utilities.formatDate(new Date(), CONFIG.timezone || 'Asia/Kuala_Lumpur', 'yyyyMMdd-HHmmss');
+  const now = new Date().toISOString();
+  const reference = 'V2-OFFER-E2E-' + stamp;
+  const root = DriveApp.getFolderById(CONFIG.rootFolderId);
+  const testRoot = v2GetOrCreateFolder_(root, 'V2_TEST_OUTPUT');
+  const studentFolder = v2GetOrCreateFolder_(testRoot, 'OFFER_E2E_' + stamp);
+  v2Append_('V2_APPLICATIONS', {'Reference No':reference,'Submitted At':now,'Student Name':'V2 OFFER E2E TEST ' + stamp,'ID / Passport No':'E2E-' + stamp,'Personal Email':'NO-EMAIL-TEST','Programme':'MBA - Master of Business Administration','Level of Study':'Master','Study Mode':'Part Time','Intake':'September 2026','Student Folder URL':studentFolder.getUrl(),'Raw Application JSON':JSON.stringify({fullAddress:'TEST ADDRESS ONLY'}),'Application Status':'TEST','Email Status':'DISABLED','Last Updated':now,'Version':'CONTROLLED_OFFER_E2E_TEST'});
+  v2Append_('V2_WORKFLOW', {'Reference No':reference,'Student Name':'V2 OFFER E2E TEST ' + stamp,'ID / Passport No':'E2E-' + stamp,'Personal Email':'NO-EMAIL-TEST','Programme':'MBA - Master of Business Administration','Level of Study':'Master','Intake':'September 2026','Application Stage':'ELIGIBLE_FOR_OFFER','Application Status':'TEST','SAC Decision':'DIRECT_ENTRY','Assessment Status':'NOT_REQUIRED','Prerequisite Status':'NOT_REQUIRED','Offer Letter Status':'NOT_ISSUED','Acceptance Status':'PENDING','Student Folder URL':studentFolder.getUrl(),'Last Updated':now,'Updated By':'Controlled Offer E2E Test','Version':V2_BUILD});
+  const issued = v2IssueOffer_(reference, 'Controlled Offer E2E Test', {sendEmail:false});
+  const tinySignature = 'data:image/png;base64,' + 'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII=';
+  const tokenMatch = String(issued.acceptanceSigningUrl || '').match(/[?&]token=([^&]+)/);
+  if (!tokenMatch) throw new Error('Controlled test could not recover acceptance token from signing URL.');
+  const token = decodeURIComponent(tokenMatch[1]);
+  const accepted = v2SubmitSignedAcceptance(token, {signedName:'V2 TEST STUDENT',signatureDataUrl:tinySignature,declarationAccepted:true});
+  const finalWorkflow = v2Find_('V2_WORKFLOW','Reference No',reference);
+  const offerFile = DriveApp.getFileById(v2OfferExtractDriveId_(issued.offerLetterPdfUrl));
+  const acceptanceFile = DriveApp.getFileById(v2OfferExtractDriveId_(accepted.acceptancePdfUrl));
+  const checks = {offerIssued:issued && issued.ok === true && issued.offerLetterStatus === 'ISSUED',offerPdfExists:!!offerFile && offerFile.getMimeType() === MimeType.PDF,acceptanceUrlConfigured:!!issued.acceptanceSigningUrl,acceptanceRecorded:accepted && accepted.ok === true,acceptancePdfExists:!!acceptanceFile && acceptanceFile.getMimeType() === MimeType.PDF,finalStageAccepted:String(finalWorkflow.record['Application Stage'] || '') === 'ACCEPTED',acceptanceStatusAccepted:String(finalWorkflow.record['Acceptance Status'] || '') === 'ACCEPTED',tokenConsumed:String(finalWorkflow.record['Acceptance Token Hash'] || '') === ''};
+  const report = {ok:Object.keys(checks).every(function(k){return checks[k]===true;}),referenceNo:reference,checks:checks,offerLetterPdfUrl:issued.offerLetterPdfUrl,acceptancePdfUrl:accepted.acceptancePdfUrl,emailSent:false,v1Touched:false};
+  Logger.log(JSON.stringify(report));
+  return report;
+}
+
