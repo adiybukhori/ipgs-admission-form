@@ -1,0 +1,50 @@
+name: Patch DPLI form option
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/patch-add-dpli-form.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+      - name: Add DPLI to admission form only
+        shell: python
+        run: |
+          from pathlib import Path
+          p = Path('index.html')
+          s = p.read_text(encoding='utf-8')
+          old_levels = 'const LEVELS_OF_STUDY = ["Diploma", "Bachelor", "Master", "Doctorate", "Package", "Other"];'
+          new_levels = 'const LEVELS_OF_STUDY = ["Diploma", "Postgraduate Diploma", "Bachelor", "Master", "Doctorate", "Package", "Other"];'
+          if old_levels not in s:
+              raise SystemExit('LEVELS_OF_STUDY anchor not found; refusing to patch.')
+          s = s.replace(old_levels, new_levels, 1)
+
+          old_programmes = '''    const PROGRAMME_OPTIONS = {\n      Diploma: [],\n      Bachelor: ["BBA - Bachelor in Business Administration"],'''
+          new_programmes = '''    const PROGRAMME_OPTIONS = {\n      Diploma: [],\n      "Postgraduate Diploma": ["DPLI - Postgraduate Diploma in Education"],\n      Bachelor: ["BBA - Bachelor in Business Administration"],'''
+          if old_programmes not in s:
+              raise SystemExit('PROGRAMME_OPTIONS anchor not found; refusing to patch.')
+          s = s.replace(old_programmes, new_programmes, 1)
+          p.write_text(s, encoding='utf-8')
+
+      - name: Sanity check
+        run: |
+          grep -q 'Postgraduate Diploma' index.html
+          grep -q 'DPLI - Postgraduate Diploma in Education' index.html
+      - name: Commit patch
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add index.html
+          git diff --cached --quiet && exit 0
+          git commit -m "Add DPLI to admission form"
+          git push origin main
