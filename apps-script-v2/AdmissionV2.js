@@ -40,6 +40,18 @@ function v2SubmitAdmission_(payload) {
       emailStatus = 'FAILED: ' + String(emailError && emailError.message || emailError);
       Logger.log('V2 acknowledgement email failed: ' + emailStatus);
     }
+
+    let agentActionUrl = '';
+    let agentNotificationStatus = agent && agent.email ? 'PENDING' : 'NOT_APPLICABLE';
+    if (agent && agent.email) {
+      try {
+        agentActionUrl = v2CreateAgentActionLink_(payload, reference);
+        agentNotificationStatus = v2SendAgentApplicationNotification_(payload, reference, intake, pdf, agent, agentActionUrl);
+      } catch (agentError) {
+        agentNotificationStatus = 'FAILED: ' + String(agentError && agentError.message || agentError);
+        Logger.log('V2 agent notification failed: ' + agentNotificationStatus);
+      }
+    }
     const savedApplication = v2Find_('V2_APPLICATIONS','Reference No',reference);
     if (savedApplication) {
       v2UpdateRow_(savedApplication.sheet,savedApplication.rowNumber,{
@@ -47,7 +59,12 @@ function v2SubmitAdmission_(payload) {
       });
     }
     v2Audit_(reference, 'ADMISSION', 'V2_APPLICATION_SUBMITTED', {}, {
-      intakeId:intake.id, programme:payload.programme, emailStatus:emailStatus
+      intakeId:intake.id,
+      programme:payload.programme,
+      emailStatus:emailStatus,
+      agentCode:agent ? agent.code : '',
+      agentActionCreated:!!agentActionUrl,
+      agentNotificationStatus:agentNotificationStatus
     }, 'Applicant', 'SUCCESS', 'Admission PDF only. No COL or Offer Letter generated.');
     v2InvalidateCache_();
     return {
@@ -305,8 +322,9 @@ function v2SendSubmissionAcknowledgements_(payload, reference, intake, pdf, agen
   const mode = String(properties.getProperty('V2_EMAIL_MODE') || 'DISABLED').toUpperCase();
   if (mode === 'DISABLED') return 'DISABLED';
   const testRecipient = String(properties.getProperty('V2_TEST_EMAIL') || 'adiybukhori@innovative.edu.my').trim();
+  // Student/admin acknowledgement only. Academic Consultants receive a
+  // separate action-focused email with the secure Prospect / Fee Group link.
   const intended = [payload.email].concat(CONFIG.notificationEmails || []);
-  if (agent && agent.email) intended.push(agent.email);
   const recipients = mode === 'TEST' ? [testRecipient] : intended.filter(Boolean);
   const unique = recipients.filter(function(value,index,array) { return array.indexOf(value) === index; });
   const subject = '[IPGS Admission V2] Application Received - ' + reference;

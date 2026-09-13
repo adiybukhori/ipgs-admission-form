@@ -16,6 +16,65 @@
 
 const V2_AGENT_ACTIONS_SHEET = 'V2_AGENT_ACTIONS';
 const V2_AGENT_EMAIL_MODE = 'DISABLED/TEST';
+
+function v2AgentNotificationMode_() {
+  const mode = String(PropertiesService.getScriptProperties().getProperty('V2_AGENT_EMAIL_MODE') || 'DISABLED').trim().toUpperCase();
+  return ['DISABLED','TEST','LIVE'].indexOf(mode) >= 0 ? mode : 'DISABLED';
+}
+
+function v2SendAgentApplicationNotification_(payload, reference, intake, pdf, agent, actionUrl) {
+  assertDevIdentity_();
+  const mode = v2AgentNotificationMode_();
+  if (mode === 'DISABLED') return 'DISABLED';
+
+  const intendedEmail = String(agent && agent.email || '').trim();
+  if (!intendedEmail) return 'AGENT_EMAIL_MISSING';
+
+  let recipient = intendedEmail;
+  if (mode === 'TEST') {
+    recipient = String(PropertiesService.getScriptProperties().getProperty('V2_AGENT_TEST_EMAIL') || '').trim();
+    if (!recipient) return 'TEST_EMAIL_NOT_CONFIGURED';
+  }
+
+  const studentName = String(payload && payload.fullName || 'Applicant').trim();
+  const programme = String(payload && payload.programme || '').trim();
+  const agentName = String(agent && agent.name || 'Academic Consultant').trim();
+  const intakeName = String(intake && intake.name || payload && payload.intake || '').trim();
+  const secureUrl = String(actionUrl || '').trim();
+  if (!secureUrl) throw new Error('Agent Prospect / Fee Group action link is missing.');
+
+  const subject = (mode === 'TEST' ? '[TEST] ' : '') + '[IPGS Admission] New Applicant - ' + studentName + ' - ' + reference;
+  const textBody = [
+    'Dear ' + agentName + ',', '',
+    'Your referred applicant has submitted the IUC Admission Form.', '',
+    'Student: ' + studentName,
+    'Programme: ' + (programme || '-'),
+    'Intake: ' + (intakeName || '-'),
+    'Reference No: ' + reference, '',
+    'Next action:',
+    '1. Create / update the student Prospect in SKY.',
+    '2. Open the secure link below and enter the SKY Prospect ID.',
+    '3. Select the applicable Fee Structure / Fee Group.', '',
+    secureUrl, '',
+    'The student Admission Form is attached for your reference.', '',
+    'Regards,', 'IPGS Registry', 'Innovative University College'
+  ].join('\n');
+
+  const htmlBody = '<div style="font-family:Arial,sans-serif;max-width:680px;margin:auto;border:1px solid #e5e7eb;border-radius:16px;overflow:hidden">' +
+    '<div style="background:#2d2363;color:#fff;padding:22px"><h2 style="margin:0">New Referred Applicant</h2></div>' +
+    '<div style="padding:24px"><p>Dear <strong>'+v2Html_(agentName)+'</strong>,</p>' +
+    '<p>Your referred applicant has submitted the IUC Admission Form.</p>' +
+    '<p><strong>Student:</strong> '+v2Html_(studentName)+'<br><strong>Programme:</strong> '+v2Html_(programme||'-')+'<br><strong>Intake:</strong> '+v2Html_(intakeName||'-')+'<br><strong>Reference No:</strong> '+v2Html_(reference)+'</p>' +
+    '<div style="background:#f7f5ff;border:1px solid #ddd7f2;border-radius:12px;padding:15px;margin:18px 0"><strong>Next action</strong><ol style="padding-left:20px;line-height:1.6"><li>Create / update the student Prospect in SKY.</li><li>Enter the SKY Prospect ID through the secure link.</li><li>Select the applicable Fee Structure / Fee Group.</li></ol></div>' +
+    '<p><a href="'+v2Html_(secureUrl)+'" style="display:inline-block;background:#2d2363;color:#fff;text-decoration:none;padding:12px 18px;border-radius:10px;font-weight:700">Update Prospect & Fee Structure</a></p>' +
+    '<p>The student Admission Form is attached for your reference.</p>' +
+    '<p>Regards,<br><strong>IPGS Registry</strong><br>Innovative University College</p></div></div>';
+
+  const options = {htmlBody:htmlBody, name:'IPGS Admission'};
+  if (pdf && pdf.blob) options.attachments = [pdf.blob];
+  GmailApp.sendEmail(recipient, subject, textBody, options);
+  return mode === 'TEST' ? 'TEST_SENT' : 'LIVE_SENT';
+}
 const V2_AGENT_FEE_CACHE_SECONDS = 300;
 const V2_AGENT_ACTION_HEADERS = [
   'Action ID',

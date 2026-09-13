@@ -57,8 +57,8 @@
           <label for="skyProspectId">SKY Prospect ID</label>
           <input id="skyProspectId" type="text" autocomplete="off" placeholder="Enter SKY Prospect ID" maxlength="100">
 
-          <label for="feeGroup">Fee Group</label>
-          <input id="feeGroup" list="feeGroupOptions" type="text" autocomplete="off" placeholder="Type to search or select a Fee Group">
+          <label for="feeGroup">Fee Structure / Fee Group</label>
+          <input id="feeGroup" list="feeGroupOptions" type="text" autocomplete="off" placeholder="Type to search or select a Fee Structure / Fee Group">
           <datalist id="feeGroupOptions"></datalist>
           <div class="hint">The list is loaded from FEE_GROUP_MASTER and cached for 5 minutes.</div>
 
@@ -134,7 +134,7 @@
       const btn = document.getElementById('submitBtn');
 
       if (!skyProspectId) return setMessage('Please enter the SKY Prospect ID.', 'err');
-      if (!feeGroup) return setMessage('Please select a Fee Group.', 'err');
+      if (!feeGroup) return setMessage('Please select a Fee Structure / Fee Group.', 'err');
       if (feeGroups.indexOf(feeGroup) === -1) return setMessage('Please select a valid Fee Group from the master list.', 'err');
 
       btn.disabled = true;

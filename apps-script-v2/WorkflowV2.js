@@ -337,6 +337,8 @@ function handleV2Post_(payload) {
   if (action === 'v2SubmitAdmission') return v2SubmitAdmission_(payload.data || payload);
   v2VerifyAdminApiAccess_(payload.token);
   if (action === 'v2ListWorkflow') return v2ListWorkflow_(payload);
+  if (action === 'v2UpsertAgent') return v2UpsertAgent_(payload.data || {}, payload.updatedBy);
+  if (action === 'v2AgentAdminStatus') return v2AgentAdminStatus_();
   if (action === 'v2SyncApplication') return v2SyncApplication_(payload.data || {});
   if (action === 'v2UpdateStage') return v2UpdateStage_(payload.data || {}, payload.updatedBy);
   if (action === 'v2RunDocumentReview') {
