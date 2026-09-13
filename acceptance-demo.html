@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <title>IUC Acceptance of Offer · Preview</title>
+  <style>
+    :root{--primary:#2d2363;--primary2:#211849;--soft:#f1edfb;--bg:#f7f5ef;--card:#fff;--text:#20283b;--muted:#747b8b;--line:#e4e5eb;--green:#0f8b65;--greenSoft:#eaf8f2;--amber:#956511;--amberSoft:#fff6d9;--shadow:0 18px 50px rgba(27,31,52,.10)}
+    *{box-sizing:border-box}html{background:var(--bg)}body{margin:0;font-family:Inter,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;color:var(--text);background:linear-gradient(180deg,#f7f4ec 0,#faf9f5 38%,#fff 100%)}
+    .page{min-height:100dvh;padding:24px 16px calc(34px + env(safe-area-inset-bottom))}.shell{width:min(720px,100%);margin:0 auto}.brand{display:flex;align-items:center;gap:14px;margin:4px 0 20px}.logo{width:86px;height:66px;border-radius:18px;background:var(--primary);display:grid;place-items:center;padding:10px;box-shadow:0 10px 26px rgba(45,35,99,.18)}.logo img{max-width:100%;max-height:100%;object-fit:contain}.brand h1{font-size:19px;margin:0 0 2px}.brand p{font-size:13px;margin:0;color:var(--muted)}
+    .preview{display:flex;align-items:center;justify-content:space-between;gap:10px;background:var(--amberSoft);border:1px solid #f0d994;color:var(--amber);padding:11px 13px;border-radius:14px;margin-bottom:14px;font-size:12px;font-weight:750}.preview b{font-size:11px;letter-spacing:.05em;text-transform:uppercase}
+    .hero{background:linear-gradient(135deg,var(--primary),var(--primary2));color:#fff;border-radius:26px;padding:24px;box-shadow:var(--shadow);margin-bottom:14px}.eyebrow{font-size:11px;font-weight:850;letter-spacing:.09em;text-transform:uppercase;color:#d9d3f5;margin-bottom:9px}.hero h2{font-size:28px;line-height:1.08;margin:0 0 9px}.hero p{margin:0;color:rgba(255,255,255,.78);font-size:14px;line-height:1.55}
+    .card{background:var(--card);border:1px solid rgba(220,222,229,.9);border-radius:22px;padding:20px;margin:14px 0;box-shadow:0 8px 26px rgba(29,37,59,.055)}.card h3{font-size:18px;margin:0 0 4px}.sub{font-size:13px;color:var(--muted);line-height:1.5;margin-bottom:16px}.info{display:grid;grid-template-columns:1fr 1fr;gap:10px}.info-box{border:1px solid var(--line);background:#fbfbfd;border-radius:14px;padding:12px}.info-box span{display:block;font-size:10px;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);font-weight:800;margin-bottom:5px}.info-box strong{display:block;font-size:13px;line-height:1.35}.info-box.full{grid-column:1/-1}
+    .label{display:block;font-size:12px;font-weight:800;margin:16px 0 7px}.input{width:100%;border:1px solid #dfe1e7;border-radius:14px;padding:14px 13px;font:inherit;color:var(--text);background:#fff;outline:none}.input:focus{border-color:#7f70c9;box-shadow:0 0 0 3px rgba(45,35,99,.08)}
+    .signature{border:1.5px dashed #cdd0d9;border-radius:16px;background:linear-gradient(#fff,#fdfdff);overflow:hidden;position:relative}.signature:after{content:"Sign here";position:absolute;left:0;right:0;bottom:12px;text-align:center;font-size:11px;color:#b2b5c0;pointer-events:none}.signature canvas{display:block;width:100%;height:170px;touch-action:none}.signature-actions{display:flex;justify-content:flex-end;margin-top:8px}.linkbtn{border:0;background:transparent;color:var(--primary);font-weight:800;padding:7px 4px;font-size:12px}
+    .declaration{display:flex;gap:11px;align-items:flex-start;padding:13px;background:#faf9fd;border:1px solid #ebe8f5;border-radius:14px;margin-top:16px}.declaration input{width:19px;height:19px;margin:1px 0 0;accent-color:var(--primary);flex:0 0 auto}.declaration label{font-size:12px;line-height:1.5;color:#4f5667}
+    .record{display:flex;align-items:center;gap:10px;background:var(--greenSoft);color:#236950;border-radius:13px;padding:11px 12px;margin-top:13px;font-size:12px}.record .dot{width:9px;height:9px;border-radius:50%;background:var(--green);flex:0 0 auto}.primary{width:100%;margin-top:18px;border:0;border-radius:15px;padding:15px 18px;background:var(--primary);color:#fff;font:inherit;font-weight:850;font-size:14px;box-shadow:0 10px 22px rgba(45,35,99,.18)}.primary:disabled{opacity:.55}.message{display:none;padding:13px;border-radius:13px;margin-top:12px;font-size:12px;line-height:1.45}.message.error{display:block;background:#fff0f0;color:#a63535}.message.ok{display:block;background:var(--greenSoft);color:#17684e}.success-card{text-align:center;padding:32px 20px}.success-icon{width:58px;height:58px;border-radius:50%;display:grid;place-items:center;background:var(--greenSoft);color:var(--green);font-size:27px;font-weight:900;margin:0 auto 14px}.success-card h3{font-size:24px}.success-card p{color:var(--muted);line-height:1.55;font-size:13px}.hidden{display:none!important}.footer{text-align:center;color:#999eaa;font-size:11px;padding:10px 0 0}
+    @media(max-width:520px){.page{padding:14px 12px calc(28px + env(safe-area-inset-bottom))}.brand{margin-bottom:14px}.logo{width:75px;height:58px;border-radius:16px}.brand h1{font-size:17px}.hero{padding:21px 18px;border-radius:21px}.hero h2{font-size:25px}.card{padding:17px 15px;border-radius:19px}.info{grid-template-columns:1fr}.info-box.full{grid-column:auto}.signature canvas{height:155px}}
+  </style>
+</head>
+<body>
+<div class="page"><div class="shell">
+  <div class="brand"><div class="logo"><img src="https://lh3.googleusercontent.com/d/1eOwwzXYC_aAWOgF4TGYTc8PNIBkcwsUI=s1000" alt="IUC"></div><div><h1>Innovative University College</h1><p>Institute of Postgraduate Studies</p></div></div>
+  <div class="preview"><span><b>Preview mode</b> · No data will be submitted</span><span>Admission V2</span></div>
+  <section class="hero"><div class="eyebrow">Admission Offer</div><h2>Acceptance of Offer</h2><p>Please review the offer details below and provide your electronic acceptance. Your acceptance date and time will be recorded automatically.</p></section>
+
+  <div id="formView">
+    <section class="card"><h3>Your offer details</h3><div class="sub">Please confirm that the information below matches your offer letter.</div><div class="info">
+      <div class="info-box"><span>Student name</span><strong>Rushdina</strong></div>
+      <div class="info-box"><span>Intake</span><strong>September 2026</strong></div>
+      <div class="info-box full"><span>Programme</span><strong>DPLI – Postgraduate Diploma in Education</strong></div>
+      <div class="info-box full"><span>Reference no.</span><strong>IUC-ADM-V2-20260913-233219-2610-59A8</strong></div>
+    </div></section>
+
+    <section class="card"><h3>Electronic acceptance</h3><div class="sub">Complete the declaration and sign in the box below.</div>
+      <label class="label" for="signedName">Full name</label><input class="input" id="signedName" value="RUSHDINA" autocomplete="name">
+      <label class="label">Electronic signature</label><div class="signature"><canvas id="sig"></canvas></div><div class="signature-actions"><button class="linkbtn" type="button" id="clearBtn">Clear signature</button></div>
+      <div class="declaration"><input id="declare" type="checkbox"><label for="declare">I confirm that I have read and understood the Offer Letter and I accept the admission offer and the applicable terms and conditions of Innovative University College.</label></div>
+      <div class="record"><div class="dot"></div><span>Signed date and time will be captured automatically when you submit.</span></div>
+      <button class="primary" id="submitBtn" type="button">Submit Acceptance</button><div id="msg" class="message"></div>
+    </section>
+  </div>
+
+  <section id="successView" class="card success-card hidden"><div class="success-icon">✓</div><h3>Offer Accepted</h3><p>Your electronic acceptance has been recorded successfully. In the live version, a signed Acceptance PDF will be generated and saved to your admission record.</p><div class="record" style="justify-content:center"><div class="dot"></div><span id="stamp"></span></div></section>
+  <div class="footer">IUC · IPGS Admission V2 · Electronic Acceptance</div>
+</div></div>
+<script>
+  const canvas=document.getElementById('sig'),ctx=canvas.getContext('2d');let drawing=false,used=false;
+  function resize(){const ratio=window.devicePixelRatio||1,rect=canvas.getBoundingClientRect(),snapshot=used?canvas.toDataURL():null;canvas.width=Math.max(1,Math.floor(rect.width*ratio));canvas.height=Math.floor((innerWidth<=520?155:170)*ratio);ctx.setTransform(ratio,0,0,ratio,0,0);ctx.lineWidth=2.2;ctx.lineCap='round';ctx.lineJoin='round';ctx.strokeStyle='#20283b';if(snapshot){const im=new Image();im.onload=()=>ctx.drawImage(im,0,0,rect.width,innerWidth<=520?155:170);im.src=snapshot}}
+  function point(e){const r=canvas.getBoundingClientRect();return{x:e.clientX-r.left,y:e.clientY-r.top}}
+  canvas.addEventListener('pointerdown',e=>{drawing=true;used=true;canvas.setPointerCapture?.(e.pointerId);const p=point(e);ctx.beginPath();ctx.moveTo(p.x,p.y)});canvas.addEventListener('pointermove',e=>{if(!drawing)return;const p=point(e);ctx.lineTo(p.x,p.y);ctx.stroke()});['pointerup','pointercancel','pointerleave'].forEach(n=>canvas.addEventListener(n,()=>drawing=false));
+  document.getElementById('clearBtn').onclick=()=>{ctx.clearRect(0,0,canvas.width,canvas.height);used=false};window.addEventListener('resize',resize);resize();
+  const msg=document.getElementById('msg');document.getElementById('submitBtn').onclick=()=>{const name=document.getElementById('signedName').value.trim(),declared=document.getElementById('declare').checked;if(!name){msg.className='message error';msg.textContent='Please enter your full name.';return}if(!used){msg.className='message error';msg.textContent='Please provide your electronic signature.';return}if(!declared){msg.className='message error';msg.textContent='Please confirm the declaration before submitting.';return}document.getElementById('formView').classList.add('hidden');document.getElementById('successView').classList.remove('hidden');document.getElementById('stamp').textContent='Preview signed at '+new Date().toLocaleString();window.scrollTo({top:0,behavior:'smooth'})};
+</script>
+</body>
+</html>
