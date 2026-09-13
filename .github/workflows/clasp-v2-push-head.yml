@@ -10,6 +10,7 @@ on:
 permissions:
   contents: read
 
+# Phase 2 sync trigger: manual fallback screening, AI auto attempt, offer and acceptance.
 jobs:
   push-head:
     runs-on: ubuntu-latest
