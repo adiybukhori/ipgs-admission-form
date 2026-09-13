@@ -3464,7 +3464,7 @@ function v2SendOfferEmail_(referenceNo, acceptanceUrl, pdfFileId, options) {
   const programme = String(application.record['Programme'] || '');
   const intake = String(application.record['Intake'] || '');
   const subject = '[IUC IPGS] Offer Letter - ' + programme + ' - ' + reference;
-  const html = '<div style="font-family:Arial,sans-serif;max-width:680px;margin:auto;border:1px solid #e5e7eb;border-radius:16px;overflow:hidden"><div style="background:#2d2363;color:white;padding:24px"><h2 style="margin:0">Offer of Admission</h2></div><div style="padding:24px"><p>Dear ' + v2Html_(student) + ',</p><p>We are pleased to issue your Offer Letter for <strong>' + v2Html_(programme) + '</strong>.</p><p><strong>Reference:</strong> ' + v2Html_(reference) + '<br><strong>Intake:</strong> ' + v2Html_(intake) + '</p><p>Please review the attached Offer Letter. To accept the offer, complete your electronic acceptance using the secure link below:</p><p style="margin:24px 0"><a href="' + v2Html_(acceptanceUrl) + '" style="background:#2d2363;color:#fff;text-decoration:none;padding:12px 18px;border-radius:8px;font-weight:bold">Accept Offer</a></p><p>If the button does not open, copy this link into your browser:<br>' + v2Html_(acceptanceUrl) + '</p></div></div>';
+  const html = '<div style="font-family:Arial,sans-serif;max-width:680px;margin:auto;border:1px solid #e5e7eb;border-radius:16px;overflow:hidden"><div style="background:#2d2363;color:white;padding:24px"><h2 style="margin:0">Offer of Admission</h2></div><div style="padding:24px"><p>Dear ' + v2OfferHtmlEscape_(student) + ',</p><p>We are pleased to issue your Offer Letter for <strong>' + v2OfferHtmlEscape_(programme) + '</strong>.</p><p><strong>Reference:</strong> ' + v2OfferHtmlEscape_(reference) + '<br><strong>Intake:</strong> ' + v2OfferHtmlEscape_(intake) + '</p><p>Please review the attached Offer Letter. To accept the offer, complete your electronic acceptance using the secure link below:</p><p style="margin:24px 0"><a href="' + v2OfferHtmlEscape_(acceptanceUrl) + '" style="background:#2d2363;color:#fff;text-decoration:none;padding:12px 18px;border-radius:8px;font-weight:bold">Accept Offer</a></p><p>If the button does not open, copy this link into your browser:<br>' + v2OfferHtmlEscape_(acceptanceUrl) + '</p></div></div>';
   const attachment = DriveApp.getFileById(pdfFileId).getBlob();
   GmailApp.sendEmail(recipient, subject, 'Your IUC Offer Letter is attached. Acceptance link: ' + acceptanceUrl, {htmlBody:html,attachments:[attachment],name:'IUC IPGS Admission'});
   v2Audit_(reference,'OFFER','SEND_OFFER_EMAIL',{}, {recipient:recipient,testMode:opts.testMode === true}, 'Offer Email', 'SUCCESS', '');
@@ -3496,3 +3496,11 @@ function v2OfferAcceptanceEndToEndControlledTest() {
   return report;
 }
 
+function v2OfferHtmlEscape_(value) {
+  return String(value == null ? '' : value)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
