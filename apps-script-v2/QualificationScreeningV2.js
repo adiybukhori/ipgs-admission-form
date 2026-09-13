@@ -811,6 +811,13 @@ function v2QualificationNormalizeProgramme_(programme) {
   const value = String(programme || '').trim();
 
   if (
+    /\bDPLI\b/i.test(value) ||
+    /POSTGRADUATE DIPLOMA IN EDUCATION/i.test(value)
+  ) {
+    return 'DPLI - Postgraduate Diploma in Education';
+  }
+
+  if (
     /\bMBA\b/i.test(value) ||
     /MASTER OF BUSINESS ADMINISTRATION/i.test(value)
   ) {

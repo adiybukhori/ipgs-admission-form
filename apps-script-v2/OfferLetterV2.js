@@ -1784,6 +1784,16 @@ function v2OfferProgrammeCode_(programme) {
 
 
   if (
+    /\bDPLI\b/.test(value) ||
+    value.indexOf(
+      'POSTGRADUATE DIPLOMA IN EDUCATION'
+    ) > -1
+  ) {
+    return 'DPLI';
+  }
+
+
+  if (
     value.indexOf(
       'MASTER OF BUSINESS ADMINISTRATION'
     ) > -1
