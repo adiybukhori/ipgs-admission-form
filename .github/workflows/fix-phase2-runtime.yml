@@ -1,0 +1,34 @@
+name: Fix Phase 2 Runtime
+
+on:
+  push:
+    branches:
+      - apps-script-v2-dev
+    paths:
+      - '.github/workflows/fix-phase2-runtime.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  fix:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: apps-script-v2-dev
+          fetch-depth: 0
+      - name: Apply runtime correction
+        run: python .github/scripts/fix_phase2_runtime.py
+      - name: Validate
+        run: |
+          node --check apps-script-v2/OfferLetterV2.js
+          grep -q 'function v2OfferHtmlEscape_' apps-script-v2/OfferLetterV2.js
+      - name: Commit correction
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add apps-script-v2/OfferLetterV2.js
+          git diff --cached --quiet && exit 0
+          git commit -m "Fix offer email HTML escaping helper"
+          git push origin apps-script-v2-dev
