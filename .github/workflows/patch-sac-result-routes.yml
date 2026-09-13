@@ -1,0 +1,40 @@
+name: Patch SAC result routes
+
+on:
+  push:
+    branches: [apps-script-v2-dev]
+    paths:
+      - '.github/workflows/patch-sac-result-routes.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: apps-script-v2-dev
+          fetch-depth: 0
+      - name: Patch WorkflowV2 routes
+        shell: python
+        run: |
+          from pathlib import Path
+          p = Path('apps-script-v2/WorkflowV2.js')
+          s = p.read_text(encoding='utf-8')
+          old = """  if (action === 'v2SacManualPhase1Status') return v2SacManualPhase1Status_();\n  if (action === 'v2UpdateAssessment') return v2UpdateAssessment_(payload.data || {}, payload.updatedBy);"""
+          new = """  if (action === 'v2SacManualPhase1Status') return v2SacManualPhase1Status_();\n  if (action === 'v2SacResultStatus') return v2SacResultStatus_();\n  if (action === 'v2PrepareSacResultDocument') return v2PrepareSacResultDocument_(payload.data || {}, payload.updatedBy);\n  if (action === 'v2PreviewSacResult') return v2PreviewSacResult_(payload.data || {});\n  if (action === 'v2SendSacResultEmail') return v2SendSacResultEmail_(payload.data || {}, payload.updatedBy);\n  if (action === 'v2UpdateAssessment') return v2UpdateAssessment_(payload.data || {}, payload.updatedBy);"""
+          if old not in s:
+              raise SystemExit('Target route block not found; refusing to patch.')
+          p.write_text(s.replace(old, new, 1), encoding='utf-8')
+      - name: Syntax check
+        run: node --check apps-script-v2/WorkflowV2.js && node --check apps-script-v2/SacResultDispatchV2.js
+      - name: Commit patch
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add apps-script-v2/WorkflowV2.js
+          git diff --cached --quiet && exit 0
+          git commit -m "Wire SAC result review and send routes"
+          git push origin apps-script-v2-dev
