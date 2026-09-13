@@ -53,6 +53,16 @@ function toObjects(csv) {
   });
 }
 
+function sacSessionSortValue(row) {
+  const meetingDate = String(row?.['Meeting Date'] || '').trim();
+  const meetingTime = String(row?.['Meeting Time'] || '').trim();
+  const meetingValue = Date.parse([meetingDate, meetingTime].filter(Boolean).join(' '));
+  if (Number.isFinite(meetingValue)) return meetingValue;
+
+  const createdValue = Date.parse(String(row?.['Created At'] || '').trim());
+  return Number.isFinite(createdValue) ? createdValue : 0;
+}
+
 async function validateAdminPassword(password) {
   if (!password) return false;
   const url = `${AUTH_WEB_APP}?action=applications&token=${encodeURIComponent(password)}&_=${Date.now()}`;
@@ -77,7 +87,7 @@ export default async function handler(req, res) {
   res.setHeader('Cache-Control', 'no-store, max-age=0');
 
   if (req.method === 'GET' && String(req.query?.health || '') === '1') {
-    return res.status(200).json({ ok: true, service: 'IPGS Admission Admin Data V2', build: 'ADMIN_DATA_V2_20260912' });
+    return res.status(200).json({ ok: true, service: 'IPGS Admission Admin Data V2', build: 'ADMIN_DATA_V2_20260913_SAC_SORT' });
   }
   if (req.method !== 'POST') return res.status(405).json({ ok: false, message: 'Method not allowed.' });
 
@@ -105,5 +115,15 @@ export default async function handler(req, res) {
     }
   });
 
-  return res.status(200).json({ ok: true, build: 'ADMIN_DATA_V2_20260912', loadedAt: new Date().toISOString(), warnings, data });
+  if (Array.isArray(data.V2_SAC_SESSIONS)) {
+    data.V2_SAC_SESSIONS.sort((a, b) => {
+      const meetingDiff = sacSessionSortValue(b) - sacSessionSortValue(a);
+      if (meetingDiff !== 0) return meetingDiff;
+      const createdA = Date.parse(String(a?.['Created At'] || '').trim()) || 0;
+      const createdB = Date.parse(String(b?.['Created At'] || '').trim()) || 0;
+      return createdB - createdA;
+    });
+  }
+
+  return res.status(200).json({ ok: true, build: 'ADMIN_DATA_V2_20260913_SAC_SORT', loadedAt: new Date().toISOString(), warnings, data });
 }
