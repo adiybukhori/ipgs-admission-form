@@ -349,6 +349,7 @@ function handleV2Post_(payload) {
       data.remarks || ''
     );
   }
+  if (action === 'v2CompleteManualDocumentReview') return v2CompleteManualDocumentReview_(payload.data || {}, payload.updatedBy || 'Admin Portal V2');
   if (action === 'v2RunQualificationScreening') {
     const data = payload.data || {};
     return v2RunQualificationScreening(data.referenceNo, {
