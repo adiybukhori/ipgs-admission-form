@@ -1,0 +1,51 @@
+name: Fix Mobile Applicant Drawer Scroll
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/fix-mobile-drawer-scroll.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+
+      - name: Fix drawer viewport and bottom navigation overlap
+        shell: python
+        run: |
+          from pathlib import Path
+          p=Path('admin.html')
+          s=p.read_text(encoding='utf-8')
+          marker='/* MOBILE_DRAWER_SCROLL_FIX_V2 */'
+          if marker not in s:
+              css='''\n    /* MOBILE_DRAWER_SCROLL_FIX_V2 */\n    @media(max-width:700px){\n      .drawer-backdrop{z-index:70}\n      .drawer{z-index:80;width:100vw;max-width:none;height:100dvh;min-height:100dvh;top:0;bottom:0;overflow:hidden}\n      .drawer-head{flex:0 0 auto;padding:18px 18px 16px;background:#fff}\n      .drawer-body{flex:1 1 auto;min-height:0;overflow-y:auto;-webkit-overflow-scrolling:touch;overscroll-behavior:contain;padding:18px 18px calc(34px + env(safe-area-inset-bottom))}\n      .drawer-body::after{content:\"\";display:block;height:18px}\n      body.drawer-open{overflow:hidden;touch-action:none}\n      body.drawer-open .sidebar{visibility:hidden;pointer-events:none}\n    }\n'''
+              s=s.replace('</style>',css+'\n  </style>',1)
+          old_open="function openRecord(ref){selected=records.find(r=>r.ref===ref);if(!selected)return;document.getElementById('drawerName').textContent=selected.app['Student Name']||'Applicant';document.getElementById('drawerMeta').textContent=`${selected.ref} · ${selected.app['Programme']||'-'} · ${selected.app['Intake']||'-'}`;renderProgress(selected);renderQuickActions(selected);renderOperationalActions(selected);renderDetailTabs(selected);detailTab('overview',document.querySelector('.tabs button'));document.getElementById('drawerBackdrop').classList.add('open');document.getElementById('drawer').classList.add('open')}"
+          new_open="function openRecord(ref){selected=records.find(r=>r.ref===ref);if(!selected)return;document.getElementById('drawerName').textContent=selected.app['Student Name']||'Applicant';document.getElementById('drawerMeta').textContent=`${selected.ref} · ${selected.app['Programme']||'-'} · ${selected.app['Intake']||'-'}`;renderProgress(selected);renderQuickActions(selected);renderOperationalActions(selected);renderDetailTabs(selected);detailTab('overview',document.querySelector('.tabs button'));document.body.classList.add('drawer-open');document.getElementById('drawerBackdrop').classList.add('open');document.getElementById('drawer').classList.add('open')}"
+          old_close="function closeDrawer(){document.getElementById('drawerBackdrop').classList.remove('open');document.getElementById('drawer').classList.remove('open')}"
+          new_close="function closeDrawer(){document.body.classList.remove('drawer-open');document.getElementById('drawerBackdrop').classList.remove('open');document.getElementById('drawer').classList.remove('open')}"
+          if old_open in s: s=s.replace(old_open,new_open,1)
+          if old_close in s: s=s.replace(old_close,new_close,1)
+          p.write_text(s,encoding='utf-8')
+
+      - name: Validate
+        run: |
+          grep -q 'MOBILE_DRAWER_SCROLL_FIX_V2' admin.html
+          grep -q "drawer-open" admin.html
+
+      - name: Commit
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add admin.html
+          git diff --cached --quiet && exit 0
+          git commit -m "Fix mobile applicant drawer scrolling"
+          git push origin main
