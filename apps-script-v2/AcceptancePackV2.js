@@ -10,16 +10,19 @@ const V2_ACCEPTANCE_PACK_TEMPLATE_FALLBACKS = {
   acceptanceEn: '1JuIwpkPXIebWohnJrBUyJLw5flbVi3nbX0IsOgYlzlg',
   suratPenerimaan: '1-fG3WrLOIpl3yl0Mqt4Geqiw1g6FNwGJ2DvXbtXmUB4',
   suratAkuan: '1dwVfTaHh5Zue_Ob2521ZoGHK-nwIC-WV7yK8p8m7pPc',
-  studentHandbook: '1qXyo_oxIleMhTALZbl955G6XIR0VvbB1'
+  studentHandbook: '1qXyo_oxIleMhTALZbl955G6XIR0VvbB1',
+  handbookAcknowledgement: '1gOCTcpm6TdDMExgSTuTtACGSciXxYo7CeGvV7amfJ_k'
 };
 
 const V2_ACCEPTANCE_PACK_HEADERS = [
   'Acceptance Review PDF URL',
   'Surat Penerimaan Review PDF URL',
   'Surat Akuan Review PDF URL',
+  'Student Handbook Acknowledgement Review PDF URL',
   'Student Handbook URL',
   'Surat Penerimaan Signed PDF URL',
   'Surat Akuan Signed PDF URL',
+  'Student Handbook Acknowledgement Signed PDF URL',
   'Acceptance Pack Status',
   'Acceptance Pack Signed At'
 ];
@@ -41,6 +44,10 @@ function v2AcceptancePackTemplateIds_() {
     studentHandbook: String(
       CONFIG.studentHandbookFileId ||
       V2_ACCEPTANCE_PACK_TEMPLATE_FALLBACKS.studentHandbook
+    ).trim(),
+    handbookAcknowledgement: String(
+      CONFIG.studentHandbookAcknowledgementTemplateId ||
+      V2_ACCEPTANCE_PACK_TEMPLATE_FALLBACKS.handbookAcknowledgement
     ).trim()
   };
 }
@@ -126,7 +133,8 @@ function v2AcceptancePackFillDoc_(body, ctx) {
     '{{STUDY_MODE}}': ctx.studyMode,
     '{{INTAKE}}': ctx.intake,
     '{{SESSION_MONTH}}': my.month,
-    '{{SESSION_YEAR}}': my.year
+    '{{SESSION_YEAR}}': my.year,
+    '{{SIGNED_DATE}}': ''
   };
 
   Object.keys(replacements).forEach(function(key) {
@@ -229,6 +237,24 @@ function v2AcceptancePackApplySignature_(body, docType, signatureBlob, signedNam
     return;
   }
 
+  if (docType === 'HANDBOOK_ACKNOWLEDGEMENT') {
+    const signaturePara = v2AcceptancePackFindParagraph_(body, [
+      'Student’s Signature',
+      "Student's Signature"
+    ]);
+    if (!signaturePara) {
+      throw new Error('Student Handbook acknowledgement signature field was not found in the approved template.');
+    }
+    v2AcceptancePackAppendSignature_(signaturePara, 'Student’s Signature :', signatureBlob);
+
+    const datePara = v2AcceptancePackFindParagraph_(body, ['Date:']);
+    if (datePara) {
+      datePara.clear();
+      datePara.appendText('Date : ' + signedDate);
+    }
+    return;
+  }
+
   throw new Error('Unsupported acceptance document type: ' + docType);
 }
 
@@ -312,6 +338,15 @@ function v2AcceptancePackSpecs_() {
       signedField: 'Surat Akuan Signed PDF URL',
       reviewPrefix: 'REVIEW_Surat_Akuan_',
       signedPrefix: 'SIGNED_Surat_Akuan_'
+    },
+    {
+      code: 'HANDBOOK_ACKNOWLEDGEMENT',
+      label: 'Student Handbook Acknowledgement',
+      templateId: ids.handbookAcknowledgement,
+      reviewField: 'Student Handbook Acknowledgement Review PDF URL',
+      signedField: 'Student Handbook Acknowledgement Signed PDF URL',
+      reviewPrefix: 'REVIEW_Student_Handbook_Acknowledgement_',
+      signedPrefix: 'SIGNED_Student_Handbook_Acknowledgement_'
     }
   ];
 }
@@ -395,12 +430,18 @@ function v2GetAcceptancePackForToken(rawToken) {
     signRequired: false
   });
   (pack.documents || []).forEach(function(doc) { docs.push(doc); });
-  if (pack.handbookUrl) docs.push({
-    code: 'STUDENT_HANDBOOK',
-    label: 'Postgraduate Student Handbook',
-    url: pack.handbookUrl,
-    signRequired: false
-  });
+  if (pack.handbookUrl) {
+    const handbookId = v2OfferExtractDriveId_(pack.handbookUrl);
+    docs.push({
+      code: 'STUDENT_HANDBOOK',
+      label: 'Postgraduate Student Handbook',
+      url: handbookId
+        ? 'https://drive.google.com/uc?export=download&id=' + encodeURIComponent(handbookId)
+        : pack.handbookUrl,
+      signRequired: false,
+      downloadOnly: true
+    });
+  }
 
   return {
     ok: true,
@@ -413,7 +454,8 @@ function v2GetAcceptancePackForToken(rawToken) {
     signedDocuments: {
       acceptance: String(ctx.workflow.record['Acceptance PDF URL'] || ''),
       suratPenerimaan: String(ctx.workflow.record['Surat Penerimaan Signed PDF URL'] || ''),
-      suratAkuan: String(ctx.workflow.record['Surat Akuan Signed PDF URL'] || '')
+      suratAkuan: String(ctx.workflow.record['Surat Akuan Signed PDF URL'] || ''),
+      handbookAcknowledgement: String(ctx.workflow.record['Student Handbook Acknowledgement Signed PDF URL'] || '')
     }
   };
 }
@@ -516,6 +558,7 @@ function v2AcceptancePackSubmitSigned(rawToken, data) {
         'Acceptance PDF URL': '',
         'Surat Penerimaan Signed PDF URL': '',
         'Surat Akuan Signed PDF URL': '',
+        'Student Handbook Acknowledgement Signed PDF URL': '',
         'Acceptance Pack Status': 'SIGNATURE_FAILED',
         'Acceptance Pack Signed At': '',
         'Acceptance Signed Name': '',
@@ -530,7 +573,8 @@ function v2AcceptancePackSubmitSigned(rawToken, data) {
     const reviewFields = [
       'Acceptance Review PDF URL',
       'Surat Penerimaan Review PDF URL',
-      'Surat Akuan Review PDF URL'
+      'Surat Akuan Review PDF URL',
+      'Student Handbook Acknowledgement Review PDF URL'
     ];
     reviewFields.forEach(function(field) {
       v2AcceptancePackTrashUrl_(fresh.record[field]);
@@ -539,6 +583,7 @@ function v2AcceptancePackSubmitSigned(rawToken, data) {
       'Acceptance Review PDF URL': '',
       'Surat Penerimaan Review PDF URL': '',
       'Surat Akuan Review PDF URL': '',
+      'Student Handbook Acknowledgement Review PDF URL': '',
       'Acceptance Pack Status': 'ACCEPTED',
       'Last Updated': new Date().toISOString(),
       'Updated By': 'Student Acceptance Pack E-Signature'
@@ -551,7 +596,7 @@ function v2AcceptancePackSubmitSigned(rawToken, data) {
       {},
       {
         acceptanceStatus: 'ACCEPTED',
-        signedDocuments: 3,
+        signedDocuments: 4,
         signedName: masterName,
         signedAt: nowIso
       },
@@ -572,7 +617,8 @@ function v2AcceptancePackSubmitSigned(rawToken, data) {
       acceptancePdfUrl: updates['Acceptance PDF URL'],
       suratPenerimaanPdfUrl: updates['Surat Penerimaan Signed PDF URL'],
       suratAkuanPdfUrl: updates['Surat Akuan Signed PDF URL'],
-      signedDocumentCount: 3,
+      handbookAcknowledgementPdfUrl: updates['Student Handbook Acknowledgement Signed PDF URL'],
+      signedDocumentCount: 4,
       studentFolderUrl: ctx.studentFolder.getUrl(),
       tokenConsumed: accepted.tokenConsumed,
       v1Touched: false
@@ -660,7 +706,8 @@ function v2AcceptancePackControlledTest() {
   const signedUrls = [
     finalWorkflow.record['Acceptance PDF URL'],
     finalWorkflow.record['Surat Penerimaan Signed PDF URL'],
-    finalWorkflow.record['Surat Akuan Signed PDF URL']
+    finalWorkflow.record['Surat Akuan Signed PDF URL'],
+    finalWorkflow.record['Student Handbook Acknowledgement Signed PDF URL']
   ];
   const signedPdfFilesExist = signedUrls.every(function(url) {
     const id = v2OfferExtractDriveId_(url);
@@ -673,9 +720,9 @@ function v2AcceptancePackControlledTest() {
   });
 
   const checks = {
-    reviewPackReady: pack && pack.ok === true && pack.documents.length === 3,
+    reviewPackReady: pack && pack.ok === true && pack.documents.length === 4,
     accepted: accepted && accepted.ok === true,
-    signedDocumentCount: accepted.signedDocumentCount === 3,
+    signedDocumentCount: accepted.signedDocumentCount === 4,
     signedPdfFilesExist: signedPdfFilesExist,
     finalStageAccepted: String(finalWorkflow.record['Application Stage'] || '') === 'ACCEPTED',
     acceptanceStatusAccepted: String(finalWorkflow.record['Acceptance Status'] || '') === 'ACCEPTED',

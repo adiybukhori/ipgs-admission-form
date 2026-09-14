@@ -37,18 +37,18 @@
       <div class="info-box full"><span>Reference no.</span><strong id="referenceNo">-</strong></div>
     </div></section>
 
-    <section class="card"><h3>Documents to review</h3><div class="sub">Open and review the documents below before submitting your acceptance.</div><div id="documentList" class="documents"></div><div class="pack-note">You sign only once on this page. The same electronic signature will be placed into the approved signature fields of the Acceptance & Student Handbook Confirmation, Surat Penerimaan Tawaran and Surat Akuan. Signed PDFs will be saved in your admission folder.</div></section>
+    <section class="card"><h3>Documents to review</h3><div class="sub">Open and review the documents below before submitting your acceptance.</div><div id="documentList" class="documents"></div><div class="pack-note">You sign only once on this page. The same electronic signature will be placed into the approved signature fields of the Acceptance & Student Handbook Confirmation, Surat Penerimaan Tawaran, Surat Akuan and Student Handbook Acknowledgement. The full Postgraduate Student Handbook is provided for you to download and keep; only the signed acknowledgement page is saved in your admission folder.</div></section>
 
     <section class="card"><h3>Electronic acceptance</h3><div class="sub">Your full name is taken directly from the admission record and cannot be changed here.</div>
       <label class="label" for="signedName">Full name</label><input class="input" id="signedName" type="text" readonly aria-readonly="true">
       <label class="label">Electronic signature</label><div class="signature"><canvas id="signatureCanvas"></canvas></div><div class="signature-actions"><button class="linkbtn" type="button" onclick="clearSignature()">Clear signature</button></div>
-      <div class="declaration"><input id="declaration" type="checkbox"><label for="declaration">I confirm that I have reviewed the admission documents provided above, including the Offer Letter, Acceptance & Student Handbook Confirmation, Surat Penerimaan Tawaran, Surat Akuan and Student Handbook. I accept the offer and agree that my electronic signature may be applied to the documents that require my signature.</label></div>
+      <div class="declaration"><input id="declaration" type="checkbox"><label for="declaration">I confirm that I have reviewed the admission documents provided above, including the Offer Letter, Acceptance & Student Handbook Confirmation, Surat Penerimaan Tawaran, Surat Akuan, Student Handbook Acknowledgement and the full Postgraduate Student Handbook. I accept the offer, acknowledge that I have reviewed the Student Handbook, and agree that my electronic signature may be applied to the documents that require my signature.</label></div>
       <div class="record"><div class="dot"></div><span>Your signed name, date and time will be recorded automatically when you submit.</span></div>
       <button id="acceptButton" class="primary" type="button" onclick="submitAcceptance()">Submit Acceptance</button><div id="formMessage" class="message"></div>
     </section>
   </div>
 
-  <section id="completedView" class="card success-card hidden"><div class="success-icon">✓</div><h3>Offer Accepted</h3><p>Your electronic acceptance has been recorded successfully.</p><p>Your signed Acceptance & Student Handbook Confirmation, Surat Penerimaan Tawaran and Surat Akuan have been generated and saved in your admission folder.</p><div class="record" style="justify-content:center"><div class="dot"></div><span>Admission acceptance complete</span></div></section>
+  <section id="completedView" class="card success-card hidden"><div class="success-icon">✓</div><h3>Offer Accepted</h3><p>Your electronic acceptance has been recorded successfully.</p><p>Your signed Acceptance & Student Handbook Confirmation, Surat Penerimaan Tawaran, Surat Akuan and Student Handbook Acknowledgement have been generated and saved in your admission folder.</p><div class="record" style="justify-content:center"><div class="dot"></div><span>Admission acceptance complete</span></div></section>
 
   <section id="errorView" class="card hidden"><h3>Unable to open acceptance</h3><div class="sub" id="errorText" style="margin:8px 0 0">This acceptance link is invalid or no longer available.</div></section>
   <div class="footer">IUC · IPGS Admission V2 · Electronic Acceptance</div>
@@ -86,7 +86,8 @@ function renderDocuments(documents){
     const title=escapeHtml(doc.label||'Admission document');
     const meta=doc.signRequired?'Electronic signature required':'Review document';
     const badge=doc.signRequired?'<span class="doc-sign">SIGNATURE WILL BE APPLIED</span>':'';
-    const link=doc.url?`<a class="doc-open" target="_blank" rel="noopener" href="${escapeAttr(doc.url)}">Open</a>`:'<span class="doc-open" style="opacity:.45">Unavailable</span>';
+    const actionLabel=doc.downloadOnly?'Download Handbook':'Open';
+    const link=doc.url?`<a class="doc-open" target="_blank" rel="noopener" href="${escapeAttr(doc.url)}">${actionLabel}</a>`:'<span class="doc-open" style="opacity:.45">Unavailable</span>';
     return `<div class="doc-card"><div class="doc-main"><div class="doc-title">${title}</div><div class="doc-meta">${meta}</div>${badge}</div>${link}</div>`;
   }).join('');
 }
