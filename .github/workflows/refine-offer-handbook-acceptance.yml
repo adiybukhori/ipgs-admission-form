@@ -20,8 +20,8 @@ jobs:
           ref: apps-script-v2-dev
           fetch-depth: 0
 
-      - name: Apply offer, handbook and acceptance refinements
-        run: python tools/refine-offer-handbook-acceptance-v3.py
+      - name: Apply acceptance submission safety fix
+        run: python tools/fix-acceptance-submit-v3.py
 
       - name: Validate source
         run: |
@@ -42,24 +42,19 @@ jobs:
           subprocess.run(['node','--check',str(p)],check=True)
           print('ACCEPTANCE_INLINE_JS_OK')
           PY
-          grep -F "function v2OfferDisplayStudyMode_" apps-script-v2/OfferLetterV2.js
-          grep -F "function v2OfferFormatAddress_" apps-script-v2/OfferLetterV2.js
-          grep -F "Mode of Study" apps-script-v2/OfferLetterV2.js
-          grep -F "v2AcceptanceHandbookAckPublicUrl_()" apps-script-v2/AcceptancePackV2.js
-          grep -F "handbookAcknowledgementImageDataUrl" apps-script-v2/AcceptancePackV2.js
-          grep -F "buildHandbookAcknowledgementImage" apps-script-v2/acceptance-v2.html
-          grep -F "signingProgress" apps-script-v2/acceptance-v2.html
-          grep -F "studentHandbookFileId: '15k9C77Zo85f6E-DzBDbQVEr1n_zXT6rz'" apps-script-v2/Code.js
+          grep -F "target.appendText('\\nTarikh: ' + signedDate);" apps-script-v2/AcceptancePackV2.js
+          grep -F "verifyAcceptanceAfterFailure" apps-script-v2/acceptance-v2.html
+          grep -F "Your acceptance has not been duplicated" apps-script-v2/acceptance-v2.html
 
-      - name: Commit source refinements
+      - name: Commit source fix
         run: |
-          if git diff --quiet -- apps-script-v2/Code.js apps-script-v2/OfferLetterV2.js apps-script-v2/AcceptancePackV2.js apps-script-v2/acceptance-v2.html; then
-            echo 'Source already refined.'
+          if git diff --quiet -- apps-script-v2/AcceptancePackV2.js apps-script-v2/acceptance-v2.html; then
+            echo 'Source already fixed.'
           else
             git config user.name 'github-actions[bot]'
             git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
-            git add apps-script-v2/Code.js apps-script-v2/OfferLetterV2.js apps-script-v2/AcceptancePackV2.js apps-script-v2/acceptance-v2.html
-            git commit -m 'Refine offer letter and handbook acceptance experience'
+            git add apps-script-v2/AcceptancePackV2.js apps-script-v2/acceptance-v2.html
+            git commit -m 'Fix acceptance submission nested paragraph error'
             git push origin apps-script-v2-dev
           fi
 
@@ -91,7 +86,7 @@ jobs:
       - name: Redeploy existing V2 web app
         env:
           V2_DEPLOYMENT_ID: AKfycbxasT_HgtRSvTbR_bsa8p17Cm-C2PKn20Ok1kU-AyJmxiKX8kX5EGOtRLwVwNlAL7JB
-        run: clasp create-deployment --deploymentId "$V2_DEPLOYMENT_ID" --description "Refine offer address/mode, exact handbook acknowledgement, public handbook and acceptance progress"
+        run: clasp create-deployment --deploymentId "$V2_DEPLOYMENT_ID" --description "Fix acceptance nested paragraph error and hide technical exceptions from students"
 
       - name: Remove clasp credential
         if: always()
