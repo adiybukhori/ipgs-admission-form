@@ -14,25 +14,28 @@ const CONFIG = {
   spreadsheetId: '1O-Y-q7_q78xKM1p5e2C3EWyQfYr5rXvhO0oWbVaw5Mw',
   sheetName: 'ADMISSION_RESPONSE',
   rootFolderId: '1DjGzCloTBLUbP84vLfV5xjkxuWf-Zxd1',
+  templateRootFolderId: '1EKLBm_lrHkFvB-YHt2WRu9X5TUGBYd0D',
+  pgAdm01TemplateDocId: '1TweYhiWWoh6S-PHciBRpxACQSrQfhGkIo8kWQEcKleU',
+  pgAdm01TemplatePdfId: '1oAVVfCzHdOesKfOSPX30M0xJxXXaIJQ4',
   notificationEmails: ['adiybukhori@innovative.edu.my'],
   timezone: 'Asia/Kuala_Lumpur',
   iucLogoFileId: '1aCvoX1s-k6t_XXWQRFLCo2KIli5QiyS_',
   buildVersion: 'DEV_SAFETY_LOCKED_20260904',
   adminApiPassword: '',
   masterFolderName: 'MASTER',
-  colTemplateId: '1jrjIribeYBVSgd1Is2w71dilIanPgyAFkTGqsY9_uYI',
+  colTemplateId: '1uUqXzytfU_AKCrAnjqwFbas0MfGPzb4yCsezE4PJPec',
   acceptanceTemplateId: '111FQaIYVSBFyHbFIQmbGlTD0rGluJgKY3Q7cHu8g_lU',
-  internationalColTemplateId: '1UFoDgdIaPS2bs8fvb1Fc8ETJvzcoEUcjhkPXDJ13vz8',
+  internationalColTemplateId: '1V4ln9inSh6sdITCfeDDE4QjZjSp2KK5ZXeJh7tvSHgc',
   agentMasterSheetName: 'AGENT_MASTER',
   epfTrackingSheetName: 'EPF_TRACKING',
   defaultNotificationEmail: 'adiybukhori@innovative.edu.my',
   isoNotificationEmail: 'muhammadadiy93@gmail.com',
   epfNotificationEmail: 'nurazila@innovative.edu.my',
 
-  officialLoaTemplateId: '',
-  acceptanceEnTemplateId: '',
-  suratPenerimaanTemplateId: '',
-  suratAkuanTemplateId: '',
+  officialLoaTemplateId: '1B2pAD2Eg78_8T7WDQ4g25O9JyPtLmwKUMdpjZtscmgs',
+  acceptanceEnTemplateId: '1gKoku9FxJz7sPh30Dith7IiavJRnWAsI6TKyBBgtuJI',
+  suratPenerimaanTemplateId: '1xqkKxqZvMQ4t5OgSBO50Y7qR3G_BgtSJdunfYsVea4Y',
+  suratAkuanTemplateId: '1iYjy3lkSU0baIToC8CROeKyhbwJ1BjYcGgHa9EzZPdc',
 
   studentHandbookFileId: '',
   studentPortalManualFileId: '',
@@ -45,9 +48,9 @@ const CONFIG = {
   agentActionSheetName: 'V2_AGENT_ACTIONS',
   agentActionEmailMode: 'DISABLED/TEST',
   
-  officialLoaTemplateId: '1BXx6GK7XPIbw8tmF8gmeGr8KUL1opFfCmEoC1TXnxwA',
+  officialLoaTemplateId: '1B2pAD2Eg78_8T7WDQ4g25O9JyPtLmwKUMdpjZtscmgs',
 
-  acceptanceEnTemplateId: '1JuIwpkPXIebWohnJrBUyJLw5flbVi3nbX0IsOgYlzlg',
+  acceptanceEnTemplateId: '1gKoku9FxJz7sPh30Dith7IiavJRnWAsI6TKyBBgtuJI',
 };
 
 const HEADERS = [
