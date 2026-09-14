@@ -366,6 +366,8 @@ function handleV2Post_(payload) {
   if (action === 'v2ConfirmAiScreening') return v2ConfirmAiScreening_(payload.data || {}, payload.updatedBy);
   if (action === 'v2CreateSacSession') return v2CreateSacSession_(payload.data || {}, payload.updatedBy);
   if (action === 'v2AssignSacCandidate') return v2AssignSacCandidate_(payload.data || {}, payload.updatedBy);
+  if (action === 'v2PrepareSacPack') return v2PrepareSacPack_(payload.data || {}, payload.updatedBy);
+  if (action === 'v2GetSacPackFile') return v2GetSacPackFile_(payload.data || {});
   if (action === 'v2RecordSacDecision') return v2RecordSacDecision_(payload.data || {}, payload.updatedBy);
   if (action === 'v2CreateSacSessionManual') return v2CreateSacSessionManual_(payload.data || {}, payload.updatedBy);
   if (action === 'v2SendSacCalendarInvitationManual') return v2SendSacCalendarInvitationManual_(payload.data || {}, payload.updatedBy);
