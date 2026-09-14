@@ -1,0 +1,60 @@
+name: Remove COL Quick Action
+
+on:
+  push:
+    paths:
+      - '.github/scripts/remove_col_quick_action.py'
+      - '.github/workflows/remove-col-quick-action.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Apply quick-action cleanup
+        run: python .github/scripts/remove_col_quick_action.py
+
+      - name: Validate admin inline JavaScript
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          import re, subprocess, tempfile
+          text = Path('admin.html').read_text(encoding='utf-8')
+          scripts = re.findall(r'<script>(.*?)</script>', text, flags=re.S)
+          if not scripts:
+              raise SystemExit('No inline script found')
+          js = '\n'.join(scripts)
+          with tempfile.NamedTemporaryFile('w', suffix='.js', delete=False, encoding='utf-8') as f:
+              f.write(js)
+              p = f.name
+          subprocess.run(['node','--check',p], check=True)
+          print('Inline JS syntax PASS')
+          PY
+
+      - name: Verify quick actions
+        run: |
+          grep -q "Offer Letter / LOA" admin.html
+          if grep -Fq ">COL</a>" admin.html; then
+            echo 'COL quick action still present' >&2
+            exit 1
+          fi
+
+      - name: Commit cleanup
+        run: |
+          if git diff --quiet -- admin.html; then
+            echo 'No changes to commit.'
+            exit 0
+          fi
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add admin.html
+          git commit -m 'Keep COL inside Offer and Acceptance module'
+          git push
