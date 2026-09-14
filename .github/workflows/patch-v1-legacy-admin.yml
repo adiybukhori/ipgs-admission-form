@@ -21,6 +21,19 @@ jobs:
           ref: main
           fetch-depth: 0
 
+      - name: Fix regex replacement handling
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          p = Path('.github/scripts/patch_v1_legacy_admin.py')
+          s = p.read_text(encoding='utf-8')
+          old = "updated, count = re.subn(pattern, replacement, text, count=1, flags=re.S)"
+          new = "updated, count = re.subn(pattern, lambda _m: replacement, text, count=1, flags=re.S)"
+          if old not in s:
+              raise SystemExit('regex helper target not found')
+          p.write_text(s.replace(old, new, 1), encoding='utf-8')
+          PY
+
       - name: Apply V1 legacy admin patch
         run: python .github/scripts/patch_v1_legacy_admin.py
 
