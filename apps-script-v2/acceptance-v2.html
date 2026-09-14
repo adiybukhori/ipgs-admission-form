@@ -57,7 +57,7 @@
 <script>
 const ACCEPTANCE_TOKEN=<?!= JSON.stringify(token || '') ?>;
 let signatureCanvas,signatureContext,drawing=false,signatureUsed=false;
-window.addEventListener('load',()=>{setupSignatureCanvas();loadAcceptancePack()});
+window.addEventListener('load',()=>{loadAcceptancePack()});
 
 function loadAcceptancePack(){
   if(!ACCEPTANCE_TOKEN){showError('Invalid or missing acceptance link.');return}
@@ -73,7 +73,7 @@ function loadAcceptancePack(){
       document.getElementById('referenceNo').textContent=result.referenceNo||'-';
       document.getElementById('signedName').value=result.studentName||'';
       renderDocuments(result.documents||[]);
-      document.getElementById('acceptanceView').classList.remove('hidden');
+      document.getElementById('acceptanceView').classList.remove('hidden');requestAnimationFrame(()=>{setupSignatureCanvas();resizeCanvas()});
     })
     .withFailureHandler(error=>showError(error.message||'This acceptance link is invalid or expired.'))
     .v2GetAcceptancePackForToken(ACCEPTANCE_TOKEN);
@@ -93,13 +93,39 @@ function renderDocuments(documents){
 
 function escapeHtml(v){return String(v==null?'':v).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;')}
 function escapeAttr(v){return escapeHtml(v)}
-function setupSignatureCanvas(){signatureCanvas=document.getElementById('signatureCanvas');signatureContext=signatureCanvas.getContext('2d');resizeCanvas();window.addEventListener('resize',resizeCanvas);signatureCanvas.addEventListener('pointerdown',startDrawing);signatureCanvas.addEventListener('pointermove',draw);signatureCanvas.addEventListener('pointerup',stopDrawing);signatureCanvas.addEventListener('pointercancel',stopDrawing);signatureCanvas.addEventListener('pointerleave',stopDrawing)}
-function resizeCanvas(){if(!signatureCanvas)return;const ratio=window.devicePixelRatio||1,rect=signatureCanvas.getBoundingClientRect(),height=window.innerWidth<=520?155:170,oldImage=signatureUsed?signatureCanvas.toDataURL():null;signatureCanvas.width=Math.max(1,Math.floor(rect.width*ratio));signatureCanvas.height=Math.floor(height*ratio);signatureContext=signatureCanvas.getContext('2d');signatureContext.setTransform(ratio,0,0,ratio,0,0);signatureContext.lineWidth=2.2;signatureContext.lineCap='round';signatureContext.lineJoin='round';signatureContext.strokeStyle='#20283b';if(oldImage){const img=new Image();img.onload=()=>signatureContext.drawImage(img,0,0,rect.width,height);img.src=oldImage}}
+let signatureResizeTimer=null;
+function setupSignatureCanvas(){
+  signatureCanvas=document.getElementById('signatureCanvas');
+  if(!signatureCanvas)return;
+  signatureContext=signatureCanvas.getContext('2d');
+  if(signatureCanvas.dataset.signatureReady!=='1'){
+    signatureCanvas.dataset.signatureReady='1';
+    signatureCanvas.addEventListener('pointerdown',startDrawing,{passive:false});
+    signatureCanvas.addEventListener('pointermove',draw,{passive:false});
+    signatureCanvas.addEventListener('pointerup',stopDrawing,{passive:false});
+    signatureCanvas.addEventListener('pointercancel',stopDrawing,{passive:false});
+    signatureCanvas.addEventListener('pointerleave',stopDrawing,{passive:false});
+    window.addEventListener('resize',()=>{clearTimeout(signatureResizeTimer);signatureResizeTimer=setTimeout(resizeCanvas,120)});
+  }
+  resizeCanvas();
+}
+function resizeCanvas(){
+  if(!signatureCanvas)return;
+  const rect=signatureCanvas.getBoundingClientRect();
+  if(!rect.width||rect.width<20)return;
+  const ratio=window.devicePixelRatio||1,height=window.innerWidth<=520?155:170,oldImage=signatureUsed?signatureCanvas.toDataURL():null;
+  signatureCanvas.width=Math.max(1,Math.floor(rect.width*ratio));
+  signatureCanvas.height=Math.floor(height*ratio);
+  signatureContext=signatureCanvas.getContext('2d');
+  signatureContext.setTransform(ratio,0,0,ratio,0,0);
+  signatureContext.lineWidth=2.2;signatureContext.lineCap='round';signatureContext.lineJoin='round';signatureContext.strokeStyle='#20283b';
+  if(oldImage){const img=new Image();img.onload=()=>signatureContext.drawImage(img,0,0,rect.width,height);img.src=oldImage}
+}
 function pointerPosition(event){const rect=signatureCanvas.getBoundingClientRect();return{x:event.clientX-rect.left,y:event.clientY-rect.top}}
-function startDrawing(event){drawing=true;signatureUsed=true;signatureCanvas.setPointerCapture?.(event.pointerId);const p=pointerPosition(event);signatureContext.beginPath();signatureContext.moveTo(p.x,p.y)}
-function draw(event){if(!drawing)return;const p=pointerPosition(event);signatureContext.lineTo(p.x,p.y);signatureContext.stroke()}
-function stopDrawing(){drawing=false}
-function clearSignature(){signatureContext.clearRect(0,0,signatureCanvas.width,signatureCanvas.height);signatureUsed=false}
+function startDrawing(event){if(!signatureContext)return;event.preventDefault();drawing=true;signatureUsed=true;try{signatureCanvas.setPointerCapture?.(event.pointerId)}catch(_){ }const p=pointerPosition(event);signatureContext.beginPath();signatureContext.moveTo(p.x,p.y);signatureContext.lineTo(p.x+.01,p.y+.01);signatureContext.stroke()}
+function draw(event){if(!drawing||!signatureContext)return;event.preventDefault();const p=pointerPosition(event);signatureContext.lineTo(p.x,p.y);signatureContext.stroke()}
+function stopDrawing(event){if(event)event.preventDefault();drawing=false}
+function clearSignature(){if(!signatureContext||!signatureCanvas)return;signatureContext.clearRect(0,0,signatureCanvas.width,signatureCanvas.height);signatureUsed=false}
 function submitAcceptance(){
   const signedName=document.getElementById('signedName').value.trim(),declarationAccepted=document.getElementById('declaration').checked;
   if(!signedName){showMessage('Student name is missing from the admission record.');return}

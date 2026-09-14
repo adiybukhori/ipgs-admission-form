@@ -13,6 +13,45 @@ const V2_OFFER_WORKFLOW_HEADERS = [
 ];
 
 
+function v2OfferDisplayIntake_(value) {
+  if (value instanceof Date && !isNaN(value.getTime())) {
+    return Utilities.formatDate(value, CONFIG.timezone || 'Asia/Kuala_Lumpur', 'MMMM yyyy');
+  }
+
+  const raw = String(value || '').trim();
+  if (!raw) return '';
+
+  const months = {
+    jan:'January', january:'January', feb:'February', february:'February',
+    mar:'March', march:'March', apr:'April', april:'April', may:'May',
+    jun:'June', june:'June', jul:'July', july:'July', aug:'August', august:'August',
+    sep:'September', sept:'September', september:'September', oct:'October', october:'October',
+    nov:'November', november:'November', dec:'December', december:'December'
+  };
+  const monthMatch = raw.match(/\b(Jan(?:uary)?|Feb(?:ruary)?|Mar(?:ch)?|Apr(?:il)?|May|Jun(?:e)?|Jul(?:y)?|Aug(?:ust)?|Sep(?:t(?:ember)?)?|Oct(?:ober)?|Nov(?:ember)?|Dec(?:ember)?)\b/i);
+  const yearMatch = raw.match(/\b(20\d{2})\b/);
+  if (monthMatch && yearMatch) {
+    const key = monthMatch[1].toLowerCase();
+    return (months[key] || months[key.slice(0,3)] || monthMatch[1]) + ' ' + yearMatch[1];
+  }
+
+  const isoMatch = raw.match(/\b(20\d{2})[-\/]([01]?\d)(?:[-\/]\d{1,2})?\b/);
+  if (isoMatch) {
+    const monthIndex = Number(isoMatch[2]) - 1;
+    if (monthIndex >= 0 && monthIndex < 12) {
+      return Utilities.formatDate(new Date(Number(isoMatch[1]), monthIndex, 1), CONFIG.timezone || 'Asia/Kuala_Lumpur', 'MMMM yyyy');
+    }
+  }
+
+  const parsed = new Date(raw);
+  if (!isNaN(parsed.getTime())) {
+    return Utilities.formatDate(parsed, CONFIG.timezone || 'Asia/Kuala_Lumpur', 'MMMM yyyy');
+  }
+  return raw;
+}
+
+
+
 function v2OfferSetupFoundation() {
   assertDevIdentity_();
 
@@ -191,9 +230,7 @@ function v2PrepareOffer_(referenceNo, actor) {
       ] || '',
 
     intake:
-      application.record[
-        'Intake'
-      ] || '',
+      v2OfferDisplayIntake_(application.record['Intake'] || ''),
 
     feeGroup:
       application.record[
@@ -352,7 +389,7 @@ function v2ValidateAcceptanceToken_(
       row['Programme'] || '',
 
     intake:
-      row['Intake'] || '',
+      v2OfferDisplayIntake_(row['Intake'] || ''),
 
     acceptanceStatus:
       row[
@@ -1459,12 +1496,7 @@ function v2GenerateOfferLetter_(referenceNo, actor) {
     ).trim() || 'Full Time';
 
 
-  const intake =
-    String(
-      application.record[
-        'Intake'
-      ] || ''
-    ).trim();
+  const intake = v2OfferDisplayIntake_(application.record['Intake'] || '');
 
 
   let rawApplication = {};
@@ -1618,15 +1650,10 @@ function v2GenerateOfferLetter_(referenceNo, actor) {
   });
 
 
-  /*
-   * Existing IUC template currently has
-   * "Study Mode : Full Time" hard-coded.
-   * Change ONLY the generated copy.
-   */
+  // Study Mode is intentionally omitted from the official Offer Letter.
   body.replaceText(
     'Study Mode\\s*:\\s*Full Time',
-    'Study Mode        : ' +
-      studyMode
+    ''
   );
 
 
@@ -2493,12 +2520,7 @@ function v2SubmitSignedAcceptance(rawToken, data) {
       );
 
 
-    const intake =
-      String(
-        application.record[
-          'Intake'
-        ] || ''
-      );
+    const intake = v2OfferDisplayIntake_(application.record['Intake'] || '');
 
 
     const studyMode =
@@ -3462,9 +3484,38 @@ function v2SendOfferEmail_(referenceNo, acceptanceUrl, pdfFileId, options) {
   if (!acceptanceUrl) throw new Error('Acceptance signing URL is missing.');
   const student = String(application.record['Student Name'] || 'Student');
   const programme = String(application.record['Programme'] || '');
-  const intake = String(application.record['Intake'] || '');
-  const subject = '[IUC IPGS] Offer Letter - ' + programme + ' - ' + reference;
-  const html = '<div style="font-family:Arial,sans-serif;max-width:680px;margin:auto;border:1px solid #e5e7eb;border-radius:16px;overflow:hidden"><div style="background:#2d2363;color:white;padding:24px"><h2 style="margin:0">Offer of Admission</h2></div><div style="padding:24px"><p>Dear ' + v2OfferHtmlEscape_(student) + ',</p><p>We are pleased to issue your Offer Letter for <strong>' + v2OfferHtmlEscape_(programme) + '</strong>.</p><p><strong>Reference:</strong> ' + v2OfferHtmlEscape_(reference) + '<br><strong>Intake:</strong> ' + v2OfferHtmlEscape_(intake) + '</p><p>Please review the attached Offer Letter. To accept the offer, complete your electronic acceptance using the secure link below:</p><p style="margin:24px 0"><a href="' + v2OfferHtmlEscape_(acceptanceUrl) + '" style="background:#2d2363;color:#fff;text-decoration:none;padding:12px 18px;border-radius:8px;font-weight:bold">Accept Offer</a></p><p>If the button does not open, copy this link into your browser:<br>' + v2OfferHtmlEscape_(acceptanceUrl) + '</p></div></div>';
+  const intake = v2OfferDisplayIntake_(application.record['Intake'] || '');
+  const subject = '[IUC IPGS] Congratulations! Your Official Offer Letter - ' + programme;
+  const safeStudent = v2OfferHtmlEscape_(student);
+  const safeProgramme = v2OfferHtmlEscape_(programme);
+  const safeIntake = v2OfferHtmlEscape_(intake);
+  const safeReference = v2OfferHtmlEscape_(reference);
+  const safeAcceptanceUrl = v2OfferHtmlEscape_(acceptanceUrl);
+  const html = [
+    '<div style="margin:0;padding:24px;background:#f6f4fb;font-family:Arial,sans-serif;color:#172033">',
+      '<div style="max-width:680px;margin:0 auto;background:#ffffff;border-radius:22px;overflow:hidden;border:1px solid #e8e3f3;box-shadow:0 10px 30px rgba(45,35,99,.08)">',
+        '<div style="background:#2d2363;padding:30px 30px 26px;text-align:center;color:#ffffff">',
+          '<div style="font-size:13px;letter-spacing:2px;font-weight:bold;color:#f5c451;margin-bottom:10px">CONGRATULATIONS!</div>',
+          '<div style="font-size:30px;line-height:1.2;font-weight:bold">Welcome to Innovative University College</div>',
+          '<div style="margin-top:10px;font-size:15px;line-height:1.6;color:#e9e4fb">Your postgraduate journey with IUC is about to begin.</div>',
+        '</div>',
+        '<div style="padding:30px">',
+          '<p style="font-size:18px;margin:0 0 16px"><strong>Dear ' + safeStudent + ',</strong></p>',
+          '<p style="font-size:15px;line-height:1.75;margin:0 0 18px">We are delighted to congratulate you on reaching this important milestone. It is our pleasure to officially welcome you to the <strong>Institute of Postgraduate Studies, Innovative University College</strong>.</p>',
+          '<p style="font-size:15px;line-height:1.75;margin:0 0 22px">Your <strong>Official Offer Letter</strong> is attached to this email. We are excited to have you join our postgraduate community and look forward to supporting you throughout your academic journey.</p>',
+          '<div style="background:#faf8ff;border:1px solid #e5def6;border-radius:14px;padding:18px;margin:0 0 22px">',
+            '<div style="font-size:12px;color:#746a94;font-weight:bold;text-transform:uppercase;letter-spacing:.8px;margin-bottom:8px">Your Offer</div>',
+            '<div style="font-size:14px;line-height:1.8"><strong>Programme:</strong> ' + safeProgramme + '<br><strong>Intake:</strong> ' + safeIntake + '<br><strong>Reference:</strong> ' + safeReference + '</div>',
+          '</div>',
+          '<div style="font-size:15px;line-height:1.7;margin-bottom:10px"><strong>Next step:</strong> Please review your Official Offer Letter and complete your secure electronic acceptance.</div>',
+          '<div style="text-align:center;margin:26px 0 24px"><a href="' + safeAcceptanceUrl + '" style="display:inline-block;background:#2d2363;color:#ffffff;text-decoration:none;padding:14px 24px;border-radius:10px;font-size:15px;font-weight:bold">Review &amp; Accept My Offer</a></div>',
+          '<div style="background:#fff8e6;border-left:4px solid #f5c451;padding:14px 16px;border-radius:8px;font-size:14px;line-height:1.65">This is the start of an exciting new chapter. <strong>Welcome to IUC — we are truly pleased to have you with us.</strong></div>',
+          '<p style="font-size:13px;color:#697386;line-height:1.65;margin:24px 0 0">If the button above does not open, copy this secure link into your browser:<br><span style="word-break:break-all;color:#4b35a2">' + safeAcceptanceUrl + '</span></p>',
+        '</div>',
+        '<div style="padding:18px 30px;background:#f3f0fa;text-align:center;font-size:12px;line-height:1.6;color:#746a94">Institute of Postgraduate Studies · Innovative University College<br>We look forward to welcoming you to the IUC community.</div>',
+      '</div>',
+    '</div>'
+  ].join('');
   const attachment = DriveApp.getFileById(pdfFileId).getBlob();
   GmailApp.sendEmail(recipient, subject, 'Your IUC Offer Letter is attached. Acceptance link: ' + acceptanceUrl, {htmlBody:html,attachments:[attachment],name:'IUC IPGS Admission'});
   v2Audit_(reference,'OFFER','SEND_OFFER_EMAIL',{}, {recipient:recipient,testMode:opts.testMode === true}, 'Offer Email', 'SUCCESS', '');

@@ -81,7 +81,7 @@ function v2AcceptancePackContext_(referenceNo) {
     studentName: String(app['Student Name'] || '').trim(),
     idPassport: String(app['ID / Passport No'] || '').trim(),
     programme: String(app['Programme'] || '').trim(),
-    intake: String(app['Intake'] || '').trim(),
+    intake: v2OfferDisplayIntake_(app['Intake'] || ''),
     studyMode: String(app['Study Mode'] || app['Mode of Study'] || '').trim()
   };
 }
