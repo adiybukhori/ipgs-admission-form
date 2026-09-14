@@ -76,6 +76,8 @@ function normalizeLegacyRow(row) {
     'Programme': firstValue(source, ['Programme', 'programme', 'Program', 'program']),
     'Intake': firstValue(source, ['Intake', 'intake', 'Session', 'session']),
     'Folder URL': firstValue(source, ['Folder URL', 'Student Folder URL', 'folderUrl', 'studentFolderUrl']),
+    'Email Sent': firstValue(source, ['Email Sent', 'Offer Email Sent', 'LOA Email Sent', 'emailSent']),
+    'Offer Letter File': firstValue(source, ['Offer Letter File', 'Offer Letter PDF URL', 'Offer Letter URL', 'LOA File', 'LOA URL', 'offerLetterUrl']),
     'Acceptance Status': firstValue(source, ['Acceptance Status', 'acceptanceStatus', 'Status']),
     'Acceptance Received At': firstValue(source, ['Acceptance Received At', 'acceptanceReceivedAt', 'Accepted At']),
     'Acceptance Offer File': firstValue(source, ['Acceptance Offer File', 'Acceptance PDF URL', 'acceptanceFile', 'acceptanceUrl']),
