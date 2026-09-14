@@ -1,0 +1,56 @@
+name: Separate V1 COL and Official Offer
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/scripts/separate_v1_col_official_offer.py'
+      - '.github/workflows/separate-v1-col-official-offer.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Apply V1 COL / official offer separation
+        run: python .github/scripts/separate_v1_col_official_offer.py
+
+      - name: Validate admin inline JavaScript
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          import re
+          html = Path('admin.html').read_text(encoding='utf-8')
+          blocks = re.findall(r'<script(?:\s[^>]*)?>(.*?)</script>', html, flags=re.S|re.I)
+          if not blocks:
+              raise SystemExit('No inline script found')
+          Path('/tmp/admin-inline.js').write_text('\n'.join(blocks), encoding='utf-8')
+          PY
+          node --check /tmp/admin-inline.js
+
+      - name: Verify V1 document separation markers
+        run: |
+          grep -q "V1 Conditional Offer (COL)" admin.html
+          grep -q "V1 Official Offer Letter / LOA" admin.html
+          grep -q "COL PDF URL" admin.html
+          grep -q "Open Official Offer Letter" admin.html
+
+      - name: Commit separation
+        run: |
+          if git diff --quiet -- admin.html; then
+            echo "No admin change required."
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add admin.html
+          git commit -m "Separate V1 COL from official Offer Letter"
+          git push
