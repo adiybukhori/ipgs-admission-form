@@ -7,10 +7,9 @@ cache_marker = """const ADMIN_DATA_CACHE = globalThis.__IPGS_ADMIN_DATA_CACHE__ 
 
 if 'const ADMIN_DATA_CACHE =' not in s:
     marker = "];\n\nfunction parseCsv(text) {"
-    idx = s.find(marker)
-    if idx < 0:
+    if marker not in s:
         raise SystemExit('SHEETS/parseCsv marker not found')
-    s = s[:idx+3] + "\n\n" + cache_marker + s[idx+5:]
+    s = s.replace(marker, "];\n\n" + cache_marker + "function parseCsv(text) {", 1)
 
 start_marker = "  const settled = await Promise.allSettled(SHEETS.map(async sheet => [sheet, await fetchSheet(sheet)]));"
 end_marker = "  if (Array.isArray(data.V2_SAC_SESSIONS)) {"
