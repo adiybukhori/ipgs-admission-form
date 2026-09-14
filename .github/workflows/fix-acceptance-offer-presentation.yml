@@ -1,0 +1,94 @@
+name: Fix Acceptance and Offer Presentation
+
+on:
+  push:
+    branches: [apps-script-v2-dev]
+    paths:
+      - '.github/workflows/fix-acceptance-offer-presentation.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  fix-deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Apps Script V2 branch
+        uses: actions/checkout@v4
+        with:
+          ref: apps-script-v2-dev
+          fetch-depth: 0
+
+      - name: Apply acceptance and offer fixes
+        run: python tools/fix-acceptance-offer-presentation.py
+
+      - name: Validate source
+        run: |
+          node --check apps-script-v2/OfferLetterV2.js
+          node --check apps-script-v2/AcceptancePackV2.js
+          python - <<'PY'
+          from pathlib import Path
+          import re, subprocess, tempfile
+          html=Path('apps-script-v2/acceptance-v2.html').read_text(encoding='utf-8')
+          blocks=re.findall(r'<script(?:\s[^>]*)?>([\s\S]*?)</script>', html, re.I)
+          if not blocks:
+              raise SystemExit('No acceptance script block found')
+          js='\n'.join(blocks).replace("<?!= JSON.stringify(token || '') ?>", "''")
+          p=Path('/tmp/acceptance-inline.js')
+          p.write_text(js, encoding='utf-8')
+          subprocess.run(['node','--check',str(p)],check=True)
+          print('ACCEPTANCE_INLINE_JS_OK')
+          PY
+          grep -F "let signatureResizeTimer=null;" apps-script-v2/acceptance-v2.html
+          grep -F "requestAnimationFrame(()=>{setupSignatureCanvas();resizeCanvas()})" apps-script-v2/acceptance-v2.html
+          grep -F "function v2OfferDisplayIntake_" apps-script-v2/OfferLetterV2.js
+          grep -F "Congratulations! Your Official Offer Letter" apps-script-v2/OfferLetterV2.js
+          grep -F "Study Mode is intentionally omitted from the official Offer Letter" apps-script-v2/OfferLetterV2.js
+          grep -F "intake: v2OfferDisplayIntake_(app['Intake'] || '')," apps-script-v2/AcceptancePackV2.js
+
+      - name: Commit source fixes
+        run: |
+          if git diff --quiet -- apps-script-v2/acceptance-v2.html apps-script-v2/OfferLetterV2.js apps-script-v2/AcceptancePackV2.js; then
+            echo 'Source already fixed.'
+          else
+            git config user.name 'github-actions[bot]'
+            git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+            git add apps-script-v2/acceptance-v2.html apps-script-v2/OfferLetterV2.js apps-script-v2/AcceptancePackV2.js
+            git commit -m 'Fix acceptance signing and offer presentation'
+            git push origin apps-script-v2-dev
+          fi
+
+      - name: Verify clasp credential
+        env:
+          CLASPRC_JSON: ${{ secrets.CLASPRC_JSON }}
+        run: |
+          if [ -z "$CLASPRC_JSON" ]; then
+            echo 'CLASPRC_JSON secret is not configured.'
+            exit 1
+          fi
+
+      - name: Install clasp
+        run: npm install --global @google/clasp@3.4.1
+
+      - name: Restore clasp credential
+        env:
+          CLASPRC_JSON: ${{ secrets.CLASPRC_JSON }}
+        run: |
+          printf '%s' "$CLASPRC_JSON" > "$HOME/.clasprc.json"
+          chmod 600 "$HOME/.clasprc.json"
+
+      - name: Verify locked V2 target
+        run: node tools/verify-clasp-target.mjs
+
+      - name: Force push Apps Script source
+        run: clasp push -f
+
+      - name: Redeploy existing V2 web app
+        env:
+          V2_DEPLOYMENT_ID: AKfycbxasT_HgtRSvTbR_bsa8p17Cm-C2PKn20Ok1kU-AyJmxiKX8kX5EGOtRLwVwNlAL7JB
+        run: clasp create-deployment --deploymentId "$V2_DEPLOYMENT_ID" --description "Fix signature pad, intake display, official offer letter and welcome email"
+
+      - name: Remove clasp credential
+        if: always()
+        run: rm -f "$HOME/.clasprc.json"
