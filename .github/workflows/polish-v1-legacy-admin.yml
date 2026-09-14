@@ -1,0 +1,60 @@
+name: Polish V1 Legacy Admin
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/scripts/polish_v1_legacy_admin.py'
+      - '.github/workflows/polish-v1-legacy-admin.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  polish:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+
+      - name: Apply V1 legacy polish
+        run: python .github/scripts/polish_v1_legacy_admin.py
+
+      - name: Validate API JavaScript
+        run: node --check api/admin-data.js
+
+      - name: Validate admin inline JavaScript
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          import re
+          html = Path('admin.html').read_text(encoding='utf-8')
+          blocks = re.findall(r'<script(?:\s[^>]*)?>(.*?)</script>', html, flags=re.S|re.I)
+          if not blocks:
+              raise SystemExit('No inline script found')
+          Path('/tmp/admin-inline.js').write_text('\n'.join(blocks), encoding='utf-8')
+          PY
+          node --check /tmp/admin-inline.js
+
+      - name: Verify V1 polish markers
+        run: |
+          grep -q "Read-only historical admission data" admin.html
+          grep -q "Legacy admission complete" admin.html
+          grep -q "Historical V1 flow" admin.html
+          grep -q "Offer Letter File" api/admin-data.js
+
+      - name: Commit polished admin
+        run: |
+          if git diff --quiet -- admin.html api/admin-data.js; then
+            echo "No changes required."
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add admin.html api/admin-data.js
+          git commit -m "Polish V1 legacy admission view"
+          git push origin main
