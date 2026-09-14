@@ -1,0 +1,77 @@
+name: Add Handbook Acknowledgement
+
+on:
+  push:
+    branches:
+      - apps-script-v2-dev
+    paths:
+      - '.github/workflows/add-handbook-acknowledgement.yml'
+      - '.github/scripts/add_handbook_acknowledgement.py'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  patch-deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Apps Script V2 branch
+        uses: actions/checkout@v4
+        with:
+          ref: apps-script-v2-dev
+          fetch-depth: 0
+
+      - name: Apply handbook acknowledgement integration
+        run: python .github/scripts/add_handbook_acknowledgement.py
+
+      - name: Validate integration markers
+        run: |
+          node --check apps-script-v2/AcceptancePackV2.js
+          grep -q "HANDBOOK_ACKNOWLEDGEMENT" apps-script-v2/AcceptancePackV2.js
+          grep -q "Student Handbook Acknowledgement Signed PDF URL" apps-script-v2/AcceptancePackV2.js
+          grep -q "signedDocumentCount: 4" apps-script-v2/AcceptancePackV2.js
+          grep -q "Download Handbook" apps-script-v2/acceptance-v2.html
+
+      - name: Commit source integration
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add apps-script-v2/AcceptancePackV2.js apps-script-v2/acceptance-v2.html
+          if git diff --cached --quiet; then
+            echo "No source changes to commit."
+          else
+            git commit -m "Sign and store handbook acknowledgement page"
+            git push origin HEAD:apps-script-v2-dev
+          fi
+
+      - name: Verify clasp credential
+        env:
+          CLASPRC_JSON: ${{ secrets.CLASPRC_JSON }}
+        run: |
+          test -n "$CLASPRC_JSON" || (echo 'CLASPRC_JSON secret is not configured.' && exit 1)
+
+      - name: Install clasp
+        run: npm install --global @google/clasp@3.4.1
+
+      - name: Restore clasp credential
+        env:
+          CLASPRC_JSON: ${{ secrets.CLASPRC_JSON }}
+        run: |
+          printf '%s' "$CLASPRC_JSON" > "$HOME/.clasprc.json"
+          chmod 600 "$HOME/.clasprc.json"
+
+      - name: Verify locked V2 target
+        run: node tools/verify-clasp-target.mjs
+
+      - name: Force push Apps Script source
+        run: clasp push --force
+
+      - name: Redeploy existing V2 web app
+        env:
+          V2_DEPLOYMENT_ID: AKfycbxasT_HgtRSvTbR_bsa8p17Cm-C2PKn20Ok1kU-AyJmxiKX8kX5EGOtRLwVwNlAL7JB
+        run: clasp create-deployment --deploymentId "$V2_DEPLOYMENT_ID" --description "Admission V2 handbook acknowledgement signing"
+
+      - name: Remove clasp credential
+        if: always()
+        run: rm -f "$HOME/.clasprc.json"
