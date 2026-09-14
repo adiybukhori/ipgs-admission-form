@@ -1,0 +1,7 @@
+{
+  "name": "ipgs-admission-form",
+  "private": true,
+  "dependencies": {
+    "pdf-lib": "^1.17.1"
+  }
+}
