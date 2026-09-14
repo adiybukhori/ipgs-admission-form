@@ -21,7 +21,7 @@ jobs:
           fetch-depth: 0
 
       - name: Apply offer, handbook and acceptance refinements
-        run: python tools/refine-offer-handbook-acceptance.py
+        run: python tools/refine-offer-handbook-acceptance-v2.py
 
       - name: Validate source
         run: |
