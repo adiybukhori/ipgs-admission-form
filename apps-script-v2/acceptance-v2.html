@@ -180,9 +180,26 @@ async function submitAcceptance(){
     updateSigningProgress(28,'Applying your signature...');
     google.script.run
       .withSuccessHandler(()=>{stopSigningProgress(false);updateSigningProgress(100,'Signed documents completed');button.textContent='Completed';setTimeout(()=>{document.getElementById('acceptanceView').classList.add('hidden');document.getElementById('completedView').classList.remove('hidden');window.scrollTo({top:0,behavior:'smooth'})},450)})
-      .withFailureHandler(error=>{stopSigningProgress(true);button.disabled=false;button.textContent='Submit Acceptance';showMessage(error.message||'Unable to submit acceptance. Please try again.')})
+      .withFailureHandler(error=>{console.error('Acceptance submission failed',error);verifyAcceptanceAfterFailure(button)})
       .v2AcceptancePackSubmitSigned(ACCEPTANCE_TOKEN,{signedName,signatureDataUrl,handbookAcknowledgementImageDataUrl,declarationAccepted:true});
   }catch(error){stopSigningProgress(true);button.disabled=false;button.textContent='Submit Acceptance';showMessage(error.message||'Unable to prepare the signed handbook acknowledgement. Please try again.')}
+}
+function verifyAcceptanceAfterFailure(button){
+  google.script.run
+    .withSuccessHandler(result=>{
+      if(String(result&&result.acceptanceStatus||'').toUpperCase()==='ACCEPTED'){
+        stopSigningProgress(false);updateSigningProgress(100,'Acceptance completed');button.textContent='Completed';
+        setTimeout(()=>{document.getElementById('acceptanceView').classList.add('hidden');document.getElementById('completedView').classList.remove('hidden');window.scrollTo({top:0,behavior:'smooth'})},300);
+        return;
+      }
+      stopSigningProgress(true);button.disabled=false;button.textContent='Submit Acceptance';
+      showMessage('We could not complete your acceptance just now. Your acceptance has not been duplicated. Please wait a few seconds and try once more. If the issue continues, please contact IPGS.');
+    })
+    .withFailureHandler(()=>{
+      stopSigningProgress(true);button.disabled=false;button.textContent='Submit Acceptance';
+      showMessage('We could not confirm the submission status just now. Please wait a few seconds and try once more. If the issue continues, please contact IPGS.');
+    })
+    .v2GetAcceptancePackForToken(ACCEPTANCE_TOKEN);
 }
 function showMessage(text){const box=document.getElementById('formMessage');box.textContent=text;box.className='message error'}
 function showError(text){document.getElementById('loadingCard').classList.add('hidden');document.getElementById('errorText').textContent=text;document.getElementById('errorView').classList.remove('hidden')}

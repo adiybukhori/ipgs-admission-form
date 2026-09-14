@@ -220,20 +220,12 @@ function v2AcceptancePackApplySignature_(body, docType, signatureBlob, signedNam
     }
     if (!target) {
       const truePara = v2AcceptancePackFindParagraph_(body, ['Yang Benar']);
-      if (truePara) {
-        const idx = body.getChildIndex(truePara);
-        if (idx > -1 && idx + 1 < bodyChildren) {
-          const next = body.getChild(idx + 1);
-          if (next.getType() === DocumentApp.ElementType.PARAGRAPH) target = next.asParagraph();
-        }
-        if (!target) target = body.insertParagraph(idx + 1, '');
-      }
+      if (truePara) target = body.appendParagraph('');
     }
     if (!target) throw new Error('Surat Akuan signature field was not found in the approved template.');
 
     v2AcceptancePackAppendSignature_(target, '', signatureBlob);
-    const idx = body.getChildIndex(target);
-    body.insertParagraph(idx + 1, 'Tarikh: ' + signedDate);
+    target.appendText('\nTarikh: ' + signedDate);
     return;
   }
 
