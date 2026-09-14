@@ -1,0 +1,54 @@
+name: Optimize Admin Refresh
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/optimize-admin-refresh.yml'
+      - '.github/scripts/optimize_admin_refresh.py'
+      - 'api/admin-record.js'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  optimize:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout main
+        uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+
+      - name: Apply targeted applicant refresh patch
+        run: python .github/scripts/optimize_admin_refresh.py
+
+      - name: Validate Admin inline JavaScript
+        run: |
+          node - <<'NODE'
+          const fs = require('fs');
+          const html = fs.readFileSync('admin.html','utf8');
+          const blocks = [...html.matchAll(/<script(?:\s[^>]*)?>([\s\S]*?)<\/script>/gi)].map(m=>m[1]).filter(s=>s.trim());
+          for (const block of blocks) new Function(block);
+          if (!html.includes("const RECORD_API = '/api/admin-record';")) throw new Error('RECORD_API missing');
+          if (!html.includes('ADMIN_TARGETED_REFRESH_V1')) throw new Error('targeted refresh marker missing');
+          if (html.includes('Action completed successfully. Refreshing record…')) throw new Error('old blocking refresh remains');
+          console.log('ADMIN_TARGETED_REFRESH_JS_OK');
+          NODE
+
+      - name: Validate targeted API syntax
+        run: node --check api/admin-record.js
+
+      - name: Commit optimization
+        run: |
+          if git diff --quiet -- admin.html; then
+            echo 'Admin refresh already optimized.'
+            exit 0
+          fi
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add admin.html
+          git commit -m 'Use targeted applicant refresh after admin actions'
+          git push origin main
