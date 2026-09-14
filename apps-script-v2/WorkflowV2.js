@@ -560,7 +560,6 @@ function v2RecordSacVote_(data, actor) {
   const allowedVotes = [
     'DIRECT_ENTRY',
     'INTERNAL_ASSESSMENT',
-    'PREREQUISITE',
     'REJECTED'
   ];
 
@@ -763,6 +762,7 @@ function v2GetSacVoteSummary_(sessionId, referenceNo) {
   };
 }
 
+// SAC_POLICY_V2: Direct prerequisite is prohibited. Prerequisite may only arise after IA.
 function v2RecordSacDecision_(data, actor) {
   const sessionId = v2Required_(data.sessionId,'SAC Session ID');
   const reference = v2Required_(data.referenceNo,'Reference No');
@@ -771,7 +771,6 @@ function v2RecordSacDecision_(data, actor) {
     [
       'DIRECT_ENTRY',
       'INTERNAL_ASSESSMENT',
-      'PREREQUISITE',
       'REJECTED'
     ].indexOf(decision) < 0
   ) {
@@ -811,18 +810,14 @@ function v2RecordSacDecision_(data, actor) {
     ? 'ELIGIBLE_FOR_OFFER'
     : decision === 'INTERNAL_ASSESSMENT'
       ? 'INTERNAL_ASSESSMENT'
-      : decision === 'PREREQUISITE'
-        ? 'PREREQUISITE'
-        : 'REJECTED';
+      : 'REJECTED';
 
 const letterAction =
   decision === 'DIRECT_ENTRY'
     ? 'OFFER_READY'
     : decision === 'INTERNAL_ASSESSMENT'
       ? 'COL_IA_READY'
-      : decision === 'PREREQUISITE'
-        ? 'COL_PREREQUISITE_READY'
-        : 'DECISION_NOTICE_READY';
+      : 'DECISION_NOTICE_READY';
 
   v2UpdateRow_(candidate.sheet,candidate.rowNumber,{'Decision':decision,'Priority':data.priority || candidate.record['Priority'],
     'Reviewer Remarks':data.remarks || '','Decision At':now,'Decision By':actor || 'SAC Reviewer','Letter Action':letterAction});
@@ -832,15 +827,9 @@ const letterAction =
     ? 'ACCOUNT_PENDING'
     : 'NOT_REQUIRED',
 
-'Prerequisite Status':
-  decision === 'PREREQUISITE'
-    ? 'REQUIRED'
-    : 'NOT_REQUIRED',
+'Prerequisite Status':'NOT_REQUIRED',
     'Last Updated':now,'Updated By':actor || 'SAC Reviewer'});
-  if (
-    decision === 'INTERNAL_ASSESSMENT' ||
-    decision === 'PREREQUISITE'
-  ) {
+  if (decision === 'INTERNAL_ASSESSMENT') {
     v2CreateAssessmentAccount_(
       workflow.record,
       actor || 'SAC Reviewer'
@@ -1124,17 +1113,9 @@ function v2UpdateAssessment_(data, actor) {
         workflow.record['Assessment Status'] || ''
       ) === 'COMPLETED_PREREQUISITE_REQUIRED';
 
-    const prerequisiteFromSac =
-      String(
-        workflow.record['SAC Decision'] || ''
-      ) === 'PREREQUISITE';
-
-    if (
-      !prerequisiteFromIa &&
-      !prerequisiteFromSac
-    ) {
+    if (!prerequisiteFromIa) {
       throw new Error(
-        'Prerequisite can only start after SAC endorsement or Internal Assessment panel confirmation.'
+        'Prerequisite can only start after Internal Assessment panel confirmation.'
       );
     }
   }

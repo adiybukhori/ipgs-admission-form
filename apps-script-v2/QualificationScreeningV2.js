@@ -223,12 +223,12 @@ function v2QualificationSeedVerifiedRules() {
       'Minimum CGPA': 2.00,
       'Maximum CGPA': '',
       'Work Experience Requirement': 'NO',
-      'Recommended Route': 'PREREQUISITE_OR_BRIDGING_REVIEW',
+      'Recommended Route': 'INTERNAL_ASSESSMENT',
       'Rule Status': 'DEV_TEST',
       'Source / Authority':
         'IUC MBA Prerequisite Course Admission Process & Operating Manual v1.0',
       'Notes':
-        'Regulatory verification required before imposing prerequisite. May become IUC readiness/bridging route.',
+        'Non-related Bachelor degree without verified relevant experience. Route to Internal Assessment first; prerequisite may only be required after the IA result.',
       'Last Updated': now
     },
 
@@ -313,12 +313,12 @@ function v2QualificationSeedVerifiedRules() {
       'Minimum CGPA': '',
       'Maximum CGPA': '',
       'Work Experience Requirement': 'NO',
-      'Recommended Route': 'PREREQUISITE',
+      'Recommended Route': 'INTERNAL_ASSESSMENT',
       'Rule Status': 'DEV_TEST',
       'Source / Authority':
         'IUC PhD Management Admission Quality Manual',
       'Notes':
-        'Non-related Master qualification without sufficient relevant experience.',
+        'Non-related Master qualification without sufficient relevant experience. Route to Internal Assessment first; prerequisite may only be required after the IA result.',
       'Last Updated': now
     },
 
