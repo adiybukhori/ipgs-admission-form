@@ -1,0 +1,51 @@
+name: Enforce Prerequisite After IA
+
+on:
+  push:
+    branches: [apps-script-v2-dev]
+    paths:
+      - '.github/scripts/enforce_prerequisite_after_ia.py'
+      - '.github/workflows/enforce-prerequisite-after-ia.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: apps-script-v2-dev
+          fetch-depth: 0
+      - name: Apply policy patch
+        run: python .github/scripts/enforce_prerequisite_after_ia.py
+      - name: Validate Apps Script JavaScript
+        run: |
+          for f in apps-script-v2/*.js; do node --check "$f"; done
+      - name: Verify SAC policy
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          w=Path('apps-script-v2/WorkflowV2.js').read_text()
+          q=Path('apps-script-v2/QualificationScreeningV2.js').read_text()
+          start=w.index('function v2RecordSacDecision_(data, actor)')
+          end=w.index('function v2FinalizeSacSession_', start)
+          decision=w[start:end]
+          if "decision === 'PREREQUISITE'" in decision or "'PREREQUISITE',\n      'REJECTED'" in decision:
+              raise SystemExit('Direct prerequisite still exists in legacy SAC decision path')
+          if 'Prerequisite can only start after Internal Assessment panel confirmation.' not in w:
+              raise SystemExit('IA-only prerequisite gate missing')
+          if "'Recommended Route': 'PREREQUISITE'" in q or "'Recommended Route': 'PREREQUISITE_OR_BRIDGING_REVIEW'" in q:
+              raise SystemExit('Qualification rules still route directly to prerequisite')
+          print('Prerequisite-after-IA policy verified.')
+          PY
+      - name: Commit policy update
+        run: |
+          if git diff --quiet; then echo "No changes to commit."; exit 0; fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add apps-script-v2/WorkflowV2.js apps-script-v2/QualificationScreeningV2.js
+          git commit -m "Enforce prerequisite only after IA"
+          git push origin HEAD:apps-script-v2-dev
