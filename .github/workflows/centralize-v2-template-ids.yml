@@ -1,0 +1,104 @@
+name: Centralize V2 Template IDs
+
+on:
+  push:
+    branches:
+      - apps-script-v2-dev
+    paths:
+      - '.github/workflows/centralize-v2-template-ids.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: apps-script-v2-dev
+
+      - name: Centralize template references
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+
+          code = Path('apps-script-v2/Code.js')
+          text = code.read_text(encoding='utf-8')
+
+          replacements = {
+              "  colTemplateId: '1jrjIribeYBVSgd1Is2w71dilIanPgyAFkTGqsY9_uYI',": "  colTemplateId: '1uUqXzytfU_AKCrAnjqwFbas0MfGPzb4yCsezE4PJPec',",
+              "  internationalColTemplateId: '1UFoDgdIaPS2bs8fvb1Fc8ETJvzcoEUcjhkPXDJ13vz8',": "  internationalColTemplateId: '1V4ln9inSh6sdITCfeDDE4QjZjSp2KK5ZXeJh7tvSHgc',",
+              "  officialLoaTemplateId: '',": "  officialLoaTemplateId: '1B2pAD2Eg78_8T7WDQ4g25O9JyPtLmwKUMdpjZtscmgs',",
+              "  acceptanceEnTemplateId: '',": "  acceptanceEnTemplateId: '1gKoku9FxJz7sPh30Dith7IiavJRnWAsI6TKyBBgtuJI',",
+              "  suratPenerimaanTemplateId: '',": "  suratPenerimaanTemplateId: '1xqkKxqZvMQ4t5OgSBO50Y7qR3G_BgtSJdunfYsVea4Y',",
+              "  suratAkuanTemplateId: '',": "  suratAkuanTemplateId: '1iYjy3lkSU0baIToC8CROeKyhbwJ1BjYcGgHa9EzZPdc',",
+              "  officialLoaTemplateId: '1BXx6GK7XPIbw8tmF8gmeGr8KUL1opFfCmEoC1TXnxwA',": "  officialLoaTemplateId: '1B2pAD2Eg78_8T7WDQ4g25O9JyPtLmwKUMdpjZtscmgs',",
+              "  acceptanceEnTemplateId: '1JuIwpkPXIebWohnJrBUyJLw5flbVi3nbX0IsOgYlzlg',": "  acceptanceEnTemplateId: '1gKoku9FxJz7sPh30Dith7IiavJRnWAsI6TKyBBgtuJI',",
+          }
+
+          for old, new in replacements.items():
+              if old in text:
+                  text = text.replace(old, new)
+
+          marker = "  rootFolderId: '1DjGzCloTBLUbP84vLfV5xjkxuWf-Zxd1',\n"
+          insert = (
+              "  rootFolderId: '1DjGzCloTBLUbP84vLfV5xjkxuWf-Zxd1',\n"
+              "  templateRootFolderId: '1EKLBm_lrHkFvB-YHt2WRu9X5TUGBYd0D',\n"
+              "  pgAdm01TemplateDocId: '1TweYhiWWoh6S-PHciBRpxACQSrQfhGkIo8kWQEcKleU',\n"
+              "  pgAdm01TemplatePdfId: '1oAVVfCzHdOesKfOSPX30M0xJxXXaIJQ4',\n"
+          )
+          if 'templateRootFolderId:' not in text:
+              if marker not in text:
+                  raise SystemExit('rootFolderId marker not found')
+              text = text.replace(marker, insert, 1)
+
+          required_ids = [
+              '1EKLBm_lrHkFvB-YHt2WRu9X5TUGBYd0D',
+              '1TweYhiWWoh6S-PHciBRpxACQSrQfhGkIo8kWQEcKleU',
+              '1oAVVfCzHdOesKfOSPX30M0xJxXXaIJQ4',
+              '1B2pAD2Eg78_8T7WDQ4g25O9JyPtLmwKUMdpjZtscmgs',
+              '1uUqXzytfU_AKCrAnjqwFbas0MfGPzb4yCsezE4PJPec',
+              '1V4ln9inSh6sdITCfeDDE4QjZjSp2KK5ZXeJh7tvSHgc',
+              '1gKoku9FxJz7sPh30Dith7IiavJRnWAsI6TKyBBgtuJI',
+              '1xqkKxqZvMQ4t5OgSBO50Y7qR3G_BgtSJdunfYsVea4Y',
+              '1iYjy3lkSU0baIToC8CROeKyhbwJ1BjYcGgHa9EzZPdc',
+          ]
+          missing = [x for x in required_ids if x not in text]
+          if missing:
+              raise SystemExit('Missing centralized IDs: ' + ', '.join(missing))
+          code.write_text(text, encoding='utf-8')
+
+          sac = Path('apps-script-v2/SacPackV2.js')
+          sac_text = sac.read_text(encoding='utf-8')
+          marker2 = "const V2_PG_ELIGIBILITY_FORM_VERSION = 'PG-ADM-01-V1';\n"
+          add2 = (
+              marker2 +
+              "const V2_PG_ELIGIBILITY_MASTER_TEMPLATE_ID = '1TweYhiWWoh6S-PHciBRpxACQSrQfhGkIo8kWQEcKleU';\n"
+              "const V2_PG_ELIGIBILITY_MASTER_PDF_ID = '1oAVVfCzHdOesKfOSPX30M0xJxXXaIJQ4';\n"
+          )
+          if 'V2_PG_ELIGIBILITY_MASTER_TEMPLATE_ID' not in sac_text:
+              if marker2 not in sac_text:
+                  raise SystemExit('PG-ADM-01 version marker not found')
+              sac_text = sac_text.replace(marker2, add2, 1)
+              sac.write_text(sac_text, encoding='utf-8')
+          PY
+
+      - name: Validate Apps Script JavaScript
+        run: |
+          cp apps-script-v2/Code.js /tmp/Code.js
+          cp apps-script-v2/SacPackV2.js /tmp/SacPackV2.js
+          node --check /tmp/Code.js
+          node --check /tmp/SacPackV2.js
+
+      - name: Commit centralized template references
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add apps-script-v2/Code.js apps-script-v2/SacPackV2.js
+          if git diff --cached --quiet; then
+            echo "No template reference changes needed."
+            exit 0
+          fi
+          git commit -m "Centralize Admission V2 template references"
+          git push origin HEAD:apps-script-v2-dev
