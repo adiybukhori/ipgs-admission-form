@@ -6,46 +6,49 @@
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <title>IUC Acceptance of Offer</title>
   <style>
-    :root{--primary:#2d2363;--primary2:#211849;--soft:#f1edfb;--bg:#f7f5ef;--card:#fff;--text:#20283b;--muted:#747b8b;--line:#e4e5eb;--green:#0f8b65;--greenSoft:#eaf8f2;--red:#aa3434;--redSoft:#fff0f0;--shadow:0 18px 50px rgba(27,31,52,.10)}
+    :root{--primary:#2d2363;--primary2:#211849;--soft:#f1edfb;--bg:#f7f5ef;--card:#fff;--text:#20283b;--muted:#747b8b;--line:#e4e5eb;--green:#0f8b65;--greenSoft:#eaf8f2;--red:#aa3434;--redSoft:#fff0f0;--amber:#956511;--amberSoft:#fff6d9;--shadow:0 18px 50px rgba(27,31,52,.10)}
     *{box-sizing:border-box}html{background:var(--bg)}body{margin:0;font-family:Inter,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;color:var(--text);background:linear-gradient(180deg,#f7f4ec 0,#faf9f5 38%,#fff 100%)}
     .page{min-height:100dvh;padding:24px 16px calc(34px + env(safe-area-inset-bottom))}.shell{width:min(720px,100%);margin:0 auto}.brand{display:flex;align-items:center;gap:14px;margin:4px 0 20px}.logo{width:86px;height:66px;border-radius:18px;background:var(--primary);display:grid;place-items:center;padding:10px;box-shadow:0 10px 26px rgba(45,35,99,.18)}.logo img{max-width:100%;max-height:100%;object-fit:contain}.brand h1{font-size:19px;margin:0 0 2px}.brand p{font-size:13px;margin:0;color:var(--muted)}
     .secure{display:flex;align-items:center;gap:9px;background:#f3f0fb;border:1px solid #dfd9f3;color:#55489a;padding:10px 12px;border-radius:14px;margin-bottom:14px;font-size:12px;font-weight:750}.secure i{width:9px;height:9px;border-radius:50%;background:#6f60b8;display:block;flex:0 0 auto}
     .hero{background:linear-gradient(135deg,var(--primary),var(--primary2));color:#fff;border-radius:26px;padding:24px;box-shadow:var(--shadow);margin-bottom:14px}.eyebrow{font-size:11px;font-weight:850;letter-spacing:.09em;text-transform:uppercase;color:#d9d3f5;margin-bottom:9px}.hero h2{font-size:28px;line-height:1.08;margin:0 0 9px}.hero p{margin:0;color:rgba(255,255,255,.78);font-size:14px;line-height:1.55}
     .card{background:var(--card);border:1px solid rgba(220,222,229,.9);border-radius:22px;padding:20px;margin:14px 0;box-shadow:0 8px 26px rgba(29,37,59,.055)}.card h3{font-size:18px;margin:0 0 4px}.sub{font-size:13px;color:var(--muted);line-height:1.5;margin-bottom:16px}.info{display:grid;grid-template-columns:1fr 1fr;gap:10px}.info-box{border:1px solid var(--line);background:#fbfbfd;border-radius:14px;padding:12px}.info-box span{display:block;font-size:10px;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);font-weight:800;margin-bottom:5px}.info-box strong{display:block;font-size:13px;line-height:1.35;word-break:break-word}.info-box.full{grid-column:1/-1}
-    .label{display:block;font-size:12px;font-weight:800;margin:16px 0 7px}.input{width:100%;border:1px solid #dfe1e7;border-radius:14px;padding:14px 13px;font:inherit;color:var(--text);background:#fff;outline:none}.input:focus{border-color:#7f70c9;box-shadow:0 0 0 3px rgba(45,35,99,.08)}
+    .documents{display:grid;gap:10px}.doc-card{display:flex;align-items:center;justify-content:space-between;gap:12px;border:1px solid var(--line);border-radius:15px;padding:13px;background:#fff}.doc-main{min-width:0}.doc-title{font-size:13px;font-weight:850;line-height:1.35}.doc-meta{font-size:10px;color:var(--muted);margin-top:4px}.doc-open{flex:0 0 auto;border:1px solid #d9d3ef;background:#fff;color:var(--primary);border-radius:11px;padding:9px 11px;font-size:11px;font-weight:850;text-decoration:none}.doc-open:hover{background:var(--soft)}.doc-sign{display:inline-flex;border-radius:999px;padding:4px 7px;background:var(--amberSoft);color:var(--amber);font-size:9px;font-weight:850;margin-top:6px}.pack-note{margin-top:12px;padding:12px 13px;border-radius:14px;background:#f5f2fc;color:#514487;font-size:11px;line-height:1.5}
+    .label{display:block;font-size:12px;font-weight:800;margin:16px 0 7px}.input{width:100%;border:1px solid #dfe1e7;border-radius:14px;padding:14px 13px;font:inherit;color:var(--text);background:#fff;outline:none}.input[readonly]{background:#f6f7fa;color:#3b4354;font-weight:750}.input:focus{border-color:#7f70c9;box-shadow:0 0 0 3px rgba(45,35,99,.08)}
     .signature{border:1.5px dashed #cdd0d9;border-radius:16px;background:linear-gradient(#fff,#fdfdff);overflow:hidden;position:relative}.signature:after{content:"Sign here";position:absolute;left:0;right:0;bottom:12px;text-align:center;font-size:11px;color:#b2b5c0;pointer-events:none}.signature canvas{display:block;width:100%;height:170px;touch-action:none;cursor:crosshair}.signature-actions{display:flex;justify-content:flex-end;margin-top:8px}.linkbtn{border:0;background:transparent;color:var(--primary);font-weight:800;padding:7px 4px;font-size:12px;cursor:pointer}
     .declaration{display:flex;gap:11px;align-items:flex-start;padding:13px;background:#faf9fd;border:1px solid #ebe8f5;border-radius:14px;margin-top:16px}.declaration input{width:19px;height:19px;margin:1px 0 0;accent-color:var(--primary);flex:0 0 auto}.declaration label{font-size:12px;line-height:1.5;color:#4f5667}.record{display:flex;align-items:center;gap:10px;background:var(--greenSoft);color:#236950;border-radius:13px;padding:11px 12px;margin-top:13px;font-size:12px}.record .dot{width:9px;height:9px;border-radius:50%;background:var(--green);flex:0 0 auto}
     .primary{width:100%;margin-top:18px;border:0;border-radius:15px;padding:15px 18px;background:var(--primary);color:#fff;font:inherit;font-weight:850;font-size:14px;box-shadow:0 10px 22px rgba(45,35,99,.18);cursor:pointer}.primary:disabled{opacity:.55;cursor:not-allowed}.message{display:none;padding:13px;border-radius:13px;margin-top:12px;font-size:12px;line-height:1.45}.message.error{display:block;background:var(--redSoft);color:var(--red)}.message.ok{display:block;background:var(--greenSoft);color:#17684e}
     .loading{display:flex;align-items:center;gap:11px;font-size:13px;color:var(--muted)}.spinner{width:20px;height:20px;border-radius:50%;border:2px solid #e2deef;border-top-color:var(--primary);animation:spin .8s linear infinite}@keyframes spin{to{transform:rotate(360deg)}}.success-card{text-align:center;padding:34px 20px}.success-icon{width:62px;height:62px;border-radius:50%;display:grid;place-items:center;background:var(--greenSoft);color:var(--green);font-size:29px;font-weight:900;margin:0 auto 14px}.success-card h3{font-size:24px}.success-card p{color:var(--muted);line-height:1.55;font-size:13px;max-width:500px;margin:8px auto}.hidden{display:none!important}.footer{text-align:center;color:#999eaa;font-size:11px;padding:10px 0 0}
-    @media(max-width:520px){.page{padding:14px 12px calc(28px + env(safe-area-inset-bottom))}.brand{margin-bottom:14px}.logo{width:75px;height:58px;border-radius:16px}.brand h1{font-size:17px}.hero{padding:21px 18px;border-radius:21px}.hero h2{font-size:25px}.card{padding:17px 15px;border-radius:19px}.info{grid-template-columns:1fr}.info-box.full{grid-column:auto}.signature canvas{height:155px}}
+    @media(max-width:520px){.page{padding:14px 12px calc(28px + env(safe-area-inset-bottom))}.brand{margin-bottom:14px}.logo{width:75px;height:58px;border-radius:16px}.brand h1{font-size:17px}.hero{padding:21px 18px;border-radius:21px}.hero h2{font-size:25px}.card{padding:17px 15px;border-radius:19px}.info{grid-template-columns:1fr}.info-box.full{grid-column:auto}.signature canvas{height:155px}.doc-card{align-items:flex-start}.doc-open{padding:8px 9px;font-size:10px}}
   </style>
 </head>
 <body>
 <div class="page"><div class="shell">
   <div class="brand"><div class="logo"><img src="https://lh3.googleusercontent.com/d/1eOwwzXYC_aAWOgF4TGYTc8PNIBkcwsUI=s1000" alt="IUC"></div><div><h1>Innovative University College</h1><p>Institute of Postgraduate Studies</p></div></div>
   <div class="secure"><i></i><span>Secure electronic acceptance · Admission V2</span></div>
-  <section class="hero"><div class="eyebrow">Admission Offer</div><h2>Acceptance of Offer</h2><p>Please review the offer details below and provide your electronic acceptance. Your acceptance date and time will be recorded automatically.</p></section>
+  <section class="hero"><div class="eyebrow">Admission Offer</div><h2>Acceptance of Offer</h2><p>Review your admission documents, then sign once. Your electronic signature will be applied to the approved documents that require your signature.</p></section>
 
-  <section id="loadingCard" class="card"><div class="loading"><div class="spinner"></div><span>Validating your secure acceptance link...</span></div></section>
+  <section id="loadingCard" class="card"><div class="loading"><div class="spinner"></div><span>Preparing your secure acceptance pack...</span></div></section>
 
   <div id="acceptanceView" class="hidden">
-    <section class="card"><h3>Your offer details</h3><div class="sub">Please confirm that the information below matches your Offer Letter.</div><div class="info">
+    <section class="card"><h3>Your offer details</h3><div class="sub">Please confirm that the information below matches your admission record.</div><div class="info">
       <div class="info-box"><span>Student name</span><strong id="studentName">-</strong></div>
       <div class="info-box"><span>Intake</span><strong id="intake">-</strong></div>
       <div class="info-box full"><span>Programme</span><strong id="programme">-</strong></div>
       <div class="info-box full"><span>Reference no.</span><strong id="referenceNo">-</strong></div>
     </div></section>
 
-    <section class="card"><h3>Electronic acceptance</h3><div class="sub">Complete the declaration and sign in the box below.</div>
-      <label class="label" for="signedName">Full name</label><input class="input" id="signedName" type="text" autocomplete="name" placeholder="Enter your full name">
+    <section class="card"><h3>Documents to review</h3><div class="sub">Open and review the documents below before submitting your acceptance.</div><div id="documentList" class="documents"></div><div class="pack-note">You sign only once on this page. The same electronic signature will be placed into the approved signature fields of the Acceptance & Student Handbook Confirmation, Surat Penerimaan Tawaran and Surat Akuan. Signed PDFs will be saved in your admission folder.</div></section>
+
+    <section class="card"><h3>Electronic acceptance</h3><div class="sub">Your full name is taken directly from the admission record and cannot be changed here.</div>
+      <label class="label" for="signedName">Full name</label><input class="input" id="signedName" type="text" readonly aria-readonly="true">
       <label class="label">Electronic signature</label><div class="signature"><canvas id="signatureCanvas"></canvas></div><div class="signature-actions"><button class="linkbtn" type="button" onclick="clearSignature()">Clear signature</button></div>
-      <div class="declaration"><input id="declaration" type="checkbox"><label for="declaration">I confirm that I have read and understood the Offer Letter and I accept the admission offer and the applicable terms and conditions of Innovative University College.</label></div>
-      <div class="record"><div class="dot"></div><span>Signed date and time will be captured automatically when you submit.</span></div>
+      <div class="declaration"><input id="declaration" type="checkbox"><label for="declaration">I confirm that I have reviewed the admission documents provided above, including the Offer Letter, Acceptance & Student Handbook Confirmation, Surat Penerimaan Tawaran, Surat Akuan and Student Handbook. I accept the offer and agree that my electronic signature may be applied to the documents that require my signature.</label></div>
+      <div class="record"><div class="dot"></div><span>Your signed name, date and time will be recorded automatically when you submit.</span></div>
       <button id="acceptButton" class="primary" type="button" onclick="submitAcceptance()">Submit Acceptance</button><div id="formMessage" class="message"></div>
     </section>
   </div>
 
-  <section id="completedView" class="card success-card hidden"><div class="success-icon">✓</div><h3>Offer Accepted</h3><p>Your electronic acceptance has been recorded successfully.</p><p>Your signed Acceptance of Offer PDF has been generated and saved to your admission record.</p><div class="record" style="justify-content:center"><div class="dot"></div><span>Admission acceptance complete</span></div></section>
+  <section id="completedView" class="card success-card hidden"><div class="success-icon">✓</div><h3>Offer Accepted</h3><p>Your electronic acceptance has been recorded successfully.</p><p>Your signed Acceptance & Student Handbook Confirmation, Surat Penerimaan Tawaran and Surat Akuan have been generated and saved in your admission folder.</p><div class="record" style="justify-content:center"><div class="dot"></div><span>Admission acceptance complete</span></div></section>
 
   <section id="errorView" class="card hidden"><h3>Unable to open acceptance</h3><div class="sub" id="errorText" style="margin:8px 0 0">This acceptance link is invalid or no longer available.</div></section>
   <div class="footer">IUC · IPGS Admission V2 · Electronic Acceptance</div>
@@ -54,8 +57,42 @@
 <script>
 const ACCEPTANCE_TOKEN=<?!= JSON.stringify(token || '') ?>;
 let signatureCanvas,signatureContext,drawing=false,signatureUsed=false;
-window.addEventListener('load',()=>{setupSignatureCanvas();validateToken()});
-function validateToken(){if(!ACCEPTANCE_TOKEN){showError('Invalid or missing acceptance link.');return}google.script.run.withSuccessHandler(result=>{document.getElementById('loadingCard').classList.add('hidden');if(String(result.acceptanceStatus||'').toUpperCase()==='ACCEPTED'){document.getElementById('completedView').classList.remove('hidden');return}document.getElementById('studentName').textContent=result.studentName||'-';document.getElementById('programme').textContent=result.programme||'-';document.getElementById('intake').textContent=result.intake||'-';document.getElementById('referenceNo').textContent=result.referenceNo||'-';document.getElementById('signedName').value=result.studentName||'';document.getElementById('acceptanceView').classList.remove('hidden')}).withFailureHandler(error=>showError(error.message||'This acceptance link is invalid or expired.')).v2ValidateAcceptanceToken_(ACCEPTANCE_TOKEN)}
+window.addEventListener('load',()=>{setupSignatureCanvas();loadAcceptancePack()});
+
+function loadAcceptancePack(){
+  if(!ACCEPTANCE_TOKEN){showError('Invalid or missing acceptance link.');return}
+  google.script.run
+    .withSuccessHandler(result=>{
+      document.getElementById('loadingCard').classList.add('hidden');
+      if(String(result.acceptanceStatus||'').toUpperCase()==='ACCEPTED'){
+        document.getElementById('completedView').classList.remove('hidden');return;
+      }
+      document.getElementById('studentName').textContent=result.studentName||'-';
+      document.getElementById('programme').textContent=result.programme||'-';
+      document.getElementById('intake').textContent=result.intake||'-';
+      document.getElementById('referenceNo').textContent=result.referenceNo||'-';
+      document.getElementById('signedName').value=result.studentName||'';
+      renderDocuments(result.documents||[]);
+      document.getElementById('acceptanceView').classList.remove('hidden');
+    })
+    .withFailureHandler(error=>showError(error.message||'This acceptance link is invalid or expired.'))
+    .v2GetAcceptancePackForToken(ACCEPTANCE_TOKEN);
+}
+
+function renderDocuments(documents){
+  const list=document.getElementById('documentList');
+  if(!documents.length){list.innerHTML='<div class="sub" style="margin:0">No admission documents are available.</div>';return}
+  list.innerHTML=documents.map(doc=>{
+    const title=escapeHtml(doc.label||'Admission document');
+    const meta=doc.signRequired?'Electronic signature required':'Review document';
+    const badge=doc.signRequired?'<span class="doc-sign">SIGNATURE WILL BE APPLIED</span>':'';
+    const link=doc.url?`<a class="doc-open" target="_blank" rel="noopener" href="${escapeAttr(doc.url)}">Open</a>`:'<span class="doc-open" style="opacity:.45">Unavailable</span>';
+    return `<div class="doc-card"><div class="doc-main"><div class="doc-title">${title}</div><div class="doc-meta">${meta}</div>${badge}</div>${link}</div>`;
+  }).join('');
+}
+
+function escapeHtml(v){return String(v==null?'':v).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;')}
+function escapeAttr(v){return escapeHtml(v)}
 function setupSignatureCanvas(){signatureCanvas=document.getElementById('signatureCanvas');signatureContext=signatureCanvas.getContext('2d');resizeCanvas();window.addEventListener('resize',resizeCanvas);signatureCanvas.addEventListener('pointerdown',startDrawing);signatureCanvas.addEventListener('pointermove',draw);signatureCanvas.addEventListener('pointerup',stopDrawing);signatureCanvas.addEventListener('pointercancel',stopDrawing);signatureCanvas.addEventListener('pointerleave',stopDrawing)}
 function resizeCanvas(){if(!signatureCanvas)return;const ratio=window.devicePixelRatio||1,rect=signatureCanvas.getBoundingClientRect(),height=window.innerWidth<=520?155:170,oldImage=signatureUsed?signatureCanvas.toDataURL():null;signatureCanvas.width=Math.max(1,Math.floor(rect.width*ratio));signatureCanvas.height=Math.floor(height*ratio);signatureContext=signatureCanvas.getContext('2d');signatureContext.setTransform(ratio,0,0,ratio,0,0);signatureContext.lineWidth=2.2;signatureContext.lineCap='round';signatureContext.lineJoin='round';signatureContext.strokeStyle='#20283b';if(oldImage){const img=new Image();img.onload=()=>signatureContext.drawImage(img,0,0,rect.width,height);img.src=oldImage}}
 function pointerPosition(event){const rect=signatureCanvas.getBoundingClientRect();return{x:event.clientX-rect.left,y:event.clientY-rect.top}}
@@ -63,7 +100,18 @@ function startDrawing(event){drawing=true;signatureUsed=true;signatureCanvas.set
 function draw(event){if(!drawing)return;const p=pointerPosition(event);signatureContext.lineTo(p.x,p.y);signatureContext.stroke()}
 function stopDrawing(){drawing=false}
 function clearSignature(){signatureContext.clearRect(0,0,signatureCanvas.width,signatureCanvas.height);signatureUsed=false}
-function submitAcceptance(){const signedName=document.getElementById('signedName').value.trim(),declarationAccepted=document.getElementById('declaration').checked;if(!signedName){showMessage('Please enter your full name.');return}if(!signatureUsed){showMessage('Please provide your electronic signature.');return}if(!declarationAccepted){showMessage('Please confirm the declaration before submitting.');return}const button=document.getElementById('acceptButton');button.disabled=true;button.textContent='Submitting acceptance...';const signatureDataUrl=signatureCanvas.toDataURL('image/png');google.script.run.withSuccessHandler(()=>{document.getElementById('acceptanceView').classList.add('hidden');document.getElementById('completedView').classList.remove('hidden');window.scrollTo({top:0,behavior:'smooth'})}).withFailureHandler(error=>{button.disabled=false;button.textContent='Submit Acceptance';showMessage(error.message||'Unable to submit acceptance. Please try again.')}).v2SubmitSignedAcceptance(ACCEPTANCE_TOKEN,{signedName,signatureDataUrl,declarationAccepted:true})}
+function submitAcceptance(){
+  const signedName=document.getElementById('signedName').value.trim(),declarationAccepted=document.getElementById('declaration').checked;
+  if(!signedName){showMessage('Student name is missing from the admission record.');return}
+  if(!signatureUsed){showMessage('Please provide your electronic signature.');return}
+  if(!declarationAccepted){showMessage('Please confirm the admission document declaration before submitting.');return}
+  const button=document.getElementById('acceptButton');button.disabled=true;button.textContent='Generating signed documents...';
+  const signatureDataUrl=signatureCanvas.toDataURL('image/png');
+  google.script.run
+    .withSuccessHandler(()=>{document.getElementById('acceptanceView').classList.add('hidden');document.getElementById('completedView').classList.remove('hidden');window.scrollTo({top:0,behavior:'smooth'})})
+    .withFailureHandler(error=>{button.disabled=false;button.textContent='Submit Acceptance';showMessage(error.message||'Unable to submit acceptance. Please try again.')})
+    .v2AcceptancePackSubmitSigned(ACCEPTANCE_TOKEN,{signedName,signatureDataUrl,declarationAccepted:true});
+}
 function showMessage(text){const box=document.getElementById('formMessage');box.textContent=text;box.className='message error'}
 function showError(text){document.getElementById('loadingCard').classList.add('hidden');document.getElementById('errorText').textContent=text;document.getElementById('errorView').classList.remove('hidden')}
 </script>
