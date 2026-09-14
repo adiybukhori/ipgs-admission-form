@@ -1,0 +1,43 @@
+name: Patch PG ADM01 Submission
+
+on:
+  push:
+    branches: [apps-script-v2-dev]
+    paths:
+      - '.github/workflows/patch-pg-adm01-submission.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: apps-script-v2-dev
+          fetch-depth: 0
+
+      - name: Apply PG-ADM-01 workflow patch
+        run: python .github/scripts/patch_pg_adm01_submission.py
+
+      - name: Validate Apps Script source
+        run: |
+          node --check apps-script-v2/AdmissionV2.js
+          node --check apps-script-v2/PgEligibilityV2.js
+          node --check apps-script-v2/SacPackV2.js
+          grep -q 'V2_PG_ADM01_ON_SUBMISSION_V1' apps-script-v2/AdmissionV2.js
+          grep -q 'V2_SAC_PACK_FORM_FIRST_V1' apps-script-v2/SacPackV2.js
+          grep -q '00_PG-ADM-01_' apps-script-v2/PgEligibilityV2.js
+
+      - name: Commit integration
+        run: |
+          if git diff --quiet; then
+            echo 'No changes to commit.'
+            exit 0
+          fi
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add apps-script-v2/AdmissionV2.js apps-script-v2/SacPackV2.js
+          git commit -m 'Generate PG-ADM-01 on admission and keep it first in SAC pack'
+          git push origin apps-script-v2-dev
