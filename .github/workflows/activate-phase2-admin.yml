@@ -1,0 +1,63 @@
+name: Activate Phase 2 Admin
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/activate-phase2-admin.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  activate:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout main
+        uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+
+      - name: Activate validated Phase 2 backend gate
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          p = Path('admin.html')
+          s = p.read_text(encoding='utf-8')
+          old = 'const PHASE2_BACKEND_READY = false;'
+          new = 'const PHASE2_BACKEND_READY = true;'
+          if old not in s and new not in s:
+              raise SystemExit('PHASE2_BACKEND_READY marker not found')
+          s = s.replace(old, new, 1)
+          old_copy = '<b>Operational actions:</b> protected V2 actions are connected for Document Review, Qualification Screening, SAC routing/decision and IA/PREREQ result updates. Offer generation remains separately gated until its final production activation.'
+          new_copy = '<b>Operational actions:</b> protected V2 actions are active for Document Review, Qualification Screening, SAC preparation/decision, IA/PREREQ result updates, Official Offer Letter and Acceptance. Actions remain controlled by the applicant\'s workflow stage and admin authentication.'
+          if old_copy in s:
+              s = s.replace(old_copy, new_copy, 1)
+          p.write_text(s, encoding='utf-8')
+          PY
+
+      - name: Validate activation
+        run: |
+          grep -F 'const PHASE2_BACKEND_READY = true;' admin.html
+          ! grep -F 'Offer generation remains separately gated until its final production activation.' admin.html
+          node - <<'NODE'
+          const fs = require('fs');
+          const html = fs.readFileSync('admin.html','utf8');
+          const blocks = [...html.matchAll(/<script(?:\s[^>]*)?>([\s\S]*?)<\/script>/gi)].map(m=>m[1]).filter(s=>s.trim());
+          for (const block of blocks) new Function(block);
+          console.log('ADMIN_INLINE_JS_OK');
+          NODE
+
+      - name: Commit activation
+        run: |
+          if git diff --quiet -- admin.html; then
+            echo 'Already activated.'
+            exit 0
+          fi
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add admin.html
+          git commit -m 'Activate validated Phase 2 admin actions'
+          git push origin main
