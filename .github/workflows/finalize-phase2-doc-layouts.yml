@@ -1,0 +1,80 @@
+name: Finalize Phase 2 Document Layouts
+
+on:
+  push:
+    branches: [apps-script-v2-dev]
+    paths:
+      - 'tools/finalize-phase2-doc-layouts.py'
+      - '.github/workflows/finalize-phase2-doc-layouts.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  patch-deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Apps Script V2 branch
+        uses: actions/checkout@v4
+        with:
+          ref: apps-script-v2-dev
+          fetch-depth: 0
+
+      - name: Apply Phase 2 document layout patch
+        run: python tools/finalize-phase2-doc-layouts.py
+
+      - name: Validate source
+        run: |
+          node --check apps-script-v2/AcceptancePackV2.js
+          node --check apps-script-v2/PgEligibilityV2.js
+          grep -F "v2AcceptancePackSetCellSignature_" apps-script-v2/AcceptancePackV2.js
+          grep -F "Tarikh: ' + signedDate + '\\nTandatangan" apps-script-v2/AcceptancePackV2.js
+          grep -F "v2OfferDisplayIntake_(app['Intake'] || '')" apps-script-v2/PgEligibilityV2.js
+          grep -F "V2_PG_ADM01_CONTROLLED_REFERENCE_PDF_ID" apps-script-v2/PgEligibilityV2.js
+
+      - name: Commit source refinements
+        run: |
+          if git diff --quiet -- apps-script-v2/AcceptancePackV2.js apps-script-v2/PgEligibilityV2.js; then
+            echo 'Source already finalized.'
+          else
+            git config user.name 'github-actions[bot]'
+            git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+            git add apps-script-v2/AcceptancePackV2.js apps-script-v2/PgEligibilityV2.js
+            git commit -m 'Finalize Phase 2 signed document layouts'
+            git push origin apps-script-v2-dev
+          fi
+
+      - name: Verify clasp credential
+        env:
+          CLASPRC_JSON: ${{ secrets.CLASPRC_JSON }}
+        run: |
+          if [ -z "$CLASPRC_JSON" ]; then
+            echo 'CLASPRC_JSON secret is not configured.'
+            exit 1
+          fi
+
+      - name: Install clasp
+        run: npm install --global @google/clasp@3.4.1
+
+      - name: Restore clasp credential
+        env:
+          CLASPRC_JSON: ${{ secrets.CLASPRC_JSON }}
+        run: |
+          printf '%s' "$CLASPRC_JSON" > "$HOME/.clasprc.json"
+          chmod 600 "$HOME/.clasprc.json"
+
+      - name: Verify locked V2 target
+        run: node tools/verify-clasp-target.mjs
+
+      - name: Force push Apps Script source
+        run: clasp push -f
+
+      - name: Redeploy existing V2 web app
+        env:
+          V2_DEPLOYMENT_ID: AKfycbxasT_HgtRSvTbR_bsa8p17Cm-C2PKn20Ok1kU-AyJmxiKX8kX5EGOtRLwVwNlAL7JB
+        run: clasp create-deployment --deploymentId "$V2_DEPLOYMENT_ID" --description "Finalize Phase 2 acceptance document alignment and PG-ADM-01 controlled layout"
+
+      - name: Remove clasp credential
+        if: always()
+        run: rm -f "$HOME/.clasprc.json"
