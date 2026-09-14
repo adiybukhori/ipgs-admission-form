@@ -1,0 +1,44 @@
+name: Patch V1 Legacy Admin
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/scripts/patch_v1_legacy_admin.py'
+      - '.github/workflows/patch-v1-legacy-admin.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+
+      - name: Apply V1 legacy admin patch
+        run: python .github/scripts/patch_v1_legacy_admin.py
+
+      - name: Basic admin syntax markers
+        run: |
+          grep -q "V1_MASTER_DATABASE" admin.html
+          grep -q "sourceFilter" admin.html
+          grep -q "V1 Legacy" admin.html
+          grep -q "renderLegacyDetailTabs" admin.html
+
+      - name: Commit patched admin
+        run: |
+          if git diff --quiet -- admin.html; then
+            echo "No admin changes required."
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add admin.html
+          git commit -m "Show V1 legacy applications in admin"
+          git push origin main
