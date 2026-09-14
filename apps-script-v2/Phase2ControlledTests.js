@@ -83,11 +83,13 @@ function v2Phase2ControlledTestSuite() {
   const manual = v2ManualScreeningRaceControlledTest();
   const ai = v2AiAutoControlledTest();
   const offerAcceptance = v2OfferAcceptanceEndToEndControlledTest();
+  const sacPack=v2SacPackControlledTest();
   const report = {
-    ok: !!(manual && manual.ok && ai && ai.ok && offerAcceptance && offerAcceptance.ok),
+    ok: !!(manual && manual.ok && ai && ai.ok && offerAcceptance && offerAcceptance.ok && sacPack && sacPack.ok),
     manualScreening:manual,
     aiAuto:ai,
     offerAcceptance:offerAcceptance,
+    sacPack:sacPack,
     v1Touched:false
   };
   Logger.log(JSON.stringify(report));
