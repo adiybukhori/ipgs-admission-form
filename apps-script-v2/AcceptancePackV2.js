@@ -168,64 +168,169 @@ function v2AcceptancePackFindParagraph_(body, needles) {
   return null;
 }
 
-function v2AcceptancePackAppendSignature_(paragraph, label, signatureBlob) {
+function v2AcceptancePackAppendSignature_(paragraph, label, signatureBlob, width, height) {
   paragraph.clear();
   if (label) paragraph.appendText(label + ' ');
   const image = paragraph.appendInlineImage(signatureBlob.copyBlob());
-  image.setWidth(180);
-  image.setHeight(60);
+  image.setWidth(Number(width || 120));
+  image.setHeight(Number(height || 40));
+  paragraph.setSpacingAfter(0);
+  return paragraph;
+}
+
+function v2AcceptancePackFindTableCell_(body, needles) {
+  const list = Array.isArray(needles) ? needles : [needles];
+  const tables = body.getTables();
+  for (let t = 0; t < tables.length; t += 1) {
+    const table = tables[t];
+    for (let r = 0; r < table.getNumRows(); r += 1) {
+      const row = table.getRow(r);
+      for (let c = 0; c < row.getNumCells(); c += 1) {
+        const cell = row.getCell(c);
+        const text = String(cell.getText() || '').trim();
+        for (let n = 0; n < list.length; n += 1) {
+          if (text.indexOf(list[n]) > -1) {
+            return {table: table, rowIndex: r, columnIndex: c, cell: cell};
+          }
+        }
+      }
+    }
+  }
+  return null;
+}
+
+function v2AcceptancePackSetCellText_(cell, value) {
+  cell.clear();
+  const paragraph = cell.appendParagraph(String(value || ''));
+  paragraph.setSpacingBefore(0);
+  paragraph.setSpacingAfter(0);
+  return paragraph;
+}
+
+function v2AcceptancePackSetCellSignature_(cell, prefix, signatureBlob, width, height) {
+  cell.clear();
+  const paragraph = cell.appendParagraph(String(prefix || ''));
+  paragraph.setSpacingBefore(0);
+  paragraph.setSpacingAfter(0);
+  const image = paragraph.appendInlineImage(signatureBlob.copyBlob());
+  image.setWidth(Number(width || 110));
+  image.setHeight(Number(height || 36));
+  return paragraph;
+}
+
+function v2AcceptancePackRemoveTrailingLine_(paragraph) {
+  const text = paragraph.editAsText();
+  text.replaceText('[_…\\.]{5,}\\s*$', '');
+  return paragraph;
+}
+
+function v2AcceptancePackReplaceTrailingLine_(paragraph, replacement) {
+  const current = String(paragraph.getText() || '');
+  if (/[_…\.]{5,}/.test(current)) {
+    paragraph.editAsText().replaceText('[_…\\.]{5,}', String(replacement || ''));
+  } else {
+    paragraph.appendText(String(replacement || ''));
+  }
   return paragraph;
 }
 
 function v2AcceptancePackApplySignature_(body, docType, signatureBlob, signedName, signedDate) {
   if (docType === 'ACCEPTANCE_EN') {
-    const signaturePara = v2AcceptancePackFindParagraph_(body, [
+    // The approved template uses a 2-column table where the label is already
+    // in column 1 and the colon/value is in column 2. Only write into the
+    // value cell so we never create a duplicate colon or disturb alignment.
+    const signatureLabel = v2AcceptancePackFindTableCell_(body, [
       'Student’s Signature',
       "Student's Signature"
     ]);
-    if (!signaturePara) throw new Error('Acceptance signature field was not found in the approved template.');
-    v2AcceptancePackAppendSignature_(signaturePara, 'Student’s Signature :', signatureBlob);
-
-    const datePara = v2AcceptancePackFindParagraph_(body, ['Date']);
-    if (datePara) {
-      datePara.clear();
-      datePara.appendText('Date : ' + signedDate);
+    if (!signatureLabel) {
+      throw new Error('Acceptance signature field was not found in the approved template.');
     }
+    const signatureRow = signatureLabel.table.getRow(signatureLabel.rowIndex);
+    if (signatureLabel.columnIndex + 1 >= signatureRow.getNumCells()) {
+      throw new Error('Acceptance signature value cell was not found in the approved template.');
+    }
+    v2AcceptancePackSetCellSignature_(
+      signatureRow.getCell(signatureLabel.columnIndex + 1),
+      ': ',
+      signatureBlob,
+      110,
+      36
+    );
+
+    const dateLabel = v2AcceptancePackFindTableCell_(body, ['Date']);
+    if (!dateLabel) {
+      throw new Error('Acceptance date field was not found in the approved template.');
+    }
+    const dateRow = dateLabel.table.getRow(dateLabel.rowIndex);
+    if (dateLabel.columnIndex + 1 >= dateRow.getNumCells()) {
+      throw new Error('Acceptance date value cell was not found in the approved template.');
+    }
+    v2AcceptancePackSetCellText_(
+      dateRow.getCell(dateLabel.columnIndex + 1),
+      ': ' + signedDate
+    );
     return;
   }
 
   if (docType === 'SURAT_PENERIMAAN') {
+    // Preserve the approved tabs/colon from the master. Remove only the
+    // underline and append the student signature at the existing position.
     const signaturePara = v2AcceptancePackFindParagraph_(body, ['Tandatangan Pelajar']);
-    if (!signaturePara) throw new Error('Surat Penerimaan signature field was not found in the approved template.');
-    v2AcceptancePackAppendSignature_(signaturePara, 'Tandatangan Pelajar :', signatureBlob);
+    if (!signaturePara) {
+      throw new Error('Surat Penerimaan signature field was not found in the approved template.');
+    }
+    v2AcceptancePackRemoveTrailingLine_(signaturePara);
+    const signatureImage = signaturePara.appendInlineImage(signatureBlob.copyBlob());
+    signatureImage.setWidth(105);
+    signatureImage.setHeight(34);
+    signaturePara.setSpacingAfter(0);
 
     const datePara = v2AcceptancePackFindParagraph_(body, ['Tarikh']);
-    if (datePara) {
-      datePara.clear();
-      datePara.appendText('Tarikh : ' + signedDate);
+    if (!datePara) {
+      throw new Error('Surat Penerimaan date field was not found in the approved template.');
     }
+    v2AcceptancePackReplaceTrailingLine_(datePara, signedDate);
     return;
   }
 
   if (docType === 'SURAT_AKUAN') {
-    const bodyChildren = body.getNumChildren();
-    let target = null;
-    const paragraphs = body.getParagraphs();
-    for (let i = 0; i < paragraphs.length; i += 1) {
-      const text = String(paragraphs[i].getText() || '').trim();
+    // The master contains a 3-column witness table. Only touch the student
+    // column. A compact signature prevents the table from spilling to a
+    // second page (which previously caused the first row/signature to repeat).
+    const studentCellRef = v2AcceptancePackFindTableCell_(body, ['Yang Benar']);
+    if (!studentCellRef) {
+      throw new Error('Surat Akuan student signature cell was not found in the approved template.');
+    }
+
+    const studentCell = studentCellRef.cell;
+    let signaturePara = null;
+    for (let i = 0; i < studentCell.getNumChildren(); i += 1) {
+      const child = studentCell.getChild(i);
+      if (child.getType() !== DocumentApp.ElementType.PARAGRAPH) continue;
+      const para = child.asParagraph();
+      const text = String(para.getText() || '').trim();
       if (/^[…\.]{5,}$/.test(text) || text.indexOf('……………………') > -1) {
-        target = paragraphs[i];
+        signaturePara = para;
         break;
       }
     }
-    if (!target) {
-      const truePara = v2AcceptancePackFindParagraph_(body, ['Yang Benar']);
-      if (truePara) target = body.appendParagraph('');
-    }
-    if (!target) throw new Error('Surat Akuan signature field was not found in the approved template.');
+    if (!signaturePara) signaturePara = studentCell.appendParagraph('');
+    signaturePara.clear();
+    const signatureImage = signaturePara.appendInlineImage(signatureBlob.copyBlob());
+    signatureImage.setWidth(96);
+    signatureImage.setHeight(31);
+    signaturePara.setSpacingBefore(0);
+    signaturePara.setSpacingAfter(0);
 
-    v2AcceptancePackAppendSignature_(target, '', signatureBlob);
-    target.appendText('\nTarikh: ' + signedDate);
+    // Keep the witness block untouched. Put the student date in row 2 of the
+    // student column so the first row stays compact and does not repeat.
+    const dateRowIndex = studentCellRef.rowIndex + 1;
+    if (dateRowIndex < studentCellRef.table.getNumRows()) {
+      const dateRow = studentCellRef.table.getRow(dateRowIndex);
+      const dateCell = dateRow.getCell(studentCellRef.columnIndex);
+      v2AcceptancePackSetCellText_(dateCell, 'Tarikh: ' + signedDate + '\nTandatangan');
+    }
     return;
   }
 
@@ -237,7 +342,7 @@ function v2AcceptancePackApplySignature_(body, docType, signatureBlob, signedNam
     if (!signaturePara) {
       throw new Error('Student Handbook acknowledgement signature field was not found in the approved template.');
     }
-    v2AcceptancePackAppendSignature_(signaturePara, 'Student’s Signature :', signatureBlob);
+    v2AcceptancePackAppendSignature_(signaturePara, 'Student’s Signature :', signatureBlob, 110, 36);
 
     const datePara = v2AcceptancePackFindParagraph_(body, ['Date:']);
     if (datePara) {

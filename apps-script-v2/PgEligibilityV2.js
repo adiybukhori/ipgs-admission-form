@@ -9,6 +9,7 @@
 
 const V2_PG_ADM01_IUC_LOGO_ID = '1aCvoX1s-k6t_XXWQRFLCo2KIli5QiyS_';
 const V2_PG_ADM01_IPGS_LOGO_ID = '1YACP9HsO94-m-mQ-tLPq4J3RbTqyA36r';
+const V2_PG_ADM01_CONTROLLED_REFERENCE_PDF_ID = '1oAVVfCzHdOesKfOSPX30M0xJxXXaIJQ4';
 
 function v2GeneratePgEligibilityPdf_(referenceNo, sessionId, actor) {
   const reference = String(referenceNo || '').trim();
@@ -28,7 +29,7 @@ function v2GeneratePgEligibilityPdf_(referenceNo, sessionId, actor) {
   const raw = v2PgAdm01ParseJson_(app['Raw Application JSON'], {});
 
   const studentName = String(app['Student Name'] || '').trim();
-  const intake = String(app['Intake'] || '').trim();
+  const intake = v2OfferDisplayIntake_(app['Intake'] || '');
   const highestQualification = String(app['Highest Qualification'] || '').trim();
   const institution = String(app['Institution / Awarding Body'] || '').trim();
   const field = String(app['Field of Study'] || '').trim();
@@ -131,7 +132,7 @@ function v2GeneratePgEligibilityPdf_(referenceNo, sessionId, actor) {
       '<div class="sig"><div class="line"></div><div>Signature / Date</div><div class="sig-title">Verified by<br>Registrar / Dean</div></div>' +
     '</div>' +
 
-    '<div class="footer">Controlled Document&nbsp;&nbsp;|&nbsp;&nbsp;Internal Use' + (sessionId ? '&nbsp;&nbsp;|&nbsp;&nbsp;SAC: ' + e(sessionId) : '') + '</div>' +
+    '<div class="footer">Controlled Document&nbsp;&nbsp;|&nbsp;&nbsp;Internal Use</div>' +
     '</body></html>';
 
   const pdfBlob = Utilities.newBlob(html, 'text/html', 'pg-adm-01.html')
