@@ -10,7 +10,7 @@ on:
 permissions:
   contents: read
 
-# Phase 2 sync trigger: manual fallback screening, AI auto attempt, offer and acceptance.
+# Force-sync the full Admission V2 source tree to the locked Apps Script project.
 jobs:
   push-head:
     runs-on: ubuntu-latest
@@ -31,7 +31,7 @@ jobs:
           fi
 
       - name: Install clasp
-        run: npm install --global @google/clasp@latest
+        run: npm install --global @google/clasp@3.4.1
 
       - name: Restore clasp credential
         env:
@@ -54,11 +54,16 @@ jobs:
       - name: Show clasp target status
         run: clasp status
 
-      - name: Push source to Apps Script HEAD only
-        run: clasp push
+      - name: Force push complete V2 source to Apps Script HEAD
+        run: clasp push --force
 
       - name: Confirm status after push
         run: clasp status
+
+      - name: Redeploy existing V2 web app
+        env:
+          V2_DEPLOYMENT_ID: AKfycbxasT_HgtRSvTbR_bsa8p17Cm-C2PKn20Ok1kU-AyJmxiKX8kX5EGOtRLwVwNlAL7JB
+        run: clasp create-deployment --deploymentId "$V2_DEPLOYMENT_ID" --description "Admission V2 full source sync"
 
       - name: Remove clasp credential
         if: always()
