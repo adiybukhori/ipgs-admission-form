@@ -272,8 +272,7 @@ function v2GeneratePgEligibilityPdf_(referenceNo, sessionId, actor) {
     for (let c = 0; c < signatures.getRow(r).getNumCells(); c++) {
       const cell = signatures.getCell(r, c);
       cell.setVerticalAlignment(DocumentApp.VerticalAlignment.CENTER);
-      const paragraphs = cell.getParagraphs();
-      paragraphs.forEach(function(p) {
+      v2SacPackForEachParagraph_(cell, function(p) {
         p.setAlignment(DocumentApp.HorizontalAlignment.CENTER);
         p.editAsText().setFontSize(r === 0 ? 8 : 7);
       });
@@ -515,6 +514,18 @@ function v2SacPackInfoRow_(table, leftLabel, leftValue, rightLabel, rightValue) 
   row.appendTableCell(rightValue || '');
 }
 
+function v2SacPackForEachParagraph_(cell, callback) {
+  for (let i = 0; i < cell.getNumChildren(); i++) {
+    const child = cell.getChild(i);
+    const type = child.getType();
+    if (type === DocumentApp.ElementType.PARAGRAPH) {
+      callback(child.asParagraph());
+    } else if (type === DocumentApp.ElementType.LIST_ITEM) {
+      callback(child.asListItem());
+    }
+  }
+}
+
 function v2SacPackStyleInfoTable_(table) {
   table.setBorderColor('#C9C4DA').setBorderWidth(1);
   for (let r = 0; r < table.getNumRows(); r++) {
@@ -522,7 +533,7 @@ function v2SacPackStyleInfoTable_(table) {
       const cell = table.getCell(r, c);
       cell.setVerticalAlignment(DocumentApp.VerticalAlignment.CENTER);
       if (c === 0 || c === 2) cell.setBackgroundColor('#F1EFF8');
-      cell.getParagraphs().forEach(function(p) {
+      v2SacPackForEachParagraph_(cell, function(p) {
         p.editAsText().setFontSize(8).setBold(c === 0 || c === 2);
       });
     }
@@ -536,7 +547,7 @@ function v2SacPackStyleChecklist_(table) {
       const cell = table.getCell(r, c);
       if (r === 0) cell.setBackgroundColor('#4B2E83');
       cell.setVerticalAlignment(DocumentApp.VerticalAlignment.CENTER);
-      cell.getParagraphs().forEach(function(p) {
+      v2SacPackForEachParagraph_(cell, function(p) {
         p.editAsText().setFontSize(7).setBold(r === 0).setForegroundColor(r === 0 ? '#FFFFFF' : '#222222');
         if (c > 0 && c < 4) p.setAlignment(DocumentApp.HorizontalAlignment.CENTER);
       });
@@ -550,7 +561,7 @@ function v2SacPackStyleRouteTable_(table) {
     for (let c = 0; c < table.getRow(r).getNumCells(); c++) {
       const cell = table.getCell(r, c);
       if (r === 0) cell.setBackgroundColor('#4B2E83');
-      cell.getParagraphs().forEach(function(p) {
+      v2SacPackForEachParagraph_(cell, function(p) {
         p.editAsText().setFontSize(7).setBold(r === 0).setForegroundColor(r === 0 ? '#FFFFFF' : '#222222');
       });
     }
