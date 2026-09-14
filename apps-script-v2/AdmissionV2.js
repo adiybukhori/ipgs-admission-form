@@ -33,6 +33,18 @@ function v2SubmitAdmission_(payload) {
     const pdf = v2GenerateAdmissionPdf_(studentFolder, payload, reference, intake, submittedAt, uploadedFiles);
     const row = v2SaveApplicationRecord_(payload, reference, intake, submittedAt, studentFolder, uploadedFiles, pdf, agent, 'PENDING');
     v2StartWorkflowForApplication_(row);
+
+    // V2_PG_ADM01_ON_SUBMISSION_V1
+    // Create the standard PG-ADM-01 at the same time as the Admission Form.
+    // It is stored in the student folder only and is not emailed to the applicant.
+    let pgAdm01 = null;
+    try {
+      pgAdm01 = v2GeneratePgEligibilityPdf_(reference, '', 'Admission Submission');
+    } catch (pgAdmError) {
+      Logger.log('V2 PG-ADM-01 generation failed non-blocking: ' +
+        String(pgAdmError && pgAdmError.message || pgAdmError));
+    }
+
     let emailStatus = 'DISABLED';
     try {
       emailStatus = v2SendSubmissionAcknowledgements_(payload, reference, intake, pdf, agent);
@@ -64,8 +76,9 @@ function v2SubmitAdmission_(payload) {
       emailStatus:emailStatus,
       agentCode:agent ? agent.code : '',
       agentActionCreated:!!agentActionUrl,
-      agentNotificationStatus:agentNotificationStatus
-    }, 'Applicant', 'SUCCESS', 'Admission PDF only. No COL or Offer Letter generated.');
+      agentNotificationStatus:agentNotificationStatus,
+      pgAdm01Generated:!!(pgAdm01 && pgAdm01.url)
+    }, 'Applicant', 'SUCCESS', 'Admission PDF + PG-ADM-01 generated. No COL or Offer Letter generated.');
     v2InvalidateCache_();
     return {
       ok:true,
@@ -75,6 +88,7 @@ function v2SubmitAdmission_(payload) {
       intakeId:intake.id,
       folderUrl:studentFolder.getUrl(),
       admissionFormPdfUrl:pdf.url,
+      pgAdm01PdfUrl:pgAdm01 && pgAdm01.url ? pgAdm01.url : '',
       emailStatus:emailStatus,
       colGenerated:false,
       offerLetterGenerated:false,

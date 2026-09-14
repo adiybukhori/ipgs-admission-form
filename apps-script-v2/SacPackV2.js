@@ -60,7 +60,7 @@ function v2PrepareSacPack_(data, actor) {
     const reference = String(candidate.record['Reference No'] || '').trim();
     if (!reference) throw new Error('SAC candidate is missing Reference No.');
 
-    const form = v2GeneratePgEligibilityForm_(reference, sessionId, preparedBy);
+    const form = v2GeneratePgEligibilityPdf_(reference, sessionId, preparedBy);
     const manifest = v2BuildSacCandidateManifest_(sessionId, reference, false);
 
     v2UpdateRow_(candidate.sheet, candidate.rowNumber, {
@@ -162,7 +162,7 @@ function v2GetSacPackFile_(data) {
   };
 }
 
-function v2GeneratePgEligibilityForm_(referenceNo, sessionId, actor) {
+function v2GeneratePgEligibilityPdf_(referenceNo, sessionId, actor) {
   const reference = String(referenceNo || '').trim();
   if (!reference) throw new Error('Reference No is required for PG-ADM-01.');
 
@@ -319,7 +319,7 @@ function v2BuildSacCandidateManifest_(sessionId, referenceNo, generateForm) {
   if (!candidate) throw new Error('SAC candidate record not found for ' + reference + '.');
 
   if (generateForm || !candidate.record['Form 01 URL']) {
-    const generated = v2GeneratePgEligibilityForm_(reference, sessionId, 'SAC Pack Preparation');
+    const generated = v2GeneratePgEligibilityPdf_(reference, sessionId, 'SAC Pack Preparation');
     candidate.record['Form 01 URL'] = generated.url;
   }
 
@@ -337,6 +337,8 @@ function v2BuildSacCandidateManifest_(sessionId, referenceNo, generateForm) {
   });
 
   const documents = [];
+  // V2_SAC_PACK_FORM_FIRST_V1
+  // PG-ADM-01 is always pushed before Admission Form and uploaded documents.
   const formId = v2SacPackExtractDriveId_(candidate.record['Form 01 URL'] || '');
   if (formId) documents.push(v2SacPackManifestDoc_('form01', 'PG-ADM-01 Eligibility Form', formId));
   else missing.unshift({key:'form01', label:'PG-ADM-01 Eligibility Form'});
