@@ -405,7 +405,7 @@
               <div class="panel-head"><h3>Current system availability</h3><span>What is live now</span></div>
               <div class="panel-body">
                 <div class="guide-callout green"><b>Available now:</b> live V2 dashboard, Action Center, Applications registry, applicant detail, document links, screening/SAC/assessment visibility, management reports and CSV export.</div>
-                <div class="guide-callout green" style="margin-top:10px"><b>Operational actions:</b> protected V2 actions are connected for Document Review, Qualification Screening, SAC routing/decision and IA/PREREQ result updates. Offer generation remains separately gated until its final production activation.</div>
+                <div class="guide-callout green" style="margin-top:10px"><b>Operational actions:</b> protected V2 actions are active for Document Review, Qualification Screening, SAC preparation/decision, IA/PREREQ result updates, Official Offer Letter and Acceptance. Actions remain controlled by the applicant's workflow stage and admin authentication.</div>
               </div>
             </div>
           </div>
@@ -458,7 +458,7 @@
     const ACTION_API = '/api/admin-action';
     const SAC_PACK_API = '/api/sac-pack';
     // PHASE2_BACKEND_SYNC_GATE_V1: flip only after Apps Script deployment + controlled tests pass.
-    const PHASE2_BACKEND_READY = false;
+    const PHASE2_BACKEND_READY = true;
     let password = sessionStorage.getItem('ipgsAdminPassword') || '';
     let db = {}, records = [], selected = null, sacPackState = null;
     const stageOrder = [['APPLICATION_RECEIVED','Application'],['DOCUMENT_REVIEW','Documents'],['QUALIFICATION_SCREENING','Screening'],['SAC','SAC'],['ASSESSMENT','IA / PREREQ'],['ELIGIBLE_FOR_OFFER','Offer Ready'],['OFFER_ISSUED','Offer'],['ACCEPTED','Accepted']];
