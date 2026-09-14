@@ -1,0 +1,67 @@
+name: Diagnose Apps Script Execution
+
+on:
+  push:
+    branches:
+      - apps-script-v2-dev
+    paths:
+      - '.github/workflows/diagnose-apps-script-execution.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  diagnose:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: apps-script-v2-dev
+          fetch-depth: 0
+
+      - name: Install clasp
+        run: npm install --global @google/clasp@3.4.1
+
+      - name: Restore clasp credential
+        env:
+          CLASPRC_JSON: ${{ secrets.CLASPRC_JSON }}
+        run: |
+          test -n "$CLASPRC_JSON"
+          printf '%s' "$CLASPRC_JSON" > "$HOME/.clasprc.json"
+          chmod 600 "$HOME/.clasprc.json"
+
+      - name: Verify target and syntax
+        run: |
+          node tools/verify-clasp-target.mjs
+          for f in apps-script-v2/*.js; do node --check "$f"; done
+
+      - name: Push and redeploy latest V2
+        env:
+          V2_DEPLOYMENT_ID: AKfycbxasT_HgtRSvTbR_bsa8p17Cm-C2PKn20Ok1kU-AyJmxiKX8kX5EGOtRLwVwNlAL7JB
+        run: |
+          clasp push
+          clasp create-deployment --deploymentId "$V2_DEPLOYMENT_ID" --description "Admission V2 execution diagnostics"
+
+      - name: Execution API ping
+        run: clasp run-function v2ExecutionPing --json
+
+      - name: Manual screening controlled test
+        continue-on-error: true
+        run: clasp run-function v2ManualScreeningRaceControlledTest --json
+
+      - name: AI screening controlled test
+        continue-on-error: true
+        run: clasp run-function v2AiAutoControlledTest --json
+
+      - name: Offer acceptance controlled test
+        continue-on-error: true
+        run: clasp run-function v2OfferAcceptanceEndToEndControlledTest --json
+
+      - name: SAC pack controlled test
+        continue-on-error: true
+        run: clasp run-function v2SacPackControlledTest --json
+
+      - name: Remove clasp credential
+        if: always()
+        run: rm -f "$HOME/.clasprc.json"
