@@ -1,0 +1,44 @@
+name: Patch SAC Pack Dispatcher
+
+on:
+  push:
+    branches: [apps-script-v2-dev]
+    paths:
+      - '.github/scripts/patch_sac_pack_dispatcher.py'
+      - '.github/workflows/patch-sac-pack-dispatcher.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: apps-script-v2-dev
+          fetch-depth: 0
+      - name: Apply dispatcher patch
+        run: python .github/scripts/patch_sac_pack_dispatcher.py
+      - name: Validate Apps Script JavaScript
+        run: |
+          for f in apps-script-v2/*.js; do
+            node --check "$f"
+          done
+      - name: Verify actions
+        run: |
+          grep -q "v2PrepareSacPack" apps-script-v2/WorkflowV2.js
+          grep -q "v2GetSacPackFile" apps-script-v2/WorkflowV2.js
+          grep -q "function v2PrepareSacPack_" apps-script-v2/SacPackV2.js
+      - name: Commit dispatcher update
+        run: |
+          if git diff --quiet; then
+            echo "No changes to commit."
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add apps-script-v2/WorkflowV2.js
+          git commit -m "Wire SAC pack actions into V2 dispatcher"
+          git push origin HEAD:apps-script-v2-dev
