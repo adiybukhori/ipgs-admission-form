@@ -1,0 +1,48 @@
+name: Fix V1 Offer Status By URL
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/scripts/fix_v1_offer_issued_by_url.py'
+      - '.github/workflows/fix-v1-offer-issued-by-url.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  fix:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+      - name: Apply V1 offer URL status fix
+        run: python .github/scripts/fix_v1_offer_issued_by_url.py
+      - name: Validate admin inline JavaScript
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          import re
+          html=Path('admin.html').read_text(encoding='utf-8')
+          blocks=re.findall(r'<script(?:\s[^>]*)?>(.*?)</script>', html, flags=re.S|re.I)
+          if not blocks: raise SystemExit('No inline script found')
+          Path('/tmp/admin-inline.js').write_text('\n'.join(blocks), encoding='utf-8')
+          PY
+          node --check /tmp/admin-inline.js
+      - name: Verify status condition
+        run: grep -q "offerIssued=offerStatus==='ISSUED'||Boolean(offerUrl)" admin.html
+      - name: Commit fix
+        run: |
+          if git diff --quiet -- admin.html; then
+            echo "No admin changes required."
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add admin.html
+          git commit -m "Treat V1 offer URL as issued offer"
+          git push origin main
