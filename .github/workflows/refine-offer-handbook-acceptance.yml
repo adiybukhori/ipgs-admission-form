@@ -1,0 +1,98 @@
+name: Refine Offer Handbook Acceptance
+
+on:
+  push:
+    branches: [apps-script-v2-dev]
+    paths:
+      - '.github/workflows/refine-offer-handbook-acceptance.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  patch-deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Apps Script V2 branch
+        uses: actions/checkout@v4
+        with:
+          ref: apps-script-v2-dev
+          fetch-depth: 0
+
+      - name: Apply offer, handbook and acceptance refinements
+        run: python tools/refine-offer-handbook-acceptance.py
+
+      - name: Validate source
+        run: |
+          node --check apps-script-v2/OfferLetterV2.js
+          node --check apps-script-v2/AcceptancePackV2.js
+          node --check apps-script-v2/AcceptanceHandbookExactV2.js
+          node --check apps-script-v2/Code.js
+          python - <<'PY'
+          from pathlib import Path
+          import re, subprocess
+          html=Path('apps-script-v2/acceptance-v2.html').read_text(encoding='utf-8')
+          blocks=re.findall(r'<script(?:\s[^>]*)?>([\s\S]*?)</script>', html, re.I)
+          if not blocks:
+              raise SystemExit('No acceptance script block found')
+          js='\n'.join(blocks).replace("<?!= JSON.stringify(token || '') ?>", "''")
+          p=Path('/tmp/acceptance-inline.js')
+          p.write_text(js, encoding='utf-8')
+          subprocess.run(['node','--check',str(p)],check=True)
+          print('ACCEPTANCE_INLINE_JS_OK')
+          PY
+          grep -F "function v2OfferDisplayStudyMode_" apps-script-v2/OfferLetterV2.js
+          grep -F "function v2OfferFormatAddress_" apps-script-v2/OfferLetterV2.js
+          grep -F "Mode of Study" apps-script-v2/OfferLetterV2.js
+          grep -F "v2AcceptanceHandbookAckPublicUrl_()" apps-script-v2/AcceptancePackV2.js
+          grep -F "handbookAcknowledgementImageDataUrl" apps-script-v2/AcceptancePackV2.js
+          grep -F "buildHandbookAcknowledgementImage" apps-script-v2/acceptance-v2.html
+          grep -F "signingProgress" apps-script-v2/acceptance-v2.html
+          grep -F "studentHandbookFileId: '15k9C77Zo85f6E-DzBDbQVEr1n_zXT6rz'" apps-script-v2/Code.js
+
+      - name: Commit source refinements
+        run: |
+          if git diff --quiet -- apps-script-v2/Code.js apps-script-v2/OfferLetterV2.js apps-script-v2/AcceptancePackV2.js apps-script-v2/acceptance-v2.html; then
+            echo 'Source already refined.'
+          else
+            git config user.name 'github-actions[bot]'
+            git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+            git add apps-script-v2/Code.js apps-script-v2/OfferLetterV2.js apps-script-v2/AcceptancePackV2.js apps-script-v2/acceptance-v2.html
+            git commit -m 'Refine offer letter and handbook acceptance experience'
+            git push origin apps-script-v2-dev
+          fi
+
+      - name: Verify clasp credential
+        env:
+          CLASPRC_JSON: ${{ secrets.CLASPRC_JSON }}
+        run: |
+          if [ -z "$CLASPRC_JSON" ]; then
+            echo 'CLASPRC_JSON secret is not configured.'
+            exit 1
+          fi
+
+      - name: Install clasp
+        run: npm install --global @google/clasp@3.4.1
+
+      - name: Restore clasp credential
+        env:
+          CLASPRC_JSON: ${{ secrets.CLASPRC_JSON }}
+        run: |
+          printf '%s' "$CLASPRC_JSON" > "$HOME/.clasprc.json"
+          chmod 600 "$HOME/.clasprc.json"
+
+      - name: Verify locked V2 target
+        run: node tools/verify-clasp-target.mjs
+
+      - name: Force push Apps Script source
+        run: clasp push -f
+
+      - name: Redeploy existing V2 web app
+        env:
+          V2_DEPLOYMENT_ID: AKfycbxasT_HgtRSvTbR_bsa8p17Cm-C2PKn20Ok1kU-AyJmxiKX8kX5EGOtRLwVwNlAL7JB
+        run: clasp create-deployment --deploymentId "$V2_DEPLOYMENT_ID" --description "Refine offer address/mode, exact handbook acknowledgement, public handbook and acceptance progress"
+
+      - name: Remove clasp credential
+        if: always()
+        run: rm -f "$HOME/.clasprc.json"
