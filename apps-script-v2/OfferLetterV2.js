@@ -51,6 +51,58 @@ function v2OfferDisplayIntake_(value) {
 }
 
 
+function v2OfferDisplayStudyMode_(value) {
+  const raw = String(value || '').trim();
+  if (!raw) return 'Full-Time';
+  const upper = raw.toUpperCase().replace(/[_\s]+/g, '-');
+  if (upper.indexOf('PART') > -1) return 'Part-Time';
+  if (upper.indexOf('FULL') > -1) return 'Full-Time';
+  return raw;
+}
+
+function v2OfferFormatAddress_(value) {
+  const raw = String(value || '').replace(/\s+/g, ' ').trim();
+  if (!raw) return '';
+
+  let lines = raw.split(/\s*,\s*/).filter(Boolean);
+
+  // If comma-separated data already gives 3+ components, preserve them.
+  // Otherwise rebalance words into at least three readable address lines.
+  if (lines.length < 3) {
+    const words = raw.replace(/,/g, ' ').split(/\s+/).filter(Boolean);
+    if (words.length >= 3) {
+      const target = Math.ceil(words.length / 3);
+      lines = [
+        words.slice(0, target).join(' '),
+        words.slice(target, target * 2).join(' '),
+        words.slice(target * 2).join(' ')
+      ].filter(Boolean);
+    }
+  }
+
+  const wrapped = [];
+  lines.forEach(function(line) {
+    if (line.length <= 45) {
+      wrapped.push(line);
+      return;
+    }
+    const words = line.split(/\s+/);
+    let current = '';
+    words.forEach(function(word) {
+      const next = current ? current + ' ' + word : word;
+      if (current && next.length > 45) {
+        wrapped.push(current);
+        current = word;
+      } else {
+        current = next;
+      }
+    });
+    if (current) wrapped.push(current);
+  });
+
+  return wrapped.join('\n');
+}
+
 
 function v2OfferSetupFoundation() {
   assertDevIdentity_();
@@ -1488,12 +1540,11 @@ function v2GenerateOfferLetter_(referenceNo, actor) {
     ).trim();
 
 
-  const studyMode =
-    String(
-      application.record[
-        'Study Mode'
-      ] || ''
-    ).trim() || 'Full Time';
+  const studyMode = v2OfferDisplayStudyMode_(
+    application.record['Study Mode'] ||
+    application.record['Mode of Study'] ||
+    ''
+  );
 
 
   const intake = v2OfferDisplayIntake_(application.record['Intake'] || '');
@@ -1515,12 +1566,11 @@ function v2GenerateOfferLetter_(referenceNo, actor) {
   }
 
 
-  const address =
-    String(
-      rawApplication.fullAddress ||
-      rawApplication.address ||
-      ''
-    ).trim();
+  const address = v2OfferFormatAddress_(
+    rawApplication.fullAddress ||
+    rawApplication.address ||
+    ''
+  );
 
 
   // --------------------------------------------------
@@ -1649,11 +1699,10 @@ function v2GenerateOfferLetter_(referenceNo, actor) {
 
   });
 
-
-  // Study Mode is intentionally omitted from the official Offer Letter.
+  // Academic enrolment mode is required on the official Offer Letter.
   body.replaceText(
-    'Study Mode\\s*:\\s*Full Time',
-    ''
+    'Study Mode\s*:\s*Full[ -]?Time',
+    'Mode of Study     : ' + studyMode
   );
 
 

@@ -17,6 +17,7 @@
     .signature{border:1.5px dashed #cdd0d9;border-radius:16px;background:linear-gradient(#fff,#fdfdff);overflow:hidden;position:relative}.signature:after{content:"Sign here";position:absolute;left:0;right:0;bottom:12px;text-align:center;font-size:11px;color:#b2b5c0;pointer-events:none}.signature canvas{display:block;width:100%;height:170px;touch-action:none;cursor:crosshair}.signature-actions{display:flex;justify-content:flex-end;margin-top:8px}.linkbtn{border:0;background:transparent;color:var(--primary);font-weight:800;padding:7px 4px;font-size:12px;cursor:pointer}
     .declaration{display:flex;gap:11px;align-items:flex-start;padding:13px;background:#faf9fd;border:1px solid #ebe8f5;border-radius:14px;margin-top:16px}.declaration input{width:19px;height:19px;margin:1px 0 0;accent-color:var(--primary);flex:0 0 auto}.declaration label{font-size:12px;line-height:1.5;color:#4f5667}.record{display:flex;align-items:center;gap:10px;background:var(--greenSoft);color:#236950;border-radius:13px;padding:11px 12px;margin-top:13px;font-size:12px}.record .dot{width:9px;height:9px;border-radius:50%;background:var(--green);flex:0 0 auto}
     .primary{width:100%;margin-top:18px;border:0;border-radius:15px;padding:15px 18px;background:var(--primary);color:#fff;font:inherit;font-weight:850;font-size:14px;box-shadow:0 10px 22px rgba(45,35,99,.18);cursor:pointer}.primary:disabled{opacity:.55;cursor:not-allowed}.message{display:none;padding:13px;border-radius:13px;margin-top:12px;font-size:12px;line-height:1.45}.message.error{display:block;background:var(--redSoft);color:var(--red)}.message.ok{display:block;background:var(--greenSoft);color:#17684e}
+    .signing-progress{margin-top:14px;padding:13px;border:1px solid #e2def3;background:#f7f5fd;border-radius:14px}.signing-progress-head{display:flex;justify-content:space-between;gap:12px;align-items:center;font-size:11px;font-weight:800;color:#55489a;margin-bottom:8px}.signing-progress-track{height:9px;border-radius:999px;background:#e6e2f2;overflow:hidden}.signing-progress-bar{height:100%;width:0;background:linear-gradient(90deg,#2d2363,#7667bd);border-radius:999px;transition:width .45s ease}.signing-progress-note{font-size:10px;color:var(--muted);line-height:1.45;margin-top:7px}
     .loading{display:flex;align-items:center;gap:11px;font-size:13px;color:var(--muted)}.spinner{width:20px;height:20px;border-radius:50%;border:2px solid #e2deef;border-top-color:var(--primary);animation:spin .8s linear infinite}@keyframes spin{to{transform:rotate(360deg)}}.success-card{text-align:center;padding:34px 20px}.success-icon{width:62px;height:62px;border-radius:50%;display:grid;place-items:center;background:var(--greenSoft);color:var(--green);font-size:29px;font-weight:900;margin:0 auto 14px}.success-card h3{font-size:24px}.success-card p{color:var(--muted);line-height:1.55;font-size:13px;max-width:500px;margin:8px auto}.hidden{display:none!important}.footer{text-align:center;color:#999eaa;font-size:11px;padding:10px 0 0}
     @media(max-width:520px){.page{padding:14px 12px calc(28px + env(safe-area-inset-bottom))}.brand{margin-bottom:14px}.logo{width:75px;height:58px;border-radius:16px}.brand h1{font-size:17px}.hero{padding:21px 18px;border-radius:21px}.hero h2{font-size:25px}.card{padding:17px 15px;border-radius:19px}.info{grid-template-columns:1fr}.info-box.full{grid-column:auto}.signature canvas{height:155px}.doc-card{align-items:flex-start}.doc-open{padding:8px 9px;font-size:10px}}
   </style>
@@ -34,6 +35,7 @@
       <div class="info-box"><span>Student name</span><strong id="studentName">-</strong></div>
       <div class="info-box"><span>Intake</span><strong id="intake">-</strong></div>
       <div class="info-box full"><span>Programme</span><strong id="programme">-</strong></div>
+      <div class="info-box full"><span>Mode of Study</span><strong id="studyMode">-</strong></div>
       <div class="info-box full"><span>Reference no.</span><strong id="referenceNo">-</strong></div>
     </div></section>
 
@@ -44,6 +46,7 @@
       <label class="label">Electronic signature</label><div class="signature"><canvas id="signatureCanvas"></canvas></div><div class="signature-actions"><button class="linkbtn" type="button" onclick="clearSignature()">Clear signature</button></div>
       <div class="declaration"><input id="declaration" type="checkbox"><label for="declaration">I confirm that I have reviewed the admission documents provided above, including the Offer Letter, Acceptance & Student Handbook Confirmation, Surat Penerimaan Tawaran, Surat Akuan, Student Handbook Acknowledgement and the full Postgraduate Student Handbook. I accept the offer, acknowledge that I have reviewed the Student Handbook, and agree that my electronic signature may be applied to the documents that require my signature.</label></div>
       <div class="record"><div class="dot"></div><span>Your signed name, date and time will be recorded automatically when you submit.</span></div>
+      <div id="signingProgress" class="signing-progress hidden"><div class="signing-progress-head"><span id="signingProgressText">Preparing signed documents...</span><span id="signingProgressPct">0%</span></div><div class="signing-progress-track"><div id="signingProgressBar" class="signing-progress-bar"></div></div><div class="signing-progress-note">Please keep this page open while your signed PDFs are prepared and saved securely.</div></div>
       <button id="acceptButton" class="primary" type="button" onclick="submitAcceptance()">Submit Acceptance</button><div id="formMessage" class="message"></div>
     </section>
   </div>
@@ -57,6 +60,7 @@
 <script>
 const ACCEPTANCE_TOKEN=<?!= JSON.stringify(token || '') ?>;
 let signatureCanvas,signatureContext,drawing=false,signatureUsed=false;
+let acceptancePackData=null,signingProgressTimer=null,signingProgressValue=0;
 window.addEventListener('load',()=>{loadAcceptancePack()});
 
 function loadAcceptancePack(){
@@ -67,9 +71,11 @@ function loadAcceptancePack(){
       if(String(result.acceptanceStatus||'').toUpperCase()==='ACCEPTED'){
         document.getElementById('completedView').classList.remove('hidden');return;
       }
+      acceptancePackData=result;
       document.getElementById('studentName').textContent=result.studentName||'-';
       document.getElementById('programme').textContent=result.programme||'-';
       document.getElementById('intake').textContent=result.intake||'-';
+      document.getElementById('studyMode').textContent=result.studyMode||'-';
       document.getElementById('referenceNo').textContent=result.referenceNo||'-';
       document.getElementById('signedName').value=result.studentName||'';
       renderDocuments(result.documents||[]);
@@ -86,7 +92,7 @@ function renderDocuments(documents){
     const title=escapeHtml(doc.label||'Admission document');
     const meta=doc.signRequired?'Electronic signature required':'Review document';
     const badge=doc.signRequired?'<span class="doc-sign">SIGNATURE WILL BE APPLIED</span>':'';
-    const actionLabel=doc.downloadOnly?'Download Handbook':'Open';
+    const actionLabel=doc.downloadOnly?'Open / Download Handbook':'Open';
     const link=doc.url?`<a class="doc-open" target="_blank" rel="noopener" href="${escapeAttr(doc.url)}">${actionLabel}</a>`:'<span class="doc-open" style="opacity:.45">Unavailable</span>';
     return `<div class="doc-card"><div class="doc-main"><div class="doc-title">${title}</div><div class="doc-meta">${meta}</div>${badge}</div>${link}</div>`;
   }).join('');
@@ -127,17 +133,56 @@ function startDrawing(event){if(!signatureContext)return;event.preventDefault();
 function draw(event){if(!drawing||!signatureContext)return;event.preventDefault();const p=pointerPosition(event);signatureContext.lineTo(p.x,p.y);signatureContext.stroke()}
 function stopDrawing(event){if(event)event.preventDefault();drawing=false}
 function clearSignature(){if(!signatureContext||!signatureCanvas)return;signatureContext.clearRect(0,0,signatureCanvas.width,signatureCanvas.height);signatureUsed=false}
-function submitAcceptance(){
+function malaysiaDateText(){
+  try{return new Intl.DateTimeFormat('en-GB',{timeZone:'Asia/Kuala_Lumpur',day:'numeric',month:'long',year:'numeric'}).format(new Date())}
+  catch(_){return new Date().toLocaleDateString('en-GB',{day:'numeric',month:'long',year:'numeric'})}
+}
+function loadCanvasImage(src){return new Promise((resolve,reject)=>{const img=new Image();img.onload=()=>resolve(img);img.onerror=()=>reject(new Error('Unable to prepare the Student Handbook acknowledgement page.'));img.src=src})}
+function drawFittedText(ctx,text,x,y,maxWidth,startSize){
+  const value=String(text||'').trim();if(!value)return;
+  let size=startSize||23;ctx.textAlign='center';ctx.textBaseline='alphabetic';ctx.fillStyle='#111';
+  while(size>14){ctx.font=`${size}px "Times New Roman", Times, serif`;if(ctx.measureText(value).width<=maxWidth)break;size-=1}
+  ctx.fillText(value,x,y,maxWidth);
+}
+async function buildHandbookAcknowledgementImage(signatureDataUrl){
+  if(!acceptancePackData||!acceptancePackData.handbookAcknowledgementBackgroundDataUrl)throw new Error('Student Handbook acknowledgement template is unavailable.');
+  const background=await loadCanvasImage(acceptancePackData.handbookAcknowledgementBackgroundDataUrl);
+  const signature=await loadCanvasImage(signatureDataUrl);
+  const canvas=document.createElement('canvas');canvas.width=background.naturalWidth||1242;canvas.height=background.naturalHeight||1755;
+  const ctx=canvas.getContext('2d');ctx.drawImage(background,0,0,canvas.width,canvas.height);
+  drawFittedText(ctx,acceptancePackData.studentName,376,694,345,23);
+  drawFittedText(ctx,acceptancePackData.idPassport,841,694,325,23);
+  const box={x:215,y:782,w:320,h:72};const ratio=Math.min(box.w/signature.width,box.h/signature.height);const sw=signature.width*ratio,sh=signature.height*ratio;
+  ctx.drawImage(signature,box.x+(box.w-sw)/2,box.y+(box.h-sh)/2,sw,sh);
+  drawFittedText(ctx,malaysiaDateText(),841,848,325,23);
+  return canvas.toDataURL('image/png');
+}
+function updateSigningProgress(value,text){
+  signingProgressValue=Math.max(signingProgressValue,Math.min(100,Math.round(value||0)));
+  const bar=document.getElementById('signingProgressBar'),pct=document.getElementById('signingProgressPct'),label=document.getElementById('signingProgressText');
+  if(bar)bar.style.width=signingProgressValue+'%';if(pct)pct.textContent=signingProgressValue+'%';if(label&&text)label.textContent=text;
+}
+function startSigningProgress(){
+  document.getElementById('signingProgress').classList.remove('hidden');signingProgressValue=8;updateSigningProgress(8,'Recording your acceptance...');
+  clearInterval(signingProgressTimer);signingProgressTimer=setInterval(()=>{if(signingProgressValue>=92)return;const step=signingProgressValue<55?4:signingProgressValue<80?2:1;const next=Math.min(92,signingProgressValue+step);let text='Preparing signed documents...';if(next>=35)text='Applying your signature...';if(next>=62)text='Generating signed PDFs...';if(next>=82)text='Saving documents securely...';updateSigningProgress(next,text)},850);
+}
+function stopSigningProgress(hide){clearInterval(signingProgressTimer);signingProgressTimer=null;if(hide)document.getElementById('signingProgress').classList.add('hidden')}
+async function submitAcceptance(){
   const signedName=document.getElementById('signedName').value.trim(),declarationAccepted=document.getElementById('declaration').checked;
   if(!signedName){showMessage('Student name is missing from the admission record.');return}
   if(!signatureUsed){showMessage('Please provide your electronic signature.');return}
   if(!declarationAccepted){showMessage('Please confirm the admission document declaration before submitting.');return}
-  const button=document.getElementById('acceptButton');button.disabled=true;button.textContent='Generating signed documents...';
-  const signatureDataUrl=signatureCanvas.toDataURL('image/png');
-  google.script.run
-    .withSuccessHandler(()=>{document.getElementById('acceptanceView').classList.add('hidden');document.getElementById('completedView').classList.remove('hidden');window.scrollTo({top:0,behavior:'smooth'})})
-    .withFailureHandler(error=>{button.disabled=false;button.textContent='Submit Acceptance';showMessage(error.message||'Unable to submit acceptance. Please try again.')})
-    .v2AcceptancePackSubmitSigned(ACCEPTANCE_TOKEN,{signedName,signatureDataUrl,declarationAccepted:true});
+  const button=document.getElementById('acceptButton');button.disabled=true;button.textContent='Processing acceptance...';startSigningProgress();
+  try{
+    const signatureDataUrl=signatureCanvas.toDataURL('image/png');
+    updateSigningProgress(18,'Preparing Student Handbook acknowledgement...');
+    const handbookAcknowledgementImageDataUrl=await buildHandbookAcknowledgementImage(signatureDataUrl);
+    updateSigningProgress(28,'Applying your signature...');
+    google.script.run
+      .withSuccessHandler(()=>{stopSigningProgress(false);updateSigningProgress(100,'Signed documents completed');button.textContent='Completed';setTimeout(()=>{document.getElementById('acceptanceView').classList.add('hidden');document.getElementById('completedView').classList.remove('hidden');window.scrollTo({top:0,behavior:'smooth'})},450)})
+      .withFailureHandler(error=>{stopSigningProgress(true);button.disabled=false;button.textContent='Submit Acceptance';showMessage(error.message||'Unable to submit acceptance. Please try again.')})
+      .v2AcceptancePackSubmitSigned(ACCEPTANCE_TOKEN,{signedName,signatureDataUrl,handbookAcknowledgementImageDataUrl,declarationAccepted:true});
+  }catch(error){stopSigningProgress(true);button.disabled=false;button.textContent='Submit Acceptance';showMessage(error.message||'Unable to prepare the signed handbook acknowledgement. Please try again.')}
 }
 function showMessage(text){const box=document.getElementById('formMessage');box.textContent=text;box.className='message error'}
 function showError(text){document.getElementById('loadingCard').classList.add('hidden');document.getElementById('errorText').textContent=text;document.getElementById('errorView').classList.remove('hidden')}

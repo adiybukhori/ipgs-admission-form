@@ -37,7 +37,7 @@ const CONFIG = {
   suratPenerimaanTemplateId: '1xqkKxqZvMQ4t5OgSBO50Y7qR3G_BgtSJdunfYsVea4Y',
   suratAkuanTemplateId: '1iYjy3lkSU0baIToC8CROeKyhbwJ1BjYcGgHa9EzZPdc',
 
-  studentHandbookFileId: '',
+  studentHandbookFileId: '15k9C77Zo85f6E-DzBDbQVEr1n_zXT6rz',
   studentPortalManualFileId: '',
   additionalStaticAttachmentFileIds: [],
 

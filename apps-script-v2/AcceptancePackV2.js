@@ -10,7 +10,7 @@ const V2_ACCEPTANCE_PACK_TEMPLATE_FALLBACKS = {
   acceptanceEn: '1JuIwpkPXIebWohnJrBUyJLw5flbVi3nbX0IsOgYlzlg',
   suratPenerimaan: '1-fG3WrLOIpl3yl0Mqt4Geqiw1g6FNwGJ2DvXbtXmUB4',
   suratAkuan: '1dwVfTaHh5Zue_Ob2521ZoGHK-nwIC-WV7yK8p8m7pPc',
-  studentHandbook: '1qXyo_oxIleMhTALZbl955G6XIR0VvbB1',
+  studentHandbook: '15k9C77Zo85f6E-DzBDbQVEr1n_zXT6rz',
   handbookAcknowledgement: '1gOCTcpm6TdDMExgSTuTtACGSciXxYo7CeGvV7amfJ_k'
 };
 
@@ -338,15 +338,6 @@ function v2AcceptancePackSpecs_() {
       signedField: 'Surat Akuan Signed PDF URL',
       reviewPrefix: 'REVIEW_Surat_Akuan_',
       signedPrefix: 'SIGNED_Surat_Akuan_'
-    },
-    {
-      code: 'HANDBOOK_ACKNOWLEDGEMENT',
-      label: 'Student Handbook Acknowledgement',
-      templateId: ids.handbookAcknowledgement,
-      reviewField: 'Student Handbook Acknowledgement Review PDF URL',
-      signedField: 'Student Handbook Acknowledgement Signed PDF URL',
-      reviewPrefix: 'REVIEW_Student_Handbook_Acknowledgement_',
-      signedPrefix: 'SIGNED_Student_Handbook_Acknowledgement_'
     }
   ];
 }
@@ -382,10 +373,17 @@ function v2AcceptancePackEnsureReviewDocs_(referenceNo, actor) {
     });
   });
 
+  // Review the exact acknowledgement page from the approved Student Handbook.
+  documents.push({
+    code: 'HANDBOOK_ACKNOWLEDGEMENT',
+    label: 'Student Handbook Acknowledgement',
+    url: v2AcceptanceHandbookAckPublicUrl_(),
+    signRequired: true
+  });
+
   const ids = v2AcceptancePackTemplateIds_();
-  let handbookUrl = String(ctx.workflow.record['Student Handbook URL'] || '').trim();
-  if (!handbookUrl && ids.studentHandbook) {
-    handbookUrl = DriveApp.getFileById(ids.studentHandbook).getUrl();
+  const handbookUrl = v2AcceptanceHandbookPublicUrl_();
+  if (String(ctx.workflow.record['Student Handbook URL'] || '').trim() !== handbookUrl) {
     updates['Student Handbook URL'] = handbookUrl;
   }
 
@@ -431,13 +429,10 @@ function v2GetAcceptancePackForToken(rawToken) {
   });
   (pack.documents || []).forEach(function(doc) { docs.push(doc); });
   if (pack.handbookUrl) {
-    const handbookId = v2OfferExtractDriveId_(pack.handbookUrl);
     docs.push({
       code: 'STUDENT_HANDBOOK',
       label: 'Postgraduate Student Handbook',
-      url: handbookId
-        ? 'https://drive.google.com/uc?export=download&id=' + encodeURIComponent(handbookId)
-        : pack.handbookUrl,
+      url: pack.handbookUrl,
       signRequired: false,
       downloadOnly: true
     });
@@ -447,8 +442,11 @@ function v2GetAcceptancePackForToken(rawToken) {
     ok: true,
     referenceNo: ctx.referenceNo,
     studentName: ctx.studentName,
+    idPassport: ctx.idPassport,
     programme: ctx.programme,
     intake: ctx.intake,
+    studyMode: v2OfferDisplayStudyMode_(ctx.studyMode),
+    handbookAcknowledgementBackgroundDataUrl: v2AcceptanceHandbookAckBackgroundDataUrl_(),
     acceptanceStatus: acceptanceStatus,
     documents: docs,
     signedDocuments: {
@@ -524,6 +522,18 @@ function v2AcceptancePackSubmitSigned(rawToken, data) {
         createdFiles.push(file);
         updates[spec.signedField] = file.getUrl();
       });
+
+
+      // The Student Handbook acknowledgement must preserve the exact handbook
+      // page layout. The browser composes that approved page with student data
+      // and the same e-signature, then the backend stores only that signed page.
+      const handbookAckFile = v2AcceptanceCreateExactHandbookAckPdf_(
+        ctx,
+        form.handbookAcknowledgementImageDataUrl,
+        'SIGNED_Student_Handbook_Acknowledgement_' + safeName + '.pdf'
+      );
+      createdFiles.push(handbookAckFile);
+      updates['Student Handbook Acknowledgement Signed PDF URL'] = handbookAckFile.getUrl();
     } catch (generationError) {
       createdFiles.forEach(function(file) {
         try { file.setTrashed(true); } catch (ignore) {}
@@ -698,6 +708,7 @@ function v2AcceptancePackControlledTest() {
     {
       signedName: 'V2 ACCEPTANCE PACK TEST ' + stamp,
       signatureDataUrl: tinySignature,
+      handbookAcknowledgementImageDataUrl: v2AcceptanceHandbookAckBackgroundDataUrl_(),
       declarationAccepted: true
     }
   );
