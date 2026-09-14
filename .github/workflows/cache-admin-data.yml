@@ -1,0 +1,44 @@
+name: Cache Admin Data
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/cache-admin-data.yml'
+      - '.github/scripts/cache_admin_data.py'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  cache:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout main
+        uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+
+      - name: Apply cache strategy
+        run: python .github/scripts/cache_admin_data.py
+
+      - name: Validate API syntax and cache markers
+        run: |
+          node --check api/admin-data.js
+          grep -F "const V2_DATA_CACHE_MS = 30 * 1000;" api/admin-data.js
+          grep -F "const V1_DATA_CACHE_MS = 5 * 60 * 1000;" api/admin-data.js
+          grep -F "ADMIN_DATA_V2_V1_CACHE_20260915" api/admin-data.js
+
+      - name: Commit cache optimization
+        run: |
+          if git diff --quiet -- api/admin-data.js; then
+            echo 'Admin data cache already optimized.'
+            exit 0
+          fi
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add api/admin-data.js
+          git commit -m 'Cache admin V2 and legacy reads separately'
+          git push origin main
