@@ -1,0 +1,34 @@
+name: Add SAC Pack Phase2 Test
+
+on:
+  push:
+    branches: [apps-script-v2-dev]
+    paths:
+      - '.github/scripts/add_sac_pack_to_phase2_suite.py'
+      - '.github/workflows/add-sac-pack-phase2-test.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: apps-script-v2-dev
+          fetch-depth: 0
+      - run: python .github/scripts/add_sac_pack_to_phase2_suite.py
+      - name: Validate Apps Script source
+        run: |
+          for f in apps-script-v2/*.js; do node --check "$f"; done
+          grep -q 'const sacPack=v2SacPackControlledTest();' apps-script-v2/Phase2ControlledTests.js
+      - name: Commit test suite update
+        run: |
+          if git diff --quiet; then echo "No changes."; exit 0; fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add apps-script-v2/Phase2ControlledTests.js
+          git commit -m "Test SAC print pack in Phase 2 runtime suite"
+          git push origin HEAD:apps-script-v2-dev
