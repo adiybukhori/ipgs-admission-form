@@ -456,6 +456,7 @@
   <script>
     const API = '/api/admin-data';
     const ACTION_API = '/api/admin-action';
+    const RECORD_API = '/api/admin-record';
     const SAC_PACK_API = '/api/sac-pack';
     // PHASE2_BACKEND_SYNC_GATE_V1: flip only after Apps Script deployment + controlled tests pass.
     const PHASE2_BACKEND_READY = true;
@@ -472,7 +473,7 @@
     function loginMessage(text){document.getElementById('loginMessage').innerHTML=`<div class="message error">${esc(text)}</div>`}
     function showApp(){document.getElementById('loginView').classList.add('hidden');document.getElementById('appView').classList.remove('hidden')}
     function logout(){sessionStorage.removeItem('ipgsAdminPassword');password='';db={};records=[];selected=null;document.getElementById('appView').classList.add('hidden');document.getElementById('loginView').classList.remove('hidden');document.getElementById('password').value=''}
-    async function loadData(force=false,fromLogin=false){const freshness=document.getElementById('freshness');freshness.textContent='Loading…';try{const res=await fetch(API,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({password})});const out=await res.json();if(!res.ok||!out.ok){if(res.status===401){sessionStorage.removeItem('ipgsAdminPassword');password='';document.getElementById('appView').classList.add('hidden');document.getElementById('loginView').classList.remove('hidden');return loginMessage(out.message||'Invalid admin password.')}throw new Error(out.message||'Unable to load data.')}sessionStorage.setItem('ipgsAdminPassword',password);db=out.data||{};buildRecords();showApp();renderAll();const dt=new Date(out.loadedAt||Date.now());freshness.textContent='Updated '+dt.toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'})}catch(e){freshness.textContent='Load failed';if(fromLogin)loginMessage(e.message||'Unable to sign in.');else alert(e.message||'Unable to load Admission V2 data.')}}
+    async function loadData(force=false,fromLogin=false){const freshness=document.getElementById('freshness');freshness.textContent='Loading…';try{const res=await fetch(API,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({password,force})});const out=await res.json();if(!res.ok||!out.ok){if(res.status===401){sessionStorage.removeItem('ipgsAdminPassword');password='';document.getElementById('appView').classList.add('hidden');document.getElementById('loginView').classList.remove('hidden');return loginMessage(out.message||'Invalid admin password.')}throw new Error(out.message||'Unable to load data.')}sessionStorage.setItem('ipgsAdminPassword',password);db=out.data||{};buildRecords();showApp();renderAll();const dt=new Date(out.loadedAt||Date.now());freshness.textContent='Updated '+dt.toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'})}catch(e){freshness.textContent='Load failed';if(fromLogin)loginMessage(e.message||'Unable to sign in.');else alert(e.message||'Unable to load Admission V2 data.')}}
     function legacyDateValue(value){const s=String(value||'').trim();if(!s)return 0;const direct=Date.parse(s);if(Number.isFinite(direct))return direct;const m=s.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})(?:\s+(\d{1,2}):(\d{2})(?::(\d{2}))?)?/);if(!m)return 0;return new Date(Number(m[3]),Number(m[2])-1,Number(m[1]),Number(m[4]||0),Number(m[5]||0),Number(m[6]||0)).getTime()}
     function buildRecords(){
       const apps=db.V2_APPLICATIONS||[],workflows=db.V2_WORKFLOW||[],docReviews=db.V2_DOCUMENT_REVIEW||[],screenings=db.V2_QUALIFICATION_SCREENING||[],aiScreenings=db.V2_AI_SCREENING||[],sacCandidates=db.V2_SAC_CANDIDATES||[],assessments=db.V2_ASSESSMENT_PROGRESS||[],audits=db.V2_AUDIT_LOG||[];
@@ -664,6 +665,80 @@
       }
       el.innerHTML=`<div class="ops-head"><div class="title">Operational Action Center</div><div class="state">${esc(pretty(s))}</div></div><div class="ops-copy">${copy}</div><div class="ops-actions">${actions}</div><div id="opsMessage" class="ops-message"></div>`;
     }
+    // ADMIN_TARGETED_REFRESH_V1
+    function renderSelectedApplicant(){
+      if(!selected)return;
+      renderProgress(selected);
+      renderQuickActions(selected);
+      renderOperationalActions(selected);
+      renderDetailTabs(selected);
+    }
+    function applyOptimisticActionResult(action,data,result){
+      if(!selected||selected.legacy)return;
+      const r=result&&typeof result==='object'?result:{};
+      selected.workflow={...(selected.workflow||{})};
+      selected.sac={...(selected.sac||{})};
+      selected.screening={...(selected.screening||{})};
+      selected.ai={...(selected.ai||{})};
+      selected.doc={...(selected.doc||{})};
+
+      const stage=String(r.nextStage||r.applicationStage||'').trim();
+      if(stage)selected.workflow['Application Stage']=stage;
+      if(r.screeningStatus)selected.workflow['Qualification Screening Status']=r.screeningStatus;
+      if(r.recommendedRoute){selected.workflow['Screening Recommendation']=r.recommendedRoute;selected.screening['Recommended Route']=r.recommendedRoute}
+      if(r.offerStatus)selected.workflow['Offer Letter Status']=r.offerStatus;
+      if(r.offerLetterPdfUrl)selected.workflow['Offer Letter PDF URL']=r.offerLetterPdfUrl;
+      if(r.acceptanceSigningUrl)selected.workflow['Acceptance Signing URL']=r.acceptanceSigningUrl;
+      if(r.acceptanceStatus)selected.workflow['Acceptance Status']=r.acceptanceStatus;
+
+      if(action==='v2RecordSacDecisionManual'||action==='v2RecordSacDecision'){
+        const decision=String(r.decision||data?.decision||'').toUpperCase();
+        if(decision){selected.workflow['SAC Decision']=decision;selected.sac['Decision']=decision}
+        if(!stage){
+          if(decision==='DIRECT_ENTRY')selected.workflow['Application Stage']='ELIGIBLE_FOR_OFFER';
+          else if(decision==='INTERNAL_ASSESSMENT')selected.workflow['Application Stage']='INTERNAL_ASSESSMENT';
+          else if(decision==='REJECTED')selected.workflow['Application Stage']='REJECTED';
+        }
+      }
+      if(action==='v2AssignSacCandidate'){
+        selected.workflow['SAC Session ID']=data?.sessionId||selected.workflow['SAC Session ID']||'';
+        selected.sac['SAC Session ID']=data?.sessionId||selected.sac['SAC Session ID']||'';
+        if(!stage)selected.workflow['Application Stage']='SAC_REVIEW';
+      }
+      if(action==='v2CompleteManualQualificationScreening'){
+        const route=String(r.recommendedRoute||data?.recommendedRoute||'');
+        if(route){selected.workflow['Screening Recommendation']=route;selected.screening['Recommended Route']=route}
+        selected.workflow['Qualification Screening Status']=r.screeningStatus||'COMPLETED_MANUAL';
+        if(!stage)selected.workflow['Application Stage']='READY_FOR_SAC';
+      }
+      if(action==='v2RunAutoAiScreening'&&r.status)selected.ai['Status']=r.status;
+      if(action==='v2RunDocumentReview'&&r.status)selected.workflow['Document Review Status']=r.status;
+      if(action==='v2CompleteManualDocumentReview')selected.workflow['Document Review Status']=r.status||r.documentReviewStatus||'COMPLETE';
+
+      renderSelectedApplicant();
+    }
+    function mergeTargetedApplicantData(referenceNo,delta){
+      const ref=String(referenceNo||'').trim();
+      if(!ref||!delta||typeof delta!=='object')return;
+      const targetSheets=['V2_APPLICATIONS','V2_WORKFLOW','V2_DOCUMENT_REVIEW','V2_AI_SCREENING','V2_QUALIFICATION_SCREENING','V2_SAC_CANDIDATES','V2_ASSESSMENT_PROGRESS','V2_AUDIT_LOG'];
+      targetSheets.forEach(name=>{
+        if(!Array.isArray(delta[name]))return;
+        const existing=Array.isArray(db[name])?db[name]:[];
+        db[name]=existing.filter(row=>String(row?.['Reference No']||'').trim()!==ref).concat(delta[name]);
+      });
+      buildRecords();
+      selected=records.find(x=>x.ref===ref)||selected;
+      renderSelectedApplicant();
+    }
+    async function refreshApplicantRecord(referenceNo){
+      const ref=String(referenceNo||'').trim();
+      if(!ref)return null;
+      const res=await fetch(RECORD_API,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({password,referenceNo:ref})});
+      const out=await res.json().catch(()=>({ok:false,message:'Invalid targeted refresh response.'}));
+      if(!res.ok||!out.ok)throw new Error(out.message||'Unable to refresh applicant.');
+      mergeTargetedApplicantData(ref,out.data||{});
+      return selected;
+    }
     async function runAdminAction(action,data,confirmText){
       if(confirmText&&!confirm(confirmText))return null;
       opsMsg('Processing…','info');
@@ -671,11 +746,18 @@
         const res=await fetch(ACTION_API,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({password,action,data,updatedBy:'Admin Portal V2'})});
         const out=await res.json().catch(()=>({ok:false,message:'Invalid response from action service.'}));
         if(!res.ok||!out.ok)throw new Error(out.message||'Unable to complete action.');
+        const result=out.result||out;
         const ref=selected?.ref||data?.referenceNo||'';
-        opsMsg('Action completed successfully. Refreshing record…','ok');
-        await loadData(true);
-        if(ref){selected=records.find(x=>x.ref===ref)||selected;if(selected){renderProgress(selected);renderQuickActions(selected);renderOperationalActions(selected);renderDetailTabs(selected)}}
-        return out.result||out;
+        applyOptimisticActionResult(action,data,result);
+        opsMsg('Saved successfully. Syncing this applicant…','ok');
+        if(ref){
+          refreshApplicantRecord(ref)
+            .then(()=>opsMsg('Saved successfully.','ok'))
+            .catch(()=>opsMsg('Saved successfully. Use Refresh if you need to verify the latest backend data.','ok'));
+        }else{
+          opsMsg('Saved successfully.','ok');
+        }
+        return result;
       }catch(e){opsMsg(e.message||'Unable to complete action.','error');return null}
     }
     function runDocumentReview(){if(!selected)return;runAdminAction('v2RunDocumentReview',{referenceNo:selected.ref,remarks:''},`Run document review for ${selected.app['Student Name']||selected.ref}?`)}
