@@ -1,0 +1,65 @@
+name: Fix SAC Pack TableCell Paragraphs
+
+on:
+  push:
+    branches:
+      - apps-script-v2-dev
+    paths:
+      - '.github/workflows/fix-sacpack-tablecell-paragraphs.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  patch-sync:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout V2 source
+        uses: actions/checkout@v4
+        with:
+          ref: apps-script-v2-dev
+          fetch-depth: 0
+
+      - name: Apply TableCell compatibility patch
+        run: python .github/scripts/fix_sacpack_tablecell_paragraphs.py
+
+      - name: Validate SacPackV2 syntax
+        run: node --check apps-script-v2/SacPackV2.js
+
+      - name: Commit patched source
+        run: |
+          if git diff --quiet; then
+            echo 'No source changes required.'
+          else
+            git config user.name 'github-actions[bot]'
+            git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+            git add apps-script-v2/SacPackV2.js
+            git commit -m 'Fix SAC pack TableCell paragraph traversal'
+            git push origin HEAD:apps-script-v2-dev
+          fi
+
+      - name: Install clasp
+        run: npm install --global @google/clasp@3.4.1
+
+      - name: Restore clasp credential
+        env:
+          CLASPRC_JSON: ${{ secrets.CLASPRC_JSON }}
+        run: |
+          test -n "$CLASPRC_JSON"
+          printf '%s' "$CLASPRC_JSON" > "$HOME/.clasprc.json"
+          chmod 600 "$HOME/.clasprc.json"
+
+      - name: Verify V2 target
+        run: node tools/verify-clasp-target.mjs
+
+      - name: Force push latest V2 source
+        run: clasp push --force
+
+      - name: Redeploy existing V2 web app
+        env:
+          V2_DEPLOYMENT_ID: AKfycbxasT_HgtRSvTbR_bsa8p17Cm-C2PKn20Ok1kU-AyJmxiKX8kX5EGOtRLwVwNlAL7JB
+        run: clasp create-deployment --deploymentId "$V2_DEPLOYMENT_ID" --description "Fix SAC pack TableCell paragraph traversal"
+
+      - name: Remove clasp credential
+        if: always()
+        run: rm -f "$HOME/.clasprc.json"
