@@ -17,6 +17,20 @@ const SHEETS = [
   'V2_AUDIT_LOG'
 ];
 
+const ADMIN_DATA_CACHE = globalThis.__IPGS_ADMIN_DATA_CACHE__ || (globalThis.__IPGS_ADMIN_DATA_CACHE__ = {
+  v2: null,
+  v2At: 0,
+  v1: null,
+  v1At: 0,
+  v1Source: ''
+});
+const V2_DATA_CACHE_MS = 30 * 1000;
+const V1_DATA_CACHE_MS = 5 * 60 * 1000;
+
+function cloneCached(value) {
+  return JSON.parse(JSON.stringify(value));
+}
+
 function parseCsv(text) {
   const rows = [];
   let row = [];
@@ -146,7 +160,7 @@ export default async function handler(req, res) {
   res.setHeader('Cache-Control', 'no-store, max-age=0');
 
   if (req.method === 'GET' && String(req.query?.health || '') === '1') {
-    return res.status(200).json({ ok: true, service: 'IPGS Admission Admin Data V2 + V1 Legacy', build: 'ADMIN_DATA_V2_V1_LEGACY_20260914' });
+    return res.status(200).json({ ok: true, service: 'IPGS Admission Admin Data V2 + V1 Legacy', build: 'ADMIN_DATA_V2_V1_CACHE_20260915' });
   }
   if (req.method !== 'POST') return res.status(405).json({ ok: false, message: 'Method not allowed.' });
 
@@ -160,33 +174,55 @@ export default async function handler(req, res) {
     return res.status(401).json({ ok: false, message: 'Invalid admin password.' });
   }
 
-  const settled = await Promise.allSettled(SHEETS.map(async sheet => [sheet, await fetchSheet(sheet)]));
-  const data = {};
+  const force = body.force === true;
+  const nowMs = Date.now();
+  let data = {};
   const warnings = [];
+  let v2CacheHit = false;
+  let v1CacheHit = false;
 
-  settled.forEach((result, index) => {
-    const sheet = SHEETS[index];
-    if (result.status === 'fulfilled') {
-      const [name, rows] = result.value;
-      data[name] = rows;
-    } else {
-      data[sheet] = [];
-      warnings.push(`${sheet}: ${result.reason?.message || 'Unable to load'}`);
-    }
-  });
+  if (!force && ADMIN_DATA_CACHE.v2 && (nowMs - ADMIN_DATA_CACHE.v2At) < V2_DATA_CACHE_MS) {
+    data = cloneCached(ADMIN_DATA_CACHE.v2);
+    v2CacheHit = true;
+  } else {
+    const settled = await Promise.allSettled(SHEETS.map(async sheet => [sheet, await fetchSheet(sheet)]));
+    settled.forEach((result, index) => {
+      const sheet = SHEETS[index];
+      if (result.status === 'fulfilled') {
+        const [name, rows] = result.value;
+        data[name] = rows;
+      } else {
+        data[sheet] = [];
+        warnings.push(`${sheet}: ${result.reason?.message || 'Unable to load'}`);
+      }
+    });
+    ADMIN_DATA_CACHE.v2 = cloneCached(data);
+    ADMIN_DATA_CACHE.v2At = nowMs;
+  }
 
-  let legacyRows = extractLegacyRows(auth.payload);
-  let legacySource = legacyRows.length ? 'V1_AUTH_WEB_APP' : '';
-  if (!legacyRows.length) {
-    try {
-      legacyRows = await fetchLegacyMasterSheet();
-      legacySource = 'V1_MASTER_DATABASE';
-    } catch (error) {
-      warnings.push(`V1 Legacy: ${error?.message || 'Unable to load legacy data'}`);
+  let legacyRows = [];
+  let legacySource = '';
+  if (!force && ADMIN_DATA_CACHE.v1 && (nowMs - ADMIN_DATA_CACHE.v1At) < V1_DATA_CACHE_MS) {
+    legacyRows = cloneCached(ADMIN_DATA_CACHE.v1);
+    legacySource = ADMIN_DATA_CACHE.v1Source || 'CACHE';
+    v1CacheHit = true;
+  } else {
+    legacyRows = extractLegacyRows(auth.payload);
+    legacySource = legacyRows.length ? 'V1_AUTH_WEB_APP' : '';
+    if (!legacyRows.length) {
+      try {
+        legacyRows = await fetchLegacyMasterSheet();
+        legacySource = 'V1_MASTER_DATABASE';
+      } catch (error) {
+        warnings.push(`V1 Legacy: ${error?.message || 'Unable to load legacy data'}`);
+      }
     }
+    ADMIN_DATA_CACHE.v1 = cloneCached(legacyRows);
+    ADMIN_DATA_CACHE.v1At = nowMs;
+    ADMIN_DATA_CACHE.v1Source = legacySource;
   }
   data.V1_MASTER_DATABASE = legacyRows;
-  data.V1_LEGACY_META = [{ source: legacySource || 'UNAVAILABLE', count: legacyRows.length, readOnly: true }];
+  data.V1_LEGACY_META = [{ source: legacySource || 'UNAVAILABLE', count: legacyRows.length, readOnly: true, cacheHit: v1CacheHit }];
 
   if (Array.isArray(data.V2_SAC_SESSIONS)) {
     data.V2_SAC_SESSIONS.sort((a, b) => {
@@ -198,5 +234,5 @@ export default async function handler(req, res) {
     });
   }
 
-  return res.status(200).json({ ok: true, build: 'ADMIN_DATA_V2_V1_LEGACY_20260914', loadedAt: new Date().toISOString(), warnings, data });
+  return res.status(200).json({ ok: true, build: 'ADMIN_DATA_V2_V1_CACHE_20260915', loadedAt: new Date().toISOString(), warnings, cache: { v2Hit: v2CacheHit, v1Hit: v1CacheHit, v2TtlSeconds: 30, v1TtlSeconds: 300, forced: force }, data });
 }
