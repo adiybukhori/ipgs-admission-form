@@ -1,0 +1,64 @@
+name: Patch Acceptance Pack Admin UI
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/patch-acceptance-pack-admin.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+
+      - name: Add signed acceptance pack links
+        shell: python
+        run: |
+          from pathlib import Path
+          p=Path('admin.html')
+          s=p.read_text(encoding='utf-8')
+          marker='ACCEPTANCE_PACK_ADMIN_V1'
+          if marker in s:
+              raise SystemExit(0)
+
+          old="const offerUrl=w['Offer Letter PDF URL']||'',signUrl=w['Acceptance Signing URL']||'',acceptPdf=w['Acceptance PDF URL']||'';"
+          new="const offerUrl=w['Offer Letter PDF URL']||'',signUrl=w['Acceptance Signing URL']||'',acceptPdf=w['Acceptance PDF URL']||'',suratPenerimaanPdf=w['Surat Penerimaan Signed PDF URL']||'',suratAkuanPdf=w['Surat Akuan Signed PDF URL']||'',handbookUrl=w['Student Handbook URL']||'',packStatus=w['Acceptance Pack Status']||'';/* ACCEPTANCE_PACK_ADMIN_V1 */"
+          if old not in s:
+              raise SystemExit('Offer URL anchor not found')
+          s=s.replace(old,new,1)
+
+          old_links="${acceptPdf?`<a class=\"ops-btn\" target=\"_blank\" href=\"${esc(acceptPdf)}\">Open Acceptance PDF</a>`:''}<a class=\"ops-btn\" target=\"_blank\" href=\"/acceptance-demo.html\">Preview Acceptance Page</a>"
+          new_links="${acceptPdf?`<a class=\"ops-btn\" target=\"_blank\" href=\"${esc(acceptPdf)}\">Acceptance & Handbook Signed</a>`:''}${suratPenerimaanPdf?`<a class=\"ops-btn\" target=\"_blank\" href=\"${esc(suratPenerimaanPdf)}\">Surat Penerimaan Signed</a>`:''}${suratAkuanPdf?`<a class=\"ops-btn\" target=\"_blank\" href=\"${esc(suratAkuanPdf)}\">Surat Akuan Signed</a>`:''}${handbookUrl?`<a class=\"ops-btn\" target=\"_blank\" href=\"${esc(handbookUrl)}\">Student Handbook</a>`:''}<a class=\"ops-btn\" target=\"_blank\" href=\"/acceptance-demo.html\">Preview Acceptance Page</a>"
+          if old_links not in s:
+              raise SystemExit('Acceptance links anchor not found')
+          s=s.replace(old_links,new_links,1)
+
+          old_note='The live acceptance link uses a secure one-time token. The preview link is visual only and does not submit student data.'
+          new_note='Acceptance pack status: ${esc(pretty(packStatus||acceptanceStatus))}. One student signature is applied to the approved signable documents, and the signed PDFs are saved in the student folder. The preview link is visual only.'
+          if old_note not in s:
+              raise SystemExit('Acceptance note anchor not found')
+          s=s.replace(old_note,new_note,1)
+
+          p.write_text(s,encoding='utf-8')
+
+      - name: Validate patch
+        run: |
+          grep -q 'ACCEPTANCE_PACK_ADMIN_V1' admin.html
+          grep -q 'Surat Penerimaan Signed' admin.html
+          grep -q 'Surat Akuan Signed' admin.html
+
+      - name: Commit
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add admin.html
+          git diff --cached --quiet && exit 0
+          git commit -m "Show signed acceptance pack in admin"
+          git push origin main
