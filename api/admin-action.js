@@ -16,6 +16,8 @@ const ALLOWED_ACTIONS = new Set([
   'v2IssueOffer',
   'v2CreateSacSession',
   'v2AssignSacCandidate',
+  'v2PrepareSacPack',
+  'v2GetSacPackFile',
   'v2RecordSacDecision',
   'v2CreateSacSessionManual',
   'v2SendSacCalendarInvitationManual',
