@@ -1,0 +1,57 @@
+name: Show LOA Not Issued Quick Action
+
+on:
+  push:
+    paths:
+      - '.github/scripts/show-loa-not-issued-quick-action.py'
+      - '.github/workflows/show-loa-not-issued-quick-action.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Apply LOA quick-action placeholder
+        run: python .github/scripts/show-loa-not-issued-quick-action.py
+
+      - name: Validate admin inline JavaScript
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          import re, subprocess, tempfile
+          text=Path('admin.html').read_text(encoding='utf-8')
+          scripts=re.findall(r'<script>(.*?)</script>', text, flags=re.S)
+          if not scripts:
+              raise SystemExit('No inline script found')
+          js='\n'.join(scripts)
+          p=Path('/tmp/admin-inline.js')
+          p.write_text(js, encoding='utf-8')
+          subprocess.run(['node','--check',str(p)], check=True)
+          PY
+
+      - name: Verify quick-action behavior
+        run: |
+          grep -q 'Offer Letter / LOA · Not Issued' admin.html
+          if grep -q '>COL</a>' <(grep 'function renderQuickActions' admin.html); then
+            echo 'COL still present in quick actions' >&2
+            exit 1
+          fi
+
+      - name: Commit update
+        run: |
+          if git diff --quiet; then
+            echo 'No changes to commit.'
+            exit 0
+          fi
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add admin.html
+          git commit -m 'Show LOA as Not Issued until official offer exists'
+          git push
