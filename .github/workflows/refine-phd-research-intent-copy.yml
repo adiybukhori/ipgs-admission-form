@@ -1,0 +1,61 @@
+name: Refine PhD Research Intent Copy
+
+on:
+  push:
+    paths:
+      - '.github/workflows/refine-phd-research-intent-copy.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  patch-copy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout main
+        uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+
+      - name: Simplify student-facing PhD copy
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          p = Path('index.html')
+          s = p.read_text(encoding='utf-8')
+
+          old1 = '''A preliminary Research Intent (approximately 2–3 pages) is required before your admission file can proceed to SAC. If you already have it, you may upload it in the Document Upload section. <strong>If you do not have it yet, you may still submit this application now.</strong> We will email you a secure link to upload it later.'''
+          new1 = '''For PhD applications, please prepare a preliminary Research Intent (approximately 2–3 pages). If it is ready, you may upload it in the Document Upload section. <strong>If it is not ready yet, you may still submit your application and provide the document later.</strong> This document is required to complete your application assessment.'''
+
+          old2 = '''PhD applicants may upload their preliminary Research Intent now, or submit the application first and provide it later through the secure upload link sent to your email. It remains required before your document review can be completed for SAC.'''
+          new2 = '''PhD applicants may upload their preliminary Research Intent now, or provide it later if it is not yet ready. This document is required to complete your application assessment.'''
+
+          old3 = '''Optional at initial submission. Required before SAC. Upload PDF, JPG, JPEG or PNG now; if pending, a secure follow-up upload link will be emailed after submission.'''
+          new3 = '''Optional at initial submission. Required to complete your application assessment. Upload it now if available; if it is still pending, further instructions will be sent by email.'''
+
+          for old, new in [(old1,new1),(old2,new2),(old3,new3)]:
+              if old not in s:
+                  raise SystemExit('Expected copy not found: ' + old[:80])
+              s = s.replace(old, new)
+
+          p.write_text(s, encoding='utf-8')
+          PY
+
+      - name: Validate copy
+        run: |
+          grep -q 'This document is required to complete your application assessment.' index.html
+          ! grep -q 'before your admission file can proceed to SAC' index.html
+          ! grep -q 'Required before SAC' index.html
+
+      - name: Commit refined copy
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add index.html
+          if git diff --cached --quiet; then
+            echo 'No changes to commit.'
+          else
+            git commit -m 'Simplify PhD Research Intent student wording'
+            git push origin HEAD:main
+          fi
