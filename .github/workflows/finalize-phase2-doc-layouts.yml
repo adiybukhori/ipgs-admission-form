@@ -5,6 +5,7 @@ on:
     branches: [apps-script-v2-dev]
     paths:
       - 'tools/finalize-phase2-doc-layouts.py'
+      - 'tools/stage1-notification-engine.py'
       - '.github/workflows/finalize-phase2-doc-layouts.yml'
   workflow_dispatch:
 
@@ -24,24 +25,36 @@ jobs:
       - name: Apply Phase 2 document layout patch
         run: python tools/finalize-phase2-doc-layouts.py
 
+      - name: Apply Stage 1 notification consolidation
+        run: python tools/stage1-notification-engine.py
+
       - name: Validate source
         run: |
           node --check apps-script-v2/AcceptancePackV2.js
           node --check apps-script-v2/PgEligibilityV2.js
+          node --check apps-script-v2/NotificationEngineV2.js
+          node --check apps-script-v2/AdmissionV2.js
+          node --check apps-script-v2/AgentProspectV2.js
+          node --check apps-script-v2/OfferLetterV2.js
           grep -F "v2AcceptancePackSetCellSignature_" apps-script-v2/AcceptancePackV2.js
           grep -F "Tarikh: ' + signedDate + '\\nTandatangan" apps-script-v2/AcceptancePackV2.js
           grep -F "v2OfferDisplayIntake_(app['Intake'] || '')" apps-script-v2/PgEligibilityV2.js
           grep -F "V2_PG_ADM01_CONTROLLED_REFERENCE_PDF_ID" apps-script-v2/PgEligibilityV2.js
+          grep -F "function v2NotificationSend_" apps-script-v2/NotificationEngineV2.js
+          grep -F "v2SendApplicationNotifications_" apps-script-v2/AdmissionV2.js
+          grep -F "v2SendAgentNotificationCentral_" apps-script-v2/AgentProspectV2.js
+          grep -F "if (opts.sendEmail !== false)" apps-script-v2/OfferLetterV2.js
+          grep -F "v2SendAcceptanceConfirmationCentral_" apps-script-v2/AcceptancePackV2.js
 
       - name: Commit source refinements
         run: |
-          if git diff --quiet -- apps-script-v2/AcceptancePackV2.js apps-script-v2/PgEligibilityV2.js; then
+          if git diff --quiet -- apps-script-v2/AcceptancePackV2.js apps-script-v2/PgEligibilityV2.js apps-script-v2/NotificationEngineV2.js apps-script-v2/AdmissionV2.js apps-script-v2/AgentProspectV2.js apps-script-v2/OfferLetterV2.js; then
             echo 'Source already finalized.'
           else
             git config user.name 'github-actions[bot]'
             git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
-            git add apps-script-v2/AcceptancePackV2.js apps-script-v2/PgEligibilityV2.js
-            git commit -m 'Finalize Phase 2 signed document layouts'
+            git add apps-script-v2/AcceptancePackV2.js apps-script-v2/PgEligibilityV2.js apps-script-v2/NotificationEngineV2.js apps-script-v2/AdmissionV2.js apps-script-v2/AgentProspectV2.js apps-script-v2/OfferLetterV2.js
+            git commit -m 'Complete Stage 1 central notification engine'
             git push origin apps-script-v2-dev
           fi
 
@@ -73,7 +86,7 @@ jobs:
       - name: Redeploy existing V2 web app
         env:
           V2_DEPLOYMENT_ID: AKfycbxasT_HgtRSvTbR_bsa8p17Cm-C2PKn20Ok1kU-AyJmxiKX8kX5EGOtRLwVwNlAL7JB
-        run: clasp create-deployment --deploymentId "$V2_DEPLOYMENT_ID" --description "Finalize Phase 2 acceptance document alignment and PG-ADM-01 controlled layout"
+        run: clasp create-deployment --deploymentId "$V2_DEPLOYMENT_ID" --description "Stage 1 notification engine plus Phase 2 document finalization"
 
       - name: Remove clasp credential
         if: always()
