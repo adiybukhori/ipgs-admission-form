@@ -1,0 +1,430 @@
+from pathlib import Path
+import re
+
+ROOT = Path('apps-script-v2')
+
+notification = r'''/**
+ * Admission V2 - Central Notification Engine
+ *
+ * One notification mode controls all Admission V2 operational email:
+ * NEW_APPLICATION_STUDENT, NEW_APPLICATION_ADMIN, AGENT_NEW_APPLICATION,
+ * OFFER_ISSUED and ACCEPTANCE_COMPLETED.
+ *
+ * Production default is LIVE. Set Script Property V2_NOTIFICATION_MODE to
+ * TEST or DISABLED when required. TEST routes all messages to the configured
+ * test inbox and never to the intended recipient.
+ */
+
+const V2_NOTIFICATION_BUILD = 'V2_NOTIFICATION_ENGINE_20260917';
+
+function v2NotificationMode_() {
+  const props = PropertiesService.getScriptProperties();
+  const explicit = String(props.getProperty('V2_NOTIFICATION_MODE') || '').trim().toUpperCase();
+  if (['LIVE', 'TEST', 'DISABLED'].indexOf(explicit) >= 0) return explicit;
+
+  // Preserve controlled tests that temporarily set the old admission mode to TEST,
+  // but do not inherit legacy DISABLED flags that previously blocked production mail.
+  const legacyAdmission = String(props.getProperty('V2_EMAIL_MODE') || '').trim().toUpperCase();
+  if (legacyAdmission === 'TEST') return 'TEST';
+  return 'LIVE';
+}
+
+function v2NotificationTestRecipient_() {
+  const props = PropertiesService.getScriptProperties();
+  return String(
+    props.getProperty('V2_NOTIFICATION_TEST_EMAIL') ||
+    props.getProperty('V2_TEST_EMAIL') ||
+    'adiybukhori@innovative.edu.my'
+  ).trim();
+}
+
+function v2NotificationAdminRecipients_() {
+  const props = PropertiesService.getScriptProperties();
+  const configured = String(props.getProperty('V2_ADMIN_NOTIFICATION_EMAILS') || '').trim();
+  let values = [];
+  if (configured) values = configured.split(/[;,]/);
+  if (!values.length && CONFIG && Array.isArray(CONFIG.notificationEmails)) {
+    values = CONFIG.notificationEmails.slice();
+  }
+  if (!values.length) values = ['adiybukhori@innovative.edu.my'];
+  return v2NotificationUniqueEmails_(values);
+}
+
+function v2NotificationUniqueEmails_(values) {
+  const out = [];
+  (values || []).forEach(function(value) {
+    const email = String(value || '').trim().toLowerCase();
+    if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return;
+    if (out.indexOf(email) === -1) out.push(email);
+  });
+  return out;
+}
+
+function v2NotificationSend_(eventName, intendedRecipients, subject, textBody, htmlBody, options) {
+  const opts = options || {};
+  const override = String(opts.modeOverride || '').trim().toUpperCase();
+  const mode = ['LIVE', 'TEST', 'DISABLED'].indexOf(override) >= 0 ? override : v2NotificationMode_();
+  if (mode === 'DISABLED') {
+    return {sent:false, status:'DISABLED', mode:mode, event:eventName, recipients:[]};
+  }
+
+  let recipients = v2NotificationUniqueEmails_(intendedRecipients || []);
+  if (mode === 'TEST') recipients = v2NotificationUniqueEmails_([v2NotificationTestRecipient_()]);
+  if (!recipients.length) {
+    return {sent:false, status:'SKIPPED_NO_RECIPIENT', mode:mode, event:eventName, recipients:[]};
+  }
+
+  const mailOptions = {
+    htmlBody: String(htmlBody || ''),
+    name: String(opts.senderName || 'IUC IPGS Admission')
+  };
+  if (opts.attachments && opts.attachments.length) mailOptions.attachments = opts.attachments;
+  if (opts.replyTo) mailOptions.replyTo = String(opts.replyTo);
+
+  recipients.forEach(function(to) {
+    GmailApp.sendEmail(to, String(subject || 'IUC IPGS Admission'), String(textBody || ''), mailOptions);
+  });
+
+  return {
+    sent:true,
+    status:mode + '_SENT_' + recipients.length,
+    mode:mode,
+    event:eventName,
+    recipients:recipients
+  };
+}
+
+function v2NotificationEnsureHeaders_() {
+  const ss = SpreadsheetApp.openById(CONFIG.spreadsheetId);
+  const applications = ss.getSheetByName('V2_APPLICATIONS');
+  const workflow = ss.getSheetByName('V2_WORKFLOW');
+  if (applications) v2OfferEnsureHeaders_(applications, [
+    'Application Student Email Status','Application Student Email Sent At',
+    'Application Admin Email Status','Application Admin Email Sent At',
+    'Agent Notification Status','Agent Notification Sent At'
+  ]);
+  if (workflow) v2OfferEnsureHeaders_(workflow, [
+    'Offer Email Status','Offer Email Sent At',
+    'Acceptance Confirmation Email Status','Acceptance Confirmation Email Sent At'
+  ]);
+}
+
+function v2NotificationUpdateApplication_(referenceNo, values) {
+  const row = v2Find_('V2_APPLICATIONS', 'Reference No', String(referenceNo || '').trim());
+  if (row) v2UpdateRow_(row.sheet, row.rowNumber, values || {});
+}
+
+function v2NotificationUpdateWorkflow_(referenceNo, values) {
+  const row = v2Find_('V2_WORKFLOW', 'Reference No', String(referenceNo || '').trim());
+  if (row) v2UpdateRow_(row.sheet, row.rowNumber, values || {});
+}
+
+function v2SendApplicationNotifications_(payload, reference, intake, pdf) {
+  v2NotificationEnsureHeaders_();
+  const now = new Date().toISOString();
+  const student = String(payload.fullName || 'Applicant').trim();
+  const programme = String(payload.programme || '').trim();
+  const intakeName = String(intake && intake.name || payload.intake || '').trim();
+  const attachment = pdf && pdf.blob ? [pdf.blob] : [];
+
+  const studentSubject = '[IUC IPGS] Application Received - ' + reference;
+  const studentHtml = '<div style="font-family:Arial,sans-serif;max-width:680px;margin:auto;border:1px solid #e5e7eb;border-radius:16px;overflow:hidden">' +
+    '<div style="background:#2d2363;color:white;padding:24px"><h2 style="margin:0">Application Received</h2></div>' +
+    '<div style="padding:24px"><p>Dear <strong>'+v2Html_(student)+'</strong>,</p>' +
+    '<p>Your postgraduate application has been received and is currently under review.</p>' +
+    '<p><strong>Reference:</strong> '+v2Html_(reference)+'<br><strong>Programme:</strong> '+v2Html_(programme)+'<br><strong>Intake:</strong> '+v2Html_(intakeName)+'</p>' +
+    '<p>Your Admission Form is attached for your reference. We will contact you when the next admission action is required.</p>' +
+    '<p>Regards,<br><strong>IPGS Registry</strong><br>Innovative University College</p></div></div>';
+  const studentResult = v2NotificationSend_(
+    'NEW_APPLICATION_STUDENT', [payload.email], studentSubject,
+    'Your IUC postgraduate application has been received. Reference: ' + reference,
+    studentHtml, {attachments:attachment}
+  );
+
+  const adminRecipients = v2NotificationAdminRecipients_();
+  const agentLine = payload.partnerCode ? '<br><strong>Agent Code:</strong> '+v2Html_(payload.partnerCode) : '';
+  const adminSubject = '[IPGS Admission] New Application - ' + student + ' - ' + reference;
+  const adminHtml = '<div style="font-family:Arial,sans-serif;max-width:680px;margin:auto;border:1px solid #e5e7eb;border-radius:16px;overflow:hidden">' +
+    '<div style="background:#2d2363;color:white;padding:22px"><h2 style="margin:0">New Admission Application</h2></div>' +
+    '<div style="padding:24px"><p>A new postgraduate application has been submitted.</p>' +
+    '<p><strong>Student:</strong> '+v2Html_(student)+'<br><strong>Programme:</strong> '+v2Html_(programme)+'<br><strong>Intake:</strong> '+v2Html_(intakeName)+'<br><strong>Reference:</strong> '+v2Html_(reference)+agentLine+'</p>' +
+    '<p>The Admission Form is attached. Please continue the document review and screening process in Admission V2.</p></div></div>';
+  const adminResult = v2NotificationSend_(
+    'NEW_APPLICATION_ADMIN', adminRecipients, adminSubject,
+    'New application: ' + student + ' / ' + programme + ' / ' + reference,
+    adminHtml, {attachments:attachment}
+  );
+
+  v2NotificationUpdateApplication_(reference, {
+    'Application Student Email Status': studentResult.status,
+    'Application Student Email Sent At': studentResult.sent ? now : '',
+    'Application Admin Email Status': adminResult.status,
+    'Application Admin Email Sent At': adminResult.sent ? now : '',
+    'Email Status': 'STUDENT=' + studentResult.status + ';ADMIN=' + adminResult.status,
+    'Last Updated': now
+  });
+
+  return {
+    sent: studentResult.sent || adminResult.sent,
+    status: 'STUDENT=' + studentResult.status + ';ADMIN=' + adminResult.status,
+    student: studentResult,
+    admin: adminResult
+  };
+}
+
+function v2SendAgentNotificationCentral_(payload, reference, intake, pdf, agent, actionUrl, options) {
+  v2NotificationEnsureHeaders_();
+  const studentName = String(payload && payload.fullName || 'Applicant').trim();
+  const programme = String(payload && payload.programme || '').trim();
+  const agentName = String(agent && agent.name || 'Academic Consultant').trim();
+  const intakeName = String(intake && intake.name || payload && payload.intake || '').trim();
+  const secureUrl = String(actionUrl || '').trim();
+  const intendedEmail = String(agent && agent.email || '').trim();
+  if (!secureUrl) throw new Error('Agent Prospect / Fee Group action link is missing.');
+
+  const subject = '[IPGS Admission] New Referred Applicant - ' + studentName + ' - ' + reference;
+  const textBody = 'Dear ' + agentName + ',\n\nYour referred applicant has submitted the IUC Admission Form.\n\nStudent: ' + studentName + '\nProgramme: ' + programme + '\nIntake: ' + intakeName + '\nReference: ' + reference + '\n\nUpdate Prospect & Fee Structure: ' + secureUrl;
+  const htmlBody = '<div style="font-family:Arial,sans-serif;max-width:680px;margin:auto;border:1px solid #e5e7eb;border-radius:16px;overflow:hidden">' +
+    '<div style="background:#2d2363;color:#fff;padding:22px"><h2 style="margin:0">New Referred Applicant</h2></div>' +
+    '<div style="padding:24px"><p>Dear <strong>'+v2Html_(agentName)+'</strong>,</p><p>Your referred applicant has submitted the IUC Admission Form.</p>' +
+    '<p><strong>Student:</strong> '+v2Html_(studentName)+'<br><strong>Programme:</strong> '+v2Html_(programme)+'<br><strong>Intake:</strong> '+v2Html_(intakeName)+'<br><strong>Reference:</strong> '+v2Html_(reference)+'</p>' +
+    '<p><a href="'+v2Html_(secureUrl)+'" style="display:inline-block;background:#2d2363;color:#fff;text-decoration:none;padding:12px 18px;border-radius:10px;font-weight:700">Update Prospect &amp; Fee Structure</a></p>' +
+    '<p>The Admission Form is attached for your reference.</p><p>Regards,<br><strong>IPGS Registry</strong></p></div></div>';
+
+  const opts = options || {};
+  const result = v2NotificationSend_(
+    'AGENT_NEW_APPLICATION', [intendedEmail], subject, textBody, htmlBody,
+    {attachments:(pdf && pdf.blob ? [pdf.blob] : []), modeOverride:opts.modeOverride}
+  );
+  const now = new Date().toISOString();
+  v2NotificationUpdateApplication_(reference, {
+    'Agent Notification Status': result.status,
+    'Agent Notification Sent At': result.sent ? now : '',
+    'Last Updated': now
+  });
+  return result;
+}
+
+function v2SendOfferNotificationCentral_(referenceNo, acceptanceUrl, pdfFileId, options) {
+  v2NotificationEnsureHeaders_();
+  const reference = String(referenceNo || '').trim();
+  const application = v2Find_('V2_APPLICATIONS','Reference No',reference);
+  const workflow = v2Find_('V2_WORKFLOW','Reference No',reference);
+  if (!application || !workflow) throw new Error('Application/workflow record not found.');
+  if (String(workflow.record['Offer Letter Status'] || '') !== 'ISSUED') throw new Error('Offer email blocked: Offer Letter is not ISSUED.');
+  if (!acceptanceUrl) throw new Error('Acceptance signing URL is missing.');
+
+  const opts = options || {};
+  const student = String(application.record['Student Name'] || 'Student');
+  const programme = String(application.record['Programme'] || '');
+  const intake = v2OfferDisplayIntake_(application.record['Intake'] || '');
+  const recipient = String(application.record['Personal Email'] || '').trim();
+  const subject = '[IUC IPGS] Congratulations! Your Official Offer Letter - ' + programme;
+  const safeUrl = v2OfferHtmlEscape_(acceptanceUrl);
+  const html = '<div style="margin:0;padding:24px;background:#f6f4fb;font-family:Arial,sans-serif;color:#172033"><div style="max-width:680px;margin:0 auto;background:#fff;border-radius:22px;overflow:hidden;border:1px solid #e8e3f3">' +
+    '<div style="background:#2d2363;padding:30px;text-align:center;color:#fff"><div style="font-size:13px;letter-spacing:2px;font-weight:bold;color:#f5c451">CONGRATULATIONS!</div><div style="font-size:28px;font-weight:bold;margin-top:10px">Welcome to Innovative University College</div></div>' +
+    '<div style="padding:30px"><p><strong>Dear '+v2OfferHtmlEscape_(student)+',</strong></p><p>Your Official Offer Letter is attached.</p>' +
+    '<div style="background:#faf8ff;border:1px solid #e5def6;border-radius:14px;padding:18px"><strong>Programme:</strong> '+v2OfferHtmlEscape_(programme)+'<br><strong>Intake:</strong> '+v2OfferHtmlEscape_(intake)+'<br><strong>Reference:</strong> '+v2OfferHtmlEscape_(reference)+'</div>' +
+    '<p style="margin-top:22px"><strong>Next step:</strong> review the Offer Letter and complete your electronic acceptance.</p>' +
+    '<div style="text-align:center;margin:26px 0"><a href="'+safeUrl+'" style="display:inline-block;background:#2d2363;color:#fff;text-decoration:none;padding:14px 24px;border-radius:10px;font-weight:bold">Review &amp; Accept My Offer</a></div>' +
+    '<p style="font-size:13px;color:#697386">If the button does not open, copy this secure link:<br><span style="word-break:break-all">'+safeUrl+'</span></p></div></div></div>';
+  const attachment = DriveApp.getFileById(pdfFileId).getBlob();
+  const result = v2NotificationSend_(
+    'OFFER_ISSUED', [recipient], subject,
+    'Your IUC Official Offer Letter is attached. Acceptance link: ' + acceptanceUrl,
+    html,
+    {attachments:[attachment], modeOverride:(opts.testMode === true ? 'TEST' : opts.modeOverride)}
+  );
+  const now = new Date().toISOString();
+  v2NotificationUpdateWorkflow_(reference, {
+    'Offer Email Status': result.status,
+    'Offer Email Sent At': result.sent ? now : '',
+    'Last Updated': now
+  });
+  if (typeof v2Audit_ === 'function') {
+    v2Audit_(reference,'OFFER','SEND_OFFER_EMAIL',{}, {recipients:result.recipients,mode:result.mode,status:result.status}, 'Notification Engine', result.sent ? 'SUCCESS' : 'SKIPPED', '');
+  }
+  return result;
+}
+
+function v2NotificationBlobFromUrl_(url) {
+  const id = v2OfferExtractDriveId_(String(url || ''));
+  if (!id) return null;
+  try { return DriveApp.getFileById(id).getBlob(); } catch (error) { return null; }
+}
+
+function v2SendAcceptanceConfirmationCentral_(referenceNo, signedDocumentUrls) {
+  v2NotificationEnsureHeaders_();
+  const reference = String(referenceNo || '').trim();
+  const application = v2Find_('V2_APPLICATIONS','Reference No',reference);
+  const workflow = v2Find_('V2_WORKFLOW','Reference No',reference);
+  if (!application || !workflow) throw new Error('Application/workflow record not found for acceptance confirmation.');
+  const student = String(application.record['Student Name'] || 'Student');
+  const programme = String(application.record['Programme'] || '');
+  const intake = v2OfferDisplayIntake_(application.record['Intake'] || '');
+  const recipient = String(application.record['Personal Email'] || '').trim();
+  const acceptedAt = String(workflow.record['Acceptance Received At'] || workflow.record['Acceptance Signed At'] || '');
+  const handbookUrl = String(workflow.record['Student Handbook URL'] || '').trim();
+  const urls = signedDocumentUrls || [];
+  const attachments = urls.map(v2NotificationBlobFromUrl_).filter(Boolean);
+
+  const subject = '[IUC IPGS] Acceptance Successfully Received - ' + programme;
+  const handbookLine = handbookUrl ? '<p>You may continue to access/download the <a href="'+v2Html_(handbookUrl)+'">Postgraduate Student Handbook here</a>.</p>' : '';
+  const html = '<div style="font-family:Arial,sans-serif;max-width:680px;margin:auto;border:1px solid #e5e7eb;border-radius:16px;overflow:hidden"><div style="background:#2d2363;color:#fff;padding:24px"><h2 style="margin:0">Acceptance Successfully Received</h2></div>' +
+    '<div style="padding:24px"><p>Dear <strong>'+v2Html_(student)+'</strong>,</p><p>Thank you. Your acceptance of the IUC postgraduate offer has been successfully recorded.</p>' +
+    '<p><strong>Reference:</strong> '+v2Html_(reference)+'<br><strong>Programme:</strong> '+v2Html_(programme)+'<br><strong>Intake:</strong> '+v2Html_(intake)+(acceptedAt ? '<br><strong>Recorded:</strong> '+v2Html_(acceptedAt) : '')+'</p>' +
+    '<p>Your signed admission documents are attached for your record.</p>'+handbookLine+'<p>We will contact you regarding the next registration/orientation process.</p><p>Regards,<br><strong>IPGS Registry</strong><br>Innovative University College</p></div></div>';
+  const result = v2NotificationSend_(
+    'ACCEPTANCE_COMPLETED', [recipient], subject,
+    'Your acceptance has been successfully received. Reference: ' + reference,
+    html, {attachments:attachments}
+  );
+  const now = new Date().toISOString();
+  v2NotificationUpdateWorkflow_(reference, {
+    'Acceptance Confirmation Email Status': result.status,
+    'Acceptance Confirmation Email Sent At': result.sent ? now : '',
+    'Last Updated': now
+  });
+  if (typeof v2Audit_ === 'function') {
+    v2Audit_(reference,'ACCEPTANCE','SEND_ACCEPTANCE_CONFIRMATION',{}, {recipients:result.recipients,attachmentCount:attachments.length,status:result.status}, 'Notification Engine', result.sent ? 'SUCCESS' : 'SKIPPED', '');
+  }
+  return result;
+}
+
+function v2NotificationStatus_() {
+  return {
+    ok:true,
+    build:V2_NOTIFICATION_BUILD,
+    mode:v2NotificationMode_(),
+    testRecipient:v2NotificationTestRecipient_(),
+    adminRecipients:v2NotificationAdminRecipients_(),
+    events:['NEW_APPLICATION_STUDENT','NEW_APPLICATION_ADMIN','AGENT_NEW_APPLICATION','OFFER_ISSUED','ACCEPTANCE_COMPLETED'],
+    v1Touched:false
+  };
+}
+'''
+
+(ROOT / 'NotificationEngineV2.js').write_text(notification, encoding='utf-8')
+
+# Admission: replace legacy combined acknowledgement sender with central engine adapter.
+adm = ROOT / 'AdmissionV2.js'
+text = adm.read_text(encoding='utf-8')
+pattern = r"function v2SendSubmissionAcknowledgements_\(payload, reference, intake, pdf, agent\) \{.*?\n\}\n\nfunction v2IsPhdProgramme_"
+replacement = """function v2SendSubmissionAcknowledgements_(payload, reference, intake, pdf, agent) {\n  const result = v2SendApplicationNotifications_(payload, reference, intake, pdf);\n  return result.status;\n}\n\nfunction v2IsPhdProgramme_"""
+text, n = re.subn(pattern, replacement, text, count=1, flags=re.S)
+if n != 1:
+    raise SystemExit('AdmissionV2 acknowledgement function not found')
+adm.write_text(text, encoding='utf-8')
+
+# Agent: centralize mode + sender.
+agent = ROOT / 'AgentProspectV2.js'
+text = agent.read_text(encoding='utf-8')
+pattern = r"function v2AgentNotificationMode_\(\) \{.*?\n\}\nconst V2_AGENT_FEE_CACHE_SECONDS"
+replacement = """function v2AgentNotificationMode_() {\n  return v2NotificationMode_();\n}\n\nfunction v2SendAgentApplicationNotification_(payload, reference, intake, pdf, agent, actionUrl) {\n  assertDevIdentity_();\n  const result = v2SendAgentNotificationCentral_(payload, reference, intake, pdf, agent, actionUrl, {});\n  return result.status;\n}\nconst V2_AGENT_FEE_CACHE_SECONDS"""
+text, n = re.subn(pattern, replacement, text, count=1, flags=re.S)
+if n != 1:
+    raise SystemExit('Agent notification block not found')
+agent.write_text(text, encoding='utf-8')
+
+# Offer: default to sending email and delegate to central engine.
+offer = ROOT / 'OfferLetterV2.js'
+text = offer.read_text(encoding='utf-8')
+pattern = r"function v2IssueOffer_\(referenceNo, actor, options\) \{.*?\n\}\n\nfunction v2SendOfferEmail_\(referenceNo, acceptanceUrl, pdfFileId, options\) \{.*?\n\}\n\nfunction v2OfferAcceptanceEndToEndControlledTest"
+replacement = r'''function v2IssueOffer_(referenceNo, actor, options) {
+  assertDevIdentity_();
+  const reference = String(referenceNo || '').trim();
+  if (!reference) throw new Error('Reference No is required.');
+  const opts = options || {};
+  const prepared = v2PrepareOffer_(reference, actor || 'Offer Issuance');
+  const generated = v2GenerateOfferLetter_(reference, actor || 'Offer Issuance');
+  let email = {sent:false,mode:'NOT_REQUESTED',status:'NOT_REQUESTED'};
+  // Production behaviour: issuing an Offer sends it automatically.
+  // Controlled tests can explicitly pass sendEmail:false.
+  if (opts.sendEmail !== false) {
+    try {
+      email = v2SendOfferEmail_(reference, prepared.acceptanceSigningUrl, generated.pdfFileId, {
+        testMode:opts.testMode === true,
+        testRecipient:String(opts.testRecipient || '')
+      });
+    } catch (emailError) {
+      const failedAt = new Date().toISOString();
+      v2NotificationUpdateWorkflow_(reference, {
+        'Offer Email Status':'FAILED: ' + String(emailError && emailError.message || emailError),
+        'Offer Email Sent At':'',
+        'Last Updated':failedAt
+      });
+      email = {sent:false,mode:v2NotificationMode_(),status:'FAILED',error:String(emailError && emailError.message || emailError)};
+    }
+  }
+  return {
+    ok:true,
+    referenceNo:reference,
+    offerLetterStatus:generated.offerLetterStatus,
+    applicationStage:generated.applicationStage,
+    offerLetterPdfUrl:generated.offerLetterPdfUrl,
+    acceptanceSigningUrl:prepared.acceptanceSigningUrl,
+    emailSent:!!email.sent,
+    emailMode:email.mode || '',
+    emailStatus:email.status || '',
+    emailRecipient:(email.recipients && email.recipients[0]) || email.recipient || '',
+    v1Touched:false
+  };
+}
+
+function v2SendOfferEmail_(referenceNo, acceptanceUrl, pdfFileId, options) {
+  const opts = options || {};
+  const result = v2SendOfferNotificationCentral_(referenceNo, acceptanceUrl, pdfFileId, opts);
+  return {
+    sent:result.sent,
+    mode:result.mode,
+    status:result.status,
+    recipients:result.recipients,
+    recipient:(result.recipients && result.recipients[0]) || ''
+  };
+}
+
+function v2OfferAcceptanceEndToEndControlledTest'''
+text, n = re.subn(pattern, replacement, text, count=1, flags=re.S)
+if n != 1:
+    raise SystemExit('Offer issue/email block not found')
+offer.write_text(text, encoding='utf-8')
+
+# Acceptance: send confirmation after acceptance is fully committed. Email failure is non-blocking.
+pack = ROOT / 'AcceptancePackV2.js'
+text = pack.read_text(encoding='utf-8')
+needle = """    v2Audit_(\n      ctx.referenceNo,\n      'ACCEPTANCE',\n      'SIGN_ACCEPTANCE_PACK',"""
+if needle not in text:
+    raise SystemExit('Acceptance audit anchor not found')
+# Insert after the audit call, using a regex anchored at the exact call and following invalidate.
+pattern = r"(    v2Audit_\(\n      ctx\.referenceNo,\n      'ACCEPTANCE',\n      'SIGN_ACCEPTANCE_PACK',.*?\n    \);\n\n)(    v2InvalidateCache_\(\);)"
+insert = r'''\1    let confirmationEmail = {sent:false,status:'NOT_ATTEMPTED',mode:v2NotificationMode_()};
+    try {
+      confirmationEmail = v2SendAcceptanceConfirmationCentral_(ctx.referenceNo, [
+        updates['Acceptance PDF URL'],
+        updates['Surat Penerimaan Signed PDF URL'],
+        updates['Surat Akuan Signed PDF URL'],
+        updates['Student Handbook Acknowledgement Signed PDF URL']
+      ]);
+    } catch (emailError) {
+      const failedAt = new Date().toISOString();
+      v2NotificationUpdateWorkflow_(ctx.referenceNo, {
+        'Acceptance Confirmation Email Status':'FAILED: ' + String(emailError && emailError.message || emailError),
+        'Acceptance Confirmation Email Sent At':'',
+        'Last Updated':failedAt
+      });
+      confirmationEmail = {sent:false,status:'FAILED',mode:v2NotificationMode_(),error:String(emailError && emailError.message || emailError)};
+    }
+
+\2'''
+text, n = re.subn(pattern, insert, text, count=1, flags=re.S)
+if n != 1:
+    raise SystemExit('Acceptance notification insertion point not found')
+# Add return fields after tokenConsumed.
+old = """      tokenConsumed: accepted.tokenConsumed,\n      v1Touched: false"""
+new = """      tokenConsumed: accepted.tokenConsumed,\n      acceptanceEmailSent: !!confirmationEmail.sent,\n      acceptanceEmailStatus: confirmationEmail.status || '',\n      v1Touched: false"""
+if old not in text:
+    raise SystemExit('Acceptance return anchor not found')
+text = text.replace(old, new, 1)
+pack.write_text(text, encoding='utf-8')
+
+print('Stage 1 notification engine patch prepared successfully.')
