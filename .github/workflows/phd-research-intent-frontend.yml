@@ -1,0 +1,43 @@
+name: PhD Research Intent Frontend UX
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'tools/phd-research-intent-frontend.py'
+      - '.github/workflows/phd-research-intent-frontend.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout main
+        uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+
+      - name: Apply PhD Research Intent frontend patch
+        run: python tools/phd-research-intent-frontend.py
+
+      - name: Validate frontend markers
+        run: |
+          grep -F "preliminaryResearchIntent" index.html
+          grep -F "If you do not have it yet, you may still submit this application now." index.html
+          grep -F "Research Intent will remain outstanding." index.html
+
+      - name: Commit frontend update
+        run: |
+          if git diff --quiet -- index.html; then
+            echo 'Frontend already patched.'
+          else
+            git config user.name 'github-actions[bot]'
+            git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+            git add index.html
+            git commit -m 'Improve PhD Research Intent application UX'
+            git push origin main
+          fi
