@@ -5,7 +5,6 @@ on:
     branches: [apps-script-v2-dev]
     paths:
       - 'tools/finalize-phase2-doc-layouts.py'
-      - 'tools/stage1-notification-engine.py'
       - 'tools/stage1-notification-cleanup.py'
       - '.github/workflows/finalize-phase2-doc-layouts.yml'
   workflow_dispatch:
@@ -25,9 +24,6 @@ jobs:
 
       - name: Apply Phase 2 document layout patch
         run: python tools/finalize-phase2-doc-layouts.py
-
-      - name: Apply Stage 1 notification consolidation
-        run: python tools/stage1-notification-engine.py
 
       - name: Apply Stage 1 notification cleanup
         run: python tools/stage1-notification-cleanup.py
