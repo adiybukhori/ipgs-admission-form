@@ -412,6 +412,7 @@
 
     let currentStep = 0;
     let submitting = false;
+    let submissionCompleted = false;
 
     const formState = {
       capturedEmail: "",
@@ -1637,12 +1638,14 @@
       heroIcon.textContent = STEPS[currentStep].icon;
       progressText.textContent = `${currentStep + 1} / ${STEPS.length}`;
       progressFill.style.width = `${((currentStep + 1) / STEPS.length) * 100}%`;
-      backBtn.disabled = currentStep === 0 || submitting;
-      nextBtn.classList.toggle('hidden', currentStep === STEPS.length - 1);
-      submitBtn.classList.toggle('hidden', currentStep !== STEPS.length - 1);
-      nextBtn.disabled = submitting;
-      submitBtn.disabled = submitting;
-      resetBtn.disabled = submitting;
+      backBtn.classList.toggle('hidden', submissionCompleted);
+      resetBtn.classList.toggle('hidden', submissionCompleted);
+      nextBtn.classList.toggle('hidden', submissionCompleted || currentStep === STEPS.length - 1);
+      submitBtn.classList.toggle('hidden', submissionCompleted || currentStep !== STEPS.length - 1);
+      backBtn.disabled = currentStep === 0 || submitting || submissionCompleted;
+      nextBtn.disabled = submitting || submissionCompleted;
+      submitBtn.disabled = submitting || submissionCompleted;
+      resetBtn.disabled = submitting || submissionCompleted;
     }
 
     function validateStep(stepIndex) {
@@ -1903,6 +1906,23 @@
       return payload;
     }
 
+    function showSubmissionSuccess(reference) {
+      submissionCompleted = true;
+      submitting = false;
+      setStatus('success', `
+        <div class="submit-progress-wrap">
+          <div><strong>Application submitted successfully.</strong></div>
+          <div style="margin-top:8px">Reference: <strong>${escapeHtml(reference || '-')}</strong></div>
+          <div class="small" style="margin-top:14px;line-height:1.6">Please check your email for confirmation and further information. A Registry Office officer will contact you regarding the next step.</div>
+          <div class="submit-progress-track">
+            <div class="submit-progress-fill done"></div>
+          </div>
+        </div>
+      `);
+      render();
+      window.scrollTo({ top: document.body.scrollHeight, behavior: 'smooth' });
+    }
+
     async function submitForm(evt) {
       evt.preventDefault();
       const err = validateStep(5);
@@ -1933,13 +1953,7 @@
                 render();
                 return;
               }
-              setStatus('success', `Application submitted successfully.<br>Reference: <strong>${escapeHtml(result.reference || '-')}</strong>`);
-              formEl.reset();
-              resetFormState();
-              submitting = false;
-              render();
-              setStatus('success', `Application submitted successfully.<br>Reference: <strong>${escapeHtml(result.reference || '-')}</strong>`);
-              window.scrollTo({ top: 0, behavior: 'smooth' });
+              showSubmissionSuccess(result.reference || '-');
             })
             .withFailureHandler((error) => {
               const message = error && error.message ? error.message : String(error || 'Unknown error');
@@ -1970,17 +1984,7 @@
         let json;
         try { json = JSON.parse(text); } catch { json = { ok: false, message: text || 'Unknown response from server.' }; }
         if (!res.ok || !json.ok) throw new Error(json.message || 'Submission failed.');
-        formEl.reset();
-        resetFormState();
-        setStatus('success', `
-          <div class="submit-progress-wrap">
-            <div><strong>Application submitted successfully.</strong></div>
-            <div>Reference: <strong>${escapeHtml(json.reference || '-')}</strong></div>
-            <div class="submit-progress-track">
-              <div class="submit-progress-fill done"></div>
-            </div>
-          </div>
-        `);
+        showSubmissionSuccess(json.reference || '-');
       } catch (error) {
         setStatus('info', `Submission failed: ${escapeHtml(error.message || 'Unknown error')}`);
       } finally {
