@@ -1,0 +1,88 @@
+name: Stage 2 PG-ADM-01 Deploy
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'tools/stage2-pg-adm01-patch.py'
+      - '.github/workflows/stage2-pg-adm01-deploy.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+
+      - name: Patch and commit Admin main
+        run: |
+          python tools/stage2-pg-adm01-patch.py main
+          grep -F "v2RegeneratePgAdm01" api/admin-action.js
+          grep -F "function pgAdm01Control" admin.html
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add api/admin-action.js admin.html
+          if ! git diff --cached --quiet; then
+            git commit -m 'Add Stage 2 PG-ADM-01 controls'
+            git push origin main
+          fi
+
+      - name: Patch Apps Script branch
+        run: |
+          git fetch origin apps-script-v2-dev
+          git checkout -B apps-script-v2-dev origin/apps-script-v2-dev
+          git show origin/main:tools/stage2-pg-adm01-patch.py > /tmp/stage2-pg-adm01-patch.py
+          python /tmp/stage2-pg-adm01-patch.py apps
+          node --check apps-script-v2/PgEligibilityV2.js
+          node --check apps-script-v2/SacPackV2.js
+          node --check apps-script-v2/WorkflowV2.js
+          grep -F "CONTROLLED_MASTER_TEMPLATE" apps-script-v2/PgEligibilityV2.js
+          grep -F "v2RegeneratePgAdm01" apps-script-v2/WorkflowV2.js
+          grep -F "Pack Order Verified" apps-script-v2/SacPackV2.js
+          count=$(grep -h -c "function v2GeneratePgEligibilityPdf_" apps-script-v2/PgEligibilityV2.js apps-script-v2/SacPackV2.js | awk '{s+=$1} END{print s}')
+          test "$count" = "1"
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add apps-script-v2/PgEligibilityV2.js apps-script-v2/SacPackV2.js apps-script-v2/WorkflowV2.js
+          if ! git diff --cached --quiet; then
+            git commit -m 'Use controlled PG-ADM-01 template with tracked regeneration'
+            git push origin apps-script-v2-dev
+          fi
+
+      - name: Verify clasp credential
+        env:
+          CLASPRC_JSON: ${{ secrets.CLASPRC_JSON }}
+        run: |
+          test -n "$CLASPRC_JSON" || (echo 'CLASPRC_JSON secret is not configured.' && exit 1)
+
+      - name: Install clasp
+        run: npm install --global @google/clasp@3.4.1
+
+      - name: Restore clasp credential
+        env:
+          CLASPRC_JSON: ${{ secrets.CLASPRC_JSON }}
+        run: |
+          printf '%s' "$CLASPRC_JSON" > "$HOME/.clasprc.json"
+          chmod 600 "$HOME/.clasprc.json"
+
+      - name: Verify locked V2 target
+        run: node tools/verify-clasp-target.mjs
+
+      - name: Force push Apps Script source
+        run: clasp push -f
+
+      - name: Redeploy existing V2 web app
+        env:
+          V2_DEPLOYMENT_ID: AKfycbxasT_HgtRSvTbR_bsa8p17Cm-C2PKn20Ok1kU-AyJmxiKX8kX5EGOtRLwVwNlAL7JB
+        run: clasp create-deployment --deploymentId "$V2_DEPLOYMENT_ID" --description "Stage 2 PG-ADM-01 controlled template reliability and regeneration"
+
+      - name: Remove clasp credential
+        if: always()
+        run: rm -f "$HOME/.clasprc.json"
