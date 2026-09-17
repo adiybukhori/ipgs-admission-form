@@ -401,12 +401,13 @@
       passportCopyInternational: 'Passport Copy',
       completedAdmissionForm: 'Admission Form',
       completedHealthDeclaration: 'Health Declaration',
-      emgsPaymentReceipt: 'EMGS Receipt'
+      emgsPaymentReceipt: 'EMGS Receipt',
+      preliminaryResearchIntent: 'Preliminary Research Intent'
     };
 
     const fileKeys = [
       "identityDocument", "passportPhoto", "apelCertificate", "transcript", "certificate", "otherSupportingDocument",
-      "englishCertificate", "cvResume", "passportCopyInternational", "completedAdmissionForm", "completedHealthDeclaration", "emgsPaymentReceipt"
+      "englishCertificate", "cvResume", "passportCopyInternational", "completedAdmissionForm", "completedHealthDeclaration", "emgsPaymentReceipt", "preliminaryResearchIntent"
     ];
 
     let currentStep = 0;
@@ -559,6 +560,11 @@
       return formState.referralSource === "Education Consultant";
     }
 
+    function isPhdProgramme() {
+      const programme = String(formState.programme || '').trim();
+      return /^PhD\b/i.test(programme) || /Doctor of Philosophy/i.test(programme);
+    }
+
     function visibleDocumentFields() {
       return {
         showApelCertificate: formState.entryQualificationType === "APEL",
@@ -571,6 +577,7 @@
         showCompletedAdmissionForm: isInternational(),
         showCompletedHealthDeclaration: isInternational(),
         showEmgsPaymentReceipt: isInternational(),
+        showPreliminaryResearchIntent: isPhdProgramme(),
       };
     }
 
@@ -714,6 +721,12 @@
 
           <div class="field"><label>Level of Study <span class="required">*</span></label><select data-field="levelOfStudy">${selectOptions(LEVELS_OF_STUDY, "Select level of study", formState.levelOfStudy)}</select>${formState.levelOfStudy === "Diploma" ? '<div class="hint">Diploma option is intentionally disabled for IPGS current release.</div>' : ''}</div>
           <div class="field"><label>Intended Programme of Study <span class="required">*</span></label><select data-field="programme" ${programmeDisabled ? "disabled" : ""}>${selectOptions(getProgrammeOptions(), programmeDisabled ? "Please select level of study first" : "Select programme", formState.programme)}</select></div>
+          ${isPhdProgramme() ? `
+            <div class="info-box" style="grid-column:1 / -1;background:#fff7df;border-color:#f0d995;color:#785816">
+              <strong>PhD Preliminary Research Intent</strong><br>
+              A preliminary Research Intent (approximately 2–3 pages) is required before your admission file can proceed to SAC. If you already have it, you may upload it in the Document Upload section. <strong>If you do not have it yet, you may still submit this application now.</strong> We will email you a secure link to upload it later.
+            </div>
+          ` : ""}
           <div class="field"><label>Intake <span class="required">*</span></label><select data-field="intake">${selectOptions(INTAKE_OPTIONS, "Select intake month", formState.intake)}</select></div>
           <div class="field">
             <label>Mode of Study <span class="required">*</span></label>
@@ -1204,6 +1217,10 @@
           ${visible.showCompletedAdmissionForm ? fileRow('completedAdmissionForm', 'Completed Admission Form', true, 'Upload the completed international admission form downloaded earlier.') : ''}
           ${visible.showCompletedHealthDeclaration ? fileRow('completedHealthDeclaration', 'Completed Health Declaration Form', true, 'Upload the completed and signed health declaration form.') : ''}
           ${visible.showEmgsPaymentReceipt ? fileRow('emgsPaymentReceipt', 'EMGS / Visa Related Payment Receipt', true, 'Upload the payment receipt for international fee processing.') : ''}
+          ${visible.showPreliminaryResearchIntent ? `
+            <div class="info-box" style="background:#fff7df;border-color:#f0d995;color:#785816"><strong>PhD document</strong><br>You may upload your preliminary Research Intent now, or submit the application first and provide it later through the secure upload link sent to your email. It remains required before your document review can be completed for SAC.</div>
+            ${fileRow('preliminaryResearchIntent', 'Preliminary Research Intent (2–3 pages)', false, 'Optional at initial submission. Required before SAC. Upload PDF, JPG, JPEG or PNG now; if pending, a secure follow-up upload link will be emailed after submission.')}
+          ` : ''}
         </div>
       `;
     }
@@ -1256,6 +1273,11 @@
         <strong>Review Your Application</strong>
         <div class="small" style="margin-top:6px">Please review the summary before submitting.</div>
       </div>
+      ${isPhdProgramme() && !formState.documents.preliminaryResearchIntent ? `
+        <div class="info-box" style="background:#fff7df;border-color:#f0d995;color:#785816">
+          <strong>Research Intent will remain outstanding.</strong><br>Your application can still be submitted. A secure upload link will be sent to your email, and the document must be received before your application can proceed to SAC.
+        </div>
+      ` : ''}
 
       <div class="review-grid">
         <div class="review-box">
