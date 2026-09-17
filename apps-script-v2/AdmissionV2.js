@@ -332,19 +332,8 @@ function v2ResolveAgent_(code) {
 }
 
 function v2SendSubmissionAcknowledgements_(payload, reference, intake, pdf, agent) {
-  const properties = PropertiesService.getScriptProperties();
-  const mode = String(properties.getProperty('V2_EMAIL_MODE') || 'DISABLED').toUpperCase();
-  if (mode === 'DISABLED') return 'DISABLED';
-  const testRecipient = String(properties.getProperty('V2_TEST_EMAIL') || 'adiybukhori@innovative.edu.my').trim();
-  // Student/admin acknowledgement only. Academic Consultants receive a
-  // separate action-focused email with the secure Prospect / Fee Group link.
-  const intended = [payload.email].concat(CONFIG.notificationEmails || []);
-  const recipients = mode === 'TEST' ? [testRecipient] : intended.filter(Boolean);
-  const unique = recipients.filter(function(value,index,array) { return array.indexOf(value) === index; });
-  const subject = '[IPGS Admission V2] Application Received - ' + reference;
-  const html = '<div style="font-family:Arial,sans-serif;max-width:680px;margin:auto;border:1px solid #e5e7eb;border-radius:16px;overflow:hidden"><div style="background:#2d2363;color:white;padding:24px"><h2 style="margin:0">Application Received</h2></div><div style="padding:24px"><p>Dear '+v2Html_(payload.fullName)+',</p><p>Your postgraduate application has been received and is currently under review.</p><p><strong>Reference:</strong> '+v2Html_(reference)+'<br><strong>Programme:</strong> '+v2Html_(payload.programme)+'<br><strong>Intake:</strong> '+v2Html_(intake.name)+'</p><p>The next process may include document review, SAC endorsement, Internal Assessment or prerequisite requirements. An Offer Letter or COL has not been issued at this stage.</p></div></div>';
-  unique.forEach(function(to) { GmailApp.sendEmail(to,subject,'Your application has been received.',{htmlBody:html,attachments:[pdf.blob],name:'IPGS Admission'}); });
-  return mode + '_SENT_' + unique.length;
+  const result = v2SendApplicationNotifications_(payload, reference, intake, pdf);
+  return result.status;
 }
 
 function v2IsPhdProgramme_(programme) {

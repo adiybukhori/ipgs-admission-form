@@ -712,6 +712,24 @@ function v2AcceptancePackSubmitSigned(rawToken, data) {
       ''
     );
 
+    let confirmationEmail = {sent:false,status:'NOT_ATTEMPTED',mode:v2NotificationMode_()};
+    try {
+      confirmationEmail = v2SendAcceptanceConfirmationCentral_(ctx.referenceNo, [
+        updates['Acceptance PDF URL'],
+        updates['Surat Penerimaan Signed PDF URL'],
+        updates['Surat Akuan Signed PDF URL'],
+        updates['Student Handbook Acknowledgement Signed PDF URL']
+      ]);
+    } catch (emailError) {
+      const failedAt = new Date().toISOString();
+      v2NotificationUpdateWorkflow_(ctx.referenceNo, {
+        'Acceptance Confirmation Email Status':'FAILED: ' + String(emailError && emailError.message || emailError),
+        'Acceptance Confirmation Email Sent At':'',
+        'Last Updated':failedAt
+      });
+      confirmationEmail = {sent:false,status:'FAILED',mode:v2NotificationMode_(),error:String(emailError && emailError.message || emailError)};
+    }
+
     v2InvalidateCache_();
 
     return {
@@ -728,6 +746,8 @@ function v2AcceptancePackSubmitSigned(rawToken, data) {
       signedDocumentCount: 4,
       studentFolderUrl: ctx.studentFolder.getUrl(),
       tokenConsumed: accepted.tokenConsumed,
+      acceptanceEmailSent: !!confirmationEmail.sent,
+      acceptanceEmailStatus: confirmationEmail.status || '',
       v1Touched: false
     };
   } finally {

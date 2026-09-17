@@ -3512,63 +3512,50 @@ function v2IssueOffer_(referenceNo, actor, options) {
   const opts = options || {};
   const prepared = v2PrepareOffer_(reference, actor || 'Offer Issuance');
   const generated = v2GenerateOfferLetter_(reference, actor || 'Offer Issuance');
-  let email = {sent:false,mode:'NOT_REQUESTED'};
-  if (opts.sendEmail === true) {
-    email = v2SendOfferEmail_(reference, prepared.acceptanceSigningUrl, generated.pdfFileId, {testMode:opts.testMode === true,testRecipient:String(opts.testRecipient || '')});
+  let email = {sent:false,mode:'NOT_REQUESTED',status:'NOT_REQUESTED'};
+  // Production behaviour: issuing an Offer sends it automatically.
+  // Controlled tests can explicitly pass sendEmail:false.
+  if (opts.sendEmail !== false) {
+    try {
+      email = v2SendOfferEmail_(reference, prepared.acceptanceSigningUrl, generated.pdfFileId, {
+        testMode:opts.testMode === true,
+        testRecipient:String(opts.testRecipient || '')
+      });
+    } catch (emailError) {
+      const failedAt = new Date().toISOString();
+      v2NotificationUpdateWorkflow_(reference, {
+        'Offer Email Status':'FAILED: ' + String(emailError && emailError.message || emailError),
+        'Offer Email Sent At':'',
+        'Last Updated':failedAt
+      });
+      email = {sent:false,mode:v2NotificationMode_(),status:'FAILED',error:String(emailError && emailError.message || emailError)};
+    }
   }
-  return {ok:true,referenceNo:reference,offerLetterStatus:generated.offerLetterStatus,applicationStage:generated.applicationStage,offerLetterPdfUrl:generated.offerLetterPdfUrl,acceptanceSigningUrl:prepared.acceptanceSigningUrl,emailSent:!!email.sent,emailMode:email.mode || '',emailRecipient:email.recipient || '',v1Touched:false};
+  return {
+    ok:true,
+    referenceNo:reference,
+    offerLetterStatus:generated.offerLetterStatus,
+    applicationStage:generated.applicationStage,
+    offerLetterPdfUrl:generated.offerLetterPdfUrl,
+    acceptanceSigningUrl:prepared.acceptanceSigningUrl,
+    emailSent:!!email.sent,
+    emailMode:email.mode || '',
+    emailStatus:email.status || '',
+    emailRecipient:(email.recipients && email.recipients[0]) || email.recipient || '',
+    v1Touched:false
+  };
 }
 
 function v2SendOfferEmail_(referenceNo, acceptanceUrl, pdfFileId, options) {
-  const reference = String(referenceNo || '').trim();
-  const application = v2Find_('V2_APPLICATIONS','Reference No',reference);
-  const workflow = v2Find_('V2_WORKFLOW','Reference No',reference);
-  if (!application || !workflow) throw new Error('Application/workflow record not found.');
-  if (String(workflow.record['Offer Letter Status'] || '') !== 'ISSUED') throw new Error('Offer email blocked: Offer Letter is not ISSUED.');
   const opts = options || {};
-  const actualRecipient = String(application.record['Personal Email'] || '').trim();
-  const testRecipient = String(opts.testRecipient || PropertiesService.getScriptProperties().getProperty('V2_TEST_EMAIL') || 'adiybukhori@innovative.edu.my').trim();
-  const recipient = opts.testMode === true ? testRecipient : actualRecipient;
-  if (!recipient) throw new Error('Offer email recipient is missing.');
-  if (!acceptanceUrl) throw new Error('Acceptance signing URL is missing.');
-  const student = String(application.record['Student Name'] || 'Student');
-  const programme = String(application.record['Programme'] || '');
-  const intake = v2OfferDisplayIntake_(application.record['Intake'] || '');
-  const subject = '[IUC IPGS] Congratulations! Your Official Offer Letter - ' + programme;
-  const safeStudent = v2OfferHtmlEscape_(student);
-  const safeProgramme = v2OfferHtmlEscape_(programme);
-  const safeIntake = v2OfferHtmlEscape_(intake);
-  const safeReference = v2OfferHtmlEscape_(reference);
-  const safeAcceptanceUrl = v2OfferHtmlEscape_(acceptanceUrl);
-  const html = [
-    '<div style="margin:0;padding:24px;background:#f6f4fb;font-family:Arial,sans-serif;color:#172033">',
-      '<div style="max-width:680px;margin:0 auto;background:#ffffff;border-radius:22px;overflow:hidden;border:1px solid #e8e3f3;box-shadow:0 10px 30px rgba(45,35,99,.08)">',
-        '<div style="background:#2d2363;padding:30px 30px 26px;text-align:center;color:#ffffff">',
-          '<div style="font-size:13px;letter-spacing:2px;font-weight:bold;color:#f5c451;margin-bottom:10px">CONGRATULATIONS!</div>',
-          '<div style="font-size:30px;line-height:1.2;font-weight:bold">Welcome to Innovative University College</div>',
-          '<div style="margin-top:10px;font-size:15px;line-height:1.6;color:#e9e4fb">Your postgraduate journey with IUC is about to begin.</div>',
-        '</div>',
-        '<div style="padding:30px">',
-          '<p style="font-size:18px;margin:0 0 16px"><strong>Dear ' + safeStudent + ',</strong></p>',
-          '<p style="font-size:15px;line-height:1.75;margin:0 0 18px">We are delighted to congratulate you on reaching this important milestone. It is our pleasure to officially welcome you to the <strong>Institute of Postgraduate Studies, Innovative University College</strong>.</p>',
-          '<p style="font-size:15px;line-height:1.75;margin:0 0 22px">Your <strong>Official Offer Letter</strong> is attached to this email. We are excited to have you join our postgraduate community and look forward to supporting you throughout your academic journey.</p>',
-          '<div style="background:#faf8ff;border:1px solid #e5def6;border-radius:14px;padding:18px;margin:0 0 22px">',
-            '<div style="font-size:12px;color:#746a94;font-weight:bold;text-transform:uppercase;letter-spacing:.8px;margin-bottom:8px">Your Offer</div>',
-            '<div style="font-size:14px;line-height:1.8"><strong>Programme:</strong> ' + safeProgramme + '<br><strong>Intake:</strong> ' + safeIntake + '<br><strong>Reference:</strong> ' + safeReference + '</div>',
-          '</div>',
-          '<div style="font-size:15px;line-height:1.7;margin-bottom:10px"><strong>Next step:</strong> Please review your Official Offer Letter and complete your secure electronic acceptance.</div>',
-          '<div style="text-align:center;margin:26px 0 24px"><a href="' + safeAcceptanceUrl + '" style="display:inline-block;background:#2d2363;color:#ffffff;text-decoration:none;padding:14px 24px;border-radius:10px;font-size:15px;font-weight:bold">Review &amp; Accept My Offer</a></div>',
-          '<div style="background:#fff8e6;border-left:4px solid #f5c451;padding:14px 16px;border-radius:8px;font-size:14px;line-height:1.65">This is the start of an exciting new chapter. <strong>Welcome to IUC — we are truly pleased to have you with us.</strong></div>',
-          '<p style="font-size:13px;color:#697386;line-height:1.65;margin:24px 0 0">If the button above does not open, copy this secure link into your browser:<br><span style="word-break:break-all;color:#4b35a2">' + safeAcceptanceUrl + '</span></p>',
-        '</div>',
-        '<div style="padding:18px 30px;background:#f3f0fa;text-align:center;font-size:12px;line-height:1.6;color:#746a94">Institute of Postgraduate Studies · Innovative University College<br>We look forward to welcoming you to the IUC community.</div>',
-      '</div>',
-    '</div>'
-  ].join('');
-  const attachment = DriveApp.getFileById(pdfFileId).getBlob();
-  GmailApp.sendEmail(recipient, subject, 'Your IUC Offer Letter is attached. Acceptance link: ' + acceptanceUrl, {htmlBody:html,attachments:[attachment],name:'IUC IPGS Admission'});
-  v2Audit_(reference,'OFFER','SEND_OFFER_EMAIL',{}, {recipient:recipient,testMode:opts.testMode === true}, 'Offer Email', 'SUCCESS', '');
-  return {sent:true,mode:opts.testMode === true ? 'TEST' : 'LIVE',recipient:recipient};
+  const result = v2SendOfferNotificationCentral_(referenceNo, acceptanceUrl, pdfFileId, opts);
+  return {
+    sent:result.sent,
+    mode:result.mode,
+    status:result.status,
+    recipients:result.recipients,
+    recipient:(result.recipients && result.recipients[0]) || ''
+  };
 }
 
 function v2OfferAcceptanceEndToEndControlledTest() {
