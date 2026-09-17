@@ -20,6 +20,7 @@ const V2_DOCUMENT_REVIEW_HEADERS = [
   'Required Documents JSON',
   'Submitted Documents JSON',
   'Missing Documents JSON',
+  'Outstanding Documents JSON',
   'Reviewer Remarks',
   'Reviewed At',
   'Reviewed By',
@@ -170,8 +171,18 @@ function v2RunDocumentReview(referenceNo, reviewer, remarks) {
     return String(doc.field || '').trim();
   });
 
-  const missingDocuments = requiredDocuments.filter(function(doc) {
+  const allMissingDocuments = requiredDocuments.filter(function(doc) {
     return submittedKeys.indexOf(doc.key) === -1;
+  });
+
+  // PhD Preliminary Research Intent may be submitted after the initial application.
+  // It is tracked as OUTSTANDING during document review and does not block
+  // qualification screening. SAC assignment remains blocked until received.
+  const outstandingDocuments = allMissingDocuments.filter(function(doc) {
+    return doc.key === 'preliminaryResearchIntent';
+  });
+  const missingDocuments = allMissingDocuments.filter(function(doc) {
+    return doc.key !== 'preliminaryResearchIntent';
   });
 
   const status =
@@ -193,6 +204,9 @@ function v2RunDocumentReview(referenceNo, reviewer, remarks) {
 
     'Missing Documents JSON':
       JSON.stringify(missingDocuments),
+
+    'Outstanding Documents JSON':
+      JSON.stringify(outstandingDocuments),
 
     'Reviewer Remarks': reviewRemarks,
     'Reviewed At': now,
@@ -240,7 +254,9 @@ function v2RunDocumentReview(referenceNo, reviewer, remarks) {
       requiredCount: requiredDocuments.length,
       submittedCount: submittedDocuments.length,
       missingCount: missingDocuments.length,
-      missingDocuments: missingDocuments
+      missingDocuments: missingDocuments,
+      outstandingCount: outstandingDocuments.length,
+      outstandingDocuments: outstandingDocuments
     },
     reviewedBy,
     'SUCCESS',
@@ -278,6 +294,8 @@ function v2RunDocumentReview(referenceNo, reviewer, remarks) {
     missingCount: missingDocuments.length,
 
     missingDocuments: missingDocuments,
+    outstandingCount: outstandingDocuments.length,
+    outstandingDocuments: outstandingDocuments,
 
     nextAction:
       status === 'COMPLETE'

@@ -516,6 +516,24 @@ function v2AssignSacCandidate_(data, actor) {
   const workflow = v2Find_('V2_WORKFLOW','Reference No',reference);
   if (!workflow) throw new Error('V2 workflow record not found.');
   const w = workflow.record;
+
+  // Research Intent may remain outstanding through review and screening, but
+  // a PhD candidate cannot be assigned to SAC until it has been received.
+  const application = v2Find_('V2_APPLICATIONS','Reference No',reference);
+  const programme = String((application && application.record['Programme']) || w['Programme'] || '');
+  const isPhd = /^PHD\b/i.test(programme) || /DOCTOR OF PHILOSOPHY/i.test(programme);
+  if (isPhd) {
+    let researchIntentReceived = false;
+    const intentStatus = String((application && application.record['Research Intent Status']) || w['Research Intent Status'] || '').toUpperCase();
+    if (intentStatus === 'RECEIVED') researchIntentReceived = true;
+    if (!researchIntentReceived && application && typeof v2ResearchIntentExistingFile_ === 'function') {
+      researchIntentReceived = !!v2ResearchIntentExistingFile_(application.record);
+    }
+    if (!researchIntentReceived) {
+      throw new Error('Preliminary Research Intent is still outstanding. Please receive the document before assigning this applicant to SAC.');
+    }
+  }
+
   const row = {'SAC Session ID':sessionId,'Reference No':reference,'Student Name':w['Student Name'],
     'Programme':w['Programme'],'Form 01 URL':data.form01Url || '','Transcript URL':data.transcriptUrl || '',
     'Certificate URL':data.certificateUrl || '','Screening Recommendation':w['Screening Recommendation'] || '',

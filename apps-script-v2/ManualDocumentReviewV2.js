@@ -44,8 +44,11 @@ function v2CompleteManualDocumentReview_(data, reviewer) {
     const key = String(item && item.key || '').trim();
     const status = String(item && item.status || '').trim().toUpperCase();
     if (!key) return;
-    if (['VERIFIED', 'MISSING', 'NOT_ACCEPTABLE'].indexOf(status) < 0) {
+    if (['VERIFIED', 'MISSING', 'NOT_ACCEPTABLE', 'OUTSTANDING'].indexOf(status) < 0) {
       throw new Error('Invalid manual document status for ' + key + '.');
+    }
+    if (status === 'OUTSTANDING' && key !== 'preliminaryResearchIntent') {
+      throw new Error('OUTSTANDING is only allowed for Preliminary Research Intent.');
     }
     decisionByKey[key] = {
       key: key,
@@ -66,8 +69,11 @@ function v2CompleteManualDocumentReview_(data, reviewer) {
     return item;
   });
 
+  const outstandingDocuments = decisions.filter(function(item) {
+    return item.status === 'OUTSTANDING';
+  });
   const problemDocuments = decisions.filter(function(item) {
-    return item.status !== 'VERIFIED';
+    return item.status !== 'VERIFIED' && item.status !== 'OUTSTANDING';
   });
   const status = problemDocuments.length ? 'INCOMPLETE' : 'COMPLETE';
   const now = new Date().toISOString();
@@ -87,6 +93,7 @@ function v2CompleteManualDocumentReview_(data, reviewer) {
     'Required Documents JSON': JSON.stringify(requiredDocuments),
     'Submitted Documents JSON': JSON.stringify(submittedDocuments),
     'Missing Documents JSON': JSON.stringify(problemDocuments),
+    'Outstanding Documents JSON': JSON.stringify(outstandingDocuments),
     'Reviewer Remarks': remarks,
     'Reviewed At': now,
     'Reviewed By': reviewedBy,
@@ -110,7 +117,9 @@ function v2CompleteManualDocumentReview_(data, reviewer) {
     status: status,
     reviewMode: 'MANUAL',
     decisions: decisions,
-    problemCount: problemDocuments.length
+    problemCount: problemDocuments.length,
+    outstandingCount: outstandingDocuments.length,
+    outstandingDocuments: outstandingDocuments
   }, reviewedBy, 'SUCCESS', remarks);
 
   v2InvalidateCache_();
@@ -137,6 +146,8 @@ function v2CompleteManualDocumentReview_(data, reviewer) {
     decisions: decisions,
     problemDocuments: problemDocuments,
     problemCount: problemDocuments.length,
+    outstandingDocuments: outstandingDocuments,
+    outstandingCount: outstandingDocuments.length,
     nextAction: status === 'COMPLETE' ? 'QUALIFICATION_SCREENING' : 'REVIEW_DOCUMENTS',
     autoAiScreening: autoAiScreening,
     manualScreeningAvailable: status === 'COMPLETE',
