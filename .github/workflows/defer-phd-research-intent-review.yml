@@ -1,0 +1,231 @@
+name: Defer PhD Research Intent During Review
+
+on:
+  push:
+    branches: [apps-script-v2-dev]
+    paths:
+      - '.github/workflows/defer-phd-research-intent-review.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  patch-and-deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          ref: apps-script-v2-dev
+          fetch-depth: 0
+
+      - name: Patch Admin UI on main
+        run: |
+          git checkout -B main origin/main
+          python - <<'PY'
+          from pathlib import Path
+          import re
+          p=Path('admin.html')
+          s=p.read_text(encoding='utf-8')
+
+          pattern=r"    function manualDocumentReviewPanel\(r\)\{.*?\n    function openManualDocumentReview\(\)"
+          replacement=r'''    function manualDocumentReviewPanel(r){
+      const required=requiredDocsForManual(r),files=r.files||[];
+      let saved={};try{const list=JSON.parse(r.doc?.['Manual Decisions JSON']||'[]');if(Array.isArray(list))list.forEach(x=>saved[x.key]=x)}catch(_){}
+      const resolved=required.filter(d=>{const status=String(saved[d.key]?.status||'').toUpperCase();return status==='VERIFIED'||(d.key==='preliminaryResearchIntent'&&status==='OUTSTANDING')}).length;
+      const rows=required.map(d=>{
+        const f=files.find(x=>String(x.field||'')===d.key),sv=saved[d.key]||{},isIntent=d.key==='preliminaryResearchIntent';
+        let value=String(sv.status||(f?'PENDING':(isIntent?'OUTSTANDING':'MISSING'))).toUpperCase();
+        if(isIntent&&!f&&value==='MISSING')value='OUTSTANDING';
+        let opts='';
+        if(f){opts=`<option value="PENDING" ${value==='PENDING'?'selected':''}>Pending review</option><option value="VERIFIED" ${value==='VERIFIED'?'selected':''}>Verified</option><option value="NOT_ACCEPTABLE" ${value==='NOT_ACCEPTABLE'?'selected':''}>Not acceptable</option><option value="MISSING" ${value==='MISSING'?'selected':''}>Missing</option>`}
+        else if(isIntent){opts=`<option value="OUTSTANDING" ${value==='OUTSTANDING'?'selected':''}>Outstanding - submit later</option><option value="MISSING" ${value==='MISSING'?'selected':''}>Missing / follow up</option>`}
+        else{opts=`<option value="MISSING" selected>Missing</option>`}
+        const badgeClass=value==='VERIFIED'?'green':(value==='OUTSTANDING'||value==='PENDING'?'amber':'red');
+        const fileText=f?esc(f.fileName||d.key):(isIntent?'Not uploaded yet - may be provided later':'No uploaded file recorded');
+        return `<div class="manual-doc-card"><div class="doc-top"><div><div class="doc-name">${esc(d.label)}</div><div class="doc-file">${fileText}</div></div><span class="badge ${badgeClass}">${esc(pretty(value))}</span></div><div class="doc-tools">${f?.url?`<a class="ops-btn" target="_blank" href="${esc(f.url)}">Open Document</a>`:'<button class="ops-btn" disabled>No File</button>'}<select class="ops-select manual-doc-status" data-key="${esc(d.key)}" data-label="${esc(d.label)}" onchange="updateManualDocProgress()">${opts}</select></div></div>`
+      }).join('');
+      const requiredKeys=new Set(required.map(x=>x.key)),extras=files.filter(f=>!requiredKeys.has(String(f.field||''))).map(f=>`<div class="manual-doc-card"><div class="doc-name">Additional document</div><div class="doc-file">${esc(f.fileName||f.field||'Document')}</div>${f.url?`<div class="doc-tools"><a class="ops-btn" target="_blank" href="${esc(f.url)}">Open Document</a></div>`:''}</div>`).join('');
+      const submit=PHASE2_BACKEND_READY?'<button class="ops-btn primary" onclick="completeManualDocumentReview()">Submit Manual Document Review</button>':'<button class="ops-btn" disabled>Submit Manual Document Review · backend sync pending</button>';
+      return `<div id="manualDocReviewPanel" style="display:none;width:100%;margin-top:12px"><div class="screening-section"><div class="screening-title">Manual Document Review</div><div class="screening-help">Verify all available core documents. For PhD applications, Preliminary Research Intent may remain <strong>Outstanding</strong> and be provided later; the system will check it again before SAC assignment.</div><div class="manual-doc-summary"><strong>Checklist resolved</strong><span id="manualDocProgress" class="manual-doc-progress">${resolved}/${required.length} resolved</span></div><div class="manual-doc-list">${rows}</div>${extras?`<div style="margin-top:12px"><div class="screening-title">Additional documents</div><div class="manual-doc-list">${extras}</div></div>`:''}<textarea id="manualDocRemarks" class="ops-select" style="width:100%;min-height:76px;margin-top:12px" placeholder="Reviewer remarks (optional)"></textarea><div class="screening-actions">${submit}<button class="ops-btn" onclick="openManualDocumentReview()">Close Review</button></div></div></div>`;
+    }
+    function updateManualDocProgress(){const all=[...document.querySelectorAll('.manual-doc-status')],done=all.filter(x=>x.value==='VERIFIED'||(x.dataset.key==='preliminaryResearchIntent'&&x.value==='OUTSTANDING')).length,el=document.getElementById('manualDocProgress');if(el)el.textContent=`${done}/${all.length} resolved`}
+    function openManualDocumentReview()'''
+          ns,n=re.subn(pattern,replacement,s,count=1,flags=re.S)
+          if n!=1: raise SystemExit(f'Admin manual review block patch count={n}')
+          p.write_text(ns,encoding='utf-8')
+          PY
+          grep -F "Outstanding - submit later" admin.html
+          grep -F "check it again before SAC assignment" admin.html
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add admin.html
+          if ! git diff --cached --quiet; then
+            git commit -m 'Allow deferred PhD Research Intent in document review UI'
+            git push origin HEAD:main
+          fi
+
+      - name: Patch Apps Script backend
+        run: |
+          git checkout -B apps-script-v2-dev origin/apps-script-v2-dev
+          python - <<'PY'
+          from pathlib import Path
+
+          # Automatic document review: Research Intent is outstanding, not blocking.
+          p=Path('apps-script-v2/DocumentReviewV2.js'); s=p.read_text(encoding='utf-8')
+          s=s.replace("  'Missing Documents JSON',\n  'Reviewer Remarks',", "  'Missing Documents JSON',\n  'Outstanding Documents JSON',\n  'Reviewer Remarks',")
+          old="""  const missingDocuments = requiredDocuments.filter(function(doc) {
+    return submittedKeys.indexOf(doc.key) === -1;
+  });
+
+  const status =
+    missingDocuments.length === 0 ? 'COMPLETE' : 'INCOMPLETE';
+"""
+          new="""  const allMissingDocuments = requiredDocuments.filter(function(doc) {
+    return submittedKeys.indexOf(doc.key) === -1;
+  });
+
+  // PhD Preliminary Research Intent may be submitted after the initial application.
+  // It is therefore tracked as OUTSTANDING during document review and does not
+  // block qualification screening. SAC assignment remains blocked until received.
+  const outstandingDocuments = allMissingDocuments.filter(function(doc) {
+    return doc.key === 'preliminaryResearchIntent';
+  });
+  const missingDocuments = allMissingDocuments.filter(function(doc) {
+    return doc.key !== 'preliminaryResearchIntent';
+  });
+
+  const status =
+    missingDocuments.length === 0 ? 'COMPLETE' : 'INCOMPLETE';
+"""
+          if old not in s: raise SystemExit('DocumentReview missing block not found')
+          s=s.replace(old,new,1)
+          s=s.replace("    'Missing Documents JSON':\n      JSON.stringify(missingDocuments),\n\n    'Reviewer Remarks':", "    'Missing Documents JSON':\n      JSON.stringify(missingDocuments),\n\n    'Outstanding Documents JSON':\n      JSON.stringify(outstandingDocuments),\n\n    'Reviewer Remarks':",1)
+          s=s.replace("      missingCount: missingDocuments.length,\n      missingDocuments: missingDocuments", "      missingCount: missingDocuments.length,\n      missingDocuments: missingDocuments,\n      outstandingCount: outstandingDocuments.length,\n      outstandingDocuments: outstandingDocuments",1)
+          s=s.replace("    missingDocuments: missingDocuments,\n\n    nextAction:", "    missingDocuments: missingDocuments,\n    outstandingCount: outstandingDocuments.length,\n    outstandingDocuments: outstandingDocuments,\n\n    nextAction:",1)
+          p.write_text(s,encoding='utf-8')
+
+          # Manual document review: allow OUTSTANDING only for Research Intent.
+          p=Path('apps-script-v2/ManualDocumentReviewV2.js'); s=p.read_text(encoding='utf-8')
+          s=s.replace("    if (['VERIFIED', 'MISSING', 'NOT_ACCEPTABLE'].indexOf(status) < 0) {", "    if (['VERIFIED', 'MISSING', 'NOT_ACCEPTABLE', 'OUTSTANDING'].indexOf(status) < 0) {",1)
+          needle="""    if (!key) return;
+    if (['VERIFIED', 'MISSING', 'NOT_ACCEPTABLE', 'OUTSTANDING'].indexOf(status) < 0) {
+      throw new Error('Invalid manual document status for ' + key + '.');
+    }
+"""
+          repl="""    if (!key) return;
+    if (['VERIFIED', 'MISSING', 'NOT_ACCEPTABLE', 'OUTSTANDING'].indexOf(status) < 0) {
+      throw new Error('Invalid manual document status for ' + key + '.');
+    }
+    if (status === 'OUTSTANDING' && key !== 'preliminaryResearchIntent') {
+      throw new Error('OUTSTANDING is only allowed for Preliminary Research Intent.');
+    }
+"""
+          if needle not in s: raise SystemExit('Manual status validation block not found')
+          s=s.replace(needle,repl,1)
+          old="""  const problemDocuments = decisions.filter(function(item) {
+    return item.status !== 'VERIFIED';
+  });
+  const status = problemDocuments.length ? 'INCOMPLETE' : 'COMPLETE';
+"""
+          new="""  const outstandingDocuments = decisions.filter(function(item) {
+    return item.status === 'OUTSTANDING';
+  });
+  const problemDocuments = decisions.filter(function(item) {
+    return item.status !== 'VERIFIED' && item.status !== 'OUTSTANDING';
+  });
+  const status = problemDocuments.length ? 'INCOMPLETE' : 'COMPLETE';
+"""
+          if old not in s: raise SystemExit('Manual problem documents block not found')
+          s=s.replace(old,new,1)
+          s=s.replace("  const manualHeaders = V2_DOCUMENT_REVIEW_HEADERS.concat(['Review Mode', 'Manual Decisions JSON']);", "  const manualHeaders = V2_DOCUMENT_REVIEW_HEADERS.concat(['Review Mode', 'Manual Decisions JSON']);",1)
+          s=s.replace("    'Missing Documents JSON': JSON.stringify(problemDocuments),\n    'Reviewer Remarks': remarks,", "    'Missing Documents JSON': JSON.stringify(problemDocuments),\n    'Outstanding Documents JSON': JSON.stringify(outstandingDocuments),\n    'Reviewer Remarks': remarks,",1)
+          s=s.replace("    decisions: decisions,\n    problemCount: problemDocuments.length", "    decisions: decisions,\n    problemCount: problemDocuments.length,\n    outstandingCount: outstandingDocuments.length,\n    outstandingDocuments: outstandingDocuments",1)
+          s=s.replace("    problemDocuments: problemDocuments,\n    problemCount: problemDocuments.length,", "    problemDocuments: problemDocuments,\n    problemCount: problemDocuments.length,\n    outstandingDocuments: outstandingDocuments,\n    outstandingCount: outstandingDocuments.length,",1)
+          p.write_text(s,encoding='utf-8')
+
+          # Final gate: Research Intent must exist before SAC assignment.
+          p=Path('apps-script-v2/WorkflowV2.js'); s=p.read_text(encoding='utf-8')
+          old="""  const workflow = v2Find_('V2_WORKFLOW','Reference No',reference);
+  if (!workflow) throw new Error('V2 workflow record not found.');
+  const w = workflow.record;
+  const row = {'SAC Session ID':sessionId,'Reference No':reference,'Student Name':w['Student Name'],
+"""
+          new="""  const workflow = v2Find_('V2_WORKFLOW','Reference No',reference);
+  if (!workflow) throw new Error('V2 workflow record not found.');
+  const w = workflow.record;
+
+  // Research Intent is allowed to remain outstanding through document review
+  // and qualification screening, but a PhD candidate cannot be assigned to SAC
+  // until the document has actually been received.
+  const application = v2Find_('V2_APPLICATIONS','Reference No',reference);
+  const programme = String((application && application.record['Programme']) || w['Programme'] || '');
+  const isPhd = /^PHD\\b/i.test(programme) || /DOCTOR OF PHILOSOPHY/i.test(programme);
+  if (isPhd) {
+    let researchIntentReceived = false;
+    const intentStatus = String(
+      (application && application.record['Research Intent Status']) ||
+      w['Research Intent Status'] || ''
+    ).toUpperCase();
+    if (intentStatus === 'RECEIVED') researchIntentReceived = true;
+    if (!researchIntentReceived && application && typeof v2ResearchIntentExistingFile_ === 'function') {
+      researchIntentReceived = !!v2ResearchIntentExistingFile_(application.record);
+    }
+    if (!researchIntentReceived) {
+      throw new Error('Preliminary Research Intent is still outstanding. Please receive the document before assigning this applicant to SAC.');
+    }
+  }
+
+  const row = {'SAC Session ID':sessionId,'Reference No':reference,'Student Name':w['Student Name'],
+"""
+          if old not in s: raise SystemExit('SAC assignment block not found')
+          s=s.replace(old,new,1)
+          p.write_text(s,encoding='utf-8')
+          PY
+
+          node --check apps-script-v2/DocumentReviewV2.js
+          node --check apps-script-v2/ManualDocumentReviewV2.js
+          node --check apps-script-v2/WorkflowV2.js
+          grep -F "Outstanding Documents JSON" apps-script-v2/DocumentReviewV2.js
+          grep -F "OUTSTANDING is only allowed for Preliminary Research Intent" apps-script-v2/ManualDocumentReviewV2.js
+          grep -F "before assigning this applicant to SAC" apps-script-v2/WorkflowV2.js
+
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add apps-script-v2/DocumentReviewV2.js apps-script-v2/ManualDocumentReviewV2.js apps-script-v2/WorkflowV2.js
+          if ! git diff --cached --quiet; then
+            git commit -m 'Defer PhD Research Intent until SAC assignment'
+            git push origin HEAD:apps-script-v2-dev
+          fi
+
+      - name: Verify clasp credential
+        env:
+          CLASPRC_JSON: ${{ secrets.CLASPRC_JSON }}
+        run: |
+          test -n "$CLASPRC_JSON" || (echo 'CLASPRC_JSON secret is not configured.' && exit 1)
+
+      - name: Install clasp
+        run: npm install --global @google/clasp@3.4.1
+
+      - name: Restore clasp credential
+        env:
+          CLASPRC_JSON: ${{ secrets.CLASPRC_JSON }}
+        run: |
+          printf '%s' "$CLASPRC_JSON" > "$HOME/.clasprc.json"
+          chmod 600 "$HOME/.clasprc.json"
+
+      - name: Verify locked V2 target
+        run: node tools/verify-clasp-target.mjs
+
+      - name: Force push Apps Script source
+        run: clasp push -f
+
+      - name: Redeploy existing V2 web app
+        env:
+          V2_DEPLOYMENT_ID: AKfycbxasT_HgtRSvTbR_bsa8p17Cm-C2PKn20Ok1kU-AyJmxiKX8kX5EGOtRLwVwNlAL7JB
+        run: clasp create-deployment --deploymentId "$V2_DEPLOYMENT_ID" --description "Allow PhD Research Intent outstanding through screening; enforce before SAC"
+
+      - name: Remove clasp credential
+        if: always()
+        run: rm -f "$HOME/.clasprc.json"
