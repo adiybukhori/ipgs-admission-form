@@ -1,5 +1,6 @@
 name: Stage 1 Notification Engine
 
+# Triggered after the workflow definition exists on apps-script-v2-dev.
 on:
   push:
     branches: [apps-script-v2-dev]
