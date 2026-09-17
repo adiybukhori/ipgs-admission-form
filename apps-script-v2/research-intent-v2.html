@@ -1,0 +1,52 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <base target="_top">
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+  <title>IUC Preliminary Research Intent Upload</title>
+  <style>
+    :root{--primary:#2d2363;--bg:#f7f5ef;--card:#fff;--text:#20283b;--muted:#747b8b;--line:#e2e4ea;--green:#0f8b65;--greenSoft:#eaf8f2;--red:#a73d3d;--redSoft:#fff0f0;--amber:#8a6214;--amberSoft:#fff7df}
+    *{box-sizing:border-box}body{margin:0;font-family:Inter,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;background:linear-gradient(180deg,#f7f4ec,#fff);color:var(--text)}
+    .page{min-height:100dvh;padding:24px 16px}.shell{width:min(680px,100%);margin:0 auto}.brand{display:flex;align-items:center;gap:14px;margin-bottom:18px}.logo{width:86px;height:66px;border-radius:18px;background:var(--primary);display:grid;place-items:center;padding:10px}.logo img{max-width:100%;max-height:100%;object-fit:contain}.brand h1{font-size:19px;margin:0 0 2px}.brand p{font-size:13px;color:var(--muted);margin:0}
+    .hero{background:linear-gradient(135deg,#2d2363,#211849);color:#fff;border-radius:24px;padding:24px;margin-bottom:14px}.hero h2{font-size:27px;margin:0 0 8px}.hero p{font-size:14px;line-height:1.55;color:rgba(255,255,255,.8);margin:0}
+    .card{background:var(--card);border:1px solid var(--line);border-radius:20px;padding:20px;margin:14px 0;box-shadow:0 10px 30px rgba(27,31,52,.06)}.card h3{margin:0 0 4px;font-size:18px}.sub{font-size:13px;color:var(--muted);line-height:1.5;margin-bottom:14px}
+    .info{display:grid;grid-template-columns:1fr 1fr;gap:10px}.info div{border:1px solid var(--line);background:#fbfbfd;border-radius:13px;padding:11px}.info span{display:block;font-size:10px;color:var(--muted);text-transform:uppercase;font-weight:800;letter-spacing:.05em;margin-bottom:5px}.info strong{font-size:13px;line-height:1.35;word-break:break-word}.full{grid-column:1/-1}
+    .notice{padding:13px;border-radius:13px;background:var(--amberSoft);color:var(--amber);font-size:12px;line-height:1.55;margin-bottom:14px}.file{display:block;width:100%;border:1px dashed #bfc3cf;border-radius:14px;padding:16px;background:#fafbfc}.hint{font-size:11px;color:var(--muted);line-height:1.5;margin-top:8px}.primary{width:100%;margin-top:16px;border:0;border-radius:14px;padding:14px 18px;background:var(--primary);color:#fff;font:inherit;font-weight:800;cursor:pointer}.primary:disabled{opacity:.55;cursor:not-allowed}.msg{display:none;margin-top:12px;padding:12px;border-radius:12px;font-size:12px;line-height:1.5}.msg.ok{display:block;background:var(--greenSoft);color:#17684e}.msg.error{display:block;background:var(--redSoft);color:var(--red)}.loading{display:flex;align-items:center;gap:10px;color:var(--muted);font-size:13px}.spinner{width:20px;height:20px;border:2px solid #e2deef;border-top-color:var(--primary);border-radius:50%;animation:spin .8s linear infinite}@keyframes spin{to{transform:rotate(360deg)}}.hidden{display:none!important}.success{text-align:center;padding:32px 18px}.success .icon{width:60px;height:60px;border-radius:50%;display:grid;place-items:center;background:var(--greenSoft);color:var(--green);font-size:28px;font-weight:900;margin:0 auto 12px}.footer{text-align:center;color:#9a9daa;font-size:11px;padding-top:8px}@media(max-width:520px){.info{grid-template-columns:1fr}.full{grid-column:auto}.page{padding:14px 12px}.hero{padding:20px 18px}.card{padding:16px}}
+  </style>
+</head>
+<body>
+<div class="page"><div class="shell">
+  <div class="brand"><div class="logo"><img src="https://lh3.googleusercontent.com/d/1eOwwzXYC_aAWOgF4TGYTc8PNIBkcwsUI=s1000" alt="IUC"></div><div><h1>Innovative University College</h1><p>Institute of Postgraduate Studies</p></div></div>
+  <section class="hero"><h2>Preliminary Research Intent</h2><p>Secure document upload for PhD admission processing.</p></section>
+
+  <section id="loading" class="card"><div class="loading"><div class="spinner"></div><span>Checking your secure upload link...</span></div></section>
+
+  <div id="uploadView" class="hidden">
+    <section class="card"><h3>Application details</h3><div class="sub">Please confirm the information below before uploading your document.</div><div class="info"><div><span>Student</span><strong id="studentName">-</strong></div><div><span>Intake</span><strong id="intake">-</strong></div><div class="full"><span>Programme</span><strong id="programme">-</strong></div><div class="full"><span>Reference</span><strong id="referenceNo">-</strong></div></div></section>
+    <section class="card"><h3>Upload Research Intent</h3><div class="sub">This document is required before your admission file can be completed for SAC consideration.</div><div class="notice"><strong>Recommended content:</strong> approximately 2–3 pages outlining your proposed research area, background/problem, research objectives/questions and intended contribution. You may prepare a concise preliminary version; it does not need to be your final proposal.</div><input id="fileInput" class="file" type="file" accept=".pdf,.doc,.docx,application/pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document"><div class="hint">Accepted: PDF, DOC, DOCX. Maximum file size: 7MB.</div><button id="submitBtn" class="primary" type="button" onclick="submitIntent()">Upload Research Intent</button><div id="message" class="msg"></div></section>
+  </div>
+
+  <section id="completed" class="card success hidden"><div class="icon">✓</div><h3>Research Intent Received</h3><p style="color:var(--muted);font-size:13px;line-height:1.55">Your Preliminary Research Intent has been added to your admission record successfully. IPGS Registry will continue the document review process.</p></section>
+  <section id="errorView" class="card hidden"><h3>Unable to open upload page</h3><div id="errorText" class="sub" style="margin-top:8px">This secure link is invalid or no longer available.</div></section>
+  <div class="footer">IUC · IPGS Admission V2</div>
+</div></div>
+<script>
+  const TOKEN = <?!= JSON.stringify(token || '') ?>;
+  const loading = document.getElementById('loading');
+  const uploadView = document.getElementById('uploadView');
+  const completed = document.getElementById('completed');
+  const errorView = document.getElementById('errorView');
+  const errorText = document.getElementById('errorText');
+  const message = document.getElementById('message');
+  const submitBtn = document.getElementById('submitBtn');
+
+  function showError(text){loading.classList.add('hidden');uploadView.classList.add('hidden');completed.classList.add('hidden');errorView.classList.remove('hidden');errorText.textContent=text || 'This secure link is invalid or no longer available.'}
+  function showCompleted(){loading.classList.add('hidden');uploadView.classList.add('hidden');errorView.classList.add('hidden');completed.classList.remove('hidden')}
+  function load(){if(!TOKEN){showError();return;}google.script.run.withSuccessHandler(function(res){loading.classList.add('hidden');if(!res || !res.ok){showError('Unable to load this Research Intent request.');return;}document.getElementById('studentName').textContent=res.studentName || '-';document.getElementById('programme').textContent=res.programme || '-';document.getElementById('intake').textContent=res.intake || '-';document.getElementById('referenceNo').textContent=res.referenceNo || '-';if(String(res.status || '').toUpperCase()==='RECEIVED'){showCompleted();return;}uploadView.classList.remove('hidden');}).withFailureHandler(function(err){showError(err && err.message ? err.message : String(err || 'Unable to open upload page.'));}).v2GetResearchIntentUploadForToken(TOKEN);}
+  function fileToPayload(file){return new Promise(function(resolve,reject){const reader=new FileReader();reader.onload=function(){const raw=String(reader.result || '');resolve({fileName:file.name,mimeType:file.type || '',size:file.size,base64:raw.indexOf(',')>-1?raw.split(',')[1]:raw});};reader.onerror=reject;reader.readAsDataURL(file);});}
+  async function submitIntent(){message.className='msg';message.textContent='';const file=document.getElementById('fileInput').files[0];if(!file){message.className='msg error';message.textContent='Please select your Research Intent file.';return;}if(file.size>7*1024*1024){message.className='msg error';message.textContent='File size must be 7MB or smaller.';return;}submitBtn.disabled=true;submitBtn.textContent='Uploading...';try{const payload=await fileToPayload(file);google.script.run.withSuccessHandler(function(res){submitBtn.disabled=false;submitBtn.textContent='Upload Research Intent';if(!res || !res.ok){message.className='msg error';message.textContent='Upload could not be completed.';return;}showCompleted();}).withFailureHandler(function(err){submitBtn.disabled=false;submitBtn.textContent='Upload Research Intent';message.className='msg error';message.textContent=err && err.message ? err.message : String(err || 'Upload failed.');}).v2SubmitResearchIntentUpload(TOKEN,payload);}catch(err){submitBtn.disabled=false;submitBtn.textContent='Upload Research Intent';message.className='msg error';message.textContent=err && err.message ? err.message : 'Upload failed.';}}
+  window.addEventListener('load',load);
+</script>
+</body>
+</html>
