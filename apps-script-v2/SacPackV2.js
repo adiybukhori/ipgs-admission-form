@@ -10,7 +10,7 @@
  * - Prerequisite is never an initial SAC outcome; it may only arise after IA.
  */
 
-const V2_PG_ELIGIBILITY_FORM_VERSION = 'PG-ADM-01-V1';
+const V2_PG_ELIGIBILITY_FORM_VERSION = 'PG-ADM-01-V2-CONTROLLED';
 const V2_PG_ELIGIBILITY_MASTER_TEMPLATE_ID = '1TweYhiWWoh6S-PHciBRpxACQSrQfhGkIo8kWQEcKleU';
 const V2_PG_ELIGIBILITY_MASTER_PDF_ID = '1oAVVfCzHdOesKfOSPX30M0xJxXXaIJQ4';
 
@@ -19,7 +19,8 @@ const V2_SAC_PACK_CANDIDATE_HEADERS = [
   'Missing Document Count',
   'Missing Documents JSON',
   'Pack Prepared At',
-  'PG Eligibility Form Version'
+  'PG Eligibility Form Version',
+  'Pack Order Verified'
 ];
 
 const V2_SAC_PACK_SESSION_HEADERS = [
@@ -69,7 +70,8 @@ function v2PrepareSacPack_(data, actor) {
       'Missing Document Count': manifest.missingDocuments.length,
       'Missing Documents JSON': JSON.stringify(manifest.missingDocuments),
       'Pack Prepared At': preparedAt,
-      'PG Eligibility Form Version': V2_PG_ELIGIBILITY_FORM_VERSION
+      'PG Eligibility Form Version': V2_PG_ELIGIBILITY_FORM_VERSION,
+      'Pack Order Verified': (manifest.documents[0] && manifest.documents[0].key === 'form01') ? 'YES' : 'NO'
     });
 
     return {
@@ -159,151 +161,6 @@ function v2GetSacPackFile_(data) {
     base64: Utilities.base64Encode(bytes),
     size: bytes.length,
     v1Touched: false
-  };
-}
-
-function v2GeneratePgEligibilityPdf_(referenceNo, sessionId, actor) {
-  const reference = String(referenceNo || '').trim();
-  if (!reference) throw new Error('Reference No is required for PG-ADM-01.');
-
-  const application = v2Find_('V2_APPLICATIONS', 'Reference No', reference);
-  const workflow = v2Find_('V2_WORKFLOW', 'Reference No', reference);
-  const candidate = v2SacPackFindCandidate_(sessionId, reference);
-
-  if (!application) throw new Error('V2 application record not found.');
-  if (!workflow) throw new Error('V2 workflow record not found.');
-  if (!candidate) throw new Error('SAC candidate record not found.');
-
-  const folderId = v2SacPackExtractDriveId_(
-    application.record['Student Folder URL'] || workflow.record['Student Folder URL'] || ''
-  );
-  if (!folderId) throw new Error('Student folder could not be resolved for PG-ADM-01.');
-
-  const folder = DriveApp.getFolderById(folderId);
-  const studentName = String(application.record['Student Name'] || workflow.record['Student Name'] || '').trim();
-  const safeName = v2SacPackSafeFileName_(studentName || reference);
-  const safeRef = v2SacPackSafeFileName_(reference);
-  const pdfName = 'PG-ADM-01_' + safeName + '_' + safeRef + '.pdf';
-
-  const raw = v2SacPackParseJson_(application.record['Raw Application JSON'], {});
-  const programme = String(application.record['Programme'] || workflow.record['Programme'] || '').trim();
-  const level = String(application.record['Level of Study'] || workflow.record['Level of Study'] || '').trim();
-  const intake = String(application.record['Intake'] || workflow.record['Intake'] || '').trim();
-  const highestQualification = String(application.record['Highest Qualification'] || '').trim();
-  const institution = String(application.record['Institution / Awarding Body'] || '').trim();
-  const field = String(application.record['Field of Study'] || '').trim();
-  const result = String(application.record['Academic Result / CGPA / Grade'] || '').trim();
-  const nationality = String(raw.nationality || raw.country || '').trim();
-  const fieldClass = String(workflow.record['Field Classification'] || '').trim();
-  const workExperience = String(workflow.record['Relevant Work Experience'] || '').trim();
-  const recommendation = String(workflow.record['Screening Recommendation'] || '').trim();
-  const documentStatus = String(workflow.record['Document Review Status'] || '').trim();
-  const isResearch = /PHD|DOCTOR OF PHILOSOPHY|RESEARCH/i.test(programme + ' ' + level);
-
-  // Replace the previous generated version so the folder keeps one current pre-SAC copy.
-  const oldFiles = folder.getFilesByName(pdfName);
-  while (oldFiles.hasNext()) {
-    try { oldFiles.next().setTrashed(true); } catch (_) {}
-  }
-
-  const doc = DocumentApp.create('TEMP_' + pdfName.replace(/\.pdf$/i, ''));
-  const docFile = DriveApp.getFileById(doc.getId());
-  docFile.moveTo(folder);
-
-  const body = doc.getBody();
-  body.setMarginTop(28).setMarginBottom(28).setMarginLeft(32).setMarginRight(32);
-
-  const header = body.appendParagraph('INNOVATIVE UNIVERSITY COLLEGE | POSTGRADUATE ADMISSION');
-  header.setAlignment(DocumentApp.HorizontalAlignment.RIGHT);
-  header.editAsText().setFontSize(8).setBold(true).setForegroundColor('#4B2E83');
-
-  const title = body.appendParagraph('FORM PG-ADM-01: POSTGRADUATE ELIGIBILITY & ADMISSION ROUTE DETERMINATION CHECKLIST');
-  title.setSpacingBefore(8).setSpacingAfter(8);
-  title.editAsText().setFontSize(13).setBold(true).setForegroundColor('#4B2E83');
-
-  const info = body.appendTable();
-  v2SacPackInfoRow_(info, 'Applicant name', studentName, 'Application no.', reference);
-  v2SacPackInfoRow_(info, 'Programme', programme, 'Intake', intake);
-  v2SacPackInfoRow_(info, 'Nationality', nationality, 'Level', level);
-  v2SacPackInfoRow_(info, 'Highest qualification', highestQualification, 'Institution', institution);
-  v2SacPackInfoRow_(info, 'Field / major', field, 'CGPA / equivalent', result);
-  v2SacPackStyleInfoTable_(info);
-
-  body.appendParagraph('Eligibility Check').editAsText().setBold(true).setForegroundColor('#4B2E83').setFontSize(10);
-
-  const checklist = body.appendTable([
-    ['Check', 'Yes', 'No', 'N/A', 'Evidence / Remarks'],
-    ['Qualification is recognised/equivalent to the required entry level for the applied programme.', '[ ]', '[ ]', '[ ]', highestQualification || ''],
-    ['Minimum academic result / CGPA / equivalent requirement is met.', '[ ]', '[ ]', '[ ]', result || ''],
-    ['Academic field classification has been confirmed.', '[ ]', '[ ]', '[ ]', fieldClass ? 'Field: ' + fieldClass : ''],
-    ['Relevant working experience is claimed, where applicable.', '[ ]', '[ ]', '[ ]', workExperience ? 'Work experience: ' + workExperience : ''],
-    ['Relevant working experience has been verified, where applicable.', '[ ]', '[ ]', '[ ]', 'CV / employer evidence'],
-    ['Applicable English-language requirement is met.', '[ ]', '[ ]', '[ ]', 'Approved evidence'],
-    ['Application file is complete and authentic.', documentStatus === 'COMPLETE' ? '[X]' : '[ ]', documentStatus === 'COMPLETE' ? '[ ]' : '[X]', '[ ]', documentStatus || 'Registry check'],
-    ['Research-methodology preparation is demonstrated. (Research programme only)', '[ ]', '[ ]', isResearch ? '[ ]' : '[X]', isResearch ? 'Transcript / certificate / writing sample' : 'Not applicable'],
-    ['Preliminary Research Intent is within the programme field and researchable. (Research programme only)', '[ ]', '[ ]', isResearch ? '[ ]' : '[X]', isResearch ? 'Preliminary topic screening' : 'Not applicable'],
-    ['Suitable supervisory expertise and capacity are available. (Research programme only)', '[ ]', '[ ]', isResearch ? '[ ]' : '[X]', isResearch ? 'Supervisor-fit / capacity record' : 'Not applicable']
-  ]);
-  v2SacPackStyleChecklist_(checklist);
-
-  body.appendParagraph('Admission Route Recommendation').editAsText().setBold(true).setForegroundColor('#4B2E83').setFontSize(10);
-
-  const route = v2SacPackRouteFlags_(recommendation);
-  const routeTable = body.appendTable([
-    ['Selection', 'Basis / Remarks'],
-    [route.direct ? '[X] Direct / Normal Admission' : '[ ] Direct / Normal Admission', 'Eligible to proceed after authorised SAC decision.'],
-    [route.ia ? '[X] Internal Assessment (IA)' : '[ ] Internal Assessment (IA)', 'Candidate requires rigorous internal assessment before final admission eligibility.'],
-    [route.notEligible ? '[X] Not Eligible / Refer' : '[ ] Not Eligible / Refer', 'Minimum requirement, evidence or another mandatory condition is not met.'],
-    [route.special ? '[X] Special Route / Further Academic Review' : '[ ] Special Route / Further Academic Review', 'Use only where an approved programme-specific route applies.']
-  ]);
-  v2SacPackStyleRouteTable_(routeTable);
-
-  const policy = body.appendParagraph('Policy note: Prerequisite is not an initial SAC route. Where applicable, Prerequisite may only be required after the Internal Assessment result.');
-  policy.setSpacingBefore(5).setSpacingAfter(10);
-  policy.editAsText().setFontSize(8).setItalic(true).setForegroundColor('#5F6777');
-
-  const signatures = body.appendTable([
-    ['____________________________', '____________________________', '____________________________'],
-    ['Signature / Date', 'Signature / Date', 'Signature / Date'],
-    ['Checked by\nAdmissions Officer', 'Academic field/topic classification\nProgramme Leader', 'Verified by\nRegistrar / Dean']
-  ]);
-  signatures.setBorderWidth(0);
-  for (let r = 0; r < signatures.getNumRows(); r++) {
-    for (let c = 0; c < signatures.getRow(r).getNumCells(); c++) {
-      const cell = signatures.getCell(r, c);
-      cell.setVerticalAlignment(DocumentApp.VerticalAlignment.CENTER);
-      v2SacPackForEachParagraph_(cell, function(p) {
-        p.setAlignment(DocumentApp.HorizontalAlignment.CENTER);
-        p.editAsText().setFontSize(r === 0 ? 8 : 7);
-      });
-    }
-  }
-
-  const footer = body.appendParagraph('Controlled Document | Internal Use | ' + V2_PG_ELIGIBILITY_FORM_VERSION + ' | SAC: ' + String(sessionId || ''));
-  footer.setAlignment(DocumentApp.HorizontalAlignment.CENTER).setSpacingBefore(8);
-  footer.editAsText().setFontSize(7).setForegroundColor('#777777');
-
-  doc.saveAndClose();
-
-  const sourceFile = DriveApp.getFileById(doc.getId());
-  const pdfBlob = sourceFile.getBlob().getAs(MimeType.PDF).setName(pdfName);
-  const pdfFile = folder.createFile(pdfBlob);
-  try { sourceFile.setTrashed(true); } catch (_) {}
-
-  v2Audit_(reference, 'SAC', 'GENERATE_PG_ADM_01', {}, {
-    sessionId: sessionId,
-    fileName: pdfName,
-    url: pdfFile.getUrl(),
-    version: V2_PG_ELIGIBILITY_FORM_VERSION
-  }, actor || 'Admin Portal V2', 'SUCCESS', 'Standardised PG eligibility form saved to student folder.');
-
-  return {
-    ok: true,
-    referenceNo: reference,
-    fileId: pdfFile.getId(),
-    fileName: pdfName,
-    url: pdfFile.getUrl(),
-    version: V2_PG_ELIGIBILITY_FORM_VERSION
   };
 }
 

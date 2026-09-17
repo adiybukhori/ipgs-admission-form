@@ -38,6 +38,7 @@ const V2_HEADERS = Object.freeze({
     'Reference No','Student Name','ID / Passport No','Personal Email','Innovative Email',
     'Programme','Level of Study','Intake','Application Stage','Application Status',
     'Document Review Status','Document Reviewed At','Document Reviewed By','Missing Document Count',
+    'PG-ADM-01 Status','PG-ADM-01 URL','PG-ADM-01 Generated At','PG-ADM-01 Error','PG-ADM-01 Version','PG-ADM-01 Source',
     'Qualification Screening Status',
     'Field Classification',
     'Relevant Work Experience',
@@ -341,6 +342,7 @@ function handleV2Post_(payload) {
   if (action === 'v2AgentAdminStatus') return v2AgentAdminStatus_();
   if (action === 'v2SyncApplication') return v2SyncApplication_(payload.data || {});
   if (action === 'v2UpdateStage') return v2UpdateStage_(payload.data || {}, payload.updatedBy);
+  if (action === 'v2RegeneratePgAdm01') return v2RegeneratePgAdm01_(payload.data || {}, payload.updatedBy || 'Admin Portal V2');
   if (action === 'v2RunDocumentReview') {
     const data = payload.data || {};
     return v2RunDocumentReview(
