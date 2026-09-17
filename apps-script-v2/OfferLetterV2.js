@@ -1,4 +1,4 @@
-const V2_OFFER_EMAIL_MODE = 'DISABLED/TEST';
+const V2_OFFER_EMAIL_MODE = 'CENTRAL_ENGINE';
 
 const V2_OFFER_WORKFLOW_HEADERS = [
   'Offer Letter PDF URL',
@@ -133,7 +133,7 @@ function v2OfferSetupFoundation() {
     headersReady: true,
 
     offerEmailMode:
-      V2_OFFER_EMAIL_MODE,
+      v2NotificationMode_(),
 
     offerGenerated: false,
     acceptanceSent: false,
@@ -3396,10 +3396,9 @@ function v2FinalDevPreflight() {
   // 7. Safety state
   // --------------------------------------------------
 
-  const emailDisabled =
-    String(
-      V2_OFFER_EMAIL_MODE || ''
-    ) === 'DISABLED/TEST';
+  const notificationEngineReady =
+    typeof v2NotificationSend_ === 'function' &&
+    v2NotificationMode_() !== 'DISABLED';
 
 
   // --------------------------------------------------
@@ -3435,8 +3434,8 @@ function v2FinalDevPreflight() {
     offerHeadersReady:
       missingOfferHeaders.length === 0,
 
-    emailStillDisabled:
-      emailDisabled
+    notificationEngineReady:
+      notificationEngineReady
   };
 
 
@@ -3452,7 +3451,7 @@ function v2FinalDevPreflight() {
       checks.acceptancePageReady &&
       checks.agentPortalReady &&
       checks.offerHeadersReady &&
-      checks.emailStillDisabled,
+      checks.notificationEngineReady,
 
     checks:
       checks,

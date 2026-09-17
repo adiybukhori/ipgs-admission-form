@@ -9,13 +9,13 @@
  * - Read Fee Groups from FEE_GROUP_MASTER with 5-minute cache.
  * - Prevent duplicate submissions.
  * - Update V2_AGENT_ACTIONS + the matching V2 admission row.
- * - Keep registry email DISABLED/TEST until explicitly enabled in a later release.
+ * - Route operational email through the central V2 Notification Engine.
  *
  * V1 data is never read, migrated, or modified by this module.
  */
 
 const V2_AGENT_ACTIONS_SHEET = 'V2_AGENT_ACTIONS';
-const V2_AGENT_EMAIL_MODE = 'DISABLED/TEST';
+const V2_AGENT_EMAIL_MODE = 'CENTRAL_ENGINE';
 
 function v2AgentNotificationMode_() {
   return v2NotificationMode_();
@@ -64,7 +64,7 @@ function v2AgentSetupFoundation() {
     actionSheet: actionSheet.getName(),
     actionHeadersReady: v2HasHeaders_(actionSheet, V2_AGENT_ACTION_HEADERS),
     feeGroupMasterExists: !!feeSheet,
-    emailMode: V2_AGENT_EMAIL_MODE,
+    emailMode: v2AgentNotificationMode_(),
     v1Touched: false
   };
 
@@ -96,7 +96,7 @@ function v2AgentModulePreflight() {
     cacheSeconds: V2_AGENT_FEE_CACHE_SECONDS,
     tokenStorage: 'SHA-256 HASH ONLY',
     duplicateSubmissionGuard: true,
-    emailMode: V2_AGENT_EMAIL_MODE,
+    emailMode: v2AgentNotificationMode_(),
     externalEmailSent: false,
     v1Touched: false
   };
@@ -282,7 +282,7 @@ function v2AgentSubmitAction(token, formData) {
       'Fee Group': feeGroup,
       'Remarks': remarks,
       'Submitted At': now,
-      'Registry Notification Status': V2_AGENT_EMAIL_MODE,
+      'Registry Notification Status': v2AgentNotificationMode_(),
       'Last Updated': now
     });
 
@@ -562,7 +562,7 @@ function v2AgentTokenSmokeTest() {
     hashGenerated: !!hashedToken,
     hashLength: hashedToken.length,
     rawEqualsHash: rawToken === hashedToken,
-    emailMode: V2_AGENT_EMAIL_MODE,
+    emailMode: v2AgentNotificationMode_(),
     externalEmailSent: false,
     v1Touched: false
   };
@@ -624,7 +624,7 @@ function v2AgentV2SyncPreflight() {
     targetApplicationSheet: 'V2_APPLICATIONS',
     targetWorkflowSheet: 'V2_WORKFLOW',
 
-    emailMode: V2_AGENT_EMAIL_MODE,
+    emailMode: v2AgentNotificationMode_(),
     externalEmailSent: false,
     v1Touched: false
   };
@@ -829,7 +829,7 @@ function v2AgentControlledSyncTest() {
 
     checks: checks,
 
-    emailMode: V2_AGENT_EMAIL_MODE,
+    emailMode: v2AgentNotificationMode_(),
     externalEmailSent: false,
     v1Touched: false,
 

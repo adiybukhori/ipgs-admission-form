@@ -390,7 +390,7 @@ function v2RunControlledSmokeTest() {
       documents: {}
     });
 
-    if (result.emailStatus !== 'TEST_SENT_1') {
+    if (String(result.emailStatus || '').indexOf('STUDENT=TEST_SENT_1') < 0 || String(result.emailStatus || '').indexOf('ADMIN=TEST_SENT_1') < 0) {
       throw new Error('Smoke test email routing failed: ' + result.emailStatus);
     }
     if (result.colGenerated !== false || result.offerLetterGenerated !== false) {
