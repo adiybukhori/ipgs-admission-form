@@ -197,6 +197,10 @@ function doGet(e) {
 
   if (params.page === 'acceptance-v2') {
     return v2RenderAcceptancePage_(params);
+  }
+
+  if (params.page === 'research-intent-v2') {
+    return v2RenderResearchIntentPage_(params);
   } 
 
   if (String(params.action || '').indexOf('v2') === 0) {

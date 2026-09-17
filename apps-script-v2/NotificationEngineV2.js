@@ -121,6 +121,16 @@ function v2SendApplicationNotifications_(payload, reference, intake, pdf) {
   const programme = String(payload.programme || '').trim();
   const intakeName = String(intake && intake.name || payload.intake || '').trim();
   const attachment = pdf && pdf.blob ? [pdf.blob] : [];
+  const applicationRow = v2Find_('V2_APPLICATIONS','Reference No',reference);
+  const researchIntentStatus = applicationRow ? String(applicationRow.record['Research Intent Status'] || '') : '';
+  const researchIntentUrl = applicationRow ? String(applicationRow.record['Research Intent Upload URL'] || '') : '';
+  const researchIntentPending = researchIntentStatus === 'PENDING' && !!researchIntentUrl;
+  const researchIntentStudentBlock = researchIntentPending
+    ? '<div style="margin:18px 0;padding:15px 16px;background:#fff7df;border:1px solid #f0d995;border-radius:12px;color:#785816"><strong>Outstanding document: Preliminary Research Intent</strong><br><span style="font-size:13px;line-height:1.6">Your application has been received. Please provide your 2–3 page preliminary Research Intent before your file can proceed for SAC consideration.</span><div style="margin-top:12px"><a href="'+v2Html_(researchIntentUrl)+'" style="display:inline-block;background:#2d2363;color:#fff;text-decoration:none;padding:10px 15px;border-radius:9px;font-weight:700">Upload Research Intent</a></div></div>'
+    : '';
+  const researchIntentAdminLine = researchIntentStatus
+    ? '<br><strong>Research Intent:</strong> '+v2Html_(researchIntentStatus)
+    : '';
 
   const studentSubject = '[IUC IPGS] Application Received - ' + reference;
   const studentHtml = '<div style="font-family:Arial,sans-serif;max-width:680px;margin:auto;border:1px solid #e5e7eb;border-radius:16px;overflow:hidden">' +
@@ -129,6 +139,7 @@ function v2SendApplicationNotifications_(payload, reference, intake, pdf) {
     '<p>Your postgraduate application has been received and is currently under review.</p>' +
     '<p><strong>Reference:</strong> '+v2Html_(reference)+'<br><strong>Programme:</strong> '+v2Html_(programme)+'<br><strong>Intake:</strong> '+v2Html_(intakeName)+'</p>' +
     '<p>Your Admission Form is attached for your reference. We will contact you when the next admission action is required.</p>' +
+    researchIntentStudentBlock +
     '<p>Regards,<br><strong>IPGS Registry</strong><br>Innovative University College</p></div></div>';
   const studentResult = v2NotificationSend_(
     'NEW_APPLICATION_STUDENT', [payload.email], studentSubject,
@@ -142,7 +153,7 @@ function v2SendApplicationNotifications_(payload, reference, intake, pdf) {
   const adminHtml = '<div style="font-family:Arial,sans-serif;max-width:680px;margin:auto;border:1px solid #e5e7eb;border-radius:16px;overflow:hidden">' +
     '<div style="background:#2d2363;color:white;padding:22px"><h2 style="margin:0">New Admission Application</h2></div>' +
     '<div style="padding:24px"><p>A new postgraduate application has been submitted.</p>' +
-    '<p><strong>Student:</strong> '+v2Html_(student)+'<br><strong>Programme:</strong> '+v2Html_(programme)+'<br><strong>Intake:</strong> '+v2Html_(intakeName)+'<br><strong>Reference:</strong> '+v2Html_(reference)+agentLine+'</p>' +
+    '<p><strong>Student:</strong> '+v2Html_(student)+'<br><strong>Programme:</strong> '+v2Html_(programme)+'<br><strong>Intake:</strong> '+v2Html_(intakeName)+'<br><strong>Reference:</strong> '+v2Html_(reference)+agentLine+researchIntentAdminLine+'</p>' +
     '<p>The Admission Form is attached. Please continue the document review and screening process in Admission V2.</p></div></div>';
   const adminResult = v2NotificationSend_(
     'NEW_APPLICATION_ADMIN', adminRecipients, adminSubject,

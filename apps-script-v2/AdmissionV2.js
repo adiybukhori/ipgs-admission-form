@@ -34,6 +34,11 @@ function v2SubmitAdmission_(payload) {
     const row = v2SaveApplicationRecord_(payload, reference, intake, submittedAt, studentFolder, uploadedFiles, pdf, agent, 'PENDING');
     v2StartWorkflowForApplication_(row);
 
+    // PhD Research Intent is required for admission processing, but it must not
+    // block the applicant from submitting the initial Admission Form. If it is
+    // missing, create a secure follow-up upload link before acknowledgement mail.
+    const researchIntentRequirement = v2PrepareResearchIntentRequirement_(payload, reference);
+
     // V2_PG_ADM01_ON_SUBMISSION_V1
     // Create the standard PG-ADM-01 at the same time as the Admission Form.
     // It is stored in the student folder only and is not emailed to the applicant.
@@ -77,7 +82,9 @@ function v2SubmitAdmission_(payload) {
       agentCode:agent ? agent.code : '',
       agentActionCreated:!!agentActionUrl,
       agentNotificationStatus:agentNotificationStatus,
-      pgAdm01Generated:!!(pgAdm01 && pgAdm01.url)
+      pgAdm01Generated:!!(pgAdm01 && pgAdm01.url),
+      researchIntentStatus:researchIntentRequirement.status,
+      researchIntentOutstanding:researchIntentRequirement.status === 'PENDING'
     }, 'Applicant', 'SUCCESS', 'Admission PDF + PG-ADM-01 generated. No COL or Offer Letter generated.');
     v2InvalidateCache_();
     return {
@@ -89,6 +96,8 @@ function v2SubmitAdmission_(payload) {
       folderUrl:studentFolder.getUrl(),
       admissionFormPdfUrl:pdf.url,
       pgAdm01PdfUrl:pgAdm01 && pgAdm01.url ? pgAdm01.url : '',
+      researchIntentStatus:researchIntentRequirement.status,
+      researchIntentOutstanding:researchIntentRequirement.status === 'PENDING',
       emailStatus:emailStatus,
       colGenerated:false,
       offerLetterGenerated:false,
@@ -117,10 +126,8 @@ function v2ValidateAdmissionPayload_(payload) {
   if (payload.referralSource === 'Education Consultant' && !v2ResolveAgent_(payload.partnerCode)) {
     throw new Error('Select a valid registered partner / agent code.');
   }
-  if (v2IsPhdProgramme_(payload.programme)) {
-    const intent = payload.documents && payload.documents.preliminaryResearchIntent;
-    if (!intent || !intent.base64) throw new Error('Preliminary Research Intent is required for PhD applicants.');
-  }
+  // Preliminary Research Intent is intentionally NOT a hard blocker here.
+  // PhD applicants may submit first and provide it through the secure follow-up link.
   const documents = payload.documents || {};
   Object.keys(documents).forEach(function(key) {
     const doc = documents[key];
