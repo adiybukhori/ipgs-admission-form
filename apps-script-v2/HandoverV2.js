@@ -49,6 +49,216 @@ function v2HandoverEnsureFoundation_() {
   return true;
 }
 
+function v2CreateHandoverSession_(data, actor) {
+  v2HandoverEnsureFoundation_();
+  const name = String(data.name || '').trim() || ('Academic Handover - ' + Utilities.formatDate(new Date(), CONFIG.timezone || 'Asia/Kuala_Lumpur', 'dd MMM yyyy'));
+  const academicEmail = v2HandoverEmail_(data.academicEmail, 'Academic email');
+  const itEmail = v2HandoverEmail_(data.itEmail, 'IT PIC email');
+  const moodleEmail = v2HandoverEmail_(data.moodleEmail, 'Moodle PIC email');
+  const libraryEmail = v2HandoverEmail_(data.libraryEmail, 'E-Library PIC email');
+  const now = new Date().toISOString();
+  const batchId = 'HND-' + Utilities.formatDate(new Date(), CONFIG.timezone || 'Asia/Kuala_Lumpur', 'yyyyMMdd') + '-' + Utilities.getUuid().slice(0,6).toUpperCase();
+
+  v2Append_('V2_HANDOVER_BATCHES',{
+    'Handover Batch ID':batchId,
+    'Handover Name':name,
+    'Status':'DRAFT',
+    'Student Count':0,
+    'Intake Summary':'',
+    'Academic Email':academicEmail,
+    'IT PIC Email':itEmail,
+    'Moodle PIC Email':moodleEmail,
+    'E-Library PIC Email':libraryEmail,
+    'Handover PDF URL':'',
+    'Academic Accept Token Hash':'',
+    'Academic Accept URL':'',
+    'Academic Email Status':'NOT_SENT',
+    'Academic Email Sent At':'',
+    'Accepted At':'',
+    'Accepted By':'',
+    'Provisioning Tasks Sent At':'',
+    'Created At':now,
+    'Created By':actor || 'Admin Portal V2',
+    'Updated At':now
+  });
+
+  v2Audit_('', 'ACADEMIC_HANDOVER', 'CREATE_HANDOVER_SESSION', {}, {
+    batchId:batchId,name:name,standalone:true
+  }, actor || 'Admin Portal V2', 'SUCCESS', 'Standalone handover session created.');
+  v2InvalidateCache_();
+  return {ok:true,batchId:batchId,status:'DRAFT',name:name,standalone:true};
+}
+
+function v2AddHandoverStudents_(data, actor) {
+  v2HandoverEnsureFoundation_();
+  const batchId = v2Required_(data.batchId,'Handover Batch ID');
+  const batch = v2Find_('V2_HANDOVER_BATCHES','Handover Batch ID',batchId);
+  if (!batch) throw new Error('Handover session not found.');
+  if (String(batch.record['Status'] || '').toUpperCase() !== 'DRAFT') {
+    throw new Error('Students can only be added while the Handover Session is in DRAFT.');
+  }
+
+  const references = Array.from(new Set((data.referenceNos || []).map(function(v){
+    return String(v || '').trim();
+  }).filter(Boolean)));
+  if (!references.length) throw new Error('Select at least one student.');
+
+  const used = {};
+  v2Rows_('V2_HANDOVER_STUDENTS').forEach(function(row){
+    const ref = String(row['Reference No'] || '').trim();
+    if (ref) used[ref] = String(row['Handover Batch ID'] || '');
+  });
+
+  const now = new Date().toISOString();
+  const added = [];
+  const skipped = [];
+
+  references.forEach(function(reference){
+    if (used[reference]) {
+      skipped.push({referenceNo:reference,batchId:used[reference]});
+      return;
+    }
+
+    const app = v2Find_('V2_APPLICATIONS','Reference No',reference);
+    const workflow = v2Find_('V2_WORKFLOW','Reference No',reference);
+    if (!app) throw new Error('Application not found for ' + reference + '.');
+
+    v2Append_('V2_HANDOVER_STUDENTS',{
+      'Handover Batch ID':batchId,
+      'Reference No':reference,
+      'Student Name':String((workflow && workflow.record['Student Name']) || app.record['Student Name'] || ''),
+      'ID / Passport No':String((workflow && workflow.record['ID / Passport No']) || app.record['ID / Passport No'] || ''),
+      'Personal Email':String(app.record['Personal Email'] || (workflow && workflow.record['Personal Email']) || ''),
+      'Programme':String((workflow && workflow.record['Programme']) || app.record['Programme'] || ''),
+      'Intake':String(app.record['Intake'] || (workflow && workflow.record['Intake']) || ''),
+      'Orientation Session ID':String((workflow && workflow.record['Orientation Session ID']) || ''),
+      'Orientation Status':String((workflow && workflow.record['Orientation Status']) || ''),
+      'Handover Status':'DRAFT',
+      'Accepted At':'',
+      'Provisioning Status':'NOT_STARTED',
+      'Last Updated':now
+    });
+    used[reference]=batchId;
+    added.push(reference);
+  });
+
+  const students=v2HandoverStudents_(batchId);
+  const intakes=Array.from(new Set(students.map(function(s){return String(s['Intake']||'').trim();}).filter(Boolean)));
+  v2UpdateRow_(batch.sheet,batch.rowNumber,{
+    'Student Count':students.length,
+    'Intake Summary':intakes.join(', '),
+    'Updated At':now
+  });
+
+  v2Audit_('', 'ACADEMIC_HANDOVER', 'ADD_HANDOVER_STUDENTS', {}, {
+    batchId:batchId,added:added,skipped:skipped
+  }, actor || 'Admin Portal V2', 'SUCCESS', '');
+  v2InvalidateCache_();
+  return {ok:true,batchId:batchId,addedCount:added.length,studentCount:students.length,skipped:skipped};
+}
+
+function v2SendHandoverSession_(data, actor) {
+  v2HandoverEnsureFoundation_();
+  const batchId=v2Required_(data.batchId,'Handover Batch ID');
+  const batch=v2Find_('V2_HANDOVER_BATCHES','Handover Batch ID',batchId);
+  if(!batch) throw new Error('Handover session not found.');
+  if(String(batch.record['Status']||'').toUpperCase()!=='DRAFT') {
+    throw new Error('This Handover Session has already been sent.');
+  }
+
+  const students=v2HandoverStudents_(batchId);
+  if(!students.length) throw new Error('Add at least one student before Handover.');
+
+  const normalized=students.map(function(s){
+    return {
+      referenceNo:String(s['Reference No']||''),
+      studentName:String(s['Student Name']||''),
+      idPassport:String(s['ID / Passport No']||''),
+      personalEmail:String(s['Personal Email']||''),
+      programme:String(s['Programme']||''),
+      intake:String(s['Intake']||''),
+      orientationSessionId:String(s['Orientation Session ID']||''),
+      orientationStatus:String(s['Orientation Status']||'')
+    };
+  });
+
+  const now=new Date().toISOString();
+  const pdf=v2HandoverGeneratePdf_(batchId,String(batch.record['Handover Name']||batchId),normalized,actor||'Admin Portal V2');
+
+  students.forEach(function(student){
+    const reference=String(student['Reference No']||'');
+    const row=v2FindComposite_('V2_HANDOVER_STUDENTS',['Handover Batch ID','Reference No'],[batchId,reference]);
+    if(row) v2UpdateRow_(row.sheet,row.rowNumber,{
+      'Handover Status':'HANDED_OVER',
+      'Provisioning Status':'IN_PROGRESS',
+      'Last Updated':now
+    });
+
+    const existing=v2Find_('V2_PROVISIONING','Reference No',reference);
+    const old=existing?existing.record:{};
+    v2Upsert_('V2_PROVISIONING','Reference No',reference,{
+      'Reference No':reference,
+      'Handover Batch ID':batchId,
+      'Student Name':student['Student Name'],
+      'ID / Passport No':student['ID / Passport No'],
+      'Personal Email':student['Personal Email'],
+      'Innovative Email':old['Innovative Email']||'',
+      'IT Email Status':old['IT Email Status']||'PENDING',
+      'IT Completed At':old['IT Completed At']||'',
+      'IT Completed By':old['IT Completed By']||'',
+      'E-Library Status':old['E-Library Status']||'PENDING',
+      'E-Library Completed At':old['E-Library Completed At']||'',
+      'E-Library Completed By':old['E-Library Completed By']||'',
+      'Moodle Status':old['Moodle Status']||'PENDING',
+      'Moodle Login Email':old['Moodle Login Email']||student['Personal Email'],
+      'Moodle Completed At':old['Moodle Completed At']||'',
+      'Moodle Completed By':old['Moodle Completed By']||'',
+      'Student Notification Status':old['Student Notification Status']||'NOT_READY',
+      'Student Notified At':old['Student Notified At']||'',
+      'IT Task Email Status':'PENDING',
+      'IT Task Email Sent At':'',
+      'Moodle Task Email Status':'PENDING',
+      'Moodle Task Email Sent At':'',
+      'E-Library Task Email Status':'PENDING',
+      'E-Library Task Email Sent At':'',
+      'Last Updated':now,
+      'Remarks':old['Remarks']||''
+    });
+
+    const workflow=v2Find_('V2_WORKFLOW','Reference No',reference);
+    if(workflow) v2UpdateRow_(workflow.sheet,workflow.rowNumber,{
+      'Academic Handover Status':'HANDED_OVER',
+      'Provisioning Status':'IN_PROGRESS',
+      'Last Updated':now,
+      'Updated By':actor||'Admin Portal V2'
+    });
+  });
+
+  const currentStudents=v2HandoverStudents_(batchId);
+  const batchRecord=Object.assign({},batch.record,{'Handover PDF URL':pdf.url,'Status':'HANDED_OVER'});
+  const academic=v2HandoverSendAcademicEmail_(batchRecord,currentStudents,pdf.fileId,false);
+  const tasks=v2HandoverSendProvisioningTasks_(batchRecord,currentStudents);
+
+  v2UpdateRow_(batch.sheet,batch.rowNumber,{
+    'Status':'HANDED_OVER',
+    'Handover PDF URL':pdf.url,
+    'Academic Email Status':academic.status,
+    'Academic Email Sent At':academic.sent?new Date().toISOString():'',
+    'Provisioning Tasks Sent At':tasks.anySent?new Date().toISOString():'',
+    'Updated At':new Date().toISOString()
+  });
+
+  v2Audit_('', 'ACADEMIC_HANDOVER', 'SEND_HANDOVER_SESSION', {}, {
+    batchId:batchId,studentCount:students.length,academicEmailStatus:academic.status,provisioningTasks:tasks
+  }, actor || 'Admin Portal V2', 'SUCCESS', 'Handover sent directly to Academic and service PICs.');
+  v2InvalidateCache_();
+
+  return {
+    ok:true,batchId:batchId,status:'HANDED_OVER',studentCount:students.length,
+    academicEmailStatus:academic.status,provisioningTasks:tasks,pdfUrl:pdf.url,standalone:true
+  };
+}
+
 function v2CreateAcademicHandoverBatch_(data, actor) {
   v2HandoverEnsureFoundation_();
 
