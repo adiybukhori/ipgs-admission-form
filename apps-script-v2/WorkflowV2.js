@@ -388,6 +388,10 @@ function handleV2Post_(payload) {
   if (action === 'v2SendOrientationReminderNow') return v2SendOrientationReminderNow_(payload.data || {}, payload.updatedBy || 'Admin Portal V2');
   if (action === 'v2UpsertOrientationSession') return v2UpsertOrientationSession_(payload.data || {}, payload.updatedBy);
   if (action === 'v2UpdateOrientation') return v2UpdateOrientation_(payload.data || {}, payload.updatedBy);
+  if (action === 'v2CreateAcademicHandoverBatch') return v2CreateAcademicHandoverBatch_(payload.data || {}, payload.updatedBy || 'Admin Portal V2');
+  if (action === 'v2ResendAcademicHandoverEmail') return v2ResendAcademicHandoverEmail_(payload.data || {}, payload.updatedBy || 'Admin Portal V2');
+  if (action === 'v2UpdateProvisioningTask') return v2UpdateProvisioningTask_(payload.data || {}, payload.updatedBy || 'Admin Portal V2');
+  if (action === 'v2ResendProvisioningTaskEmails') return v2ResendProvisioningTaskEmails_(payload.data || {}, payload.updatedBy || 'Admin Portal V2');
   if (action === 'v2UpdateProvisioning') return v2UpdateProvisioning_(payload.data || {}, payload.updatedBy);
   throw new Error('Unsupported V2 POST action.');
 }
