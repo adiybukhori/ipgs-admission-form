@@ -185,7 +185,8 @@ function v2AssignOrientationBatch_(data, actor) {
   v2OrientationEnsureReminderTrigger_();
   v2InvalidateCache_();
   return {
-    ok:failed.length === 0,
+    ok:true,
+    completed:failed.length === 0,
     partial:failed.length > 0 && assigned.length > 0,
     assignedCount:assigned.length,
     invitationSentCount:assigned.filter(function(x){return x.invitationSent;}).length,
