@@ -2,8 +2,8 @@
  * Admission V2 - Stage 4 Orientation Module
  *
  * Core flow:
- * create session -> assign ACCEPTED + SKY ACTIVATED students -> send invitation ->
- * automatic reminder -> attendance -> ready for Academic Handover.
+ * create session -> add any unassigned applicant -> send invitation ->
+ * automatic reminder -> attendance tracking. This module is standalone.
  */
 
 const V2_ORIENTATION_BUILD = 'ORIENTATION_V2_MILESTONE_REMINDERS_20260918';
@@ -97,24 +97,24 @@ function v2AssignOrientationBatch_(data, actor) {
   const assigned = [];
   const skipped = [];
   const failed = [];
+  const alreadyAssignedRefs = {};
+  v2Rows_('V2_ORIENTATION_TRACKING').forEach(function(row) {
+    const ref = String(row['Reference No'] || '').trim();
+    if (ref) alreadyAssignedRefs[ref] = String(row['Orientation Session ID'] || '');
+  });
 
   references.forEach(function(reference) {
     try {
       const workflow = v2Find_('V2_WORKFLOW','Reference No',reference);
       const application = v2Find_('V2_APPLICATIONS','Reference No',reference);
-      if (!workflow || !application) throw new Error('Application/workflow record not found.');
+      if (!application) throw new Error('Application record not found.');
 
-      const acceptance = String(workflow.record['Acceptance Status'] || '').toUpperCase();
-      const activation = String(workflow.record['SKY Activation Status'] || '').toUpperCase();
-      const stage = String(workflow.record['Application Stage'] || '').toUpperCase();
-      if (acceptance !== 'ACCEPTED') {
-        throw new Error('Student is not eligible for orientation assignment. Acceptance must be completed first.');
-      }
-      if (activation !== 'ACTIVATED') {
-        throw new Error('Student is not eligible for orientation assignment. Registry must confirm SKY activation first.');
-      }
-      if (['ACCEPTED','ORIENTATION'].indexOf(stage) < 0) {
-        throw new Error('Student is not at the correct stage for Orientation.');
+      if (alreadyAssignedRefs[reference]) {
+        skipped.push({
+          referenceNo:reference,
+          message:'Student is already assigned to Orientation Session ' + alreadyAssignedRefs[reference] + '.'
+        });
+        return;
       }
 
       const existing = v2FindComposite_(
@@ -127,9 +127,9 @@ function v2AssignOrientationBatch_(data, actor) {
       const row = {
         'Orientation Session ID':sessionId,
         'Reference No':reference,
-        'Student Name':workflow.record['Student Name'] || application.record['Student Name'] || '',
-        'Programme':workflow.record['Programme'] || application.record['Programme'] || '',
-        'Student Email':application.record['Personal Email'] || workflow.record['Personal Email'] || '',
+        'Student Name':(workflow && workflow.record['Student Name']) || application.record['Student Name'] || '',
+        'Programme':(workflow && workflow.record['Programme']) || application.record['Programme'] || '',
+        'Student Email':application.record['Personal Email'] || (workflow && workflow.record['Personal Email']) || '',
         'Assigned At':old['Assigned At'] || now,
         'Assigned By':old['Assigned By'] || actor || 'Admin Portal V2',
         'Invitation Status':old['Invitation Status'] || 'PENDING',
@@ -154,14 +154,14 @@ function v2AssignOrientationBatch_(data, actor) {
         [sessionId,reference],
         row
       );
-      v2UpdateRow_(workflow.sheet,workflow.rowNumber,{
-        'Orientation Session ID':sessionId,
-        'Orientation Status':'ASSIGNED',
-        'Application Stage':'ORIENTATION',
-        'Academic Handover Status':'NOT_READY',
-        'Last Updated':now,
-        'Updated By':actor || 'Admin Portal V2'
-      });
+      if (workflow) {
+        v2UpdateRow_(workflow.sheet,workflow.rowNumber,{
+          'Orientation Session ID':sessionId,
+          'Orientation Status':'ASSIGNED',
+          'Last Updated':now,
+          'Updated By':actor || 'Admin Portal V2'
+        });
+      }
 
       let invitation = {sent:false,status:'ALREADY_SENT',mode:v2NotificationMode_()};
       if (String(row['Invitation Status'] || '').toUpperCase() !== 'SENT' || data.resendInvitation === true) {
@@ -225,30 +225,26 @@ function v2UpdateOrientationAttendance_(data, actor) {
   );
   if (!tracking) throw new Error('Orientation tracking record not found.');
   const workflow = v2Find_('V2_WORKFLOW','Reference No',reference);
-  if (!workflow) throw new Error('V2 workflow record not found.');
-
   const now = new Date().toISOString();
-  const ready = attendance === 'ATTENDED';
   v2UpdateRow_(tracking.sheet,tracking.rowNumber,{
     'Attendance Status':attendance,
-    'Academic Handover Status':ready ? 'READY' : 'NOT_READY',
     'Last Updated':now
   });
-  v2UpdateRow_(workflow.sheet,workflow.rowNumber,{
-    'Orientation Status':attendance,
-    'Academic Handover Status':ready ? 'READY' : 'NOT_READY',
-    'Application Stage':'ORIENTATION',
-    'Last Updated':now,
-    'Updated By':actor || 'Admin Portal V2'
-  });
+  if (workflow) {
+    v2UpdateRow_(workflow.sheet,workflow.rowNumber,{
+      'Orientation Status':attendance,
+      'Last Updated':now,
+      'Updated By':actor || 'Admin Portal V2'
+    });
+  }
 
   v2Audit_(reference,'ORIENTATION','UPDATE_ATTENDANCE',{},{
     sessionId:sessionId,
     attendanceStatus:attendance,
-    academicHandoverStatus:ready ? 'READY' : 'NOT_READY'
+    standalone:true
   },actor || 'Admin Portal V2','SUCCESS','');
   v2InvalidateCache_();
-  return {ok:true,referenceNo:reference,sessionId:sessionId,attendanceStatus:attendance,academicHandoverStatus:ready?'READY':'NOT_READY'};
+  return {ok:true,referenceNo:reference,sessionId:sessionId,attendanceStatus:attendance,standalone:true};
 }
 
 function v2SendOrientationReminderNow_(data, actor) {
