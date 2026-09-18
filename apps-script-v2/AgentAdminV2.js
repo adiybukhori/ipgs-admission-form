@@ -76,8 +76,13 @@ function v2UpsertAgent_(data, actor) {
   if (existing) {
     v2SetRecordValues_(sheet, existing.rowNumber, updates);
   } else {
-    sheet.appendRow(new Array(Math.max(sheet.getLastColumn(), 1)).fill(''));
-    v2SetRecordValues_(sheet, sheet.getLastRow(), updates);
+    // Append a populated row directly. Appending an all-empty row does not
+    // advance getLastRow() in Google Sheets and can overwrite the last agent.
+    const currentHeaders = v2Headers_(sheet);
+    const rowValues = currentHeaders.map(function(header) {
+      return Object.prototype.hasOwnProperty.call(updates, header) ? updates[header] : '';
+    });
+    sheet.appendRow(rowValues);
   }
 
   v2Audit_(
