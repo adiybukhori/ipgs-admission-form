@@ -115,7 +115,7 @@ function v2PrepareResearchIntentRequirement_(payload, referenceNo) {
   if (typeof v2Audit_ === 'function') {
     v2Audit_(reference,'ADMISSION','RESEARCH_INTENT_PENDING',{}, {
       required:true,status:'PENDING',secureUploadLinkCreated:!!uploadUrl
-    }, 'Admission V2', 'SUCCESS', 'Initial application accepted; Research Intent required before document review can be completed.');
+    }, 'Admission V2', 'SUCCESS', 'Initial application accepted; Research Intent is tracked as outstanding and may be submitted later without blocking the admission workflow.');
   }
   return {required:true,status:'PENDING',uploadUrl:uploadUrl};
 }
