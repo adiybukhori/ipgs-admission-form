@@ -77,15 +77,18 @@ jobs:
           key="$(cat /tmp/stage4-uat-key)"
           : > /tmp/stage4-uat-response.txt
           ok=0
-          for attempt in 1 2 3 4 5; do
-            curl -fsSL --retry 2 --retry-delay 1 \
+          : > /tmp/stage4-uat-http.txt
+          for attempt in 1 2 3 4 5 6 7 8 9 10; do
+            meta="$(curl -sSL --retry 2 --retry-delay 1 \
+              -w '%{http_code}|%{content_type}' \
               "$V2_WEB_APP?action=v2Stage4UatTemp&key=$key" \
-              -o /tmp/stage4-uat-response.txt || true
+              -o /tmp/stage4-uat-response.txt || true)"
+            printf '%s' "$meta" > /tmp/stage4-uat-http.txt
             if grep -F '"uat":"PASS"' /tmp/stage4-uat-response.txt >/dev/null; then
               ok=1
               break
             fi
-            sleep 3
+            sleep 5
           done
           if [ "$ok" -eq 1 ]; then
             echo "status=PASS" >> "$GITHUB_OUTPUT"
@@ -100,6 +103,12 @@ jobs:
               data=json.loads(p.read_text())
           except Exception:
               data={}
+          import re
+          raw=p.read_text(errors='replace') if p.exists() else ''
+          preview=raw[:700]
+          preview=re.sub(r'[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\\.[A-Za-z]{2,}', '[EMAIL_REDACTED]', preview)
+          preview=re.sub(r'(?i)(access_token|refresh_token|id_token|client_secret)[^\\s<>"&]*', '[TOKEN_REDACTED]', preview)
+          http=Path('/tmp/stage4-uat-http.txt').read_text(errors='replace')[:200] if Path('/tmp/stage4-uat-http.txt').exists() else ''
           safe={
               'ok': bool(data.get('ok')),
               'stage': data.get('stage'),
@@ -111,7 +120,9 @@ jobs:
               'attendanceStatus': data.get('attendanceStatus',''),
               'academicHandoverStatus': data.get('academicHandoverStatus',''),
               'sessionStatus': data.get('sessionStatus',''),
-              'message': str(data.get('message',''))[:500]
+              'message': str(data.get('message',''))[:500],
+              'http': http,
+              'responsePreview': preview
           }
           Path('/tmp/stage4-uat-safe.json').write_text(json.dumps(safe, indent=2))
           PY
