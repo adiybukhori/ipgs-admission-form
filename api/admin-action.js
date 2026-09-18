@@ -39,7 +39,11 @@ const ALLOWED_ACTIONS = new Set([
   'v2ResendAcademicHandoverEmail',
   'v2UpdateProvisioningTask',
   'v2ResendProvisioningTaskEmails',
-  'v2SendStudentProvisioningAccess'
+  'v2SendStudentProvisioningAccess',
+  'v2RegistryUpsertProspect',
+  'v2RefreshFeeStructure',
+  'v2NotifyRegistryProspectReady',
+  'v2ActivateStudentInSky'
 ]);
 
 async function validateAdminPassword(password) {
