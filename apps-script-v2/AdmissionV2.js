@@ -4,7 +4,7 @@
  * Property explicitly enables TEST or LIVE mode.
  */
 
-const V2_ADMISSION_BUILD = 'ADMISSION_V2_MODULE1_20260908';
+const V2_ADMISSION_BUILD = 'ADMISSION_V2_AUTO_PGADM_20260918';
 const V2_MAX_DOCUMENT_BYTES = 7 * 1024 * 1024;
 let V2_BRANDED_RENDER_CONTEXT = false;
 const V2_ALLOWED_MIME_TYPES = Object.freeze([
@@ -39,16 +39,10 @@ function v2SubmitAdmission_(payload) {
     // missing, create a secure follow-up upload link before acknowledgement mail.
     const researchIntentRequirement = v2PrepareResearchIntentRequirement_(payload, reference);
 
-    // V2_PG_ADM01_ON_SUBMISSION_V1
-    // Create the standard PG-ADM-01 at the same time as the Admission Form.
-    // It is stored in the student folder only and is not emailed to the applicant.
-    let pgAdm01 = null;
-    try {
-      pgAdm01 = v2GeneratePgEligibilityPdf_(reference, '', 'Admission Submission');
-    } catch (pgAdmError) {
-      Logger.log('V2 PG-ADM-01 generation failed non-blocking: ' +
-        String(pgAdmError && pgAdmError.message || pgAdmError));
-    }
+    // AUTO PG-ADM-01: generate immediately after the application and workflow
+    // records are saved. The applicant never needs to trigger this manually.
+    // Retry transient Drive/Docs failures before allowing the submission flow to continue.
+    const pgAdm01 = v2GeneratePgAdm01OnSubmission_(reference);
 
     let emailStatus = 'DISABLED';
     try {
@@ -106,6 +100,33 @@ function v2SubmitAdmission_(payload) {
   } finally {
     lock.releaseLock();
   }
+}
+
+function v2GeneratePgAdm01OnSubmission_(referenceNo) {
+  const reference = String(referenceNo || '').trim();
+  let lastError = null;
+  for (let attempt = 1; attempt <= 3; attempt += 1) {
+    try {
+      const generated = v2GeneratePgEligibilityPdf_(reference, '', 'Admission Submission Auto');
+      if (generated && generated.url) return generated;
+      throw new Error('PG-ADM-01 generation returned no PDF URL.');
+    } catch (error) {
+      lastError = error;
+      Logger.log(
+        'Auto PG-ADM-01 attempt ' + attempt + '/3 failed for ' + reference + ': ' +
+        String(error && error.message || error)
+      );
+      if (attempt < 3) Utilities.sleep(attempt * 750);
+    }
+  }
+
+  // Submission itself remains valid, but the failure is visible to Registry.
+  // The normal path is fully automatic; the Admin retry action is exception-only.
+  Logger.log(
+    'Auto PG-ADM-01 exhausted retries for ' + reference + ': ' +
+    String(lastError && lastError.message || lastError || 'Unknown error')
+  );
+  return null;
 }
 
 function v2ValidateAdmissionPayload_(payload) {
