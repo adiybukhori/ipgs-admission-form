@@ -1,0 +1,88 @@
+<!doctype html>
+<html>
+<head>
+  <base target="_top">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>IUC IPGS Academic Handover</title>
+  <style>
+    body{margin:0;background:#f6f7fb;font-family:Arial,sans-serif;color:#172033}
+    .wrap{max-width:860px;margin:30px auto;padding:0 16px}
+    .card{background:white;border:1px solid #e4e7ec;border-radius:18px;overflow:hidden;box-shadow:0 10px 30px rgba(20,30,50,.07)}
+    .head{background:#2d2363;color:white;padding:26px}
+    .head h1{margin:0 0 6px;font-size:26px}.head p{margin:0;opacity:.85}
+    .body{padding:24px}.meta{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;margin:16px 0}
+    .box{border:1px solid #e6e9ef;border-radius:12px;padding:12px}.label{font-size:11px;color:#697386;font-weight:bold;text-transform:uppercase}.value{margin-top:5px;font-weight:bold}
+    table{width:100%;border-collapse:collapse;margin:18px 0}th,td{padding:10px;border-bottom:1px solid #eceff3;text-align:left;font-size:13px}th{background:#fafbfc;color:#667085}
+    input{width:100%;box-sizing:border-box;padding:12px;border:1px solid #d0d5dd;border-radius:10px;font:inherit}
+    button{border:0;background:#2d2363;color:white;padding:12px 18px;border-radius:10px;font-weight:bold;cursor:pointer}
+    button:disabled{opacity:.5;cursor:not-allowed}.msg{margin-top:14px;padding:12px;border-radius:10px;display:none}.ok{display:block;background:#eaf8f3;color:#0b7a5a}.err{display:block;background:#fff0ee;color:#b42318}
+    .actions{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-top:16px}.link{color:#2d2363;font-weight:bold;text-decoration:none}
+    @media(max-width:640px){.meta{grid-template-columns:1fr}.wrap{margin:12px auto}.head{padding:20px}.body{padding:18px}table{font-size:12px}}
+  </style>
+</head>
+<body>
+<div class="wrap">
+  <div class="card">
+    <div class="head"><h1>Admission to Academic Handover</h1><p>Innovative University College · IPGS</p></div>
+    <div class="body">
+      <div id="loading">Loading handover batch…</div>
+      <div id="content" style="display:none">
+        <div class="meta">
+          <div class="box"><div class="label">Batch</div><div id="batchName" class="value"></div></div>
+          <div class="box"><div class="label">Batch ID</div><div id="batchId" class="value"></div></div>
+          <div class="box"><div class="label">Students</div><div id="studentCount" class="value"></div></div>
+          <div class="box"><div class="label">Status</div><div id="status" class="value"></div></div>
+        </div>
+        <div class="actions"><a id="pdfLink" class="link" target="_blank">Open formal handover document</a></div>
+        <table>
+          <thead><tr><th>No.</th><th>Student</th><th>ID / Passport</th><th>Programme</th><th>Intake</th></tr></thead>
+          <tbody id="students"></tbody>
+        </table>
+        <div id="acceptBlock">
+          <label for="acceptedBy" style="font-weight:bold;font-size:13px">Academic representative name</label>
+          <input id="acceptedBy" placeholder="Enter name of Academic representative">
+          <div class="actions"><button id="acceptBtn" onclick="acceptHandover()">Accept Handover</button></div>
+        </div>
+        <div id="acceptedBlock" style="display:none"></div>
+      </div>
+      <div id="message" class="msg"></div>
+    </div>
+  </div>
+</div>
+<script>
+const TOKEN = '<?= token ?>';
+function esc(v){return String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[c]))}
+function showMessage(text,type){const el=document.getElementById('message');el.className='msg '+(type==='ok'?'ok':'err');el.textContent=text}
+function load(){
+  google.script.run.withSuccessHandler(render).withFailureHandler(e=>showMessage(e.message||'Unable to load handover.','error')).v2AcademicHandoverPageData(TOKEN);
+}
+function render(data){
+  document.getElementById('loading').style.display='none';
+  if(!data||!data.ok){showMessage(data?.message||'Invalid handover link.','error');return}
+  document.getElementById('content').style.display='block';
+  const b=data.batch||{};
+  document.getElementById('batchName').textContent=b.name||'-';
+  document.getElementById('batchId').textContent=b.batchId||'-';
+  document.getElementById('studentCount').textContent=b.studentCount||0;
+  document.getElementById('status').textContent=String(b.status||'-').replaceAll('_',' ');
+  const link=document.getElementById('pdfLink');link.href=b.pdfUrl||'#';
+  document.getElementById('students').innerHTML=(data.students||[]).map((s,i)=>'<tr><td>'+(i+1)+'</td><td>'+esc(s.studentName)+'</td><td>'+esc(s.idPassport)+'</td><td>'+esc(s.programme)+'</td><td>'+esc(s.intake)+'</td></tr>').join('');
+  if(String(b.status||'').toUpperCase()==='ACCEPTED'){
+    document.getElementById('acceptBlock').style.display='none';
+    const el=document.getElementById('acceptedBlock');el.style.display='block';el.innerHTML='<div class="ok">Handover accepted'+(b.acceptedBy?' by <strong>'+esc(b.acceptedBy)+'</strong>':'')+'.</div>';
+  }
+}
+function acceptHandover(){
+  const name=document.getElementById('acceptedBy').value.trim();
+  if(!name){showMessage('Enter the Academic representative name first.','error');return}
+  const btn=document.getElementById('acceptBtn');btn.disabled=true;btn.textContent='Accepting…';
+  google.script.run.withSuccessHandler(res=>{
+    if(!res||!res.ok){btn.disabled=false;btn.textContent='Accept Handover';showMessage(res?.message||'Unable to accept handover.','error');return}
+    showMessage('Academic Handover accepted successfully. Relevant provisioning PICs have been notified.','ok');
+    document.getElementById('acceptBlock').style.display='none';load();
+  }).withFailureHandler(e=>{btn.disabled=false;btn.textContent='Accept Handover';showMessage(e.message||'Unable to accept handover.','error')}).v2AcademicHandoverAccept(TOKEN,name);
+}
+load();
+</script>
+</body>
+</html>
