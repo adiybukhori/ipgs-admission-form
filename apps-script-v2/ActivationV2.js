@@ -1,13 +1,14 @@
 /**
  * Admission V2 - Prospect & Registry Activation
  *
- * Flow:
- * Applicant -> Consultant/Registry creates SKY prospect + selects Fee Group ->
- * Registry notified -> Offer/Acceptance completes -> Registry confirms SKY activation ->
- * student becomes eligible for Orientation.
+ * Standalone operational flow:
+ * Applicant -> Consultant/Marketing creates SKY prospect + selects Fee Group ->
+ * Prospect DONE -> Registry may register / activate the student in SKY -> Activation DONE.
+ *
+ * This module does not depend on Document Review, SAC, Offer, Acceptance or Orientation.
  */
 
-const V2_ACTIVATION_BUILD = 'PROSPECT_REGISTRY_ACTIVATION_V2_20260918';
+const V2_ACTIVATION_BUILD = 'PROSPECT_SKY_STANDALONE_V3_20260918';
 const V2_ACTIVATION_HEADERS = [
   'Fee Structure Status','Fee Structure PDF URL','Fee Structure Updated At',
   'Registry Prospect Notification Status','Registry Prospect Notified At',
@@ -134,7 +135,7 @@ function v2NotifyRegistryProspectReady_(reference, actor) {
     '<br><strong>Fee Group:</strong> '+v2Html_(feeGroup)+'</p>' +
     feeLink +
     '<div style="text-align:center;margin:24px 0"><a href="'+v2Html_(adminUrl)+'" style="display:inline-block;background:#2d2363;color:#fff;text-decoration:none;padding:13px 22px;border-radius:10px;font-weight:bold">Open Registry Activation</a></div>' +
-    '<p style="font-size:12px;color:#697386">SKY activation remains locked until the Offer Letter has been accepted by the student.</p>' +
+    '<p style="font-size:12px;color:#697386">Prospect completion is an operational Marketing handoff. Registry may proceed with SKY registration/activation independently of the admission workflow.</p>' +
     '<p>Regards,<br><strong>IPGS Admission V2</strong></p></div></div>';
 
   const delivery = v2NotificationSend_(
@@ -223,27 +224,27 @@ function v2RefreshFeeStructure_(data, actor) {
 
 function v2ActivationReadiness_(reference) {
   const workflow = v2Find_('V2_WORKFLOW','Reference No',reference);
-  if (!workflow) throw new Error('Workflow record not found.');
-  const w = workflow.record;
+  const application = v2Find_('V2_APPLICATIONS','Reference No',reference);
+  if (!workflow && !application) throw new Error('Application record not found.');
+  const w = workflow ? workflow.record : application.record;
   const reasons = [];
   if (String(w['Prospect Status'] || '').toUpperCase() !== 'PROSPECT_UPDATED') reasons.push('Prospect not completed');
   if (!String(w['SKY Prospect ID'] || '').trim()) reasons.push('SKY Prospect ID missing');
   if (!String(w['Fee Group'] || '').trim()) reasons.push('Fee Group missing');
-  if (String(w['Acceptance Status'] || '').toUpperCase() !== 'ACCEPTED') reasons.push('Student acceptance pending');
   if (String(w['SKY Activation Status'] || '').toUpperCase() === 'ACTIVATED') reasons.push('Already activated');
   return {
     ready: reasons.length === 0,
     reasons: reasons,
-    acceptanceStatus:String(w['Acceptance Status'] || ''),
     prospectStatus:String(w['Prospect Status'] || ''),
-    skyActivationStatus:String(w['SKY Activation Status'] || 'NOT_ACTIVATED')
+    skyActivationStatus:String(w['SKY Activation Status'] || 'NOT_ACTIVATED'),
+    standalone:true
   };
 }
 
 function v2ActivateStudentInSky_(data, actor) {
   v2ActivationEnsureFoundation_();
   const reference = v2Required_(data.referenceNo,'Reference No');
-  const skyStudentId = v2Required_(data.skyStudentId,'SKY Student ID / Registration No');
+  const skyStudentId = String(data.skyStudentId || '').trim();
   const remarks = String(data.remarks || '').trim();
 
   const workflow = v2Find_('V2_WORKFLOW','Reference No',reference);
@@ -275,23 +276,24 @@ function v2ActivateStudentInSky_(data, actor) {
     'Last Updated':now
   };
   v2UpdateRow_(app.sheet,app.rowNumber,patch);
-  v2UpdateRow_(workflow.sheet,workflow.rowNumber,Object.assign({},patch,{
-    'Application Stage':'ACCEPTED',
-    'Updated By':actor || 'Registry Admin'
-  }));
+  if (workflow) {
+    v2UpdateRow_(workflow.sheet,workflow.rowNumber,Object.assign({},patch,{
+      'Updated By':actor || 'Registry Admin'
+    }));
+  }
 
   v2Audit_(reference,'ACTIVATION','SKY_ACTIVATED',{},{
     skyStudentId:skyStudentId,
     prospectId:workflow.record['SKY Prospect ID'] || '',
     feeGroup:workflow.record['Fee Group'] || '',
-    acceptanceStatus:workflow.record['Acceptance Status'] || '',
-    activationStatus:'ACTIVATED'
+    activationStatus:'ACTIVATED',
+    standalone:true
   },actor || 'Registry Admin','SUCCESS',remarks);
   v2InvalidateCache_();
 
   return {
     ok:true,referenceNo:reference,skyStudentId:skyStudentId,
     skyActivationStatus:'ACTIVATED',activatedAt:now,activatedBy:actor || 'Registry Admin',
-    orientationEligible:true,build:V2_ACTIVATION_BUILD
+    standalone:true,build:V2_ACTIVATION_BUILD
   };
 }
