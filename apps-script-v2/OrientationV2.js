@@ -2,7 +2,7 @@
  * Admission V2 - Stage 4 Orientation Module
  *
  * Core flow:
- * create session -> assign ACCEPTED students -> send invitation ->
+ * create session -> assign ACCEPTED + SKY ACTIVATED students -> send invitation ->
  * automatic reminder -> attendance -> ready for Academic Handover.
  */
 
@@ -103,9 +103,16 @@ function v2AssignOrientationBatch_(data, actor) {
       if (!workflow || !application) throw new Error('Application/workflow record not found.');
 
       const acceptance = String(workflow.record['Acceptance Status'] || '').toUpperCase();
+      const activation = String(workflow.record['SKY Activation Status'] || '').toUpperCase();
       const stage = String(workflow.record['Application Stage'] || '').toUpperCase();
-      if (acceptance !== 'ACCEPTED' || ['ACCEPTED','ORIENTATION'].indexOf(stage) < 0) {
+      if (acceptance !== 'ACCEPTED') {
         throw new Error('Student is not eligible for orientation assignment. Acceptance must be completed first.');
+      }
+      if (activation !== 'ACTIVATED') {
+        throw new Error('Student is not eligible for orientation assignment. Registry must confirm SKY activation first.');
+      }
+      if (['ACCEPTED','ORIENTATION'].indexOf(stage) < 0) {
+        throw new Error('Student is not at the correct stage for Orientation.');
       }
 
       const existing = v2FindComposite_(
