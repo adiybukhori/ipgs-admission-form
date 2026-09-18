@@ -372,284 +372,213 @@ function v2QualificationSeedVerifiedRules() {
   return report;
 }
 
+function v2QualificationFastSheetRecord_(sheet, reference) {
+  if (!sheet || sheet.getLastRow() < 2) return null;
+  const lastColumn = sheet.getLastColumn();
+  const headers = sheet.getRange(1, 1, 1, lastColumn).getValues()[0];
+  const refIndex = headers.indexOf('Reference No');
+  if (refIndex < 0) throw new Error('Reference No header is missing in ' + sheet.getName() + '.');
+
+  const match = sheet
+    .getRange(2, refIndex + 1, sheet.getLastRow() - 1, 1)
+    .createTextFinder(String(reference))
+    .matchEntireCell(true)
+    .findNext();
+
+  if (!match) return null;
+
+  const rowNumber = match.getRow();
+  const values = sheet.getRange(rowNumber, 1, 1, lastColumn).getValues()[0];
+  const record = {};
+  headers.forEach(function(header, index) { record[header] = values[index]; });
+  return {sheet:sheet, rowNumber:rowNumber, headers:headers, values:values, record:record};
+}
+
+function v2QualificationFastWrite_(found, updates) {
+  const row = found.values.slice();
+  found.headers.forEach(function(header, index) {
+    if (Object.prototype.hasOwnProperty.call(updates, header)) row[index] = updates[header];
+  });
+  found.sheet.getRange(found.rowNumber, 1, 1, found.headers.length).setValues([row]);
+  found.values = row;
+  Object.keys(updates).forEach(function(key) { found.record[key] = updates[key]; });
+}
+
+function v2QualificationFastAppend_(sheet, values) {
+  const headers = sheet.getRange(1, 1, 1, sheet.getLastColumn()).getValues()[0];
+  sheet.appendRow(headers.map(function(header) {
+    return Object.prototype.hasOwnProperty.call(values, header) ? values[header] : '';
+  }));
+}
+
+function v2QualificationCachedRules_(ss) {
+  const cache = CacheService.getScriptCache();
+  const cacheKey = 'V2_QUALIFICATION_RULES_DEV_TEST_FAST_V1';
+  try {
+    const cached = cache.get(cacheKey);
+    if (cached) {
+      const parsed = JSON.parse(cached);
+      if (Array.isArray(parsed)) return parsed;
+    }
+  } catch (_) {}
+
+  const sheet = ss.getSheetByName(V2_QUALIFICATION_RULES_SHEET);
+  if (!sheet || sheet.getLastRow() < 2) return [];
+
+  const values = sheet.getDataRange().getValues();
+  const headers = values.shift();
+  const rows = values
+    .filter(function(row) { return row.some(function(value) { return value !== ''; }); })
+    .map(function(row) {
+      const obj = {};
+      headers.forEach(function(header, index) { obj[header] = row[index]; });
+      return obj;
+    })
+    .filter(function(rule) {
+      return String(rule['Rule Status'] || '').trim() === 'DEV_TEST';
+    });
+
+  try { cache.put(cacheKey, JSON.stringify(rows), 300); } catch (_) {}
+  return rows;
+}
+
 function v2RunQualificationScreening(referenceNo, screeningInput) {
+  const startedAt = Date.now();
   assertDevIdentity_();
 
   const reference = String(referenceNo || '').trim();
   const input = screeningInput || {};
+  if (!reference) throw new Error('Reference No is required.');
 
-  if (!reference) {
-    throw new Error('Reference No is required.');
+  const screenedBy = String(input.screenedBy || 'Registry / Admission').trim();
+  const remarks = String(input.remarks || '').trim();
+
+  // FAST PATH: open the spreadsheet once and resolve only the requested applicant rows.
+  const ss = SpreadsheetApp.openById(CONFIG.spreadsheetId);
+  const applicationSheet = ss.getSheetByName('V2_APPLICATIONS');
+  const workflowSheet = ss.getSheetByName('V2_WORKFLOW');
+  const documentReviewSheet = ss.getSheetByName('V2_DOCUMENT_REVIEW');
+  const screeningSheet = ss.getSheetByName(V2_QUALIFICATION_SCREENING_SHEET);
+  const auditSheet = ss.getSheetByName('V2_AUDIT_LOG');
+
+  if (!applicationSheet || !workflowSheet || !documentReviewSheet || !screeningSheet || !auditSheet) {
+    throw new Error('Qualification screening foundation is incomplete.');
   }
 
-  const screenedBy =
-    String(input.screenedBy || 'Registry / Admission').trim();
+  const application = v2QualificationFastSheetRecord_(applicationSheet, reference);
+  const workflow = v2QualificationFastSheetRecord_(workflowSheet, reference);
+  const documentReview = v2QualificationFastSheetRecord_(documentReviewSheet, reference);
 
-  const remarks =
-    String(input.remarks || '').trim();
-
-  const application = v2Find_(
-    'V2_APPLICATIONS',
-    'Reference No',
-    reference
-  );
-
-  if (!application) {
-    throw new Error('V2 application record not found.');
+  if (!application) throw new Error('V2 application record not found.');
+  if (!workflow) throw new Error('V2 workflow record not found.');
+  if (!documentReview || String(documentReview.record['Review Status'] || '') !== 'COMPLETE') {
+    throw new Error('Qualification screening blocked: document review is not COMPLETE.');
   }
 
-  const workflow = v2Find_(
-    'V2_WORKFLOW',
-    'Reference No',
-    reference
-  );
-
-  if (!workflow) {
-    throw new Error('V2 workflow record not found.');
+  const currentStage = String(workflow.record['Application Stage'] || '').trim();
+  if (currentStage !== 'DOCUMENT_REVIEW' && currentStage !== 'QUALIFICATION_SCREENING') {
+    throw new Error('Qualification screening is not available at current stage: ' + currentStage);
   }
 
-  const documentReview = v2Find_(
-    'V2_DOCUMENT_REVIEW',
-    'Reference No',
-    reference
-  );
-
-  if (
-    !documentReview ||
-    String(documentReview.record['Review Status'] || '') !== 'COMPLETE'
-  ) {
-    throw new Error(
-      'Qualification screening blocked: document review is not COMPLETE.'
-    );
-  }
-
-  const currentStage =
-    String(workflow.record['Application Stage'] || '').trim();
-
-  if (
-    currentStage !== 'DOCUMENT_REVIEW' &&
-    currentStage !== 'QUALIFICATION_SCREENING'
-  ) {
-    throw new Error(
-      'Qualification screening is not available at current stage: ' +
-      currentStage
-    );
-  }
-
-  // Enter qualification screening stage formally.
-  if (currentStage === 'DOCUMENT_REVIEW') {
-    v2UpdateStage_(
-      {
-        referenceNo: reference,
-        stage: 'QUALIFICATION_SCREENING',
-        remarks: 'Qualification screening started.'
-      },
-      screenedBy
-    );
-  }
-
-
-  // --------------------------------------------------
-  // Screening inputs
-  // --------------------------------------------------
-
-  const programme =
-    v2QualificationNormalizeProgramme_(
-      application.record['Programme']
-    );
-
-  const qualificationLevel =
-    v2QualificationResolveLevel_(
-      application.record['Highest Qualification']
-    );
-
-  const fieldClassification =
-    v2QualificationNormalizeField_(
-      input.fieldClassification
-    );
-
-  const relevantWorkExperience =
-    v2QualificationNormalizeWorkExperience_(
-      input.relevantWorkExperience
-    );
-
-  const cgpa =
-    v2QualificationParseCgpa_(
-      application.record['Academic Result / CGPA / Grade']
-    );
-
+  const programme = v2QualificationNormalizeProgramme_(application.record['Programme']);
+  const qualificationLevel = v2QualificationResolveLevel_(application.record['Highest Qualification']);
+  const fieldClassification = v2QualificationNormalizeField_(input.fieldClassification);
+  const relevantWorkExperience = v2QualificationNormalizeWorkExperience_(input.relevantWorkExperience);
+  const cgpa = v2QualificationParseCgpa_(application.record['Academic Result / CGPA / Grade']);
 
   if (!fieldClassification) {
-    throw new Error(
-      'Field Classification is required: RELATED, PARTIALLY_RELATED or NON_RELATED.'
-    );
+    throw new Error('Field Classification is required: RELATED, PARTIALLY_RELATED or NON_RELATED.');
   }
-
   if (!relevantWorkExperience) {
-    throw new Error(
-      'Relevant Work Experience is required: YES or NO.'
-    );
+    throw new Error('Relevant Work Experience is required: YES or NO.');
   }
-
   if (!qualificationLevel) {
-    throw new Error(
-      'Qualification level could not be determined from Highest Qualification.'
-    );
+    throw new Error('Qualification level could not be determined from Highest Qualification.');
   }
 
-
-  // --------------------------------------------------
-  // Match against DEV_TEST rules
-  // First matching rule in controlled rule-table order wins.
-  // --------------------------------------------------
-
-  const rules = v2Rows_(
-    V2_QUALIFICATION_RULES_SHEET
-  ).filter(function(rule) {
-    return (
-      String(rule['Rule Status'] || '').trim() === 'DEV_TEST' &&
-      String(rule['Programme'] || '').trim() === programme
-    );
+  // Rules are stable master data, so cache them briefly instead of re-reading the full rule sheet per applicant.
+  const rules = v2QualificationCachedRules_(ss).filter(function(rule) {
+    return String(rule['Programme'] || '').trim() === programme;
   });
 
   let matchedRule = null;
-
   for (let i = 0; i < rules.length; i++) {
-    if (
-      v2QualificationRuleMatches_(
-        rules[i],
-        qualificationLevel,
-        fieldClassification,
-        relevantWorkExperience,
-        cgpa
-      )
-    ) {
+    if (v2QualificationRuleMatches_(
+      rules[i],
+      qualificationLevel,
+      fieldClassification,
+      relevantWorkExperience,
+      cgpa
+    )) {
       matchedRule = rules[i];
       break;
     }
   }
 
-
   const recommendedRoute = matchedRule
     ? String(matchedRule['Recommended Route'] || '').trim()
     : 'MANUAL_ACADEMIC_REVIEW';
-
-  const ruleCode = matchedRule
-    ? String(matchedRule['Rule Code'] || '').trim()
-    : '';
-
-  const manualReviewRequired =
-    !matchedRule ||
-    recommendedRoute === 'MANUAL_ACADEMIC_REVIEW';
-
+  const ruleCode = matchedRule ? String(matchedRule['Rule Code'] || '').trim() : '';
+  const manualReviewRequired = !matchedRule || recommendedRoute === 'MANUAL_ACADEMIC_REVIEW';
   const screeningResult = matchedRule
-    ? (
-        manualReviewRequired
-          ? 'RULE_MATCHED_MANUAL_REVIEW'
-          : 'RULE_MATCHED'
-      )
+    ? (manualReviewRequired ? 'RULE_MATCHED_MANUAL_REVIEW' : 'RULE_MATCHED')
     : 'NO_MATCHING_RULE';
-
-  const screeningStatus =
-    manualReviewRequired
-      ? 'MANUAL_REVIEW_REQUIRED'
-      : 'COMPLETED';
-
+  const screeningStatus = manualReviewRequired ? 'MANUAL_REVIEW_REQUIRED' : 'COMPLETED';
+  const nextStage = manualReviewRequired ? 'QUALIFICATION_SCREENING' : 'READY_FOR_SAC';
   const now = new Date().toISOString();
 
+  const screeningValues = {
+    'Reference No': reference,
+    'Student Name': application.record['Student Name'] || '',
+    'Programme': application.record['Programme'] || '',
+    'Highest Qualification': application.record['Highest Qualification'] || '',
+    'Qualification Field': application.record['Field of Study'] || '',
+    'Academic Result': application.record['Academic Result / CGPA / Grade'] || '',
+    'Field Classification': fieldClassification,
+    'Relevant Work Experience': relevantWorkExperience,
+    'Screening Result': screeningResult,
+    'Recommended Route': recommendedRoute,
+    'Rule Code': ruleCode,
+    'Screening Remarks': remarks,
+    'Screened At': now,
+    'Screened By': screenedBy,
+    'Manual Review Required': manualReviewRequired ? 'YES' : 'NO',
+    'Last Updated': now
+  };
 
-  // --------------------------------------------------
-  // Save detailed screening record
-  // --------------------------------------------------
+  const existingScreening = v2QualificationFastSheetRecord_(screeningSheet, reference);
+  if (existingScreening) {
+    v2QualificationFastWrite_(existingScreening, screeningValues);
+  } else {
+    v2QualificationFastAppend_(screeningSheet, screeningValues);
+  }
 
-  v2Upsert_(
-    V2_QUALIFICATION_SCREENING_SHEET,
-    'Reference No',
-    reference,
-    {
-      'Reference No': reference,
-      'Student Name':
-        application.record['Student Name'] || '',
-      'Programme':
-        application.record['Programme'] || '',
-      'Highest Qualification':
-        application.record['Highest Qualification'] || '',
-      'Qualification Field':
-        application.record['Field of Study'] || '',
-      'Academic Result':
-        application.record['Academic Result / CGPA / Grade'] || '',
-      'Field Classification':
-        fieldClassification,
-      'Relevant Work Experience':
-        relevantWorkExperience,
-      'Screening Result':
-        screeningResult,
-      'Recommended Route':
-        recommendedRoute,
-      'Rule Code':
-        ruleCode,
-      'Screening Remarks':
-        remarks,
-      'Screened At':
-        now,
-      'Screened By':
-        screenedBy,
-      'Manual Review Required':
-        manualReviewRequired ? 'YES' : 'NO',
-      'Last Updated':
-        now
-    }
-  );
+  // One workflow write replaces the previous sequence of stage-enter, screening-summary,
+  // stage-exit and final workflow re-read.
+  v2QualificationFastWrite_(workflow, {
+    'Application Stage': nextStage,
+    'Qualification Screening Status': screeningStatus,
+    'Field Classification': fieldClassification,
+    'Relevant Work Experience': relevantWorkExperience,
+    'Qualification Rule Code': ruleCode,
+    'Qualification Screened At': now,
+    'Qualification Screened By': screenedBy,
+    'Manual Review Required': manualReviewRequired ? 'YES' : 'NO',
+    'Screening Recommendation': recommendedRoute,
+    'Last Updated': now,
+    'Updated By': screenedBy,
+    'Version': V2_BUILD
+  });
 
-
-  // --------------------------------------------------
-  // Update workflow summary
-  // --------------------------------------------------
-
-  const refreshedWorkflow = v2Find_(
-    'V2_WORKFLOW',
-    'Reference No',
-    reference
-  );
-
-  v2UpdateRow_(
-    refreshedWorkflow.sheet,
-    refreshedWorkflow.rowNumber,
-    {
-      'Qualification Screening Status':
-        screeningStatus,
-      'Field Classification':
-        fieldClassification,
-      'Relevant Work Experience':
-        relevantWorkExperience,
-      'Qualification Rule Code':
-        ruleCode,
-      'Qualification Screened At':
-        now,
-      'Qualification Screened By':
-        screenedBy,
-      'Manual Review Required':
-        manualReviewRequired ? 'YES' : 'NO',
-      'Screening Recommendation':
-        recommendedRoute,
-      'Last Updated':
-        now,
-      'Updated By':
-        screenedBy
-    }
-  );
-
-
-  // --------------------------------------------------
-  // Audit
-  // --------------------------------------------------
-
-  v2Audit_(
-    reference,
-    'QUALIFICATION_SCREENING',
-    'QUALIFICATION_SCREENING_COMPLETED',
-    {},
-    {
+  // Keep the same audit coverage, but append directly through the already-open spreadsheet.
+  v2QualificationFastAppend_(auditSheet, {
+    'Timestamp': now,
+    'Event ID': Utilities.getUuid(),
+    'Reference No': reference,
+    'Module': 'QUALIFICATION_SCREENING',
+    'Action': 'QUALIFICATION_SCREENING_COMPLETED',
+    'Previous Value JSON': JSON.stringify({stage:currentStage}),
+    'New Value JSON': JSON.stringify({
       programme: programme,
       qualificationLevel: qualificationLevel,
       cgpa: isFinite(cgpa) ? cgpa : '',
@@ -657,69 +586,35 @@ function v2RunQualificationScreening(referenceNo, screeningInput) {
       relevantWorkExperience: relevantWorkExperience,
       ruleCode: ruleCode,
       recommendedRoute: recommendedRoute,
-      manualReviewRequired: manualReviewRequired
-    },
-    screenedBy,
-    'SUCCESS',
-    remarks
-  );
-
-
-  // --------------------------------------------------
-  // Only completed screening moves to READY_FOR_SAC.
-  // Manual academic review remains at QUALIFICATION_SCREENING.
-  // --------------------------------------------------
-
-  if (!manualReviewRequired) {
-    v2UpdateStage_(
-      {
-        referenceNo: reference,
-        stage: 'READY_FOR_SAC',
-        remarks:
-          'Qualification screening completed. Recommended route: ' +
-          recommendedRoute
-      },
-      screenedBy
-    );
-  }
-
+      manualReviewRequired: manualReviewRequired,
+      stage: nextStage
+    }),
+    'Actor': screenedBy,
+    'Result': 'SUCCESS',
+    'Remarks': remarks,
+    'Build Version': V2_BUILD
+  });
 
   v2InvalidateCache_();
 
-  const finalWorkflow = v2Find_(
-    'V2_WORKFLOW',
-    'Reference No',
-    reference
-  );
-
   const report = {
     ok: true,
-
     referenceNo: reference,
-
     programme: programme,
     qualificationLevel: qualificationLevel,
-
     fieldClassification: fieldClassification,
     relevantWorkExperience: relevantWorkExperience,
-
     cgpa: isFinite(cgpa) ? cgpa : null,
-
     ruleMatched: !!matchedRule,
     ruleCode: ruleCode,
-
     screeningStatus: screeningStatus,
     recommendedRoute: recommendedRoute,
     manualReviewRequired: manualReviewRequired,
-
-    applicationStage:
-      finalWorkflow.record['Application Stage'],
-
-    nextAction:
-      manualReviewRequired
-        ? 'MANUAL_ACADEMIC_REVIEW'
-        : 'SAC_PREPARATION',
-
+    applicationStage: nextStage,
+    nextStage: nextStage,
+    nextAction: manualReviewRequired ? 'MANUAL_ACADEMIC_REVIEW' : 'SAC_PREPARATION',
+    performanceMs: Date.now() - startedAt,
+    fastPath: true,
     emailSent: false,
     offerGenerated: false,
     colGenerated: false,
@@ -729,7 +624,6 @@ function v2RunQualificationScreening(referenceNo, screeningInput) {
   Logger.log(JSON.stringify(report));
   return report;
 }
-
 
 function v2QualificationRuleMatches_(
   rule,
