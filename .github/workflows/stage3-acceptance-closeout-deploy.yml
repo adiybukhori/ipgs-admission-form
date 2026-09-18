@@ -47,7 +47,7 @@ jobs:
           node --check apps-script-v2/WorkflowV2.js
           grep -F "Acceptance confirmation requires all 4 signed admission documents" apps-script-v2/NotificationEngineV2.js
           grep -F "v2ResendAcceptanceConfirmation_" apps-script-v2/NotificationEngineV2.js
-          grep -F "all 4 signed documents must be generated" apps-script-v2/AcceptancePackV2.js
+          grep -F "All 4 signed documents must be generated" apps-script-v2/AcceptancePackV2.js
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
           git add apps-script-v2/AcceptancePackV2.js apps-script-v2/NotificationEngineV2.js apps-script-v2/WorkflowV2.js apps-script-v2/acceptance-v2.html
