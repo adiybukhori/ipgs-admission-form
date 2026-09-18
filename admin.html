@@ -271,6 +271,7 @@
         <button data-section="applications" onclick="go('applications',this)">☷ <span>Applications</span></button>
         <button data-section="sac" onclick="go('sac',this)">✓ <span>SAC</span></button>
         <button data-section="assessment" onclick="go('assessment',this)">◎ <span>IA / PREREQ</span></button>
+        <button data-section="activation" onclick="goActivation(this)">⚙ <span>Prospect / Activation</span></button>
         <button data-section="orientation" onclick="goOrientation(this)">◉ <span>Orientation</span></button>
         <button data-section="handover" onclick="goHandover(this)">⇄ <span>Academic Handover</span></button>
         <button data-section="reports" onclick="go('reports',this)">▥ <span>Reports</span></button>
@@ -336,6 +337,24 @@
         <section id="assessment" class="section">
           <div class="hero"><div><h2>IA / Prerequisite monitoring</h2><p>Track assessment progress and cases that are waiting for the next admission decision.</p></div></div>
           <div class="panel"><div class="panel-head"><h3>Assessment progress</h3><span>Live from V2_ASSESSMENT_PROGRESS</span></div><div class="table-wrap"><table><thead><tr><th>Applicant</th><th>Route</th><th>Status</th><th>Submission</th><th>Interview</th><th>Result</th><th>Updated</th></tr></thead><tbody id="assessmentBody"></tbody></table></div></div>
+        </section>
+
+        <section id="activation" class="section">
+          <div class="hero"><div><h2>Prospect & SKY Activation</h2><p>Coordinate Academic Consultant prospect setup, Fee Group, Registry review and acceptance-gated SKY activation.</p></div><span class="badge purple">REGISTRY GATE</span></div>
+          <div class="kpis">
+            <div class="kpi"><div class="label">PROSPECT PENDING</div><div id="activationProspectPendingKpi" class="value">0</div><div class="meta">Direct / consultant setup required</div></div>
+            <div class="kpi"><div class="label">WAITING ACCEPTANCE</div><div id="activationWaitingAcceptanceKpi" class="value">0</div><div class="meta">Prospect ready · acceptance pending</div></div>
+            <div class="kpi"><div class="label">READY TO ACTIVATE</div><div id="activationReadyKpi" class="value">0</div><div class="meta">Acceptance completed</div></div>
+            <div class="kpi"><div class="label">ACTIVATED</div><div id="activationDoneKpi" class="value">0</div><div class="meta">Eligible for Orientation</div></div>
+          </div>
+          <div class="panel">
+            <div class="panel-head"><h3>Registry Activation Queue</h3><span>Prospect → Fee Group → Acceptance → SKY Activation → Orientation</span></div>
+            <div class="panel-body">
+              <div id="activationMessage" class="message" style="display:none"></div>
+              <div class="warning-banner" style="margin-bottom:14px"><b>Activation control:</b> SKY activation is blocked until the student has completed electronic acceptance. Direct applicants can be handled by Registry using <b>Set Prospect</b>.</div>
+            </div>
+            <div class="table-wrap"><table><thead><tr><th>Student / Consultant</th><th>SKY Prospect</th><th>Fee Group / Structure</th><th>Acceptance</th><th>SKY Activation</th><th>Queue Status</th><th>Action</th></tr></thead><tbody id="activationBody"></tbody></table></div>
+          </div>
         </section>
 
         <section id="orientation" class="section">
@@ -981,5 +1000,6 @@
   </script>
   <script src="/orientation-admin.js"></script>
   <script src="/handover-admin.js"></script>
+  <script src="/activation-admin.js"></script>
 </body>
 </html>
