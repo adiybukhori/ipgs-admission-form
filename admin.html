@@ -411,7 +411,8 @@
                   <span class="flow-item">IA / PREREQ if required</span><span class="arrow">→</span>
                   <span class="flow-item">Eligible for Offer</span><span class="arrow">→</span>
                   <span class="flow-item">Offer Issued</span><span class="arrow">→</span>
-                  <span class="flow-item">Accepted</span>
+                  <span class="flow-item">Accepted</span><span class="arrow">→</span>
+                  <span class="flow-item">Orientation</span>
                 </div>
                 <div class="guide-callout blue" style="margin-top:14px"><b>Direct Entry:</b> after SAC endorsement, a qualified Direct Entry case can bypass IA / Prerequisite and proceed towards offer eligibility.</div>
               </div>
@@ -464,7 +465,7 @@
                 <li>Do not treat a screening recommendation as a final SAC decision.</li>
                 <li>For IA / PREREQ candidates, confirm the assessment result before moving towards Offer.</li>
                 <li>Offer generation should only happen after the case is eligible for offer.</li>
-                <li>The admission process in this portal ends at <b>ACCEPTED</b>; activation, orientation and academic handover belong to the subsequent process.</li>
+                <li>After <b>ACCEPTED</b>, assign the student to an Orientation session. Attendance becomes the readiness gate for the later Academic Handover stage.</li>
               </ul></div>
             </div></div>
           </div>
@@ -721,8 +722,8 @@
         copy='Offer has been issued. Monitor the Acceptance status and signed PDF.';
         actions='<button class="ops-btn" disabled>Awaiting student acceptance</button>';
       }else if(s==='ACCEPTED'){
-        copy='Admission is confirmed. No further Admission V2 action is required in the current scope.';
-        actions='<span class="badge green">Admission Complete</span>';
+        copy='Admission is confirmed. The student is now ready to be assigned to an Orientation session from the Applications module.';
+        actions='<span class="badge green">Ready for Orientation</span>';
       }else if(s==='REJECTED'||s==='WITHDRAWN'){
         copy='This admission route is closed.';
         actions=`<span class="badge red">${esc(pretty(s))}</span>`;
