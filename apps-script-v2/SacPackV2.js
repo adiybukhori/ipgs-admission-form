@@ -279,7 +279,9 @@ function v2SacPackPrintableBlob_(file) {
 
 function v2SacPackRequiredDocs_(applicationRecord) {
   if (typeof v2GetRequiredDocuments_ === 'function') {
-    return v2GetRequiredDocuments_(applicationRecord);
+    return v2GetRequiredDocuments_(applicationRecord).filter(function(item) {
+      return String(item && item.key || '') !== 'preliminaryResearchIntent';
+    });
   }
 
   const applicantType = String(applicationRecord['Applicant Type'] || '').toUpperCase();
