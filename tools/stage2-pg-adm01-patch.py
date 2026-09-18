@@ -212,7 +212,11 @@ function v2PgAdm01DisplayDate_(value) {
 function v2PgAdm01ExtractDriveId_(value) {
   const text = String(value || '').trim();
   if (!text) return '';
-  const match = text.match(/[-\\w]{20,}/);
+  if (typeof v2OfferExtractDriveId_ === 'function') {
+    const shared = String(v2OfferExtractDriveId_(text) || '').trim();
+    if (shared) return shared;
+  }
+  const match = text.match(/[-A-Za-z0-9_]{20,}/);
   return match ? match[0] : '';
 }
 
