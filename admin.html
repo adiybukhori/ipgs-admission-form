@@ -359,20 +359,19 @@
         </section>
 
         <section id="activation" class="section">
-          <div class="hero"><div><h2>Prospect & SKY Activation</h2><p>Coordinate Academic Consultant prospect setup, Fee Group, Registry review and acceptance-gated SKY activation.</p></div><span class="badge purple">REGISTRY GATE</span></div>
+          <div class="hero"><div><h2>Prospect & SKY Activation</h2><p>Standalone Marketing → Registry operational tracking for SKY Prospect and student activation.</p></div><span class="badge purple">STANDALONE</span></div>
           <div class="kpis">
             <div class="kpi"><div class="label">PROSPECT PENDING</div><div id="activationProspectPendingKpi" class="value">0</div><div class="meta">Direct / consultant setup required</div></div>
-            <div class="kpi"><div class="label">WAITING ACCEPTANCE</div><div id="activationWaitingAcceptanceKpi" class="value">0</div><div class="meta">Prospect ready · acceptance pending</div></div>
-            <div class="kpi"><div class="label">READY TO ACTIVATE</div><div id="activationReadyKpi" class="value">0</div><div class="meta">Acceptance completed</div></div>
-            <div class="kpi"><div class="label">ACTIVATED</div><div id="activationDoneKpi" class="value">0</div><div class="meta">Eligible for Orientation</div></div>
+            <div class="kpi"><div class="label">PROSPECT DONE</div><div id="activationProspectDoneKpi" class="value">0</div><div class="meta">Marketing handoff completed</div></div>
+            <div class="kpi"><div class="label">ACTIVE IN SKY DONE</div><div id="activationDoneKpi" class="value">0</div><div class="meta">Registry activation completed</div></div>
           </div>
           <div class="panel">
-            <div class="panel-head"><h3>Registry Activation Queue</h3><span>Prospect → Fee Group → Acceptance → SKY Activation → Orientation</span></div>
+            <div class="panel-head"><h3>Prospect & Activation Tracking</h3><span>Prospect Done → Active in SKY Done</span></div>
             <div class="panel-body">
               <div id="activationMessage" class="message" style="display:none"></div>
-              <div class="warning-banner" style="margin-bottom:14px"><b>Activation control:</b> SKY activation is blocked until the student has completed electronic acceptance. Direct applicants can be handled by Registry using <b>Set Prospect</b>.</div>
+              <div class="warning-banner" style="margin-bottom:14px"><b>Operational rule:</b> this module is independent from Document Review, SAC, Offer, Acceptance and Orientation. Once Prospect + Fee Structure are completed, Registry may activate the student in SKY.</div>
             </div>
-            <div class="table-wrap"><table><thead><tr><th>Student / Consultant</th><th>SKY Prospect</th><th>Fee Group / Structure</th><th>Acceptance</th><th>SKY Activation</th><th>Queue Status</th><th>Action</th></tr></thead><tbody id="activationBody"></tbody></table></div>
+            <div class="table-wrap"><table><thead><tr><th>Student / Consultant</th><th>Prospect</th><th>Fee Structure</th><th>Active in SKY</th><th>Status</th><th>Action</th></tr></thead><tbody id="activationBody"></tbody></table></div>
           </div>
         </section>
 
