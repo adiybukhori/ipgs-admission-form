@@ -4,10 +4,10 @@
  * Flow:
  * Orientation ATTENDED -> create handover batch -> email Academic ->
  * Academic accepts secure handover -> notify IT/Moodle/Library ->
- * Registry tracks provisioning completion -> ACTIVE_STUDENT.
+ * Registry tracks provisioning completion -> student access email -> ACTIVE_STUDENT.
  */
 
-const V2_HANDOVER_BUILD = 'ACADEMIC_HANDOVER_V2_STAGE5_20260918';
+const V2_HANDOVER_BUILD = 'ACADEMIC_HANDOVER_V2_STAGE5_ACCESS_NOTIFY_20260918';
 
 const V2_HANDOVER_BATCH_HEADERS = [
   'Handover Batch ID','Handover Name','Status','Student Count','Intake Summary',
@@ -399,30 +399,13 @@ function v2UpdateProvisioningTask_(data, actor) {
 
   const workflow = v2Find_('V2_WORKFLOW','Reference No',reference);
   if (workflow && complete) {
-    const activatedAt = new Date().toISOString();
+    const readyAt = new Date().toISOString();
     v2UpdateRow_(workflow.sheet,workflow.rowNumber,{
-      'Provisioning Status':'COMPLETED',
-      'Academic Handover Status':'COMPLETED',
-      'Application Stage':'ACTIVE_STUDENT',
-      'Last Updated':activatedAt,
+      'Provisioning Status':'READY_TO_NOTIFY',
+      'Academic Handover Status':'ACCEPTED',
+      'Application Stage':'ACADEMIC_HANDOVER',
+      'Last Updated':readyAt,
       'Updated By':actor || 'Admin Portal V2'
-    });
-    v2Upsert_('V2_ACADEMIC_PORTAL','Reference No',reference,{
-      'Reference No':reference,
-      'Student ID':'',
-      'Student Name':workflow.record['Student Name'] || '',
-      'Programme':workflow.record['Programme'] || '',
-      'Portal Login Email':current['Innovative Email'] || workflow.record['Personal Email'] || '',
-      'Portal Status':'ACTIVE',
-      'Current Academic Stage':'NEWLY_HANDED_OVER',
-      'Current Semester':'',
-      'Subjects Completed JSON':'[]',
-      'Subjects Current JSON':'[]',
-      'Subjects Next JSON':'[]',
-      'Research Milestone':'',
-      'Academic PIC':'',
-      'Activated At':activatedAt,
-      'Last Updated':activatedAt
     });
   }
 
@@ -437,8 +420,8 @@ function v2UpdateProvisioningTask_(data, actor) {
     );
     if (found) {
       v2UpdateRow_(found.sheet,found.rowNumber,{
-        'Provisioning Status':complete ? 'COMPLETED' : 'IN_PROGRESS',
-        'Handover Status':complete ? 'COMPLETED' : 'ACCEPTED',
+        'Provisioning Status':complete ? 'READY_TO_NOTIFY' : 'IN_PROGRESS',
+        'Handover Status':'ACCEPTED',
         'Last Updated':new Date().toISOString()
       });
     }
@@ -455,8 +438,158 @@ function v2UpdateProvisioningTask_(data, actor) {
     task:task,
     status:status,
     allProvisioningComplete:complete,
-    applicationStage:complete ? 'ACTIVE_STUDENT' : 'ACADEMIC_HANDOVER',
+    applicationStage:'ACADEMIC_HANDOVER',
+    nextAction:complete ? 'SEND_STUDENT_ACCESS' : 'COMPLETE_REMAINING_TASKS',
     provisioning:current
+  };
+}
+
+function v2SendStudentProvisioningAccess_(data, actor) {
+  v2HandoverEnsureFoundation_();
+  const reference = v2Required_(data.referenceNo,'Reference No');
+  const provisioning = v2Find_('V2_PROVISIONING','Reference No',reference);
+  const workflow = v2Find_('V2_WORKFLOW','Reference No',reference);
+  if (!provisioning || !workflow) throw new Error('Provisioning/workflow record not found.');
+
+  const row = provisioning.record;
+  const tasksComplete =
+    String(row['IT Email Status'] || '').toUpperCase() === 'COMPLETED' &&
+    String(row['Moodle Status'] || '').toUpperCase() === 'COMPLETED' &&
+    String(row['E-Library Status'] || '').toUpperCase() === 'COMPLETED';
+  if (!tasksComplete) {
+    throw new Error('Complete IT, Moodle and e-Library provisioning before sending student access details.');
+  }
+
+  const alreadySent = String(row['Student Notification Status'] || '').toUpperCase() === 'SENT';
+  const resend = data.resend === true;
+  if (alreadySent && !resend) {
+    return {
+      ok:true,
+      alreadySent:true,
+      referenceNo:reference,
+      studentNotificationStatus:'SENT',
+      studentNotifiedAt:row['Student Notified At'] || ''
+    };
+  }
+
+  const recipient = v2HandoverEmail_(row['Personal Email'] || workflow.record['Personal Email'], 'Student personal email');
+  const studentName = String(row['Student Name'] || workflow.record['Student Name'] || 'Student').trim();
+  const innovativeEmail = v2HandoverEmail_(row['Innovative Email'], 'Innovative email');
+  const moodleLogin = String(data.moodleLogin || row['Moodle Login Email'] || recipient).trim();
+  const eLibraryLogin = String(data.eLibraryLogin || innovativeEmail).trim();
+
+  const itPassword = String(data.itTemporaryPassword || '');
+  const moodlePassword = String(data.moodleTemporaryPassword || '');
+  const eLibraryPassword = String(data.eLibraryTemporaryPassword || '');
+  if (!itPassword || !moodlePassword || !eLibraryPassword) {
+    throw new Error('Enter the temporary password for Innovative email, Moodle and e-Library before sending.');
+  }
+
+  const subject = resend
+    ? '[IUC IPGS] Updated Student Access Details'
+    : '[IUC IPGS] Your Student Access Details';
+  const html =
+    '<div style="font-family:Arial,sans-serif;max-width:700px;margin:auto;border:1px solid #e5e7eb;border-radius:16px;overflow:hidden">' +
+    '<div style="background:#2d2363;color:#fff;padding:24px"><h2 style="margin:0">Student Access Details</h2></div>' +
+    '<div style="padding:24px"><p>Dear <strong>'+v2Html_(studentName)+'</strong>,</p>' +
+    '<p>Your student access setup has been completed. Please use the details below to access the relevant IUC services.</p>' +
+    '<table style="width:100%;border-collapse:collapse;margin:18px 0">' +
+    '<tr><th style="text-align:left;padding:9px;border-bottom:2px solid #ddd">Service</th><th style="text-align:left;padding:9px;border-bottom:2px solid #ddd">Login / Account</th><th style="text-align:left;padding:9px;border-bottom:2px solid #ddd">Temporary Password</th></tr>' +
+    '<tr><td style="padding:9px;border-bottom:1px solid #eee">Innovative Email</td><td style="padding:9px;border-bottom:1px solid #eee">'+v2Html_(innovativeEmail)+'</td><td style="padding:9px;border-bottom:1px solid #eee">'+v2Html_(itPassword)+'</td></tr>' +
+    '<tr><td style="padding:9px;border-bottom:1px solid #eee">Moodle</td><td style="padding:9px;border-bottom:1px solid #eee">'+v2Html_(moodleLogin)+'</td><td style="padding:9px;border-bottom:1px solid #eee">'+v2Html_(moodlePassword)+'</td></tr>' +
+    '<tr><td style="padding:9px;border-bottom:1px solid #eee">e-Library</td><td style="padding:9px;border-bottom:1px solid #eee">'+v2Html_(eLibraryLogin)+'</td><td style="padding:9px;border-bottom:1px solid #eee">'+v2Html_(eLibraryPassword)+'</td></tr>' +
+    '</table>' +
+    '<p><strong>Security reminder:</strong> Please change any temporary password after your first successful login and do not share your credentials with other users.</p>' +
+    '<p>If any access does not work, please contact IPGS Registry so the relevant unit can assist.</p>' +
+    '<p>Regards,<br><strong>IPGS Registry</strong><br>Innovative University College</p></div></div>';
+
+  const textBody =
+    'Your IUC student access setup has been completed.\n\n' +
+    'Innovative Email: ' + innovativeEmail + '\nTemporary Password: ' + itPassword + '\n\n' +
+    'Moodle Login: ' + moodleLogin + '\nTemporary Password: ' + moodlePassword + '\n\n' +
+    'e-Library Login: ' + eLibraryLogin + '\nTemporary Password: ' + eLibraryPassword + '\n\n' +
+    'Please change temporary passwords after your first successful login.';
+
+  const delivery = v2NotificationSend_(
+    resend ? 'STUDENT_ACCESS_CREDENTIALS_RESEND' : 'STUDENT_ACCESS_CREDENTIALS',
+    [recipient],
+    subject,
+    textBody,
+    html,
+    {}
+  );
+
+  const now = new Date().toISOString();
+  v2UpdateRow_(provisioning.sheet,provisioning.rowNumber,{
+    'Student Notification Status':delivery.sent ? 'SENT' : delivery.status,
+    'Student Notified At':delivery.sent ? now : (row['Student Notified At'] || ''),
+    'Last Updated':now
+  });
+
+  if (delivery.sent) {
+    v2UpdateRow_(workflow.sheet,workflow.rowNumber,{
+      'Provisioning Status':'COMPLETED',
+      'Academic Handover Status':'COMPLETED',
+      'Application Stage':'ACTIVE_STUDENT',
+      'Innovative Email':innovativeEmail,
+      'Last Updated':now,
+      'Updated By':actor || 'Admin Portal V2'
+    });
+
+    v2Upsert_('V2_ACADEMIC_PORTAL','Reference No',reference,{
+      'Reference No':reference,
+      'Student ID':'',
+      'Student Name':workflow.record['Student Name'] || studentName,
+      'Programme':workflow.record['Programme'] || '',
+      'Portal Login Email':innovativeEmail,
+      'Portal Status':'ACTIVE',
+      'Current Academic Stage':'NEWLY_HANDED_OVER',
+      'Current Semester':'',
+      'Subjects Completed JSON':'[]',
+      'Subjects Current JSON':'[]',
+      'Subjects Next JSON':'[]',
+      'Research Milestone':'',
+      'Academic PIC':'',
+      'Activated At':now,
+      'Last Updated':now
+    });
+
+    const handoverRows = v2Rows_('V2_HANDOVER_STUDENTS').filter(function(item){
+      return String(item['Reference No'] || '') === reference;
+    });
+    handoverRows.forEach(function(item){
+      const found = v2FindComposite_(
+        'V2_HANDOVER_STUDENTS',
+        ['Handover Batch ID','Reference No'],
+        [item['Handover Batch ID'],reference]
+      );
+      if (found) {
+        v2UpdateRow_(found.sheet,found.rowNumber,{
+          'Provisioning Status':'COMPLETED',
+          'Handover Status':'COMPLETED',
+          'Last Updated':now
+        });
+      }
+    });
+  }
+
+  v2Audit_(reference,'PROVISIONING',resend ? 'RESEND_STUDENT_ACCESS' : 'SEND_STUDENT_ACCESS',{},{
+    notificationStatus:delivery.status,
+    innovativeEmail:innovativeEmail,
+    moodleLogin:moodleLogin,
+    eLibraryLogin:eLibraryLogin,
+    credentialsStored:false
+  },actor || 'Admin Portal V2',delivery.sent ? 'SUCCESS' : 'SKIPPED','Passwords were used only for delivery and were not stored in the spreadsheet or audit log.');
+
+  v2InvalidateCache_();
+  return {
+    ok:true,
+    referenceNo:reference,
+    sent:delivery.sent,
+    status:delivery.status,
+    applicationStage:delivery.sent ? 'ACTIVE_STUDENT' : 'ACADEMIC_HANDOVER',
+    provisioningStatus:delivery.sent ? 'COMPLETED' : 'READY_TO_NOTIFY',
+    credentialsStored:false
   };
 }
 
