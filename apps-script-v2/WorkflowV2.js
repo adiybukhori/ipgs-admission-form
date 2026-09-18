@@ -392,6 +392,7 @@ function handleV2Post_(payload) {
   if (action === 'v2ResendAcademicHandoverEmail') return v2ResendAcademicHandoverEmail_(payload.data || {}, payload.updatedBy || 'Admin Portal V2');
   if (action === 'v2UpdateProvisioningTask') return v2UpdateProvisioningTask_(payload.data || {}, payload.updatedBy || 'Admin Portal V2');
   if (action === 'v2ResendProvisioningTaskEmails') return v2ResendProvisioningTaskEmails_(payload.data || {}, payload.updatedBy || 'Admin Portal V2');
+  if (action === 'v2SendStudentProvisioningAccess') return v2SendStudentProvisioningAccess_(payload.data || {}, payload.updatedBy || 'Admin Portal V2');
   if (action === 'v2UpdateProvisioning') return v2UpdateProvisioning_(payload.data || {}, payload.updatedBy);
   throw new Error('Unsupported V2 POST action.');
 }
@@ -1244,8 +1245,10 @@ function v2UpdateProvisioning_(data, actor) {
   const ready = row['IT Email Status'] === 'COMPLETED' && row['E-Library Status'] === 'COMPLETED' && row['Moodle Status'] === 'COMPLETED';
   row['Student Notification Status'] = ready && row['Student Notification Status'] === 'NOT_READY' ? 'READY_TO_SEND' : row['Student Notification Status'];
   v2Upsert_('V2_PROVISIONING','Reference No',reference,row);
+  const notified = String(row['Student Notification Status'] || '').toUpperCase() === 'SENT';
   v2UpdateRow_(workflow.sheet,workflow.rowNumber,{
-    'Innovative Email':row['Innovative Email'],'Provisioning Status':ready ? 'COMPLETED':'IN_PROGRESS',
+    'Innovative Email':row['Innovative Email'],
+    'Provisioning Status':ready ? (notified ? 'COMPLETED' : 'READY_TO_NOTIFY') : 'IN_PROGRESS',
     'Last Updated':now,'Updated By':actor || 'Admin Portal'
   });
   v2Audit_(reference,'PROVISIONING','UPDATE_CHECKLIST',old,row,actor || 'Admin Portal','SUCCESS','No credential email is sent by this action.');
