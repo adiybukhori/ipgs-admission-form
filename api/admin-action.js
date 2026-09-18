@@ -30,7 +30,11 @@ const ALLOWED_ACTIONS = new Set([
   'v2PrepareSacResultDocument',
   'v2PreviewSacResult',
   'v2SendSacResultEmail',
-  'v2UpdateAssessment'
+  'v2UpdateAssessment',
+  'v2CreateOrientationSession',
+  'v2AssignOrientationBatch',
+  'v2UpdateOrientationAttendance',
+  'v2SendOrientationReminderNow'
 ]);
 
 async function validateAdminPassword(password) {
