@@ -631,6 +631,18 @@ function v2AcceptancePackSubmitSigned(rawToken, data) {
       );
       createdFiles.push(handbookAckFile);
       updates['Student Handbook Acknowledgement Signed PDF URL'] = handbookAckFile.getUrl();
+
+      // Stage 3 closeout gate: do not mark the offer accepted unless all four
+      // required signed outputs exist in Drive.
+      const signedUrls = [
+        updates['Acceptance PDF URL'],
+        updates['Surat Penerimaan Signed PDF URL'],
+        updates['Surat Akuan Signed PDF URL'],
+        updates['Student Handbook Acknowledgement Signed PDF URL']
+      ];
+      if (signedUrls.length !== 4 || !signedUrls.every(v2AcceptancePackUrlExists_)) {
+        throw new Error('Acceptance pack is incomplete. All 4 signed documents must be generated before final acceptance.');
+      }
     } catch (generationError) {
       createdFiles.forEach(function(file) {
         try { file.setTrashed(true); } catch (ignore) {}

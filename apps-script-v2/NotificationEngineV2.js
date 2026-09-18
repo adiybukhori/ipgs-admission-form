@@ -271,8 +271,14 @@ function v2SendAcceptanceConfirmationCentral_(referenceNo, signedDocumentUrls) {
   const recipient = String(application.record['Personal Email'] || '').trim();
   const acceptedAt = String(workflow.record['Acceptance Received At'] || workflow.record['Acceptance Signed At'] || '');
   const handbookUrl = String(workflow.record['Student Handbook URL'] || '').trim();
-  const urls = signedDocumentUrls || [];
+  const urls = (signedDocumentUrls || []).filter(Boolean);
+  if (urls.length !== 4) {
+    throw new Error('Acceptance confirmation requires all 4 signed admission documents.');
+  }
   const attachments = urls.map(v2NotificationBlobFromUrl_).filter(Boolean);
+  if (attachments.length !== 4) {
+    throw new Error('One or more signed acceptance documents could not be attached.');
+  }
 
   const subject = '[IUC IPGS] Acceptance Successfully Received - ' + programme;
   const handbookLine = handbookUrl ? '<p>You may continue to access/download the <a href="'+v2Html_(handbookUrl)+'">Postgraduate Student Handbook here</a>.</p>' : '';
@@ -295,6 +301,34 @@ function v2SendAcceptanceConfirmationCentral_(referenceNo, signedDocumentUrls) {
     v2Audit_(reference,'ACCEPTANCE','SEND_ACCEPTANCE_CONFIRMATION',{}, {recipients:result.recipients,attachmentCount:attachments.length,status:result.status}, 'Notification Engine', result.sent ? 'SUCCESS' : 'SKIPPED', '');
   }
   return result;
+}
+
+function v2ResendAcceptanceConfirmation_(data, actor) {
+  v2NotificationEnsureHeaders_();
+  const reference = String(data && data.referenceNo || '').trim();
+  if (!reference) throw new Error('Reference No is required.');
+  const workflow = v2Find_('V2_WORKFLOW','Reference No',reference);
+  if (!workflow) throw new Error('Workflow record not found.');
+  if (String(workflow.record['Acceptance Status'] || '').toUpperCase() !== 'ACCEPTED') {
+    throw new Error('Acceptance confirmation can only be sent after the offer has been accepted.');
+  }
+  const signedUrls = [
+    String(workflow.record['Acceptance PDF URL'] || '').trim(),
+    String(workflow.record['Surat Penerimaan Signed PDF URL'] || '').trim(),
+    String(workflow.record['Surat Akuan Signed PDF URL'] || '').trim(),
+    String(workflow.record['Student Handbook Acknowledgement Signed PDF URL'] || '').trim()
+  ];
+  if (signedUrls.some(function(url){ return !url; })) {
+    throw new Error('Acceptance confirmation blocked: one or more signed documents are missing.');
+  }
+  const result = v2SendAcceptanceConfirmationCentral_(reference, signedUrls);
+  if (typeof v2Audit_ === 'function') {
+    v2Audit_(reference,'ACCEPTANCE','RESEND_ACCEPTANCE_CONFIRMATION',{},
+      {status:result.status,recipients:result.recipients,signedDocuments:4},
+      actor || 'Admin Portal V2',result.sent ? 'SUCCESS' : 'SKIPPED',
+      'Acceptance confirmation manually resent from Admin.');
+  }
+  return Object.assign({ok:true,referenceNo:reference,signedDocumentCount:4,v1Touched:false},result);
 }
 
 function v2NotificationStatus_() {
