@@ -303,14 +303,21 @@ function v2AgentSubmitAction(token, formData) {
 
     SpreadsheetApp.flush();
 
-    // Intentionally no MailApp/GmailApp call in this development release.
-    // Registry notification is prepared only as a status/log until email is enabled later.
+    let registryNotification = {ok:true,sent:false,status:'NOT_SENT'};
+    if (typeof v2NotifyRegistryProspectReady_ === 'function') {
+      registryNotification = v2NotifyRegistryProspectReady_(referenceNo, 'Agent / Prospect Link');
+      v2SetRecordValues_(actionSheet, match.rowNumber, {
+        'Registry Notification Status': registryNotification.status || 'UNKNOWN',
+        'Last Updated': v2Now_()
+      });
+    }
+
     Logger.log(JSON.stringify({
       event: 'V2_AGENT_PROSPECT_UPDATED',
       referenceNo: referenceNo,
       skyProspectId: skyProspectId,
       feeGroup: feeGroup,
-      registryNotificationStatus: V2_AGENT_EMAIL_MODE
+      registryNotificationStatus: registryNotification.status || 'NOT_SENT'
     }));
 
     return {
@@ -318,8 +325,9 @@ function v2AgentSubmitAction(token, formData) {
       referenceNo: referenceNo,
       skyProspectId: skyProspectId,
       feeGroup: feeGroup,
-      registryNotificationStatus: V2_AGENT_EMAIL_MODE,
-      message: 'Prospect and Fee Group have been recorded successfully.'
+      registryNotificationStatus: registryNotification.status || 'NOT_SENT',
+      feeStructure: registryNotification.feeStructure || null,
+      message: 'Prospect and Fee Group have been recorded successfully. Registry has been notified.'
     };
   } finally {
     lock.releaseLock();
