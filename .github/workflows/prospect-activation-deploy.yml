@@ -38,10 +38,12 @@ jobs:
           node --check apps-script-v2/ActivationV2.js
           node --check apps-script-v2/WorkflowV2.js
           node --check apps-script-v2/AgentProspectV2.js
+          node --check apps-script-v2/AgentAdminV2.js
           node --check apps-script-v2/NotificationEngineV2.js
           node --check apps-script-v2/OrientationV2.js
           grep -F 'function v2ActivateStudentInSky_' apps-script-v2/ActivationV2.js
           grep -F 'v2NotifyRegistryProspectReady_' apps-script-v2/AgentProspectV2.js
+          grep -F 'Appended an all-empty row' apps-script-v2/AgentAdminV2.js || grep -F 'Appending an all-empty row' apps-script-v2/AgentAdminV2.js
           grep -F 'Registry must confirm SKY activation first' apps-script-v2/OrientationV2.js
 
       - name: Verify clasp credential
