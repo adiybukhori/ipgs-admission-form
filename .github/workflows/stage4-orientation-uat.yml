@@ -14,7 +14,6 @@ jobs:
     runs-on: ubuntu-latest
     env:
       V2_DEPLOYMENT_ID: AKfycbxasT_HgtRSvTbR_bsa8p17Cm-C2PKn20Ok1kU-AyJmxiKX8kX5EGOtRLwVwNlAL7JB
-      V2_WEB_APP: https://script.google.com/macros/s/AKfycbxasT_HgtRSvTbR_bsa8p17Cm-C2PKn20Ok1kU-AyJmxiKX8kX5EGOtRLwVwNlAL7JB/exec
     steps:
       - name: Checkout Apps Script V2 branch
         uses: actions/checkout@v4
@@ -43,139 +42,115 @@ jobs:
           printf '%s' "$CLASPRC_JSON" > "$HOME/.clasprc.json"
           chmod 600 "$HOME/.clasprc.json"
 
-      - name: Verify locked V2 target
-        run: node tools/verify-clasp-target.mjs
-
-      - name: Inject one-time UAT web endpoint
-        shell: bash
+      - name: Push and deploy clean Stage 4 source
         run: |
-          umask 077
-          openssl rand -hex 32 > /tmp/stage4-uat-key
-          python - <<'PY'
-          from pathlib import Path
-          key = Path('/tmp/stage4-uat-key').read_text().strip()
-          path = Path('apps-script-v2/Code.js')
-          text = path.read_text()
-          anchor = "  const params = e && e.parameter ? e.parameter : {};\n"
-          if anchor not in text:
-              raise SystemExit('doGet params anchor not found')
-          snippet = f"""  // TEMP_STAGE4_UAT_ENDPOINT - injected only in CI, never committed.\n  if (params.action === 'v2Stage4UatTemp') {{\n    if (String(params.key || '') !== '{key}') return jsonOutput_({{ok:false, message:'Invalid temporary UAT key.'}});\n    return jsonOutput_(v2RunStage4Uat());\n  }}\n\n"""
-          path.write_text(text.replace(anchor, anchor + snippet, 1))
-          PY
-          grep -F 'TEMP_STAGE4_UAT_ENDPOINT' apps-script-v2/Code.js >/dev/null
-          node --check apps-script-v2/Code.js
-
-      - name: Deploy temporary UAT endpoint
-        run: |
+          node tools/verify-clasp-target.mjs
           clasp push -f
-          clasp create-deployment --deploymentId "$V2_DEPLOYMENT_ID" --description "Temporary Stage 4 controlled UAT endpoint"
+          clasp create-deployment --deploymentId "$V2_DEPLOYMENT_ID" --description "Stage 4 controlled UAT execution build"
 
-      - name: Execute Stage 4 UAT through deployed web app
-        id: run_uat
+      - name: Verify deployed execution API target
+        id: ping
         shell: bash
         run: |
-          key="$(cat /tmp/stage4-uat-key)"
-          : > /tmp/stage4-uat-response.txt
-          ok=0
-          : > /tmp/stage4-uat-http.txt
-          for attempt in 1 2 3 4 5 6 7 8 9 10; do
-            meta="$(curl -sSL --retry 2 --retry-delay 1 \
-              -w '%{http_code}|%{content_type}' \
-              "$V2_WEB_APP?action=v2Stage4UatTemp&key=$key" \
-              -o /tmp/stage4-uat-response.txt || true)"
-            printf '%s' "$meta" > /tmp/stage4-uat-http.txt
-            if grep -F '"uat":"PASS"' /tmp/stage4-uat-response.txt >/dev/null; then
-              ok=1
-              break
-            fi
-            sleep 5
-          done
-          if [ "$ok" -eq 1 ]; then
+          set +e
+          clasp run v2ExecutionPing --nondev >/tmp/stage4-ping.txt 2>&1
+          code=$?
+          set -e
+          echo "exit_code=$code" >> "$GITHUB_OUTPUT"
+          if [ "$code" -eq 0 ] && grep -F '1O-Y-q7_q78xKM1p5e2C3EWyQfYr5rXvhO0oWbVaw5Mw' /tmp/stage4-ping.txt >/dev/null; then
             echo "status=PASS" >> "$GITHUB_OUTPUT"
           else
             echo "status=FAIL" >> "$GITHUB_OUTPUT"
           fi
-          python - <<'PY'
-          import json
-          from pathlib import Path
-          p=Path('/tmp/stage4-uat-response.txt')
-          try:
-              data=json.loads(p.read_text())
-          except Exception:
-              data={}
-          import re
-          raw=p.read_text(errors='replace') if p.exists() else ''
-          preview=raw[:700]
-          preview=re.sub(r'[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\\.[A-Za-z]{2,}', '[EMAIL_REDACTED]', preview)
-          preview=re.sub(r'(?i)(access_token|refresh_token|id_token|client_secret)[^\\s<>"&]*', '[TOKEN_REDACTED]', preview)
-          http=Path('/tmp/stage4-uat-http.txt').read_text(errors='replace')[:200] if Path('/tmp/stage4-uat-http.txt').exists() else ''
-          safe={
-              'ok': bool(data.get('ok')),
-              'stage': data.get('stage'),
-              'uat': data.get('uat'),
-              'referenceNo': data.get('referenceNo',''),
-              'sessionId': data.get('sessionId',''),
-              'reminderAutomation': data.get('reminderAutomation',''),
-              'invitationStatus': data.get('invitationStatus',''),
-              'attendanceStatus': data.get('attendanceStatus',''),
-              'academicHandoverStatus': data.get('academicHandoverStatus',''),
-              'sessionStatus': data.get('sessionStatus',''),
-              'message': str(data.get('message',''))[:500],
-              'http': http,
-              'responsePreview': preview
-          }
-          Path('/tmp/stage4-uat-safe.json').write_text(json.dumps(safe, indent=2))
-          PY
 
-      - name: Remove temporary UAT endpoint and redeploy clean source
-        if: always()
+      - name: Execute controlled Stage 4 UAT
+        if: steps.ping.outputs.status == 'PASS'
+        id: run_uat
         shell: bash
         run: |
-          git checkout -- apps-script-v2/Code.js
-          if grep -F 'TEMP_STAGE4_UAT_ENDPOINT' apps-script-v2/Code.js >/dev/null; then
-            echo "Temporary UAT endpoint still present after checkout."
-            exit 1
+          set +e
+          clasp run v2RunStage4Uat --nondev >/tmp/stage4-uat.txt 2>&1
+          code=$?
+          set -e
+          echo "exit_code=$code" >> "$GITHUB_OUTPUT"
+          if [ "$code" -eq 0 ] && grep -F '"uat":"PASS"' /tmp/stage4-uat.txt >/dev/null; then
+            echo "status=PASS" >> "$GITHUB_OUTPUT"
+          else
+            echo "status=FAIL" >> "$GITHUB_OUTPUT"
           fi
-          clasp push -f
-          clasp create-deployment --deploymentId "$V2_DEPLOYMENT_ID" --description "Stage 4 UAT cleanup - temporary endpoint removed"
 
-      - name: Record sanitized UAT result
+      - name: Record verified UAT result
         if: always()
         shell: bash
         run: |
-          status="${{ steps.run_uat.outputs.status }}"
-          [ -n "$status" ] || status="FAIL"
+          ping_status="${{ steps.ping.outputs.status }}"
+          uat_status="${{ steps.run_uat.outputs.status }}"
+          [ -n "$ping_status" ] || ping_status="FAIL"
+          [ -n "$uat_status" ] || uat_status="NOT_RUN"
           git fetch origin main
           git checkout -B main origin/main
           mkdir -p uat
+          python - <<'PY'
+          import json, re
+          from pathlib import Path
+
+          def safe_preview(path):
+              p=Path(path)
+              if not p.exists():
+                  return ''
+              s=p.read_text(errors='replace')[:1200]
+              s=re.sub(r'[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}', '[EMAIL_REDACTED]', s)
+              s=re.sub(r'(?i)(access_token|refresh_token|id_token|client_secret)[^\s<>"&]*', '[TOKEN_REDACTED]', s)
+              return s
+
+          uat={}
+          raw=Path('/tmp/stage4-uat.txt')
+          if raw.exists():
+              try:
+                  uat=json.loads(raw.read_text())
+              except Exception:
+                  uat={}
+
+          result={
+              'pingStatus':'${{ steps.ping.outputs.status }}' or 'FAIL',
+              'pingExitCode':'${{ steps.ping.outputs.exit_code }}',
+              'uatStatus':'${{ steps.run_uat.outputs.status }}' or 'NOT_RUN',
+              'uatExitCode':'${{ steps.run_uat.outputs.exit_code }}',
+              'ok':bool(uat.get('ok')),
+              'stage':uat.get('stage'),
+              'uat':uat.get('uat'),
+              'referenceNo':uat.get('referenceNo',''),
+              'sessionId':uat.get('sessionId',''),
+              'reminderAutomation':uat.get('reminderAutomation',''),
+              'invitationStatus':uat.get('invitationStatus',''),
+              'attendanceStatus':uat.get('attendanceStatus',''),
+              'academicHandoverStatus':uat.get('academicHandoverStatus',''),
+              'sessionStatus':uat.get('sessionStatus',''),
+              'pingPreview':safe_preview('/tmp/stage4-ping.txt'),
+              'uatPreview':safe_preview('/tmp/stage4-uat.txt')
+          }
+          Path('/tmp/stage4-result.json').write_text(json.dumps(result,indent=2))
+          PY
           {
             echo "Stage 4 Orientation UAT"
-            echo "Status: $status"
             echo "Executed: $(date -u +'%Y-%m-%dT%H:%M:%SZ')"
-            echo "Execution path: deployed V2 web app with ephemeral one-time endpoint"
-            echo "Temporary endpoint cleanup: attempted"
+            echo "Execution path: Apps Script Execution API (--nondev)"
             echo
-            if [ -f /tmp/stage4-uat-safe.json ]; then
-              cat /tmp/stage4-uat-safe.json
-            else
-              echo '{"ok":false,"message":"No UAT response captured."}'
-            fi
+            cat /tmp/stage4-result.json
           } > uat/stage4-orientation-latest.txt
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
           git add uat/stage4-orientation-latest.txt
-          git commit -m "Record verified Stage 4 orientation UAT result" || true
+          git commit -m "Record Stage 4 nondev UAT result" || true
           git push origin main
 
-      - name: Fail workflow when UAT fails
-        if: steps.run_uat.outputs.status != 'PASS'
+      - name: Fail if Stage 4 UAT did not pass
+        if: steps.ping.outputs.status != 'PASS' || steps.run_uat.outputs.status != 'PASS'
         run: |
-          echo "Stage 4 UAT did not return the verified PASS marker."
-          cat /tmp/stage4-uat-safe.json 2>/dev/null || true
+          echo "Stage 4 UAT not verified."
+          cat /tmp/stage4-result.json 2>/dev/null || true
           exit 1
 
-      - name: Remove local credentials and UAT key
+      - name: Remove clasp credential
         if: always()
-        run: |
-          rm -f "$HOME/.clasprc.json"
-          rm -f /tmp/stage4-uat-key
+        run: rm -f "$HOME/.clasprc.json"
