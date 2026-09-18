@@ -1,0 +1,72 @@
+name: Stage 5 Academic Handover Deploy
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/stage5-handover-deploy.yml'
+  workflow_dispatch:
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout main
+        uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+
+      - name: Validate Admin Stage 5
+        run: |
+          node --check handover-admin.js
+          node --check api/admin-action.js
+          node --check api/admin-data.js
+          grep -F 'Academic Handover & Provisioning' admin.html
+          grep -F 'v2CreateAcademicHandoverBatch' api/admin-action.js
+          grep -F 'V2_HANDOVER_BATCHES' api/admin-data.js
+
+      - name: Checkout Apps Script branch
+        run: |
+          git fetch origin apps-script-v2-dev
+          git checkout -B apps-script-v2-dev origin/apps-script-v2-dev
+
+      - name: Validate Stage 5 backend
+        run: |
+          node --check apps-script-v2/HandoverV2.js
+          node --check apps-script-v2/WorkflowV2.js
+          node --check apps-script-v2/Code.js
+          grep -F 'v2AcademicHandoverAccept' apps-script-v2/HandoverV2.js
+          grep -F "params.page === 'academic-handover-v2'" apps-script-v2/Code.js
+          grep -F 'v2CreateAcademicHandoverBatch' apps-script-v2/WorkflowV2.js
+
+      - name: Verify clasp credential
+        env:
+          CLASPRC_JSON: ${{ secrets.CLASPRC_JSON }}
+        run: |
+          test -n "$CLASPRC_JSON" || (echo 'CLASPRC_JSON secret is not configured.' && exit 1)
+
+      - name: Install clasp
+        run: npm install --global @google/clasp@3.4.1
+
+      - name: Restore clasp credential
+        env:
+          CLASPRC_JSON: ${{ secrets.CLASPRC_JSON }}
+        run: |
+          printf '%s' "$CLASPRC_JSON" > "$HOME/.clasprc.json"
+          chmod 600 "$HOME/.clasprc.json"
+
+      - name: Verify locked V2 target
+        run: node tools/verify-clasp-target.mjs
+
+      - name: Push Apps Script source
+        run: clasp push -f
+
+      - name: Redeploy existing V2 web app
+        env:
+          V2_DEPLOYMENT_ID: AKfycbxasT_HgtRSvTbR_bsa8p17Cm-C2PKn20Ok1kU-AyJmxiKX8kX5EGOtRLwVwNlAL7JB
+        run: clasp create-deployment --deploymentId "$V2_DEPLOYMENT_ID" --description "Stage 5 Academic Handover and provisioning"
+
+      - name: Remove clasp credential
+        if: always()
+        run: rm -f "$HOME/.clasprc.json"
