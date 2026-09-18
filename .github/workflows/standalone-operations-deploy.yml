@@ -1,0 +1,92 @@
+name: Standalone Operations Deploy
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/standalone-operations-deploy.yml'
+  workflow_dispatch:
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout main
+        uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+
+      - name: Validate standalone admin modules
+        run: |
+          node --check activation-admin.js
+          node --check orientation-admin.js
+          node --check handover-admin.js
+          node --check api/admin-action.js
+          node - <<'NODE'
+          const fs=require('fs');
+          const html=fs.readFileSync('admin.html','utf8');
+          const blocks=[...html.matchAll(/<script(?:\s[^>]*)?>([\s\S]*?)<\/script>/gi)].map(m=>m[1]).filter(s=>s.trim());
+          for(const block of blocks)new Function(block);
+          for(const marker of [
+            'Standalone Marketing → Registry operational tracking',
+            'Use Add Students to select applicants who have never been assigned',
+            'Create Academic Handover Session',
+            'Handover Now'
+          ]){
+            if(!html.includes(marker))throw new Error('Missing marker: '+marker);
+          }
+          console.log('ADMIN_STANDALONE_OK');
+          NODE
+          grep -F "'v2CreateHandoverSession'" api/admin-action.js
+          grep -F "'v2AddHandoverStudents'" api/admin-action.js
+          grep -F "'v2SendHandoverSession'" api/admin-action.js
+
+      - name: Checkout Apps Script V2 branch
+        run: |
+          git fetch origin apps-script-v2-dev
+          git checkout -B apps-script-v2-dev origin/apps-script-v2-dev
+
+      - name: Validate standalone backend
+        run: |
+          node --check apps-script-v2/ActivationV2.js
+          node --check apps-script-v2/OrientationV2.js
+          node --check apps-script-v2/HandoverV2.js
+          node --check apps-script-v2/WorkflowV2.js
+          grep -F 'PROSPECT_SKY_STANDALONE_V3_20260918' apps-script-v2/ActivationV2.js
+          grep -F 'Students already assigned to any Orientation Session' apps-script-v2/OrientationV2.js || true
+          grep -F 'function v2CreateHandoverSession_' apps-script-v2/HandoverV2.js
+          grep -F 'function v2AddHandoverStudents_' apps-script-v2/HandoverV2.js
+          grep -F 'function v2SendHandoverSession_' apps-script-v2/HandoverV2.js
+          grep -F "action === 'v2CreateHandoverSession'" apps-script-v2/WorkflowV2.js
+
+      - name: Verify clasp credential
+        env:
+          CLASPRC_JSON: ${{ secrets.CLASPRC_JSON }}
+        run: |
+          test -n "$CLASPRC_JSON" || (echo 'CLASPRC_JSON secret is not configured.' && exit 1)
+
+      - name: Install clasp
+        run: npm install --global @google/clasp@3.4.1
+
+      - name: Restore clasp credential
+        env:
+          CLASPRC_JSON: ${{ secrets.CLASPRC_JSON }}
+        run: |
+          printf '%s' "$CLASPRC_JSON" > "$HOME/.clasprc.json"
+          chmod 600 "$HOME/.clasprc.json"
+
+      - name: Verify locked V2 target
+        run: node tools/verify-clasp-target.mjs
+
+      - name: Push Apps Script source
+        run: clasp push -f
+
+      - name: Redeploy existing V2 web app
+        env:
+          V2_DEPLOYMENT_ID: AKfycbxasT_HgtRSvTbR_bsa8p17Cm-C2PKn20Ok1kU-AyJmxiKX8kX5EGOtRLwVwNlAL7JB
+        run: clasp create-deployment --deploymentId "$V2_DEPLOYMENT_ID" --description "Standalone Prospect SKY Orientation and Academic Handover"
+
+      - name: Remove clasp credential
+        if: always()
+        run: rm -f "$HOME/.clasprc.json"
