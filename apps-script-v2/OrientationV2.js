@@ -6,7 +6,8 @@
  * automatic reminder -> attendance -> ready for Academic Handover.
  */
 
-const V2_ORIENTATION_BUILD = 'ORIENTATION_V2_STAGE4_20260918';
+const V2_ORIENTATION_BUILD = 'ORIENTATION_V2_MILESTONE_REMINDERS_20260918';
+const V2_ORIENTATION_TRIGGER_VERSION = 'MILESTONE_V2_15MIN';
 const V2_ORIENTATION_REMINDER_HANDLER = 'v2OrientationReminderSweep';
 const V2_ORIENTATION_SESSION_HEADERS = [
   'Orientation Name','Mode','Venue','Reminder Days','Assigned Count',
@@ -14,7 +15,8 @@ const V2_ORIENTATION_SESSION_HEADERS = [
 ];
 const V2_ORIENTATION_TRACKING_HEADERS = [
   'Student Email','Assigned At','Assigned By','Invitation Sent At',
-  'Reminder Status','Reminder Sent At','Invitation Delivery Detail'
+  'Reminder Status','Reminder Sent At','Reminder History JSON','Last Reminder Milestone',
+  'Invitation Delivery Detail'
 ];
 
 function v2OrientationEnsureHeaders_() {
@@ -35,8 +37,8 @@ function v2CreateOrientationSession_(data, actor) {
   const mode = String(data.mode || 'ONLINE').trim().toUpperCase();
   if (['ONLINE','PHYSICAL','HYBRID'].indexOf(mode) < 0) throw new Error('Orientation mode must be Online, Physical or Hybrid.');
 
-  const reminderDaysRaw = Number(data.reminderDays == null ? 3 : data.reminderDays);
-  const reminderDays = Math.max(1, Math.min(14, isFinite(reminderDaysRaw) ? Math.round(reminderDaysRaw) : 3));
+  // Fixed production cadence: 3 days, 2 days, 1 day and approximately 1 hour before.
+  const reminderDays = 3;
   const now = new Date().toISOString();
   const id = String(data.sessionId || (
     'ORI-' + String(sessionDate).replace(/[^0-9]/g,'') + '-' + Utilities.getUuid().slice(0,6).toUpperCase()
@@ -135,6 +137,8 @@ function v2AssignOrientationBatch_(data, actor) {
         'Invitation Delivery Detail':old['Invitation Delivery Detail'] || '',
         'Reminder Status':old['Reminder Status'] || 'NOT_SENT',
         'Reminder Sent At':old['Reminder Sent At'] || '',
+        'Reminder History JSON':old['Reminder History JSON'] || '{}',
+        'Last Reminder Milestone':old['Last Reminder Milestone'] || '',
         'Feedback Submitted':old['Feedback Submitted'] || 'NO',
         'Attendance Status':old['Attendance Status'] || 'NOT_UPDATED',
         'Feedback Submitted At':old['Feedback Submitted At'] || '',
@@ -250,36 +254,135 @@ function v2UpdateOrientationAttendance_(data, actor) {
 function v2SendOrientationReminderNow_(data, actor) {
   v2OrientationEnsureHeaders_();
   const sessionId = v2Required_(data.sessionId,'Orientation Session ID');
-  const result = v2OrientationReminderForSession_(sessionId, true, actor || 'Admin Portal V2');
+  const result = v2OrientationReminderForSession_(sessionId, true, actor || 'Admin Portal V2', 'MANUAL');
   v2InvalidateCache_();
   return Object.assign({ok:true,manual:true},result);
+}
+
+function v2OrientationReminderHistory_(row) {
+  try {
+    const parsed = JSON.parse(String(row && row['Reminder History JSON'] || '{}'));
+    return parsed && typeof parsed === 'object' ? parsed : {};
+  } catch (_) {
+    return {};
+  }
+}
+
+function v2OrientationSessionStart_(session) {
+  const tz = CONFIG.timezone || Session.getScriptTimeZone() || 'Asia/Kuala_Lumpur';
+  let dateText = '';
+  const rawDate = session && session['Session Date'];
+  if (Object.prototype.toString.call(rawDate) === '[object Date]' && !isNaN(rawDate.getTime())) {
+    dateText = Utilities.formatDate(rawDate, tz, 'yyyy-MM-dd');
+  } else {
+    dateText = String(rawDate || '').trim();
+    if (/^\d{1,2}\/\d{1,2}\/\d{4}$/.test(dateText)) {
+      const parts = dateText.split('/');
+      dateText = parts[2] + '-' + String(parts[1]).padStart(2,'0') + '-' + String(parts[0]).padStart(2,'0');
+    }
+  }
+  const timeText = String(session && session['Start Time'] || '08:30').trim().slice(0,5);
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(dateText) || !/^\d{2}:\d{2}$/.test(timeText)) return null;
+  try {
+    return Utilities.parseDate(dateText + ' ' + timeText, tz, 'yyyy-MM-dd HH:mm');
+  } catch (_) {
+    return null;
+  }
+}
+
+function v2OrientationCalendarDaysUntil_(session, now) {
+  const tz = CONFIG.timezone || Session.getScriptTimeZone() || 'Asia/Kuala_Lumpur';
+  const start = v2OrientationSessionStart_(session);
+  if (!start) return 9999;
+  const today = Utilities.formatDate(now || new Date(), tz, 'yyyy-MM-dd').split('-').map(Number);
+  const target = Utilities.formatDate(start, tz, 'yyyy-MM-dd').split('-').map(Number);
+  return Math.round((Date.UTC(target[0],target[1]-1,target[2]) - Date.UTC(today[0],today[1]-1,today[2])) / 86400000);
+}
+
+function v2OrientationDueMilestone_(session, now) {
+  const current = now || new Date();
+  const start = v2OrientationSessionStart_(session);
+  if (!start) return '';
+  const msUntil = start.getTime() - current.getTime();
+  if (msUntil <= 0) return '';
+
+  // Highest-priority reminder: within the final hour.
+  if (msUntil <= 60 * 60 * 1000) return 'H1';
+
+  // Daily reminders are sent from 8:00 AM local time on the 3rd, 2nd and 1st
+  // calendar day before the session. An hourly/15-minute sweep means a student
+  // assigned later that day still receives the relevant reminder on the next run.
+  const tz = CONFIG.timezone || Session.getScriptTimeZone() || 'Asia/Kuala_Lumpur';
+  const daysUntil = v2OrientationCalendarDaysUntil_(session, current);
+  const hour = Number(Utilities.formatDate(current, tz, 'H'));
+  if (hour < 8) return '';
+  if (daysUntil === 3) return 'D3';
+  if (daysUntil === 2) return 'D2';
+  if (daysUntil === 1) return 'D1';
+  return '';
+}
+
+function v2OrientationReminderMilestoneLabel_(milestone) {
+  const labels = {
+    D3:'3 days before',
+    D2:'2 days before',
+    D1:'1 day before',
+    H1:'1 hour before',
+    MANUAL:'Manual reminder'
+  };
+  return labels[String(milestone || '').toUpperCase()] || 'Orientation reminder';
 }
 
 function v2OrientationReminderSweep() {
   assertDevIdentity_();
   v2OrientationEnsureHeaders_();
-  const sessions = v2Rows_('V2_ORIENTATION_SESSIONS');
-  const results = [];
-  sessions.forEach(function(session) {
-    const status = String(session['Status'] || '').toUpperCase();
-    if (['SCHEDULED','OPEN','ACTIVE'].indexOf(status) < 0) return;
-    const daysUntil = v2OrientationDaysUntil_(session['Session Date']);
-    const reminderDays = Math.max(1, Number(session['Reminder Days'] || 3));
-    if (daysUntil < 0 || daysUntil > reminderDays) return;
-    results.push(v2OrientationReminderForSession_(session['Orientation Session ID'], false, 'Orientation Reminder Automation'));
-  });
-  v2Audit_('','ORIENTATION','REMINDER_SWEEP',{},{
-    sessionsChecked:sessions.length,
-    sessionsTriggered:results.length,
-    sent:results.reduce(function(n,x){return n+Number(x.sentCount||0);},0)
-  },'Orientation Reminder Automation','SUCCESS','');
-  v2InvalidateCache_();
-  return {ok:true,build:V2_ORIENTATION_BUILD,results:results};
+
+  const lock = LockService.getScriptLock();
+  if (!lock.tryLock(5000)) return {ok:true,skipped:true,reason:'REMINDER_SWEEP_ALREADY_RUNNING'};
+
+  try {
+    const sessions = v2Rows_('V2_ORIENTATION_SESSIONS');
+    const results = [];
+    const now = new Date();
+
+    sessions.forEach(function(session) {
+      const status = String(session['Status'] || '').toUpperCase();
+      if (['SCHEDULED','OPEN','ACTIVE'].indexOf(status) < 0) return;
+      const milestone = v2OrientationDueMilestone_(session, now);
+      if (!milestone) return;
+      results.push(v2OrientationReminderForSession_(
+        session['Orientation Session ID'],
+        false,
+        'Orientation Reminder Automation',
+        milestone
+      ));
+    });
+
+    const sentTotal = results.reduce(function(n,x){return n+Number(x.sentCount||0);},0);
+    if (results.length || sentTotal) {
+      v2Audit_('','ORIENTATION','REMINDER_SWEEP',{},{
+        sessionsChecked:sessions.length,
+        sessionsTriggered:results.length,
+        sent:sentTotal,
+        milestones:results.map(function(x){return x.milestone || '';})
+      },'Orientation Reminder Automation','SUCCESS','Milestone reminder sweep.');
+      v2InvalidateCache_();
+    }
+    return {ok:true,build:V2_ORIENTATION_BUILD,results:results};
+  } finally {
+    lock.releaseLock();
+  }
 }
 
-function v2OrientationReminderForSession_(sessionId, force, actor) {
+function v2OrientationReminderForSession_(sessionId, force, actor, milestone) {
   const session = v2Find_('V2_ORIENTATION_SESSIONS','Orientation Session ID',sessionId);
   if (!session) throw new Error('Orientation session not found.');
+
+  const resolvedMilestone = String(milestone || (force ? 'MANUAL' : v2OrientationDueMilestone_(session.record, new Date()))).toUpperCase();
+  if (!force && !resolvedMilestone) {
+    return {sessionId:sessionId,milestone:'',sentCount:0,skippedCount:0,failedCount:0};
+  }
+
   const trackingRows = v2Rows_('V2_ORIENTATION_TRACKING').filter(function(row){
     return String(row['Orientation Session ID'] || '') === sessionId;
   });
@@ -289,24 +392,38 @@ function v2OrientationReminderForSession_(sessionId, force, actor) {
   let failedCount = 0;
 
   trackingRows.forEach(function(row) {
-    const alreadySent = String(row['Reminder Status'] || '').toUpperCase() === 'SENT';
-    if (alreadySent && !force) { skippedCount += 1; return; }
+    const history = v2OrientationReminderHistory_(row);
+    if (!force && history[resolvedMilestone]) { skippedCount += 1; return; }
     if (!force && String(row['Invitation Status'] || '').toUpperCase() !== 'SENT') { skippedCount += 1; return; }
 
     try {
-      const delivery = v2OrientationSendStudentEmail_(session.record, row, 'REMINDER');
+      const delivery = v2OrientationSendStudentEmail_(session.record, row, 'REMINDER', resolvedMilestone);
       const current = v2FindComposite_(
         'V2_ORIENTATION_TRACKING',
         ['Orientation Session ID','Reference No'],
         [sessionId,row['Reference No']]
       );
+      const nowIso = new Date().toISOString();
+
+      if (delivery.sent) {
+        if (force) {
+          if (!Array.isArray(history.MANUAL)) history.MANUAL = [];
+          history.MANUAL.push(nowIso);
+        } else {
+          history[resolvedMilestone] = nowIso;
+        }
+      }
+
       if (current) {
         v2UpdateRow_(current.sheet,current.rowNumber,{
           'Reminder Status':delivery.sent ? 'SENT' : (delivery.status === 'DISABLED' ? 'DISABLED' : 'FAILED'),
-          'Reminder Sent At':delivery.sent ? new Date().toISOString() : '',
-          'Last Updated':new Date().toISOString()
+          'Reminder Sent At':delivery.sent ? nowIso : String(current.record['Reminder Sent At'] || ''),
+          'Reminder History JSON':JSON.stringify(history),
+          'Last Reminder Milestone':delivery.sent ? resolvedMilestone : String(current.record['Last Reminder Milestone'] || ''),
+          'Last Updated':nowIso
         });
       }
+
       if (delivery.sent) sentCount += 1;
       else failedCount += 1;
     } catch (error) {
@@ -328,15 +445,24 @@ function v2OrientationReminderForSession_(sessionId, force, actor) {
   v2OrientationRecountSession_(sessionId);
   v2Audit_('','ORIENTATION',force ? 'SEND_REMINDER_NOW' : 'SEND_AUTOMATIC_REMINDER',{},{
     sessionId:sessionId,
+    milestone:resolvedMilestone,
+    milestoneLabel:v2OrientationReminderMilestoneLabel_(resolvedMilestone),
     sentCount:sentCount,
     skippedCount:skippedCount,
     failedCount:failedCount
   },actor || 'Orientation Reminder Automation','SUCCESS','');
 
-  return {sessionId:sessionId,sentCount:sentCount,skippedCount:skippedCount,failedCount:failedCount};
+  return {
+    sessionId:sessionId,
+    milestone:resolvedMilestone,
+    milestoneLabel:v2OrientationReminderMilestoneLabel_(resolvedMilestone),
+    sentCount:sentCount,
+    skippedCount:skippedCount,
+    failedCount:failedCount
+  };
 }
 
-function v2OrientationSendStudentEmail_(session, tracking, type) {
+function v2OrientationSendStudentEmail_(session, tracking, type, milestone) {
   const recipient = String(tracking['Student Email'] || '').trim();
   const student = String(tracking['Student Name'] || 'Student').trim();
   const name = String(session['Orientation Name'] || 'Postgraduate Orientation Session').trim();
@@ -347,9 +473,10 @@ function v2OrientationSendStudentEmail_(session, tracking, type) {
   const venue = String(session['Venue'] || '').trim();
   const meetingLink = String(session['Meeting Link'] || '').trim();
   const isReminder = type === 'REMINDER';
+  const reminderLabel = isReminder ? v2OrientationReminderMilestoneLabel_(milestone) : '';
 
   const subject = isReminder
-    ? '[IUC IPGS] Reminder - ' + name + ' - ' + date
+    ? '[IUC IPGS] Orientation Reminder - ' + reminderLabel + ' - ' + date
     : '[IUC IPGS] Orientation Invitation - ' + name;
 
   let access = '';
@@ -369,7 +496,7 @@ function v2OrientationSendStudentEmail_(session, tracking, type) {
     (isReminder ? 'Orientation Reminder' : 'Postgraduate Orientation') + '</h2></div>' +
     '<div style="padding:24px"><p>Dear <strong>' + v2Html_(student) + '</strong>,</p>' +
     '<p>' + (isReminder
-      ? 'This is a reminder for your upcoming postgraduate orientation session.'
+      ? '<strong>' + v2Html_(reminderLabel) + ':</strong> Your postgraduate orientation is coming up. Please keep the session details below ready.'
       : 'You have been scheduled for the postgraduate orientation session below.') + '</p>' +
     '<div style="background:#faf8ff;border:1px solid #e5def6;border-radius:14px;padding:18px">' +
     '<strong>Session:</strong> ' + v2Html_(name) + '<br>' +
@@ -380,7 +507,7 @@ function v2OrientationSendStudentEmail_(session, tracking, type) {
     '<p>Please keep this email for your reference. If you are unable to attend, contact the Registry Office.</p>' +
     '<p>Regards,<br><strong>IPGS Registry</strong><br>Innovative University College</p></div></div>';
 
-  const textBody = (isReminder ? 'Orientation reminder' : 'Orientation invitation') +
+  const textBody = (isReminder ? 'Orientation reminder - ' + reminderLabel : 'Orientation invitation') +
     '\nSession: ' + name + '\nDate: ' + date + '\nTime: ' + [start,end].filter(Boolean).join(' - ') +
     '\nMode: ' + mode + (venue ? '\nVenue: ' + venue : '') + (meetingLink ? '\nLink: ' + meetingLink : '');
 
@@ -403,7 +530,13 @@ function v2OrientationRecountSession_(sessionId) {
   const patch = {
     'Assigned Count':rows.length,
     'Invitation Count':rows.filter(function(row){return String(row['Invitation Status'] || '').toUpperCase()==='SENT';}).length,
-    'Reminder Count':rows.filter(function(row){return String(row['Reminder Status'] || '').toUpperCase()==='SENT';}).length,
+    'Reminder Count':rows.reduce(function(total,row){
+      const history = v2OrientationReminderHistory_(row);
+      let count = ['D3','D2','D1','H1'].filter(function(key){return !!history[key];}).length;
+      if (Array.isArray(history.MANUAL)) count += history.MANUAL.length;
+      if (!count && String(row['Reminder Status'] || '').toUpperCase()==='SENT') count = 1;
+      return total + count;
+    },0),
     'Updated At':new Date().toISOString()
   };
   v2UpdateRow_(session.sheet,session.rowNumber,patch);
@@ -412,21 +545,53 @@ function v2OrientationRecountSession_(sessionId) {
 
 function v2OrientationEnsureReminderTrigger_() {
   try {
+    const props = PropertiesService.getScriptProperties();
+    const configuredVersion = String(props.getProperty('V2_ORIENTATION_TRIGGER_VERSION') || '');
     const triggers = ScriptApp.getProjectTriggers();
     const existing = triggers.filter(function(trigger){
       return trigger.getHandlerFunction() === V2_ORIENTATION_REMINDER_HANDLER;
     });
-    if (existing.length) return {ok:true,status:'ACTIVE',created:false,count:existing.length};
+
+    if (existing.length && configuredVersion === V2_ORIENTATION_TRIGGER_VERSION) {
+      return {
+        ok:true,
+        status:'ACTIVE',
+        created:false,
+        count:existing.length,
+        frequency:'EVERY_15_MINUTES',
+        schedule:'D3_D2_D1_H1'
+      };
+    }
+
+    // Migrate any legacy daily reminder trigger to the milestone scheduler.
+    existing.forEach(function(trigger) {
+      try { ScriptApp.deleteTrigger(trigger); } catch (_) {}
+    });
 
     ScriptApp.newTrigger(V2_ORIENTATION_REMINDER_HANDLER)
       .timeBased()
-      .everyDays(1)
-      .atHour(8)
+      .everyMinutes(15)
       .create();
-    return {ok:true,status:'ACTIVE',created:true,count:1};
+
+    props.setProperty('V2_ORIENTATION_TRIGGER_VERSION', V2_ORIENTATION_TRIGGER_VERSION);
+    return {
+      ok:true,
+      status:'ACTIVE',
+      created:true,
+      count:1,
+      frequency:'EVERY_15_MINUTES',
+      schedule:'D3_D2_D1_H1'
+    };
   } catch (error) {
     Logger.log('Orientation reminder trigger setup failed: ' + String(error && error.message || error));
-    return {ok:false,status:'TRIGGER_SETUP_FAILED',created:false,error:String(error && error.message || error)};
+    return {
+      ok:false,
+      status:'TRIGGER_SETUP_FAILED',
+      created:false,
+      error:String(error && error.message || error),
+      frequency:'NOT_ACTIVE',
+      schedule:'D3_D2_D1_H1'
+    };
   }
 }
 
