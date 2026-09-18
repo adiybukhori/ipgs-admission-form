@@ -177,7 +177,7 @@ function v2RunDocumentReview(referenceNo, reviewer, remarks) {
 
   // PhD Preliminary Research Intent may be submitted after the initial application.
   // It is tracked as OUTSTANDING during document review and does not block
-  // qualification screening. SAC assignment remains blocked until received.
+  // qualification screening, SAC assignment or subsequent admission processing.
   const outstandingDocuments = allMissingDocuments.filter(function(doc) {
     return doc.key === 'preliminaryResearchIntent';
   });
