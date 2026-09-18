@@ -45,6 +45,26 @@ jobs:
           node tools/verify-clasp-target.mjs
           clasp push -f
 
+      - name: Verify Apps Script execution target
+        id: ping
+        shell: bash
+        run: |
+          set +e
+          clasp run v2ExecutionPing >/tmp/stage4-ping-raw.txt 2>&1
+          code=$?
+          set -e
+          if [ "$code" -ne 0 ]; then
+            echo "Execution API ping failed."
+            cat /tmp/stage4-ping-raw.txt
+            exit 1
+          fi
+          grep -F '1O-Y-q7_q78xKM1p5e2C3EWyQfYr5rXvhO0oWbVaw5Mw' /tmp/stage4-ping-raw.txt >/dev/null || {
+            echo "Execution target does not match the locked V2 spreadsheet."
+            cat /tmp/stage4-ping-raw.txt
+            exit 1
+          }
+          echo "target=V2_DEV" >> "$GITHUB_OUTPUT"
+
       - name: Execute controlled Stage 4 UAT
         id: run_uat
         shell: bash
@@ -53,7 +73,7 @@ jobs:
           clasp run v2RunStage4Uat >/tmp/stage4-uat-raw.txt 2>&1
           code=$?
           set -e
-          if [ "$code" -eq 0 ]; then
+          if [ "$code" -eq 0 ] && grep -F '"uat":"PASS"' /tmp/stage4-uat-raw.txt >/dev/null; then
             echo "status=PASS" >> "$GITHUB_OUTPUT"
           else
             echo "status=FAIL" >> "$GITHUB_OUTPUT"
@@ -73,6 +93,8 @@ jobs:
             echo "Status: $status"
             echo "Executed: $(date -u +'%Y-%m-%dT%H:%M:%SZ')"
             echo "Runner: v2RunStage4Uat"
+            echo "Execution target: ${{ steps.ping.outputs.target }}"
+            echo "Result marker verified: $([ "$status" = "PASS" ] && echo YES || echo NO)"
             echo "Exit code: $code"
           } > uat/stage4-orientation-latest.txt
           git config user.name 'github-actions[bot]'
