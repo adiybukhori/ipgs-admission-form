@@ -1,0 +1,7 @@
+Stage 4 Apps Script execution ping
+Status: FAIL
+Executed: 2026-09-18T04:34:50Z
+Exit code: 0
+
+Sanitized command output:
+Unable to run script function. Please make sure you have permission to run the script function.
