@@ -457,3 +457,157 @@ function v2OrientationDisplayDate_(dateValue) {
 function v2OrientationPretty_(value) {
   return String(value || '').toLowerCase().replace(/\b\w/g,function(m){return m.toUpperCase();});
 }
+
+
+/**
+ * Controlled Stage 4 UAT.
+ * Creates an isolated synthetic accepted applicant using the executing admin account,
+ * then exercises the real Orientation flow end-to-end:
+ * create session -> assign -> invitation send -> attendance -> Academic Handover READY.
+ * The UAT session is closed immediately after the test so reminder automation will not
+ * send future reminders for this synthetic record.
+ */
+function v2RunStage4Uat() {
+  assertDevIdentity_();
+  v2OrientationEnsureHeaders_();
+
+  const actor = 'Stage 4 Automated UAT';
+  const now = new Date();
+  const stamp = Utilities.formatDate(now, Session.getScriptTimeZone() || 'Asia/Kuala_Lumpur', 'yyyyMMdd-HHmmss');
+  const email = String(Session.getEffectiveUser().getEmail() || '').trim();
+  if (!email || email.indexOf('@') < 1) throw new Error('Stage 4 UAT could not resolve the executing admin email.');
+
+  const reference = 'V2-ORI-UAT-' + stamp;
+  const sessionId = 'ORI-UAT-' + stamp;
+  const studentName = 'V2 ORIENTATION UAT ' + stamp;
+  const sessionDate = Utilities.formatDate(new Date(now.getTime() + (7 * 24 * 60 * 60 * 1000)), Session.getScriptTimeZone() || 'Asia/Kuala_Lumpur', 'yyyy-MM-dd');
+  const iso = now.toISOString();
+
+  v2Upsert_('V2_APPLICATIONS', 'Reference No', reference, {
+    'Reference No': reference,
+    'Submitted At': iso,
+    'Applicant Type': 'LOCAL',
+    'Student Name': studentName,
+    'ID / Passport No': 'UAT-' + stamp,
+    'Personal Email': email,
+    'Programme': 'MBA - Master of Business Administration',
+    'Level of Study': 'Master',
+    'Study Mode': 'ONLINE',
+    'Intake': 'September 2026',
+    'Intake ID': '2026-September',
+    'Entry Qualification Type': 'BACHELOR',
+    'Application Status': 'TEST',
+    'Email Status': 'UAT',
+    'Last Updated': iso,
+    'Version': V2_BUILD
+  });
+
+  v2Upsert_('V2_WORKFLOW', 'Reference No', reference, {
+    'Reference No': reference,
+    'Student Name': studentName,
+    'ID / Passport No': 'UAT-' + stamp,
+    'Personal Email': email,
+    'Programme': 'MBA - Master of Business Administration',
+    'Level of Study': 'Master',
+    'Intake': 'September 2026',
+    'Application Stage': 'ACCEPTED',
+    'Application Status': 'TEST',
+    'Assessment Status': 'NOT_REQUIRED',
+    'Prerequisite Status': 'NOT_REQUIRED',
+    'Offer Letter Status': 'ISSUED',
+    'Acceptance Status': 'ACCEPTED',
+    'Orientation Status': 'NOT_ASSIGNED',
+    'Provisioning Status': 'NOT_STARTED',
+    'Academic Handover Status': 'NOT_READY',
+    'Last Updated': iso,
+    'Updated By': actor,
+    'Version': V2_BUILD
+  });
+
+  const created = v2CreateOrientationSession_({
+    sessionId: sessionId,
+    name: 'Stage 4 UAT - ' + stamp,
+    intakeId: '2026-September',
+    programmeGroup: 'UAT',
+    sessionDate: sessionDate,
+    startTime: '08:30',
+    endTime: '10:30',
+    mode: 'ONLINE',
+    reminderDays: 1,
+    status: 'SCHEDULED'
+  }, actor);
+
+  if (!created || !created.ok) throw new Error('Stage 4 UAT failed to create the orientation session.');
+  if (!created.reminderAutomation || created.reminderAutomation.status !== 'ACTIVE') {
+    throw new Error('Stage 4 UAT reminder automation is not ACTIVE.');
+  }
+
+  const assigned = v2AssignOrientationBatch_({
+    sessionId: sessionId,
+    referenceNos: [reference]
+  }, actor);
+
+  if (!assigned || assigned.assignedCount !== 1) {
+    throw new Error('Stage 4 UAT failed student assignment.');
+  }
+  if (assigned.invitationSentCount !== 1) {
+    throw new Error('Stage 4 UAT invitation email was not sent.');
+  }
+
+  const attendance = v2UpdateOrientationAttendance_({
+    sessionId: sessionId,
+    referenceNo: reference,
+    attendanceStatus: 'ATTENDED'
+  }, actor);
+
+  if (!attendance || attendance.attendanceStatus !== 'ATTENDED' || attendance.academicHandoverStatus !== 'READY') {
+    throw new Error('Stage 4 UAT attendance / Academic Handover readiness gate failed.');
+  }
+
+  const session = v2Find_('V2_ORIENTATION_SESSIONS', 'Orientation Session ID', sessionId);
+  if (session) {
+    v2UpdateRow_(session.sheet, session.rowNumber, {
+      'Status': 'UAT_COMPLETE',
+      'Updated At': new Date().toISOString()
+    });
+  }
+
+  const tracking = v2FindComposite_(
+    'V2_ORIENTATION_TRACKING',
+    ['Orientation Session ID', 'Reference No'],
+    [sessionId, reference]
+  );
+  const workflow = v2Find_('V2_WORKFLOW', 'Reference No', reference);
+  if (!tracking || String(tracking.record['Invitation Status'] || '').toUpperCase() !== 'SENT') {
+    throw new Error('Stage 4 UAT tracking did not persist Invitation Status = SENT.');
+  }
+  if (String(tracking.record['Attendance Status'] || '').toUpperCase() !== 'ATTENDED') {
+    throw new Error('Stage 4 UAT tracking did not persist Attendance Status = ATTENDED.');
+  }
+  if (!workflow || String(workflow.record['Academic Handover Status'] || '').toUpperCase() !== 'READY') {
+    throw new Error('Stage 4 UAT workflow did not persist Academic Handover Status = READY.');
+  }
+
+  v2Audit_(reference, 'ORIENTATION', 'STAGE4_UAT_PASS', {}, {
+    sessionId: sessionId,
+    invitationStatus: 'SENT',
+    attendanceStatus: 'ATTENDED',
+    academicHandoverStatus: 'READY',
+    reminderAutomation: 'ACTIVE'
+  }, actor, 'SUCCESS', 'Controlled Stage 4 end-to-end UAT passed.');
+
+  v2InvalidateCache_();
+  return {
+    ok: true,
+    stage: 4,
+    uat: 'PASS',
+    referenceNo: reference,
+    sessionId: sessionId,
+    reminderAutomation: 'ACTIVE',
+    invitationStatus: 'SENT',
+    attendanceStatus: 'ATTENDED',
+    academicHandoverStatus: 'READY',
+    sessionStatus: 'UAT_COMPLETE',
+    build: V2_ORIENTATION_BUILD
+  };
+}
