@@ -4,8 +4,9 @@
   function orientationEligibleRecord(r){
     if(!r || r.source==='V1') return false;
     const acceptance=String(r.workflow?.['Acceptance Status']||'').toUpperCase();
+    const activation=String(r.workflow?.['SKY Activation Status']||'').toUpperCase();
     const st=String(r.workflow?.['Application Stage']||'').toUpperCase();
-    return acceptance==='ACCEPTED' && (st==='ACCEPTED' || st==='ORIENTATION');
+    return acceptance==='ACCEPTED' && activation==='ACTIVATED' && (st==='ACCEPTED' || st==='ORIENTATION');
   }
 
   function activeOrientationSessions(){
@@ -20,7 +21,7 @@
       bar=document.createElement('div');
       bar.id='orientationBulkBar';
       bar.style.cssText='margin-top:12px;padding-top:12px;border-top:1px solid var(--line);display:flex;gap:8px;align-items:center;flex-wrap:wrap';
-      bar.innerHTML='<span class="badge purple">Orientation</span><select id="orientationAssignSession" class="compact"><option value="">Select orientation session</option></select><button class="ghost" onclick="assignSelectedToOrientation()">Assign selected</button><span id="orientationSelectionCount" class="subline">0 selected</span><span id="orientationAssignMessage" class="subline"></span>';
+      bar.innerHTML='<span class="badge purple">Orientation</span><span class="subline">Accepted + SKY Activated only</span><select id="orientationAssignSession" class="compact"><option value="">Select orientation session</option></select><button class="ghost" onclick="assignSelectedToOrientation()">Assign selected</button><span id="orientationSelectionCount" class="subline">0 selected</span><span id="orientationAssignMessage" class="subline"></span>';
       section.appendChild(bar);
     }
     const select=document.getElementById('orientationAssignSession');
@@ -139,7 +140,7 @@
     const refs=[...selectedRefs];
     const msg=document.getElementById('orientationAssignMessage');
     if(!sessionId){if(msg)msg.textContent='Select an orientation session first.';return}
-    if(!refs.length){if(msg)msg.textContent='Select at least one accepted student.';return}
+    if(!refs.length){if(msg)msg.textContent='Select at least one accepted and SKY-activated student.';return}
     if(!confirm(`Assign ${refs.length} selected student${refs.length===1?'':'s'} to this orientation session and send invitation email?`)) return;
     if(msg)msg.textContent='Assigning…';
     try{
