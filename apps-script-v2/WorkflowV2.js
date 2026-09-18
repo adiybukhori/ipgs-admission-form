@@ -382,6 +382,10 @@ function handleV2Post_(payload) {
   if (action === 'v2PreviewSacResult') return v2PreviewSacResult_(payload.data || {});
   if (action === 'v2SendSacResultEmail') return v2SendSacResultEmail_(payload.data || {}, payload.updatedBy);
   if (action === 'v2UpdateAssessment') return v2UpdateAssessment_(payload.data || {}, payload.updatedBy);
+  if (action === 'v2CreateOrientationSession') return v2CreateOrientationSession_(payload.data || {}, payload.updatedBy || 'Admin Portal V2');
+  if (action === 'v2AssignOrientationBatch') return v2AssignOrientationBatch_(payload.data || {}, payload.updatedBy || 'Admin Portal V2');
+  if (action === 'v2UpdateOrientationAttendance') return v2UpdateOrientationAttendance_(payload.data || {}, payload.updatedBy || 'Admin Portal V2');
+  if (action === 'v2SendOrientationReminderNow') return v2SendOrientationReminderNow_(payload.data || {}, payload.updatedBy || 'Admin Portal V2');
   if (action === 'v2UpsertOrientationSession') return v2UpsertOrientationSession_(payload.data || {}, payload.updatedBy);
   if (action === 'v2UpdateOrientation') return v2UpdateOrientation_(payload.data || {}, payload.updatedBy);
   if (action === 'v2UpdateProvisioning') return v2UpdateProvisioning_(payload.data || {}, payload.updatedBy);
