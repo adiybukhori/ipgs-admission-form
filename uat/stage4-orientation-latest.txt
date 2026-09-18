@@ -1,5 +1,19 @@
 Stage 4 Orientation UAT
-Status: PASS
-Executed: 2026-09-18T04:31:39Z
-Runner: v2RunStage4Uat
-Exit code: 0
+Status: FAIL
+Executed: 2026-09-18T04:36:47Z
+Execution path: deployed V2 web app with ephemeral one-time endpoint
+Temporary endpoint cleanup: attempted
+
+{
+  "ok": false,
+  "stage": null,
+  "uat": null,
+  "referenceNo": "",
+  "sessionId": "",
+  "reminderAutomation": "",
+  "invitationStatus": "",
+  "attendanceStatus": "",
+  "academicHandoverStatus": "",
+  "sessionStatus": "",
+  "message": ""
+}
