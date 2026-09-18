@@ -1,3 +1,5 @@
+import { createHash } from 'crypto';
+
 const V2_WEB_APP = 'https://script.google.com/macros/s/AKfycbxasT_HgtRSvTbR_bsa8p17Cm-C2PKn20Ok1kU-AyJmxiKX8kX5EGOtRLwVwNlAL7JB/exec';
 const AUTH_WEB_APP = 'https://script.google.com/macros/s/AKfycbw22-UOsHkaap3dzU16aOjA6XFr7jWGr9qQPfp8F1CQrXboP7YdRZJKKJhHijC3us4/exec';
 
@@ -46,14 +48,36 @@ const ALLOWED_ACTIONS = new Set([
   'v2ActivateStudentInSky'
 ]);
 
+const AUTH_CACHE_TTL_MS = 5 * 60 * 1000;
+const adminAuthCache = globalThis.__IPGS_ADMIN_AUTH_CACHE__ || new Map();
+globalThis.__IPGS_ADMIN_AUTH_CACHE__ = adminAuthCache;
+
+function adminAuthCacheKey(password) {
+  return createHash('sha256').update(String(password || '')).digest('hex');
+}
+
 async function validateAdminPassword(password) {
   if (!password) return false;
+
+  const key = adminAuthCacheKey(password);
+  const cachedUntil = Number(adminAuthCache.get(key) || 0);
+  if (cachedUntil > Date.now()) return true;
+  if (cachedUntil) adminAuthCache.delete(key);
+
   const url = `${AUTH_WEB_APP}?action=applications&token=${encodeURIComponent(password)}&_=${Date.now()}`;
   const response = await fetch(url, { redirect: 'follow' });
   const text = await response.text();
   try {
     const data = JSON.parse(text);
-    return response.ok && data && data.ok === true;
+    const valid = response.ok && data && data.ok === true;
+    if (valid) {
+      adminAuthCache.set(key, Date.now() + AUTH_CACHE_TTL_MS);
+      if (adminAuthCache.size > 100) {
+        const firstKey = adminAuthCache.keys().next().value;
+        if (firstKey) adminAuthCache.delete(firstKey);
+      }
+    }
+    return valid;
   } catch (_) {
     return false;
   }
