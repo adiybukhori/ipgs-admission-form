@@ -193,7 +193,15 @@ function v2SendAgentNotificationCentral_(payload, reference, intake, pdf, agent,
   const htmlBody = '<div style="font-family:Arial,sans-serif;max-width:680px;margin:auto;border:1px solid #e5e7eb;border-radius:16px;overflow:hidden">' +
     '<div style="background:#2d2363;color:#fff;padding:22px"><h2 style="margin:0">New Referred Applicant</h2></div>' +
     '<div style="padding:24px"><p>Dear <strong>'+v2Html_(agentName)+'</strong>,</p><p>Your referred applicant has submitted the IUC Admission Form.</p>' +
-    '<p><strong>Student:</strong> '+v2Html_(studentName)+'<br><strong>Programme:</strong> '+v2Html_(programme)+'<br><strong>Intake:</strong> '+v2Html_(intakeName)+'<br><strong>Reference:</strong> '+v2Html_(reference)+'</p>' +
+    '<p><strong>Student:</strong> '+v2Html_(studentName)+
+    '<br><strong>ID / Passport:</strong> '+v2Html_(payload && payload.idPassport || '')+
+    '<br><strong>Personal Email:</strong> '+v2Html_(payload && payload.email || '')+
+    '<br><strong>Phone:</strong> '+v2Html_(payload && payload.phoneNumber || '')+
+    '<br><strong>Applicant Type:</strong> '+v2Html_(payload && payload.applicantType || '')+
+    '<br><strong>Programme:</strong> '+v2Html_(programme)+
+    '<br><strong>Study Mode:</strong> '+v2Html_(payload && payload.studyMode || '')+
+    '<br><strong>Intake:</strong> '+v2Html_(intakeName)+
+    '<br><strong>Reference:</strong> '+v2Html_(reference)+'</p>' +
     '<p><a href="'+v2Html_(secureUrl)+'" style="display:inline-block;background:#2d2363;color:#fff;text-decoration:none;padding:12px 18px;border-radius:10px;font-weight:700">Update Prospect &amp; Fee Structure</a></p>' +
     '<p>The Admission Form is attached for your reference.</p><p>Regards,<br><strong>IPGS Registry</strong></p></div></div>';
 
