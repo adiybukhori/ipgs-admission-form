@@ -118,10 +118,17 @@
       const out=await res.json();
       if(!res.ok||!out.ok)throw new Error(out.message||'Unable to save consultant.');
       const result=out.result||{};
-      document.getElementById('agentCode').value=result.agent?.['Agent Code']||data.code;
-      document.getElementById('resultLinkInput').value=result.referralLink||result.agent?.['Referral Link']||'';
+      const savedCode=result.agent?.['Agent Code']||data.code;
+      const savedLink=result.referralLink||result.agent?.['Referral Link']||'';
+      document.getElementById('resultLinkInput').value=savedLink;
       document.getElementById('resultLink').classList.add('show');
-      showMsg(result.created?'Academic Consultant added successfully.':'Academic Consultant updated successfully.','ok');
+      showMsg(result.created?'Academic Consultant added successfully. Ready to add the next consultant.':'Academic Consultant updated successfully.','ok');
+      if(result.created){
+        ['agentName','agentEmail','agentOrg','agentCode'].forEach(id=>document.getElementById(id).value='');
+        document.getElementById('agentActive').value='true';
+      }else{
+        document.getElementById('agentCode').value=savedCode;
+      }
       await loadAgents();
     }catch(e){showMsg(e.message||'Unable to save consultant.','err')}
     finally{btn.disabled=false;btn.textContent='Save Academic Consultant'}
