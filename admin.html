@@ -625,10 +625,11 @@
       const w=r.workflow||{},status=String(w['PG-ADM-01 Status']||(w['PG-ADM-01 URL']?'GENERATED':'NOT_GENERATED')).toUpperCase();
       const error=String(w['PG-ADM-01 Error']||'').trim();
       const cls=status==='GENERATED'?'green':status==='FAILED'?'red':status==='GENERATING'?'amber':'blue';
-      const label=status==='GENERATED'?'PG-ADM-01 Generated':status==='FAILED'?'PG-ADM-01 Failed':status==='GENERATING'?'PG-ADM-01 Generating':'PG-ADM-01 Not Generated';
-      const button=status==='GENERATING'?'<button class="ops-btn" disabled>PG-ADM-01 generating…</button>':`<button class="ops-btn" onclick="regeneratePgAdm01()">${status==='GENERATED'?'Regenerate PG-ADM-01':'Generate PG-ADM-01'}</button>`;
+      const label=status==='GENERATED'?'PG-ADM-01 Auto Generated':status==='FAILED'?'PG-ADM-01 Auto Generation Failed':status==='GENERATING'?'PG-ADM-01 Auto Generating':'PG-ADM-01 Auto Generation Pending';
+      const open=w['PG-ADM-01 URL']?`<a class="ops-btn" target="_blank" href="${esc(w['PG-ADM-01 URL'])}">Open PG-ADM-01</a>`:'';
+      const retry=status==='FAILED'?'<button class="ops-btn" onclick="regeneratePgAdm01()">Retry PG-ADM-01</button>':'';
       const note=error?`<span class="badge red" title="${esc(error)}">Generation error recorded</span>`:'';
-      return `<span class="badge ${cls}">${label}</span>${note}${button}`;
+      return `<span class="badge ${cls}">${label}</span>${note}${open}${retry}`;
     }
     function regeneratePgAdm01(){
       if(!selected||selected.source==='V1')return;
