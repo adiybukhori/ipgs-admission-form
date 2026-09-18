@@ -416,16 +416,16 @@
         </section>
 
         <section id="handover" class="section">
-          <div class="hero"><div><h2>Academic Handover & Provisioning</h2><p>Transfer orientation-completed students to Academic, obtain formal acceptance, and coordinate Innovative email, Moodle and e-Library setup.</p></div><span class="badge purple">STAGE 5</span></div>
+          <div class="hero"><div><h2>Academic Handover & Provisioning</h2><p>Standalone handover sessions: create a session, add applicants, then send the selected student list to Academic and service PICs.</p></div><span class="badge purple">STANDALONE</span></div>
           <div class="kpis">
-            <div class="kpi"><div class="label">READY FOR HANDOVER</div><div id="handoverReadyKpi" class="value">0</div><div class="meta">Orientation attended</div></div>
+            <div class="kpi"><div class="label">AVAILABLE STUDENTS</div><div id="handoverReadyKpi" class="value">0</div><div class="meta">Not yet in any handover session</div></div>
             <div class="kpi"><div class="label">HANDOVER BATCHES</div><div id="handoverBatchesKpi" class="value">0</div><div class="meta">Created batches</div></div>
-            <div class="kpi"><div class="label">AWAITING ACADEMIC</div><div id="handoverPendingKpi" class="value">0</div><div class="meta">Pending formal acceptance</div></div>
+            <div class="kpi"><div class="label">DRAFT SESSIONS</div><div id="handoverPendingKpi" class="value">0</div><div class="meta">Add students before handover</div></div>
             <div class="kpi"><div class="label">PROVISIONING IN PROGRESS</div><div id="handoverProvisioningKpi" class="value">0</div><div class="meta">IT / Moodle / e-Library tasks</div></div>
           </div>
 
           <div class="panel" style="margin-bottom:18px">
-            <div class="panel-head"><h3>Create Admission → Academic Handover</h3><span>Select only students marked READY after Orientation</span></div>
+            <div class="panel-head"><h3>Create Academic Handover Session</h3><span>Create the session first, then use Add Students in the session list</span></div>
             <div class="panel-body">
               <div class="detail-grid">
                 <div class="field full"><label>Handover Batch Name</label><input id="handoverName" placeholder="e.g. Academic Handover - October 2026 Batch 1" /></div>
@@ -439,17 +439,17 @@
                 <span id="handoverSelectionCount" class="badge purple">0 selected</span>
               </div>
               <div id="handoverMessage" class="message" style="display:none"></div>
-              <div class="table-wrap"><table><thead><tr><th>Select</th><th>Student</th><th>Programme</th><th>Intake</th><th>Orientation</th></tr></thead><tbody id="handoverEligibleBody"></tbody></table></div>
+              <div class="table-wrap"><table><thead><tr><th>Available Student</th><th>Programme</th><th>Intake</th><th>Status</th></tr></thead><tbody id="handoverEligibleBody"></tbody></table></div>
             </div>
           </div>
 
           <div class="panel" style="margin-bottom:18px">
-            <div class="panel-head"><h3>Handover Batches</h3><span>Formal document → Academic email → Accept Handover</span></div>
-            <div class="table-wrap"><table><thead><tr><th>Batch</th><th>Students</th><th>Status</th><th>Academic Email</th><th>Accepted</th><th>Action</th></tr></thead><tbody id="handoverBatchesBody"></tbody></table></div>
+            <div class="panel-head"><h3>Handover Sessions</h3><span>DRAFT → Add Students → Handover Now → Academic / IT / Moodle / e-Library notified</span></div>
+            <div class="table-wrap"><table><thead><tr><th>Session</th><th>Students</th><th>Status</th><th>Academic Email</th><th>Action</th></tr></thead><tbody id="handoverBatchesBody"></tbody></table></div>
           </div>
 
           <div class="panel">
-            <div class="panel-head"><h3>Provisioning Tasks</h3><span>Tasks are created after Academic accepts the handover</span></div>
+            <div class="panel-head"><h3>Provisioning Tasks</h3><span>Tasks are created immediately when Registry clicks Handover Now</span></div>
             <div class="table-wrap"><table><thead><tr><th>Student</th><th>Innovative Email / IT</th><th>Moodle</th><th>e-Library</th><th>Overall</th></tr></thead><tbody id="provisioningBody"></tbody></table></div>
           </div>
         </section>
@@ -466,7 +466,7 @@
           </div>
 
           <div class="guide-callout blue" style="margin-bottom:18px">
-            <b>Core rule:</b> follow the workflow status shown by the system. Do not manually skip a gate. Screening is a recommendation, SAC is the admission decision, Acceptance unlocks SKY activation, SKY activation unlocks Orientation, and final student access is sent only after Academic Handover and all provisioning tasks are completed.
+            <b>Core rule:</b> Admission processing, Prospect/SKY operations, Orientation, and Academic Handover serve different operational purposes. Do not use a pending status in one module to block another standalone module unless that module itself explicitly requires it.
           </div>
 
           <div class="panel" style="margin-bottom:18px">
@@ -475,7 +475,7 @@
               <div class="guide-flowchart">
                 <div class="guide-flow-row"><div class="guide-flow-no">01</div><div class="guide-flow-stage">Application Submitted</div><div class="guide-flow-arrow">→</div><div class="guide-flow-action"><span class="guide-role">Student</span> Completes the online Admission Form and uploads required documents. <b>System:</b> creates the student Drive folder, Admission Form PDF, workflow record, acknowledgement email and PG-ADM-01.</div></div>
 
-                <div class="guide-flow-row"><div class="guide-flow-no">02</div><div class="guide-flow-stage">Academic Consultant / Prospect Setup</div><div class="guide-flow-arrow">→</div><div class="guide-flow-action"><span class="guide-role">Consultant</span> If the application came through a consultant link / selected consultant, the consultant receives the prospect email. Create the student as a Prospect in SKY, enter the <b>SKY Prospect ID</b>, select the approved <b>Fee Group</b>, then Submit. <span class="guide-role">Registry</span> For a direct applicant, use <b>Prospect / Activation → Set Prospect</b> and complete the same fields.</div></div>
+                <div class="guide-flow-row"><div class="guide-flow-no">02</div><div class="guide-flow-stage">Academic Consultant / Prospect Setup</div><div class="guide-flow-arrow">→</div><div class="guide-flow-action"><span class="guide-role">Consultant / Marketing</span> After receiving the prospect email, create the student as a Prospect in SKY, return to the email action page, enter the <b>SKY Prospect ID</b>, select the approved <b>Fee Structure / Fee Group</b>, then mark <b>Prospect Done</b>. <span class="guide-role">Registry</span> Once Prospect is Done, Registry may activate/register the student in SKY and mark <b>Active in SKY Done</b>. This module is independent from admission workflow progress.</div></div>
 
                 <div class="guide-parallel">
                   <div class="guide-parallel-title">Admission review continues in parallel while Prospect / Fee Group is being prepared</div>
@@ -494,15 +494,15 @@
 
                 <div class="guide-flow-row"><div class="guide-flow-no">08</div><div class="guide-flow-stage">Electronic Acceptance</div><div class="guide-flow-arrow">→</div><div class="guide-flow-action"><span class="guide-role">Student</span> Opens the Acceptance link, reviews the required documents and signs electronically. <b>System:</b> saves signed acceptance documents and timestamp, then updates <b>Acceptance Status = ACCEPTED</b>.</div></div>
 
-                <div class="guide-gate"><b>GATE A — SKY Activation:</b> Prospect Status must be completed, SKY Prospect ID and Fee Group must exist, and Acceptance Status must be <b>ACCEPTED</b>. Before that, activation stays locked.</div>
+                <div class="guide-gate"><b>Prospect / SKY operational rule:</b> once Marketing has completed the Prospect and Fee Structure, Registry may mark the SKY activation task as done. Offer, Acceptance, SAC and Document Review do not gate this module.</div>
 
-                <div class="guide-flow-row"><div class="guide-flow-no">09</div><div class="guide-flow-stage">Registry SKY Activation</div><div class="guide-flow-arrow">→</div><div class="guide-flow-action"><span class="guide-role">Registry</span> Open <b>Prospect / Activation</b>. Cases move from Prospect Pending → Waiting Acceptance → Ready to Activate. Complete the activation in SKY, then click <b>Activate in SKY</b> and enter the SKY Student ID / Registration No. The system records activation status, date and officer.</div></div>
+                <div class="guide-flow-row"><div class="guide-flow-no">09</div><div class="guide-flow-stage">Registry SKY Activation</div><div class="guide-flow-arrow">→</div><div class="guide-flow-action"><span class="guide-role">Registry</span> Open <b>Prospect / Activation</b>. Prospect Pending becomes <b>Prospect Done</b> after Marketing submits the SKY Prospect ID + Fee Structure. Registry then activates/registers the student in SKY and clicks <b>Active in SKY Done</b>. SKY Student ID / Registration No. may be recorded if available.</div></div>
 
-                <div class="guide-gate"><b>GATE B — Orientation:</b> student must be both <b>ACCEPTED</b> and <b>SKY ACTIVATED</b>. An accepted but non-activated student must not be assigned to Orientation.</div>
+                <div class="guide-gate"><b>Orientation rule:</b> Orientation is a standalone session module. The Add Students list comes from Applications and excludes only students already assigned to another Orientation Session.</div>
 
-                <div class="guide-flow-row"><div class="guide-flow-no">10</div><div class="guide-flow-stage">Orientation</div><div class="guide-flow-arrow">→</div><div class="guide-flow-action"><span class="guide-role">Registry</span> Create the Orientation session, select eligible students and assign them. The student receives the invitation immediately. Automatic milestone reminders are scheduled at <b>3 days, 2 days, 1 day and approximately 1 hour before</b> the session. Students assigned later receive only the reminders still relevant to their timing. Mark attendance after the session; <b>ATTENDED</b> becomes the readiness gate for Academic Handover.</div></div>
+                <div class="guide-flow-row"><div class="guide-flow-no">10</div><div class="guide-flow-stage">Orientation</div><div class="guide-flow-arrow">→</div><div class="guide-flow-action"><span class="guide-role">Registry</span> Create the Orientation session and click <b>Add Students</b>. The list shows applicants who have not been assigned to any previous Orientation Session. Add the selected students; invitation is sent immediately and reminders follow at <b>3 days, 2 days, 1 day and approximately 1 hour before</b>. Attendance is tracked inside Orientation only.</div></div>
 
-                <div class="guide-flow-row"><div class="guide-flow-no">11</div><div class="guide-flow-stage">Academic Handover</div><div class="guide-flow-arrow">→</div><div class="guide-flow-action"><span class="guide-role">Registry</span> Create an Academic Handover batch for attended students and send it to Academic. <span class="guide-role">Academic</span> Opens the handover link and accepts the batch. Acceptance creates the provisioning work.</div></div>
+                <div class="guide-flow-row"><div class="guide-flow-no">11</div><div class="guide-flow-stage">Academic Handover</div><div class="guide-flow-arrow">→</div><div class="guide-flow-action"><span class="guide-role">Registry</span> Create a <b>Handover Session</b>, click <b>Add Students</b>, then click <b>Handover Now</b>. The list comes from Applications and excludes students already used in another Handover Session. Academic and the configured IT / Moodle / e-Library PICs receive the student list immediately.</div></div>
 
                 <div class="guide-flow-row"><div class="guide-flow-no">12</div><div class="guide-flow-stage">IT / Moodle / e-Library Provisioning</div><div class="guide-flow-arrow">→</div><div class="guide-flow-action"><span class="guide-role">PICs</span> IT completes Innovative Email, Moodle PIC completes Moodle access, and e-Library PIC completes e-Library access. Registry monitors the Provisioning queue until all three are complete.</div></div>
 
@@ -522,10 +522,10 @@
               <div class="guide-role-card"><h4>PG-ADM-01</h4><ol><li>Generated automatically after application.</li><li>Controlled layout is the approved one-page table form.</li><li>Applicant biodata is auto-filled.</li><li>Yes/No, Evidence/Remarks, route and signatures are completed by authorised staff/SAC.</li><li>Use Regenerate only when a refreshed copy is required.</li></ol></div>
               <div class="guide-role-card"><h4>SAC Monitoring</h4><ol><li>Create session and assign eligible candidates.</li><li>Print/prepare SAC pack.</li><li>Record the authorised physical/manual SAC result.</li><li>Finalize the session after all decisions are entered.</li></ol></div>
               <div class="guide-role-card"><h4>IA / PREREQ</h4><ol><li>Track only candidates routed to IA.</li><li>Record assessment/interview/result progress.</li><li>Apply PREREQ only after IA when required by the approved route.</li><li>Complete the route before Offer.</li></ol></div>
-              <div class="guide-role-card"><h4>Offer & Acceptance</h4><ol><li>Issue only when Eligible for Offer.</li><li>Monitor Offer status and Acceptance status.</li><li>Use signed PDFs saved in the student folder as the record.</li><li>Acceptance must be ACCEPTED before SKY activation.</li></ol></div>
-              <div class="guide-role-card"><h4>Prospect / Activation</h4><ol><li>Prospect Pending: consultant/Registry must complete Prospect ID + Fee Group.</li><li>Waiting Acceptance: no activation yet.</li><li>Ready to Activate: complete SKY activation and enter Student ID.</li><li>Activated: student becomes Orientation-eligible.</li></ol></div>
-              <div class="guide-role-card"><h4>Orientation</h4><ol><li>Create session.</li><li>Select Accepted + SKY Activated students only.</li><li>Assign student; invitation is sent immediately.</li><li>Automatic reminders: 3 days → 2 days → 1 day → approximately 1 hour before.</li><li>Late assignment receives only the next relevant reminder(s).</li><li>Mark Attended after the session.</li></ol></div>
-              <div class="guide-role-card"><h4>Academic Handover</h4><ol><li>Create batch after Orientation attendance.</li><li>Send to Academic.</li><li>Monitor acceptance.</li><li>Academic acceptance triggers provisioning tasks.</li></ol></div>
+              <div class="guide-role-card"><h4>Offer & Acceptance</h4><ol><li>Issue according to the admission decision.</li><li>Monitor Offer and Acceptance status inside the Admission workflow.</li><li>Use signed PDFs saved in the student folder as the record.</li><li>Acceptance status does not control Prospect/SKY, Orientation or Handover operational modules.</li></ol></div>
+              <div class="guide-role-card"><h4>Prospect / Activation</h4><ol><li>Marketing / Consultant creates Prospect in SKY.</li><li>Enter SKY Prospect ID + Fee Structure and mark Prospect Done.</li><li>Registry activates/registers student in SKY.</li><li>Click Active in SKY Done. This tracking is standalone.</li></ol></div>
+              <div class="guide-role-card"><h4>Orientation</h4><ol><li>Create session.</li><li>Click Add Students.</li><li>Select applicants not previously assigned to any Orientation Session.</li><li>Invitation is sent immediately.</li><li>Automatic reminders: 3 days → 2 days → 1 day → approximately 1 hour before.</li><li>Mark attendance for Orientation tracking.</li></ol></div>
+              <div class="guide-role-card"><h4>Academic Handover</h4><ol><li>Create Handover Session.</li><li>Click Add Students and select applicants not used in another handover.</li><li>Click Handover Now.</li><li>Academic and service PICs receive the list immediately; no Orientation or admission status gate is applied.</li></ol></div>
               <div class="guide-role-card"><h4>Provisioning</h4><ol><li>Monitor Innovative Email, Moodle and e-Library.</li><li>When all three complete, status becomes Ready to Notify.</li><li>Registry sends Student Access.</li><li>Only then does the student become Active.</li></ol></div>
               <div class="guide-role-card"><h4>Reports</h4><ol><li>Use funnel and programme/intake/referral distributions.</li><li>Export filtered Applications to CSV when needed.</li><li>Use Reference No as the main identifier in internal follow-up.</li></ol></div>
             </div></div>
@@ -537,9 +537,9 @@
               <div class="table-wrap"><table class="guide-table"><thead><tr><th>Gate</th><th>Required before proceeding</th></tr></thead><tbody>
                 <tr><td><span class="guide-badge purple">SAC</span></td><td>Document Review complete, qualification screening resolved, and programme-specific mandatory items completed. Preliminary Research Intent may remain outstanding as a non-blocking follow-up item.</td></tr>
                 <tr><td><span class="guide-badge blue">Offer</span></td><td>Direct Entry endorsed or IA/PREREQ route successfully completed.</td></tr>
-                <tr><td><span class="guide-badge amber">SKY Activation</span></td><td>Prospect completed + SKY Prospect ID + Fee Group + Acceptance = ACCEPTED.</td></tr>
-                <tr><td><span class="guide-badge amber">Orientation</span></td><td>Acceptance = ACCEPTED + SKY Activation = ACTIVATED.</td></tr>
-                <tr><td><span class="guide-badge purple">Handover</span></td><td>Orientation attendance = ATTENDED.</td></tr>
+                <tr><td><span class="guide-badge amber">Prospect / SKY</span></td><td>Standalone operational tracking. Prospect Done enables Registry to complete SKY activation; no Admission status gate.</td></tr>
+                <tr><td><span class="guide-badge amber">Orientation</span></td><td>Standalone. Applicant can be added if not already assigned to another Orientation Session.</td></tr>
+                <tr><td><span class="guide-badge purple">Handover</span></td><td>Standalone. Applicant can be added if not already included in another Handover Session.</td></tr>
                 <tr><td><span class="guide-badge green">Active Student</span></td><td>IT + Moodle + e-Library complete and Student Access email successfully sent.</td></tr>
               </tbody></table></div>
             </div>
@@ -580,7 +580,7 @@
                 <li>Do not treat screening recommendation as the final SAC decision.</li>
                 <li>Do not select PREREQ directly at SAC; it follows IA where applicable.</li>
                 <li>Do not activate in SKY before Acceptance = ACCEPTED.</li>
-                <li>Do not assign Orientation before SKY Activation = ACTIVATED.</li>
+                <li>Do not use Admission, SKY or Orientation status as a cross-module block. Check only the rules inside the module currently being used.</li>
                 <li>Do not mark a student Active merely because accounts are created; send Student Access first.</li>
               </ul></div>
             </div></div>
@@ -589,7 +589,7 @@
           <div class="panel" style="margin-top:18px">
             <div class="panel-head"><h3>Recommended UAT for a complete journey</h3><span>Use one controlled applicant</span></div>
             <div class="panel-body">
-              <div class="guide-callout green"><b>Test sequence:</b> Submit Application → verify Student/Consultant emails → verify PG-ADM-01 → complete Prospect/Fee Group → Document Review → Screening → SAC → Offer → Acceptance → confirm activation lock/unlock → SKY Activation → Orientation assignment/attendance → Academic Handover → Provisioning → Send Student Access → verify ACTIVE_STUDENT and audit trail.</div>
+              <div class="guide-callout green"><b>UAT approach:</b> test Admission workflow, Prospect/SKY, Orientation, and Academic Handover as separate operational modules. Confirm that a pending status in one module does not prevent actions in another. For Orientation and Handover, also confirm that a student already assigned to a previous session no longer appears in the Add Students list.</div>
             </div>
           </div>
         </section>
