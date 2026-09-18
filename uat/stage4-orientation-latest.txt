@@ -1,10 +1,12 @@
 Stage 4 Orientation UAT
-Status: FAIL
-Executed: 2026-09-18T04:39:12Z
-Execution path: deployed V2 web app with ephemeral one-time endpoint
-Temporary endpoint cleanup: attempted
+Executed: 2026-09-18T04:41:07Z
+Execution path: Apps Script Execution API (--nondev)
 
 {
+  "pingStatus": "FAIL",
+  "pingExitCode": "0",
+  "uatStatus": "NOT_RUN",
+  "uatExitCode": "",
   "ok": false,
   "stage": null,
   "uat": null,
@@ -15,7 +17,6 @@ Temporary endpoint cleanup: attempted
   "attendanceStatus": "",
   "academicHandoverStatus": "",
   "sessionStatus": "",
-  "message": "",
-  "http": "200|text/html; charset=utf-8",
-  "responsePreview": "<!DOCTYPE html><html><head><script nonce=\"u7uofHG94U9C5tZocwLRdg\">window['ppConfig'] = {productName: '26981ed0d57bbad37e728ff58134270c', deleteIsEnforced:  false , sealIsEnforced:  false , heartbeatRate:  0.5 , periodicReportingRateMillis:  60000.0 , disableAllReporting:  false };(function(){'use strict';function k(a){var b=0;return function(){return b<a.length?{done:!1,value:a[b++]}:{done:!0}}}function l(a){var b=typeof Symbol!=\"undefined\"&&Symbol.iterator&&a[Symbol.iterator];if(b)return b.call(a);if(typeof a.length==\"number\")return{next:k(a)};throw Error(String(a)+\" is not an iterable or ArrayLike\");}var m=typeof Object.defineProperties==\"function\"?Object.defineProperty:function(a,b,c){if("
+  "pingPreview": "Unable to run script function. Please make sure you have permission to run the script function.\n",
+  "uatPreview": ""
 }
