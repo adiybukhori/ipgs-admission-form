@@ -30,6 +30,9 @@ const V2_HEADERS = Object.freeze({
     'Field of Study','Academic Result / CGPA / Grade','Transfer Applicant','Agent Code',
     'Agent Name','Agent Email',
     'Prospect Status','SKY Prospect ID','Fee Group','Prospect Updated At','Prospect Remarks',
+    'Fee Structure Status','Fee Structure PDF URL','Fee Structure Updated At',
+    'Registry Prospect Notification Status','Registry Prospect Notified At',
+    'SKY Activation Status','SKY Student ID','SKY Activated At','SKY Activated By','SKY Activation Remarks',
     'Student Folder URL','Admission Form PDF URL',
     'Uploaded Files JSON','Raw Application JSON','Application Status','Email Status',
     'Last Updated','Version'
@@ -49,6 +52,9 @@ const V2_HEADERS = Object.freeze({
 
     'Screening Recommendation',
     'Prospect Status','SKY Prospect ID','Fee Group','Prospect Updated At',
+    'Fee Structure Status','Fee Structure PDF URL','Fee Structure Updated At',
+    'Registry Prospect Notification Status','Registry Prospect Notified At',
+    'SKY Activation Status','SKY Student ID','SKY Activated At','SKY Activated By','SKY Activation Remarks',
     'SAC Session ID','SAC Decision','SAC Endorsed At',
     'Assessment Status','Prerequisite Status','Offer Letter Status','Offer Letter Issued At',
     'Acceptance Status','Orientation Session ID','Orientation Status','Provisioning Status',
@@ -393,6 +399,10 @@ function handleV2Post_(payload) {
   if (action === 'v2UpdateProvisioningTask') return v2UpdateProvisioningTask_(payload.data || {}, payload.updatedBy || 'Admin Portal V2');
   if (action === 'v2ResendProvisioningTaskEmails') return v2ResendProvisioningTaskEmails_(payload.data || {}, payload.updatedBy || 'Admin Portal V2');
   if (action === 'v2SendStudentProvisioningAccess') return v2SendStudentProvisioningAccess_(payload.data || {}, payload.updatedBy || 'Admin Portal V2');
+  if (action === 'v2RegistryUpsertProspect') return v2RegistryUpsertProspect_(payload.data || {}, payload.updatedBy || 'Admin Portal V2');
+  if (action === 'v2RefreshFeeStructure') return v2RefreshFeeStructure_(payload.data || {}, payload.updatedBy || 'Admin Portal V2');
+  if (action === 'v2NotifyRegistryProspectReady') return v2NotifyRegistryProspectReady_((payload.data || {}).referenceNo, payload.updatedBy || 'Admin Portal V2');
+  if (action === 'v2ActivateStudentInSky') return v2ActivateStudentInSky_(payload.data || {}, payload.updatedBy || 'Admin Portal V2');
   if (action === 'v2UpdateProvisioning') return v2UpdateProvisioning_(payload.data || {}, payload.updatedBy);
   throw new Error('Unsupported V2 POST action.');
 }
