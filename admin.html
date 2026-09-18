@@ -271,6 +271,7 @@
         <button data-section="applications" onclick="go('applications',this)">☷ <span>Applications</span></button>
         <button data-section="sac" onclick="go('sac',this)">✓ <span>SAC</span></button>
         <button data-section="assessment" onclick="go('assessment',this)">◎ <span>IA / PREREQ</span></button>
+        <button data-section="orientation" onclick="goOrientation(this)">◉ <span>Orientation</span></button>
         <button data-section="reports" onclick="go('reports',this)">▥ <span>Reports</span></button>
         <button data-section="guide" onclick="go('guide',this)">? <span>System Guide</span></button>
       </div>
@@ -334,6 +335,46 @@
         <section id="assessment" class="section">
           <div class="hero"><div><h2>IA / Prerequisite monitoring</h2><p>Track assessment progress and cases that are waiting for the next admission decision.</p></div></div>
           <div class="panel"><div class="panel-head"><h3>Assessment progress</h3><span>Live from V2_ASSESSMENT_PROGRESS</span></div><div class="table-wrap"><table><thead><tr><th>Applicant</th><th>Route</th><th>Status</th><th>Submission</th><th>Interview</th><th>Result</th><th>Updated</th></tr></thead><tbody id="assessmentBody"></tbody></table></div></div>
+        </section>
+
+        <section id="orientation" class="section">
+          <div class="hero"><div><h2>Orientation</h2><p>Create orientation sessions, assign accepted students, send invitations and reminders, and record attendance.</p></div><span class="badge purple">STAGE 4</span></div>
+          <div class="kpis">
+            <div class="kpi"><div class="label">SESSIONS</div><div id="oriSessionsKpi" class="value">0</div><div class="meta">Orientation sessions created</div></div>
+            <div class="kpi"><div class="label">ASSIGNED</div><div id="oriAssignedKpi" class="value">0</div><div class="meta">Students assigned</div></div>
+            <div class="kpi"><div class="label">INVITED</div><div id="oriInvitedKpi" class="value">0</div><div class="meta">Invitation email sent</div></div>
+            <div class="kpi"><div class="label">ATTENDED</div><div id="oriAttendedKpi" class="value">0</div><div class="meta">Attendance confirmed</div></div>
+          </div>
+
+          <div class="panel" style="margin-bottom:18px">
+            <div class="panel-head"><h3>Create Orientation Session</h3><span>Reminder is automatically scheduled before the session</span></div>
+            <div class="panel-body">
+              <div class="detail-grid">
+                <div class="field"><label>Orientation Name</label><input id="oriName" placeholder="e.g. Orientation October 2026" /></div>
+                <div class="field"><label>Intake</label><select id="oriIntake"><option value="">Select intake</option></select></div>
+                <div class="field"><label>Session Date</label><input id="oriDate" type="date" /></div>
+                <div class="field"><label>Programme Group</label><input id="oriProgrammeGroup" placeholder="ALL" value="ALL" /></div>
+                <div class="field"><label>Start Time</label><input id="oriStart" type="time" value="08:30" /></div>
+                <div class="field"><label>End Time</label><input id="oriEnd" type="time" value="10:30" /></div>
+                <div class="field"><label>Mode</label><select id="oriMode"><option value="ONLINE">Online</option><option value="PHYSICAL">Physical</option><option value="HYBRID">Hybrid</option></select></div>
+                <div class="field"><label>Reminder</label><select id="oriReminderDays"><option value="1">1 day before</option><option value="2">2 days before</option><option value="3" selected>3 days before</option><option value="5">5 days before</option><option value="7">7 days before</option></select></div>
+                <div class="field"><label>Venue</label><input id="oriVenue" placeholder="Physical venue, if applicable" /></div>
+                <div class="field"><label>Meeting Link</label><input id="oriMeetingLink" placeholder="Google Meet / online link" /></div>
+              </div>
+              <div style="margin-top:8px"><button class="primary" onclick="createOrientationSession()">Create Orientation Session</button></div>
+              <div id="orientationMessage" class="message" style="display:none"></div>
+            </div>
+          </div>
+
+          <div class="panel" style="margin-bottom:18px">
+            <div class="panel-head"><h3>Orientation Sessions</h3><span>Invitation is sent when accepted students are assigned from Applications</span></div>
+            <div class="table-wrap"><table><thead><tr><th>Session</th><th>Intake</th><th>Date & Time</th><th>Mode</th><th>Assigned</th><th>Reminder</th><th>Attendance</th><th>Action</th></tr></thead><tbody id="orientationSessionsBody"></tbody></table></div>
+          </div>
+
+          <div class="panel">
+            <div class="panel-head"><h3>Student Orientation Tracking</h3><span>Attendance marked here becomes the readiness gate for Academic Handover</span></div>
+            <div class="table-wrap"><table><thead><tr><th>Student</th><th>Programme</th><th>Session</th><th>Invitation</th><th>Reminder</th><th>Attendance</th><th>Action</th></tr></thead><tbody id="orientationTrackingBody"></tbody></table></div>
+          </div>
         </section>
 
         <section id="reports" class="section">
@@ -897,5 +938,6 @@
     async function copyText(text){try{await navigator.clipboard.writeText(text)}catch(_){}}
     function exportApplicationsCsv(){const list=filteredApplications(),rows=[['Source','Reference','Student Name','ID / Passport','Email','Programme','Intake','Stage','Decision','Status','Last Updated']];list.forEach(r=>rows.push([r.source==='V1'?'V1 Legacy':'V2',r.ref,r.app['Student Name'],r.app['ID / Passport No'],r.app['Personal Email'],r.app['Programme'],r.app['Intake'],stage(r),decision(r),status(r),val(r,'Last Updated',r.app['Last Updated'])]));const csv=rows.map(row=>row.map(v=>`"${String(v||'').replaceAll('"','""')}"`).join(',')).join('\n'),blob=new Blob([csv],{type:'text/csv;charset=utf-8'}),a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='IPGS_Admission_V2_Report.csv';a.click();URL.revokeObjectURL(a.href)}
   </script>
+  <script src="/orientation-admin.js"></script>
 </body>
 </html>
