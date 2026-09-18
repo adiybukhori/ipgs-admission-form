@@ -539,11 +539,13 @@ function v2AssignSacCandidate_(data, actor) {
   if (!workflow) throw new Error('V2 workflow record not found.');
   const w = workflow.record;
 
-  // Research Intent may remain outstanding through review and screening, but
-  // a PhD candidate cannot be assigned to SAC until it has been received.
+  // Preliminary Research Intent is tracked for PhD applications but is NON-BLOCKING.
+  // The applicant may proceed to SAC and subsequent admission stages while Registry
+  // continues follow-up. Keep the outstanding status visible as a reviewer remark.
   const application = v2Find_('V2_APPLICATIONS','Reference No',reference);
   const programme = String((application && application.record['Programme']) || w['Programme'] || '');
   const isPhd = /^PHD\b/i.test(programme) || /DOCTOR OF PHILOSOPHY/i.test(programme);
+  let researchIntentRemark = '';
   if (isPhd) {
     let researchIntentReceived = false;
     const intentStatus = String((application && application.record['Research Intent Status']) || w['Research Intent Status'] || '').toUpperCase();
@@ -552,14 +554,14 @@ function v2AssignSacCandidate_(data, actor) {
       researchIntentReceived = !!v2ResearchIntentExistingFile_(application.record);
     }
     if (!researchIntentReceived) {
-      throw new Error('Preliminary Research Intent is still outstanding. Please receive the document before assigning this applicant to SAC.');
+      researchIntentRemark = 'Preliminary Research Intent: OUTSTANDING - follow up after SAC / during admission processing. Non-blocking.';
     }
   }
 
   const row = {'SAC Session ID':sessionId,'Reference No':reference,'Student Name':w['Student Name'],
     'Programme':w['Programme'],'Form 01 URL':data.form01Url || '','Transcript URL':data.transcriptUrl || '',
     'Certificate URL':data.certificateUrl || '','Screening Recommendation':w['Screening Recommendation'] || '',
-    'Decision':'PENDING','Priority':data.priority || 'NORMAL','Reviewer Remarks':'','Decision At':'',
+    'Decision':'PENDING','Priority':data.priority || 'NORMAL','Reviewer Remarks':researchIntentRemark,'Decision At':'',
     'Decision By':'','Letter Action':'NONE','Letter Issued At':''};
   const saved = v2UpsertComposite_('V2_SAC_CANDIDATES',['SAC Session ID','Reference No'],[sessionId,reference],row);
   v2UpdateRow_(workflow.sheet,workflow.rowNumber,{'SAC Session ID':sessionId,'Application Stage':'SAC_REVIEW','Last Updated':new Date().toISOString(),'Updated By':actor || 'Admin Portal'});
