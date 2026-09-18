@@ -85,7 +85,74 @@
       data.innovativeEmail=String(email).trim();
     }
     const result=await handoverAction('v2UpdateProvisioningTask',data,`Mark ${task==='ELIBRARY'?'e-Library':task} provisioning as completed?`);
-    if(result)handoverMsg(result.allProvisioningComplete?'All provisioning tasks completed. Student moved to Active Student.':`${task==='ELIBRARY'?'e-Library':task} task completed.`,'ok');
+    if(result)handoverMsg(result.allProvisioningComplete?'All provisioning tasks completed. Enter the temporary access credentials and send them to the student to complete activation.':`${task==='ELIBRARY'?'e-Library':task} task completed.`,'ok');
+  };
+
+  function closeStudentAccessModal(){
+    const modal=document.getElementById('studentAccessModal');
+    if(modal)modal.remove();
+  }
+
+  window.sendStudentAccess=function(ref,resend=false){
+    const current=(db.V2_PROVISIONING||[]).find(x=>String(x['Reference No']||'')===String(ref))||{};
+    const student=current['Student Name']||ref;
+    const innovative=current['Innovative Email']||'';
+    const moodle=current['Moodle Login Email']||current['Personal Email']||'';
+    const existing=document.getElementById('studentAccessModal');
+    if(existing)existing.remove();
+
+    const overlay=document.createElement('div');
+    overlay.id='studentAccessModal';
+    overlay.style.cssText='position:fixed;inset:0;background:rgba(17,24,39,.55);z-index:9999;display:flex;align-items:center;justify-content:center;padding:18px';
+    overlay.innerHTML=`
+      <div style="width:min(620px,96vw);max-height:92vh;overflow:auto;background:#fff;border-radius:18px;box-shadow:0 25px 70px rgba(0,0,0,.25);padding:22px">
+        <div style="display:flex;justify-content:space-between;gap:12px;align-items:flex-start;margin-bottom:14px">
+          <div><h3 style="margin:0 0 4px">Send Student Access</h3><div class="subline">${esc(student)} · ${esc(ref)}</div></div>
+          <button class="ghost" type="button" onclick="document.getElementById('studentAccessModal')?.remove()">Close</button>
+        </div>
+        <div class="message" style="display:block;background:var(--amberSoft);color:#7a5600;margin-bottom:16px">
+          Temporary passwords are used only for this email and are not stored in the admission spreadsheet or audit log.
+        </div>
+        <div class="detail-grid">
+          <div class="field full"><label>Innovative Email</label><input id="accessInnovativeLogin" value="${esc(innovative)}" readonly /></div>
+          <div class="field full"><label>Innovative Email Temporary Password</label><input id="accessItPassword" type="password" autocomplete="new-password" /></div>
+          <div class="field full"><label>Moodle Login</label><input id="accessMoodleLogin" value="${esc(moodle)}" /></div>
+          <div class="field full"><label>Moodle Temporary Password</label><input id="accessMoodlePassword" type="password" autocomplete="new-password" /></div>
+          <div class="field full"><label>e-Library Login</label><input id="accessLibraryLogin" value="${esc(innovative)}" /></div>
+          <div class="field full"><label>e-Library Temporary Password</label><input id="accessLibraryPassword" type="password" autocomplete="new-password" /></div>
+        </div>
+        <div style="display:flex;gap:10px;justify-content:flex-end;margin-top:16px;flex-wrap:wrap">
+          <button class="ghost" type="button" onclick="document.getElementById('studentAccessModal')?.remove()">Cancel</button>
+          <button class="primary" type="button" id="sendStudentAccessBtn">Send Access Email</button>
+        </div>
+      </div>`;
+    document.body.appendChild(overlay);
+
+    overlay.addEventListener('click',e=>{if(e.target===overlay)closeStudentAccessModal();});
+    const sendBtn=document.getElementById('sendStudentAccessBtn');
+    sendBtn.onclick=async()=>{
+      const itTemporaryPassword=document.getElementById('accessItPassword')?.value||'';
+      const moodleTemporaryPassword=document.getElementById('accessMoodlePassword')?.value||'';
+      const eLibraryTemporaryPassword=document.getElementById('accessLibraryPassword')?.value||'';
+      const moodleLogin=document.getElementById('accessMoodleLogin')?.value.trim()||'';
+      const eLibraryLogin=document.getElementById('accessLibraryLogin')?.value.trim()||'';
+      if(!itTemporaryPassword||!moodleTemporaryPassword||!eLibraryTemporaryPassword){
+        return handoverMsg('Enter all three temporary passwords before sending.','error');
+      }
+      sendBtn.disabled=true;
+      sendBtn.textContent='Sending…';
+      const result=await handoverAction('v2SendStudentProvisioningAccess',{
+        referenceNo:ref,resend:!!resend,moodleLogin,eLibraryLogin,
+        itTemporaryPassword,moodleTemporaryPassword,eLibraryTemporaryPassword
+      },resend?'Resend student access details using these temporary credentials?':'Send these access details to the student and activate the student record?');
+      if(result){
+        closeStudentAccessModal();
+        handoverMsg(result.sent?'Student access email sent. Student is now Active.':`Student access email status: ${pretty(result.status||'not sent')}.`,result.sent?'ok':'error');
+      }else{
+        sendBtn.disabled=false;
+        sendBtn.textContent='Send Access Email';
+      }
+    };
   };
 
   window.renderAcademicHandover=function(){
@@ -102,7 +169,8 @@
     if(kPending)kPending.textContent=batches.filter(x=>String(x['Status']||'').toUpperCase()==='PENDING_ACADEMIC_ACCEPTANCE').length;
     if(kProv)kProv.textContent=provisioning.filter(x=>{
       const it=String(x['IT Email Status']||'').toUpperCase(),m=String(x['Moodle Status']||'').toUpperCase(),l=String(x['E-Library Status']||'').toUpperCase();
-      return !(it==='COMPLETED'&&m==='COMPLETED'&&l==='COMPLETED');
+      const notified=String(x['Student Notification Status']||'').toUpperCase()==='SENT';
+      return !(it==='COMPLETED'&&m==='COMPLETED'&&l==='COMPLETED'&&notified);
     }).length;
 
     const body=document.getElementById('handoverEligibleBody');
@@ -148,12 +216,18 @@
         const moodle=String(p['Moodle Status']||'PENDING').toUpperCase();
         const lib=String(p['E-Library Status']||'PENDING').toUpperCase();
         const complete=it==='COMPLETED'&&moodle==='COMPLETED'&&lib==='COMPLETED';
+        const notification=String(p['Student Notification Status']||'NOT_READY').toUpperCase();
+        const accessSent=notification==='SENT';
         return `<tr>
           <td><div class="student">${esc(p['Student Name']||'-')}</div><div class="subline">${esc(ref)}</div></td>
           <td><span class="badge ${classifyBadge(it)}">${esc(pretty(it))}</span><div class="subline">${esc(p['Innovative Email']||'')}</div>${it!=='COMPLETED'?`<div style="margin-top:6px"><button class="ghost" onclick="completeProvisioningTask('${esc(ref)}','IT')">Complete IT</button></div>`:''}</td>
-          <td><span class="badge ${classifyBadge(moodle)}">${esc(pretty(moodle))}</span>${moodle!=='COMPLETED'?`<div style="margin-top:6px"><button class="ghost" onclick="completeProvisioningTask('${esc(ref)}','MOODLE')">Complete Moodle</button></div>`:''}</td>
+          <td><span class="badge ${classifyBadge(moodle)}">${esc(pretty(moodle))}</span><div class="subline">${esc(p['Moodle Login Email']||p['Personal Email']||'')}</div>${moodle!=='COMPLETED'?`<div style="margin-top:6px"><button class="ghost" onclick="completeProvisioningTask('${esc(ref)}','MOODLE')">Complete Moodle</button></div>`:''}</td>
           <td><span class="badge ${classifyBadge(lib)}">${esc(pretty(lib))}</span>${lib!=='COMPLETED'?`<div style="margin-top:6px"><button class="ghost" onclick="completeProvisioningTask('${esc(ref)}','ELIBRARY')">Complete e-Library</button></div>`:''}</td>
-          <td><span class="badge ${complete?'green':'amber'}">${complete?'Provisioning Complete':'In Progress'}</span></td>
+          <td>
+            <span class="badge ${accessSent?'green':complete?'purple':'amber'}">${accessSent?'Active · Access Sent':complete?'Ready to Notify':'In Progress'}</span>
+            ${complete&&!accessSent?`<div style="margin-top:7px"><button class="primary" onclick="sendStudentAccess('${esc(ref)}',false)">Send Student Access</button></div>`:''}
+            ${accessSent?`<div class="subline" style="margin-top:5px">${p['Student Notified At']?esc(formatDate(p['Student Notified At'])):''}</div><div style="margin-top:6px"><button class="ghost" onclick="sendStudentAccess('${esc(ref)}',true)">Resend Access</button></div>`:''}
+          </td>
         </tr>`;
       }).join('')||'<tr><td colspan="5" class="empty">Provisioning tasks appear after Academic accepts a handover batch.</td></tr>';
     }
