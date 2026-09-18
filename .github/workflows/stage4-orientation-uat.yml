@@ -53,19 +53,43 @@ jobs:
           clasp run v2ExecutionPing >/tmp/stage4-ping-raw.txt 2>&1
           code=$?
           set -e
-          if [ "$code" -ne 0 ]; then
-            echo "Execution API ping failed."
-            cat /tmp/stage4-ping-raw.txt
-            exit 1
+          echo "exit_code=$code" >> "$GITHUB_OUTPUT"
+          if [ "$code" -eq 0 ] && grep -F '1O-Y-q7_q78xKM1p5e2C3EWyQfYr5rXvhO0oWbVaw5Mw' /tmp/stage4-ping-raw.txt >/dev/null; then
+            echo "target=V2_DEV" >> "$GITHUB_OUTPUT"
+            echo "status=PASS" >> "$GITHUB_OUTPUT"
+          else
+            echo "target=UNVERIFIED" >> "$GITHUB_OUTPUT"
+            echo "status=FAIL" >> "$GITHUB_OUTPUT"
           fi
-          grep -F '1O-Y-q7_q78xKM1p5e2C3EWyQfYr5rXvhO0oWbVaw5Mw' /tmp/stage4-ping-raw.txt >/dev/null || {
-            echo "Execution target does not match the locked V2 spreadsheet."
-            cat /tmp/stage4-ping-raw.txt
-            exit 1
-          }
-          echo "target=V2_DEV" >> "$GITHUB_OUTPUT"
+
+      - name: Save sanitized ping diagnostic
+        if: steps.ping.outputs.status != 'PASS'
+        shell: bash
+        run: |
+          git fetch origin main
+          git checkout -B main origin/main
+          mkdir -p uat
+          {
+            echo "Stage 4 Apps Script execution ping"
+            echo "Status: FAIL"
+            echo "Executed: $(date -u +'%Y-%m-%dT%H:%M:%SZ')"
+            echo "Exit code: ${{ steps.ping.outputs.exit_code }}"
+            echo
+            echo "Sanitized command output:"
+            sed -E \
+              -e 's/[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}/[EMAIL_REDACTED]/g' \
+              -e 's/(access_token|refresh_token|id_token|client_secret)[^[:space:]]*/[TOKEN_REDACTED]/Ig' \
+              /tmp/stage4-ping-raw.txt | head -40
+          } > uat/stage4-orientation-ping-diagnostic.txt
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add uat/stage4-orientation-ping-diagnostic.txt
+          git commit -m "Record Stage 4 execution ping diagnostic" || true
+          git push origin main
+          exit 1
 
       - name: Execute controlled Stage 4 UAT
+        if: steps.ping.outputs.status == 'PASS'
         id: run_uat
         shell: bash
         run: |
