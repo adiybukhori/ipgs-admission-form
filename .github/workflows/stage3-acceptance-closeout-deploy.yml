@@ -1,0 +1,88 @@
+name: Stage 3 Acceptance Closeout Deploy
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'tools/stage3-acceptance-closeout-patch.py'
+      - '.github/workflows/stage3-acceptance-closeout-deploy.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout main
+        uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+
+      - name: Patch and validate Admin
+        run: |
+          python tools/stage3-acceptance-closeout-patch.py main
+          node --check api/admin-action.js
+          grep -F "v2ResendAcceptanceConfirmation" api/admin-action.js
+          grep -F "Handbook Acknowledgement Signed" admin.html
+          grep -F "Resend Acceptance Email" admin.html
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add api/admin-action.js admin.html
+          if ! git diff --cached --quiet; then
+            git commit -m 'Complete Stage 3 acceptance closeout controls'
+            git push origin main
+          fi
+
+      - name: Patch Apps Script branch
+        run: |
+          git fetch origin apps-script-v2-dev
+          git checkout -B apps-script-v2-dev origin/apps-script-v2-dev
+          git show origin/main:tools/stage3-acceptance-closeout-patch.py > /tmp/stage3-acceptance-closeout-patch.py
+          python /tmp/stage3-acceptance-closeout-patch.py apps
+          node --check apps-script-v2/AcceptancePackV2.js
+          node --check apps-script-v2/NotificationEngineV2.js
+          node --check apps-script-v2/WorkflowV2.js
+          grep -F "Acceptance confirmation requires all 4 signed admission documents" apps-script-v2/NotificationEngineV2.js
+          grep -F "v2ResendAcceptanceConfirmation_" apps-script-v2/NotificationEngineV2.js
+          grep -F "all 4 signed documents must be generated" apps-script-v2/AcceptancePackV2.js
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add apps-script-v2/AcceptancePackV2.js apps-script-v2/NotificationEngineV2.js apps-script-v2/WorkflowV2.js apps-script-v2/acceptance-v2.html
+          if ! git diff --cached --quiet; then
+            git commit -m 'Complete Stage 3 acceptance confirmation flow'
+            git push origin apps-script-v2-dev
+          fi
+
+      - name: Verify clasp credential
+        env:
+          CLASPRC_JSON: ${{ secrets.CLASPRC_JSON }}
+        run: |
+          test -n "$CLASPRC_JSON" || (echo 'CLASPRC_JSON secret is not configured.' && exit 1)
+
+      - name: Install clasp
+        run: npm install --global @google/clasp@3.4.1
+
+      - name: Restore clasp credential
+        env:
+          CLASPRC_JSON: ${{ secrets.CLASPRC_JSON }}
+        run: |
+          printf '%s' "$CLASPRC_JSON" > "$HOME/.clasprc.json"
+          chmod 600 "$HOME/.clasprc.json"
+
+      - name: Verify locked V2 target
+        run: node tools/verify-clasp-target.mjs
+
+      - name: Force push Apps Script source
+        run: clasp push -f
+
+      - name: Redeploy existing V2 web app
+        env:
+          V2_DEPLOYMENT_ID: AKfycbxasT_HgtRSvTbR_bsa8p17Cm-C2PKn20Ok1kU-AyJmxiKX8kX5EGOtRLwVwNlAL7JB
+        run: clasp create-deployment --deploymentId "$V2_DEPLOYMENT_ID" --description "Stage 3 acceptance closeout, 4 signed docs and confirmation resend"
+
+      - name: Remove clasp credential
+        if: always()
+        run: rm -f "$HOME/.clasprc.json"
