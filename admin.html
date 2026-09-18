@@ -272,6 +272,7 @@
         <button data-section="sac" onclick="go('sac',this)">✓ <span>SAC</span></button>
         <button data-section="assessment" onclick="go('assessment',this)">◎ <span>IA / PREREQ</span></button>
         <button data-section="orientation" onclick="goOrientation(this)">◉ <span>Orientation</span></button>
+        <button data-section="handover" onclick="goHandover(this)">⇄ <span>Academic Handover</span></button>
         <button data-section="reports" onclick="go('reports',this)">▥ <span>Reports</span></button>
         <button data-section="guide" onclick="go('guide',this)">? <span>System Guide</span></button>
       </div>
@@ -374,6 +375,45 @@
           <div class="panel">
             <div class="panel-head"><h3>Student Orientation Tracking</h3><span>Attendance marked here becomes the readiness gate for Academic Handover</span></div>
             <div class="table-wrap"><table><thead><tr><th>Student</th><th>Programme</th><th>Session</th><th>Invitation</th><th>Reminder</th><th>Attendance</th><th>Action</th></tr></thead><tbody id="orientationTrackingBody"></tbody></table></div>
+          </div>
+        </section>
+
+        <section id="handover" class="section">
+          <div class="hero"><div><h2>Academic Handover & Provisioning</h2><p>Transfer orientation-completed students to Academic, obtain formal acceptance, and coordinate Innovative email, Moodle and e-Library setup.</p></div><span class="badge purple">STAGE 5</span></div>
+          <div class="kpis">
+            <div class="kpi"><div class="label">READY FOR HANDOVER</div><div id="handoverReadyKpi" class="value">0</div><div class="meta">Orientation attended</div></div>
+            <div class="kpi"><div class="label">HANDOVER BATCHES</div><div id="handoverBatchesKpi" class="value">0</div><div class="meta">Created batches</div></div>
+            <div class="kpi"><div class="label">AWAITING ACADEMIC</div><div id="handoverPendingKpi" class="value">0</div><div class="meta">Pending formal acceptance</div></div>
+            <div class="kpi"><div class="label">PROVISIONING IN PROGRESS</div><div id="handoverProvisioningKpi" class="value">0</div><div class="meta">IT / Moodle / e-Library tasks</div></div>
+          </div>
+
+          <div class="panel" style="margin-bottom:18px">
+            <div class="panel-head"><h3>Create Admission → Academic Handover</h3><span>Select only students marked READY after Orientation</span></div>
+            <div class="panel-body">
+              <div class="detail-grid">
+                <div class="field full"><label>Handover Batch Name</label><input id="handoverName" placeholder="e.g. Academic Handover - October 2026 Batch 1" /></div>
+                <div class="field"><label>Academic Recipient</label><input id="handoverAcademicEmail" type="email" value="academicIUC@innovative.edu.my" /></div>
+                <div class="field"><label>IT PIC</label><input id="handoverItEmail" type="email" value="it@innovative.edu.my" /></div>
+                <div class="field"><label>Moodle PIC</label><input id="handoverMoodleEmail" type="email" value="moodle@innovative.edu.my" /></div>
+                <div class="field"><label>e-Library PIC</label><input id="handoverLibraryEmail" type="email" value="library@innovative.edu.my" /></div>
+              </div>
+              <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin:8px 0 14px">
+                <button class="primary" onclick="createAcademicHandoverBatch()">Create & Transfer to Academic</button>
+                <span id="handoverSelectionCount" class="badge purple">0 selected</span>
+              </div>
+              <div id="handoverMessage" class="message" style="display:none"></div>
+              <div class="table-wrap"><table><thead><tr><th>Select</th><th>Student</th><th>Programme</th><th>Intake</th><th>Orientation</th></tr></thead><tbody id="handoverEligibleBody"></tbody></table></div>
+            </div>
+          </div>
+
+          <div class="panel" style="margin-bottom:18px">
+            <div class="panel-head"><h3>Handover Batches</h3><span>Formal document → Academic email → Accept Handover</span></div>
+            <div class="table-wrap"><table><thead><tr><th>Batch</th><th>Students</th><th>Status</th><th>Academic Email</th><th>Accepted</th><th>Action</th></tr></thead><tbody id="handoverBatchesBody"></tbody></table></div>
+          </div>
+
+          <div class="panel">
+            <div class="panel-head"><h3>Provisioning Tasks</h3><span>Tasks are created after Academic accepts the handover</span></div>
+            <div class="table-wrap"><table><thead><tr><th>Student</th><th>Innovative Email / IT</th><th>Moodle</th><th>e-Library</th><th>Overall</th></tr></thead><tbody id="provisioningBody"></tbody></table></div>
           </div>
         </section>
 
@@ -940,5 +980,6 @@
     function exportApplicationsCsv(){const list=filteredApplications(),rows=[['Source','Reference','Student Name','ID / Passport','Email','Programme','Intake','Stage','Decision','Status','Last Updated']];list.forEach(r=>rows.push([r.source==='V1'?'V1 Legacy':'V2',r.ref,r.app['Student Name'],r.app['ID / Passport No'],r.app['Personal Email'],r.app['Programme'],r.app['Intake'],stage(r),decision(r),status(r),val(r,'Last Updated',r.app['Last Updated'])]));const csv=rows.map(row=>row.map(v=>`"${String(v||'').replaceAll('"','""')}"`).join(',')).join('\n'),blob=new Blob([csv],{type:'text/csv;charset=utf-8'}),a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='IPGS_Admission_V2_Report.csv';a.click();URL.revokeObjectURL(a.href)}
   </script>
   <script src="/orientation-admin.js"></script>
+  <script src="/handover-admin.js"></script>
 </body>
 </html>
