@@ -214,6 +214,12 @@ function v2ResendAcademicHandoverEmail_(data, actor) {
   return {ok:true,batchId:batchId,status:result.status,sent:result.sent};
 }
 
+function v2RenderAcademicHandoverPage_(params) {
+  const template = HtmlService.createTemplateFromFile('academic-handover-v2');
+  template.token = String(params && params.token || '');
+  return template.evaluate().setTitle('IUC IPGS Academic Handover');
+}
+
 function v2AcademicHandoverPageData(token) {
   v2HandoverEnsureFoundation_();
   const resolved = v2HandoverResolveToken_(token);
