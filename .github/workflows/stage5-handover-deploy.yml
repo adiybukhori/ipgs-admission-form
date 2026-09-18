@@ -1,5 +1,5 @@
 name: Stage 5 Academic Handover Deploy
-# Stage 5 deployment v2
+# Stage 5 deployment v3 - student access notification gate
 
 on:
   push:
@@ -25,6 +25,8 @@ jobs:
           node --check api/admin-data.js
           grep -F 'Academic Handover & Provisioning' admin.html
           grep -F 'v2CreateAcademicHandoverBatch' api/admin-action.js
+          grep -F 'v2SendStudentProvisioningAccess' api/admin-action.js
+          grep -F 'sendStudentAccess' handover-admin.js
           grep -F 'V2_HANDOVER_BATCHES' api/admin-data.js
 
       - name: Checkout Apps Script branch
@@ -40,6 +42,8 @@ jobs:
           grep -F 'v2AcademicHandoverAccept' apps-script-v2/HandoverV2.js
           grep -F "params.page === 'academic-handover-v2'" apps-script-v2/Code.js
           grep -F 'v2CreateAcademicHandoverBatch' apps-script-v2/WorkflowV2.js
+          grep -F 'v2SendStudentProvisioningAccess' apps-script-v2/WorkflowV2.js
+          grep -F 'function v2SendStudentProvisioningAccess_' apps-script-v2/HandoverV2.js
 
       - name: Verify clasp credential
         env:
@@ -66,7 +70,7 @@ jobs:
       - name: Redeploy existing V2 web app
         env:
           V2_DEPLOYMENT_ID: AKfycbxasT_HgtRSvTbR_bsa8p17Cm-C2PKn20Ok1kU-AyJmxiKX8kX5EGOtRLwVwNlAL7JB
-        run: clasp create-deployment --deploymentId "$V2_DEPLOYMENT_ID" --description "Stage 5 Academic Handover and provisioning"
+        run: clasp create-deployment --deploymentId "$V2_DEPLOYMENT_ID" --description "Stage 5 Academic Handover, provisioning and student access notification"
 
       - name: Remove clasp credential
         if: always()
