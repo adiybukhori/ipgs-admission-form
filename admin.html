@@ -202,6 +202,25 @@
     .guide-badge.red{background:var(--redSoft);color:var(--red)}
     .guide-badge.purple{background:var(--purpleSoft);color:var(--purple)}
     .guide-badge.blue{background:var(--blueSoft);color:var(--blue)}
+    .guide-flowchart{display:grid;gap:10px}
+    .guide-flow-row{display:grid;grid-template-columns:44px minmax(180px,.85fr) 38px minmax(260px,1.65fr);gap:10px;align-items:stretch}
+    .guide-flow-no{display:grid;place-items:center;border-radius:14px;background:var(--purple);color:#fff;font-weight:900;font-size:12px;min-height:58px}
+    .guide-flow-stage{border:1px solid #ddd8ef;background:#faf8ff;border-radius:14px;padding:11px 13px;display:flex;align-items:center;font-size:12px;font-weight:900;color:#312466;line-height:1.3}
+    .guide-flow-arrow{display:grid;place-items:center;color:#9992ae;font-size:18px;font-weight:900}
+    .guide-flow-action{border:1px solid var(--line);background:#fff;border-radius:14px;padding:11px 13px;font-size:11px;line-height:1.5;color:#50596a}
+    .guide-flow-action b{color:#242b3a}
+    .guide-role{display:inline-flex;align-items:center;border-radius:999px;padding:3px 7px;margin-right:5px;background:var(--blueSoft);color:var(--blue);font-size:9px;font-weight:900;text-transform:uppercase;letter-spacing:.03em}
+    .guide-gate{border-left:4px solid #e8a72d;background:#fff8e9;border-radius:12px;padding:10px 12px;font-size:11px;line-height:1.5;color:#715016}
+    .guide-parallel{border:1px dashed #b8aedc;background:#fbfaff;border-radius:14px;padding:13px}
+    .guide-parallel-title{font-size:11px;font-weight:900;color:#493582;margin-bottom:9px}
+    .guide-mini-flow{display:flex;flex-wrap:wrap;align-items:center;gap:6px;font-size:10px;font-weight:800;color:#555d6d}
+    .guide-mini-flow span{border:1px solid var(--line);background:#fff;border-radius:10px;padding:7px 9px}
+    .guide-mini-flow i{font-style:normal;color:#9aa3b1;font-weight:900}
+    .guide-role-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px}
+    .guide-role-card{border:1px solid var(--line);border-radius:15px;padding:14px;background:#fff}
+    .guide-role-card h4{margin:0 0 8px;color:var(--purple);font-size:13px}
+    .guide-role-card ol,.guide-role-card ul{margin:0;padding-left:18px;color:#50596a;font-size:11px;line-height:1.6}
+    .guide-role-card li+li{margin-top:4px}
 
     .sac-mobile-list{display:none}
     .sac-mobile-card{border:1px solid var(--line);border-radius:16px;background:#fff;padding:15px;box-shadow:0 4px 16px rgba(29,37,59,.05)}
@@ -217,7 +236,7 @@
     .sac-mobile-actions .primary,.sac-mobile-actions .ghost{width:100%;text-align:center;justify-content:center;display:inline-flex;align-items:center;min-height:44px;text-decoration:none}
 
     @media(max-width:1100px){.app{grid-template-columns:78px 1fr}.side-brand .title,.side-brand .small,.nav button span,.side-footer .live span,.side-footer button span{display:none}.sidebar{padding:20px 10px}.nav button{text-align:center}.kpis{grid-template-columns:repeat(2,1fr)}.grid-2,.report-grid{grid-template-columns:1fr}}
-    @media(max-width:700px){.app{display:block}.sidebar{position:fixed;bottom:0;top:auto;left:0;right:0;height:64px;z-index:60;display:block;padding:7px;background:#21164f}.side-brand,.side-footer{display:none}.nav{display:grid;grid-template-columns:repeat(6,1fr);gap:3px}.nav button{padding:8px 4px;font-size:10px}.main{padding-bottom:76px}.topbar{padding:0 14px}.content{padding:18px 14px 30px}.hero{align-items:flex-start;flex-direction:column}.kpis{grid-template-columns:1fr 1fr}.kpi{padding:14px}.kpi .value{font-size:25px}.detail-grid,.guide-grid,.guide-intro{grid-template-columns:1fr}.detail-card.full{grid-column:auto}.progress{grid-template-columns:repeat(4,1fr)}#sac .sac-desktop-table{display:none}.sac-mobile-list{display:grid;gap:12px;padding:14px}.sac-mobile-grid{grid-template-columns:1fr 1fr}#sac .panel-head{align-items:flex-start}#sac .panel-head span{line-height:1.35}.sac-mobile-actions .badge{justify-content:center;min-height:36px;width:100%}}
+    @media(max-width:700px){.guide-flow-row{grid-template-columns:36px 1fr}.guide-flow-arrow{display:none}.guide-flow-action{grid-column:2}.guide-role-grid{grid-template-columns:1fr}.app{display:block}.sidebar{position:fixed;bottom:0;top:auto;left:0;right:0;height:64px;z-index:60;display:block;padding:7px;background:#21164f}.side-brand,.side-footer{display:none}.nav{display:grid;grid-template-columns:repeat(6,1fr);gap:3px}.nav button{padding:8px 4px;font-size:10px}.main{padding-bottom:76px}.topbar{padding:0 14px}.content{padding:18px 14px 30px}.hero{align-items:flex-start;flex-direction:column}.kpis{grid-template-columns:1fr 1fr}.kpi{padding:14px}.kpi .value{font-size:25px}.detail-grid,.guide-grid,.guide-intro{grid-template-columns:1fr}.detail-card.full{grid-column:auto}.progress{grid-template-columns:repeat(4,1fr)}#sac .sac-desktop-table{display:none}.sac-mobile-list{display:grid;gap:12px;padding:14px}.sac-mobile-grid{grid-template-columns:1fr 1fr}#sac .panel-head{align-items:flex-start}#sac .panel-head span{line-height:1.35}.sac-mobile-actions .badge{justify-content:center;min-height:36px;width:100%}}
   /* MOBILE_DASHBOARD_POLISH_V1 */ .mobile-shortcuts{display:none}.refresh-icon{display:none}@media(max-width:700px){.topbar{height:64px;padding:0 16px;gap:12px}.page-title{font-size:20px;line-height:1.1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.top-actions{gap:8px;flex:0 0 auto}.top-actions .freshness,.top-actions .consultants-link{display:none}.refresh-btn{width:42px;height:42px;padding:0;display:grid;place-items:center;border-radius:12px}.refresh-btn .refresh-text{display:none}.refresh-btn .refresh-icon{display:inline;font-size:21px;line-height:1}.mobile-shortcuts{display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;padding:10px 14px 0;background:var(--bg);position:sticky;top:64px;z-index:19}.mobile-shortcuts button,.mobile-shortcuts a{min-width:0;border:1px solid var(--line);border-radius:12px;background:#fff;color:#566074;text-decoration:none;text-align:center;padding:10px 8px;font-size:11px;font-weight:800;line-height:1.15;box-shadow:0 3px 10px rgba(29,37,59,.04)}.mobile-shortcuts button.active{background:var(--purpleSoft);border-color:#d9d2f4;color:var(--purple)}.content{padding:14px 14px 30px}.hero{margin-bottom:18px;gap:10px}.hero h2{font-size:26px;line-height:1.08;margin-bottom:8px}.hero p{font-size:14px;line-height:1.45}.kpis{gap:10px;margin-bottom:16px}.kpi{padding:14px 13px;border-radius:16px}.kpi .label{font-size:11px;line-height:1.2}.kpi .value{font-size:27px;margin:7px 0 4px}.kpi .meta{font-size:11px;line-height:1.35}.grid-2{gap:14px;margin-bottom:14px}.panel{border-radius:16px}.panel-head{padding:15px 16px;align-items:flex-start}.panel-head h3{font-size:15px;line-height:1.2}.panel-head span{font-size:11px;line-height:1.3;text-align:right}.panel-body{padding:16px}.bar-row{grid-template-columns:minmax(92px,120px) 1fr 34px;gap:8px}.funnel-row{grid-template-columns:minmax(110px,140px) 1fr 34px;gap:8px}}@media(max-width:390px){.mobile-shortcuts{gap:6px;padding-left:10px;padding-right:10px}.mobile-shortcuts button,.mobile-shortcuts a{padding:9px 5px;font-size:10px}.content{padding-left:10px;padding-right:10px}.kpi{padding:12px 11px}.kpi .label{font-size:10px}.kpi .meta{font-size:10px}}
   /* MOBILE_SCROLL_FIX_V1 */ @media(max-width:700px){.mobile-shortcuts{position:static!important;top:auto!important;z-index:auto}.main{height:calc(100vh - 64px);height:calc(100dvh - 64px - env(safe-area-inset-bottom));overflow-y:auto;overscroll-behavior-y:contain;padding-bottom:0}.sidebar{height:calc(64px + env(safe-area-inset-bottom));padding-bottom:calc(7px + env(safe-area-inset-bottom))}.content{padding-bottom:36px}}
   
@@ -443,90 +462,136 @@
 
         <section id="guide" class="section">
           <div class="hero">
-            <div><h2>System Guide</h2><p>Quick tutorial for daily use of the IPGS Admission Command Center.</p></div>
-            <span class="badge green">LIVE V2 GUIDE</span>
+            <div><h2>System Guide</h2><p>Staff operating guide for the complete IPGS Admission V2 journey — from application and Academic Consultant handoff until Active Student.</p></div>
+            <span class="badge green">LIVE V2 · UPDATED 18 SEP 2026</span>
           </div>
 
-          <div class="guide-intro">
-            <div class="panel">
-              <div class="panel-head"><h3>Quick start</h3><span>Recommended daily routine</span></div>
-              <div class="panel-body"><div class="guide-steps">
-                <div class="guide-step"><div class="n">1</div><div><div class="t">Open Dashboard</div><div class="d">Start with the Action Center. It shows where applications are waiting and which stage needs attention.</div></div></div>
-                <div class="guide-step"><div class="n">2</div><div><div class="t">Open Applications</div><div class="d">Search by applicant name, reference number, ID/Passport, email or programme. Use intake, programme and stage filters to narrow the list.</div></div></div>
-                <div class="guide-step"><div class="n">3</div><div><div class="t">Review one applicant</div><div class="d">Click <b>Open</b>. Use Overview, Documents, Screening, SAC / Assessment, Offer & Acceptance and Activity tabs.</div></div></div>
-                <div class="guide-step"><div class="n">4</div><div><div class="t">Monitor the current route</div><div class="d">Follow the progress tracker from Application to Documents, Screening, SAC, IA/PREREQ, Offer and Accepted.</div></div></div>
-                <div class="guide-step"><div class="n">5</div><div><div class="t">Use Reports</div><div class="d">Review the funnel and distributions. Export the filtered Applications list to CSV when required.</div></div></div>
-              </div></div>
-            </div>
+          <div class="guide-callout blue" style="margin-bottom:18px">
+            <b>Core rule:</b> follow the workflow status shown by the system. Do not manually skip a gate. Screening is a recommendation, SAC is the admission decision, Acceptance unlocks SKY activation, SKY activation unlocks Orientation, and final student access is sent only after Academic Handover and all provisioning tasks are completed.
+          </div>
 
-            <div class="panel">
-              <div class="panel-head"><h3>Admission journey</h3><span>V2 process reference</span></div>
-              <div class="panel-body">
-                <div class="guide-flow">
-                  <span class="flow-item">Application Received</span><span class="arrow">→</span>
-                  <span class="flow-item">Document Review</span><span class="arrow">→</span>
-                  <span class="flow-item">Screening</span><span class="arrow">→</span>
-                  <span class="flow-item">SAC</span><span class="arrow">→</span>
-                  <span class="flow-item">IA / PREREQ if required</span><span class="arrow">→</span>
-                  <span class="flow-item">Eligible for Offer</span><span class="arrow">→</span>
-                  <span class="flow-item">Offer Issued</span><span class="arrow">→</span>
-                  <span class="flow-item">Accepted</span><span class="arrow">→</span>
-                  <span class="flow-item">Orientation</span>
+          <div class="panel" style="margin-bottom:18px">
+            <div class="panel-head"><h3>Detailed End-to-End Flow</h3><span>Who acts · what to do · what happens next</span></div>
+            <div class="panel-body">
+              <div class="guide-flowchart">
+                <div class="guide-flow-row"><div class="guide-flow-no">01</div><div class="guide-flow-stage">Application Submitted</div><div class="guide-flow-arrow">→</div><div class="guide-flow-action"><span class="guide-role">Student</span> Completes the online Admission Form and uploads required documents. <b>System:</b> creates the student Drive folder, Admission Form PDF, workflow record, acknowledgement email and PG-ADM-01.</div></div>
+
+                <div class="guide-flow-row"><div class="guide-flow-no">02</div><div class="guide-flow-stage">Academic Consultant / Prospect Setup</div><div class="guide-flow-arrow">→</div><div class="guide-flow-action"><span class="guide-role">Consultant</span> If the application came through a consultant link / selected consultant, the consultant receives the prospect email. Create the student as a Prospect in SKY, enter the <b>SKY Prospect ID</b>, select the approved <b>Fee Group</b>, then Submit. <span class="guide-role">Registry</span> For a direct applicant, use <b>Prospect / Activation → Set Prospect</b> and complete the same fields.</div></div>
+
+                <div class="guide-parallel">
+                  <div class="guide-parallel-title">Admission review continues in parallel while Prospect / Fee Group is being prepared</div>
+                  <div class="guide-mini-flow"><span>Document Review</span><i>→</i><span>Qualification Screening</span><i>→</i><span>Ready for SAC</span></div>
                 </div>
-                <div class="guide-callout blue" style="margin-top:14px"><b>Direct Entry:</b> after SAC endorsement, a qualified Direct Entry case can bypass IA / Prerequisite and proceed towards offer eligibility.</div>
+
+                <div class="guide-flow-row"><div class="guide-flow-no">03</div><div class="guide-flow-stage">Document Review</div><div class="guide-flow-arrow">→</div><div class="guide-flow-action"><span class="guide-role">Registry</span> Open <b>Applications → Open → Documents</b>. Verify uploaded documents and complete the document review. PG-ADM-01 must use the controlled one-page layout. If required, use <b>Regenerate PG-ADM-01</b>. For PhD, Research Intent may initially remain outstanding but must be completed before SAC assignment.</div></div>
+
+                <div class="guide-flow-row"><div class="guide-flow-no">04</div><div class="guide-flow-stage">Qualification Screening</div><div class="guide-flow-arrow">→</div><div class="guide-flow-action"><span class="guide-role">Registry</span> Review AI/document screening where available, then confirm Field Relationship and Relevant Work Experience. Complete the formal qualification screening. <b>Important:</b> the screening recommendation does not replace the SAC decision.</div></div>
+
+                <div class="guide-flow-row"><div class="guide-flow-no">05</div><div class="guide-flow-stage">SAC Review</div><div class="guide-flow-arrow">→</div><div class="guide-flow-action"><span class="guide-role">Registry / SAC</span> Create or select the SAC session, assign eligible candidates and prepare the SAC pack. PG-ADM-01 is the first controlled document in the pack. After the physical/manual SAC meeting, Registry records the authorised decision: <b>Direct Entry</b>, <b>Internal Assessment</b>, or <b>Rejected</b>. PREREQ is not selected directly at SAC.</div></div>
+
+                <div class="guide-flow-row"><div class="guide-flow-no">06</div><div class="guide-flow-stage">IA / PREREQ (if required)</div><div class="guide-flow-arrow">→</div><div class="guide-flow-action"><span class="guide-role">Registry / Academic</span> Direct Entry bypasses this stage. IA candidates complete the Internal Assessment process. Where the approved IA outcome requires a prerequisite course, PREREQ is handled <b>after IA</b>. Only a completed eligible route may proceed to Offer.</div></div>
+
+                <div class="guide-flow-row"><div class="guide-flow-no">07</div><div class="guide-flow-stage">Official Offer Letter</div><div class="guide-flow-arrow">→</div><div class="guide-flow-action"><span class="guide-role">Registry</span> When the case is <b>Eligible for Offer</b>, generate and send the Official Offer Letter. The system records the PDF URL, issue status and timestamp. Do not issue before the admission route is complete.</div></div>
+
+                <div class="guide-flow-row"><div class="guide-flow-no">08</div><div class="guide-flow-stage">Electronic Acceptance</div><div class="guide-flow-arrow">→</div><div class="guide-flow-action"><span class="guide-role">Student</span> Opens the Acceptance link, reviews the required documents and signs electronically. <b>System:</b> saves signed acceptance documents and timestamp, then updates <b>Acceptance Status = ACCEPTED</b>.</div></div>
+
+                <div class="guide-gate"><b>GATE A — SKY Activation:</b> Prospect Status must be completed, SKY Prospect ID and Fee Group must exist, and Acceptance Status must be <b>ACCEPTED</b>. Before that, activation stays locked.</div>
+
+                <div class="guide-flow-row"><div class="guide-flow-no">09</div><div class="guide-flow-stage">Registry SKY Activation</div><div class="guide-flow-arrow">→</div><div class="guide-flow-action"><span class="guide-role">Registry</span> Open <b>Prospect / Activation</b>. Cases move from Prospect Pending → Waiting Acceptance → Ready to Activate. Complete the activation in SKY, then click <b>Activate in SKY</b> and enter the SKY Student ID / Registration No. The system records activation status, date and officer.</div></div>
+
+                <div class="guide-gate"><b>GATE B — Orientation:</b> student must be both <b>ACCEPTED</b> and <b>SKY ACTIVATED</b>. An accepted but non-activated student must not be assigned to Orientation.</div>
+
+                <div class="guide-flow-row"><div class="guide-flow-no">10</div><div class="guide-flow-stage">Orientation</div><div class="guide-flow-arrow">→</div><div class="guide-flow-action"><span class="guide-role">Registry</span> Create the Orientation session, select eligible students, assign them, send invitation/reminder and mark attendance after the session. <b>ATTENDED</b> becomes the readiness gate for Academic Handover.</div></div>
+
+                <div class="guide-flow-row"><div class="guide-flow-no">11</div><div class="guide-flow-stage">Academic Handover</div><div class="guide-flow-arrow">→</div><div class="guide-flow-action"><span class="guide-role">Registry</span> Create an Academic Handover batch for attended students and send it to Academic. <span class="guide-role">Academic</span> Opens the handover link and accepts the batch. Acceptance creates the provisioning work.</div></div>
+
+                <div class="guide-flow-row"><div class="guide-flow-no">12</div><div class="guide-flow-stage">IT / Moodle / e-Library Provisioning</div><div class="guide-flow-arrow">→</div><div class="guide-flow-action"><span class="guide-role">PICs</span> IT completes Innovative Email, Moodle PIC completes Moodle access, and e-Library PIC completes e-Library access. Registry monitors the Provisioning queue until all three are complete.</div></div>
+
+                <div class="guide-gate"><b>GATE C — Active Student:</b> completion of the three provisioning tasks alone does not make the student Active. Registry must send the final Student Access email.</div>
+
+                <div class="guide-flow-row"><div class="guide-flow-no">13</div><div class="guide-flow-stage">Send Student Access → ACTIVE STUDENT</div><div class="guide-flow-arrow">✓</div><div class="guide-flow-action"><span class="guide-role">Registry</span> Click <b>Send Student Access</b>, enter the temporary credentials and send the access email. Temporary passwords are not stored in the Admission spreadsheet/audit. After successful send, the workflow becomes <b>ACTIVE_STUDENT</b> and the Academic Portal record is activated.</div></div>
               </div>
             </div>
           </div>
 
           <div class="panel" style="margin-bottom:18px">
-            <div class="panel-head"><h3>How to use each module</h3><span>What each screen is for</span></div>
-            <div class="panel-body"><div class="guide-grid">
-              <div class="guide-card"><h4>Dashboard</h4><p>Use KPI cards, Action Center, programme distribution, intake distribution and the workflow funnel to identify bottlenecks quickly.</p></div>
-              <div class="guide-card"><h4>Applications</h4><p>Search, filter, open an applicant, view the Drive folder / Admission Form PDF and export the current filtered result to CSV.</p></div>
-              <div class="guide-card"><h4>Applicant Drawer</h4><p>Use Overview, Documents, Screening, SAC / Assessment, Offer & Acceptance and Activity as the applicant's single portal view.</p></div>
-              <div class="guide-card"><h4>SAC Monitoring</h4><p>Review SAC sessions, candidate load and decision progress to identify pending candidates or decisions.</p></div>
-              <div class="guide-card"><h4>IA / PREREQ</h4><p>Track assessment route, status, submission, interview, result and latest update for cases routed by SAC.</p></div>
-              <div class="guide-card"><h4>Reports</h4><p>Use for management reporting: workflow funnel, programme, intake and referral-source distribution.</p></div>
+            <div class="panel-head"><h3>How staff use each module</h3><span>Screen → action → expected result</span></div>
+            <div class="panel-body"><div class="guide-role-grid">
+              <div class="guide-role-card"><h4>Dashboard</h4><ol><li>Check Action Center and pending KPIs.</li><li>Identify bottlenecks by stage, programme and intake.</li><li>Use Refresh if the figures are stale.</li></ol></div>
+              <div class="guide-role-card"><h4>Applications</h4><ol><li>Search by name, reference, ID/Passport or email.</li><li>Click <b>Open</b> for the applicant drawer.</li><li>Use Overview, Documents, Screening, SAC/Assessment, Offer & Acceptance and Activity.</li></ol></div>
+              <div class="guide-role-card"><h4>Academic Consultants</h4><ol><li>Add/maintain consultant records from the consultant page.</li><li>Share the unique referral link.</li><li>Referral-link consultant is auto-selected/locked.</li><li>New consultants append as a new record; they must not overwrite the previous consultant.</li></ol></div>
+              <div class="guide-role-card"><h4>PG-ADM-01</h4><ol><li>Generated automatically after application.</li><li>Controlled layout is the approved one-page table form.</li><li>Applicant biodata is auto-filled.</li><li>Yes/No, Evidence/Remarks, route and signatures are completed by authorised staff/SAC.</li><li>Use Regenerate only when a refreshed copy is required.</li></ol></div>
+              <div class="guide-role-card"><h4>SAC Monitoring</h4><ol><li>Create session and assign eligible candidates.</li><li>Print/prepare SAC pack.</li><li>Record the authorised physical/manual SAC result.</li><li>Finalize the session after all decisions are entered.</li></ol></div>
+              <div class="guide-role-card"><h4>IA / PREREQ</h4><ol><li>Track only candidates routed to IA.</li><li>Record assessment/interview/result progress.</li><li>Apply PREREQ only after IA when required by the approved route.</li><li>Complete the route before Offer.</li></ol></div>
+              <div class="guide-role-card"><h4>Offer & Acceptance</h4><ol><li>Issue only when Eligible for Offer.</li><li>Monitor Offer status and Acceptance status.</li><li>Use signed PDFs saved in the student folder as the record.</li><li>Acceptance must be ACCEPTED before SKY activation.</li></ol></div>
+              <div class="guide-role-card"><h4>Prospect / Activation</h4><ol><li>Prospect Pending: consultant/Registry must complete Prospect ID + Fee Group.</li><li>Waiting Acceptance: no activation yet.</li><li>Ready to Activate: complete SKY activation and enter Student ID.</li><li>Activated: student becomes Orientation-eligible.</li></ol></div>
+              <div class="guide-role-card"><h4>Orientation</h4><ol><li>Create session.</li><li>Select Accepted + SKY Activated students only.</li><li>Assign and send invitation.</li><li>Mark Attended after the session.</li></ol></div>
+              <div class="guide-role-card"><h4>Academic Handover</h4><ol><li>Create batch after Orientation attendance.</li><li>Send to Academic.</li><li>Monitor acceptance.</li><li>Academic acceptance triggers provisioning tasks.</li></ol></div>
+              <div class="guide-role-card"><h4>Provisioning</h4><ol><li>Monitor Innovative Email, Moodle and e-Library.</li><li>When all three complete, status becomes Ready to Notify.</li><li>Registry sends Student Access.</li><li>Only then does the student become Active.</li></ol></div>
+              <div class="guide-role-card"><h4>Reports</h4><ol><li>Use funnel and programme/intake/referral distributions.</li><li>Export filtered Applications to CSV when needed.</li><li>Use Reference No as the main identifier in internal follow-up.</li></ol></div>
             </div></div>
           </div>
 
           <div class="grid-2">
             <div class="panel">
-              <div class="panel-head"><h3>Status colour guide</h3><span>Fast visual reading</span></div>
-              <div class="table-wrap"><table class="guide-table"><thead><tr><th>Colour</th><th>Typical meaning</th></tr></thead><tbody>
-                <tr><td><span class="guide-badge green">Green</span></td><td>Completed / accepted / qualified / successful</td></tr>
-                <tr><td><span class="guide-badge amber">Amber</span></td><td>Pending / waiting / ready for action / review required</td></tr>
-                <tr><td><span class="guide-badge purple">Purple</span></td><td>SAC / IA / PREREQ / assessment-related route</td></tr>
-                <tr><td><span class="guide-badge red">Red</span></td><td>Rejected / not qualified / incomplete / declined</td></tr>
-                <tr><td><span class="guide-badge blue">Blue</span></td><td>General active stage / information status</td></tr>
+              <div class="panel-head"><h3>Decision & workflow gates</h3><span>Never bypass these controls</span></div>
+              <div class="table-wrap"><table class="guide-table"><thead><tr><th>Gate</th><th>Required before proceeding</th></tr></thead><tbody>
+                <tr><td><span class="guide-badge purple">SAC</span></td><td>Document Review complete, qualification screening resolved, and programme-specific mandatory items completed. PhD Research Intent must not remain outstanding.</td></tr>
+                <tr><td><span class="guide-badge blue">Offer</span></td><td>Direct Entry endorsed or IA/PREREQ route successfully completed.</td></tr>
+                <tr><td><span class="guide-badge amber">SKY Activation</span></td><td>Prospect completed + SKY Prospect ID + Fee Group + Acceptance = ACCEPTED.</td></tr>
+                <tr><td><span class="guide-badge amber">Orientation</span></td><td>Acceptance = ACCEPTED + SKY Activation = ACTIVATED.</td></tr>
+                <tr><td><span class="guide-badge purple">Handover</span></td><td>Orientation attendance = ATTENDED.</td></tr>
+                <tr><td><span class="guide-badge green">Active Student</span></td><td>IT + Moodle + e-Library complete and Student Access email successfully sent.</td></tr>
               </tbody></table></div>
             </div>
 
             <div class="panel">
-              <div class="panel-head"><h3>Current system availability</h3><span>What is live now</span></div>
-              <div class="panel-body">
-                <div class="guide-callout green"><b>Available now:</b> live V2 dashboard, Action Center, Applications registry, applicant detail, document links, screening/SAC/assessment visibility, management reports and CSV export.</div>
-                <div class="guide-callout green" style="margin-top:10px"><b>Operational actions:</b> protected V2 actions are active for Document Review, Qualification Screening, SAC preparation/decision, IA/PREREQ result updates, Official Offer Letter and Acceptance. Actions remain controlled by the applicant's workflow stage and admin authentication.</div>
-              </div>
+              <div class="panel-head"><h3>Status colour guide</h3><span>Fast visual reading</span></div>
+              <div class="table-wrap"><table class="guide-table"><thead><tr><th>Colour</th><th>Typical meaning</th></tr></thead><tbody>
+                <tr><td><span class="guide-badge green">Green</span></td><td>Completed / accepted / activated / successful</td></tr>
+                <tr><td><span class="guide-badge amber">Amber</span></td><td>Pending / waiting / ready for action / review required</td></tr>
+                <tr><td><span class="guide-badge purple">Purple</span></td><td>SAC / IA / PREREQ / controlled academic route</td></tr>
+                <tr><td><span class="guide-badge red">Red</span></td><td>Rejected / not qualified / incomplete / failed</td></tr>
+                <tr><td><span class="guide-badge blue">Blue</span></td><td>General active stage / information status</td></tr>
+              </tbody></table></div>
             </div>
           </div>
 
           <div class="panel" style="margin-top:18px">
-            <div class="panel-head"><h3>Troubleshooting & good practice</h3><span>Use these checks first</span></div>
+            <div class="panel-head"><h3>Academic Consultant / Sales flow</h3><span>Staff reference</span></div>
+            <div class="panel-body">
+              <div class="guide-mini-flow">
+                <span>Share Consultant Referral Link</span><i>→</i><span>Student Applies</span><i>→</i><span>Consultant Receives Email</span><i>→</i><span>Create SKY Prospect</span><i>→</i><span>Enter Prospect ID</span><i>→</i><span>Select Fee Group</span><i>→</i><span>Registry Notified</span><i>→</i><span>Wait for Acceptance</span><i>→</i><span>Registry Activates in SKY</span>
+              </div>
+              <div class="guide-callout amber" style="margin-top:12px"><b>Fee Structure master-data note:</b> if a selected Fee Group shows <b>TEMPLATE_MISSING</b>, the Fee Group remains recorded but the corresponding Fee Structure PDF has not yet been mapped in FEE_GROUP_MASTER. Escalate for master-data configuration; do not invent or manually substitute a fee PDF.</div>
+            </div>
+          </div>
+
+          <div class="panel" style="margin-top:18px">
+            <div class="panel-head"><h3>Troubleshooting & good practice</h3><span>Check these first</span></div>
             <div class="panel-body"><div class="guide-grid">
               <div><ul class="guide-list">
-                <li>If numbers look outdated, click <b>Refresh</b> in the top-right corner.</li>
-                <li>If an applicant cannot be found, clear all filters and search using the reference number or ID/Passport.</li>
-                <li>Open Drive folders and PDFs from the applicant drawer instead of manually browsing the master Drive structure.</li>
-                <li>Use the application reference number as the primary identifier when discussing a case internally.</li>
+                <li>If numbers look outdated, click <b>Refresh</b>.</li>
+                <li>If an applicant cannot be found, clear filters and search using Reference No or ID/Passport.</li>
+                <li>Open student Drive folders/PDFs from the applicant drawer instead of browsing manually.</li>
+                <li>Use the application Reference No as the primary identifier for internal discussion.</li>
+                <li>If PG-ADM-01 looks different from the approved one-page table layout, do not use it for SAC; regenerate and report the issue.</li>
               </ul></div>
               <div><ul class="guide-list">
-                <li>Do not treat a screening recommendation as a final SAC decision.</li>
-                <li>For IA / PREREQ candidates, confirm the assessment result before moving towards Offer.</li>
-                <li>Offer generation should only happen after the case is eligible for offer.</li>
-                <li>After <b>ACCEPTED</b>, assign the student to an Orientation session. Attendance becomes the readiness gate for the later Academic Handover stage.</li>
+                <li>Do not treat screening recommendation as the final SAC decision.</li>
+                <li>Do not select PREREQ directly at SAC; it follows IA where applicable.</li>
+                <li>Do not activate in SKY before Acceptance = ACCEPTED.</li>
+                <li>Do not assign Orientation before SKY Activation = ACTIVATED.</li>
+                <li>Do not mark a student Active merely because accounts are created; send Student Access first.</li>
               </ul></div>
             </div></div>
+          </div>
+
+          <div class="panel" style="margin-top:18px">
+            <div class="panel-head"><h3>Recommended UAT for a complete journey</h3><span>Use one controlled applicant</span></div>
+            <div class="panel-body">
+              <div class="guide-callout green"><b>Test sequence:</b> Submit Application → verify Student/Consultant emails → verify PG-ADM-01 → complete Prospect/Fee Group → Document Review → Screening → SAC → Offer → Acceptance → confirm activation lock/unlock → SKY Activation → Orientation assignment/attendance → Academic Handover → Provisioning → Send Student Access → verify ACTIVE_STUDENT and audit trail.</div>
+            </div>
           </div>
         </section>
 
