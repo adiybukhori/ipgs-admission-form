@@ -399,12 +399,30 @@ function v2UpdateProvisioningTask_(data, actor) {
 
   const workflow = v2Find_('V2_WORKFLOW','Reference No',reference);
   if (workflow && complete) {
+    const activatedAt = new Date().toISOString();
     v2UpdateRow_(workflow.sheet,workflow.rowNumber,{
       'Provisioning Status':'COMPLETED',
       'Academic Handover Status':'COMPLETED',
       'Application Stage':'ACTIVE_STUDENT',
-      'Last Updated':new Date().toISOString(),
+      'Last Updated':activatedAt,
       'Updated By':actor || 'Admin Portal V2'
+    });
+    v2Upsert_('V2_ACADEMIC_PORTAL','Reference No',reference,{
+      'Reference No':reference,
+      'Student ID':'',
+      'Student Name':workflow.record['Student Name'] || '',
+      'Programme':workflow.record['Programme'] || '',
+      'Portal Login Email':current['Innovative Email'] || workflow.record['Personal Email'] || '',
+      'Portal Status':'ACTIVE',
+      'Current Academic Stage':'NEWLY_HANDED_OVER',
+      'Current Semester':'',
+      'Subjects Completed JSON':'[]',
+      'Subjects Current JSON':'[]',
+      'Subjects Next JSON':'[]',
+      'Research Milestone':'',
+      'Academic PIC':'',
+      'Activated At':activatedAt,
+      'Last Updated':activatedAt
     });
   }
 
