@@ -38,7 +38,8 @@ const ALLOWED_ACTIONS = new Set([
   'v2CreateAcademicHandoverBatch',
   'v2ResendAcademicHandoverEmail',
   'v2UpdateProvisioningTask',
-  'v2ResendProvisioningTaskEmails'
+  'v2ResendProvisioningTaskEmails',
+  'v2SendStudentProvisioningAccess'
 ]);
 
 async function validateAdminPassword(password) {
