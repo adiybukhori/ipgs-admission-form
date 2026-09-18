@@ -1,0 +1,93 @@
+name: Stage 4 Orientation UAT
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/stage4-orientation-uat.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  uat:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Apps Script V2 branch
+        uses: actions/checkout@v4
+        with:
+          ref: apps-script-v2-dev
+          fetch-depth: 0
+
+      - name: Validate Stage 4 UAT runner
+        run: |
+          node --check apps-script-v2/OrientationV2.js
+          grep -F 'function v2RunStage4Uat()' apps-script-v2/OrientationV2.js
+
+      - name: Verify clasp credential
+        env:
+          CLASPRC_JSON: ${{ secrets.CLASPRC_JSON }}
+        run: |
+          test -n "$CLASPRC_JSON" || (echo 'CLASPRC_JSON secret is not configured.' && exit 1)
+
+      - name: Install clasp
+        run: npm install --global @google/clasp@3.4.1
+
+      - name: Restore clasp credential
+        env:
+          CLASPRC_JSON: ${{ secrets.CLASPRC_JSON }}
+        run: |
+          printf '%s' "$CLASPRC_JSON" > "$HOME/.clasprc.json"
+          chmod 600 "$HOME/.clasprc.json"
+
+      - name: Verify locked V2 target and push latest source
+        run: |
+          node tools/verify-clasp-target.mjs
+          clasp push -f
+
+      - name: Execute controlled Stage 4 UAT
+        id: run_uat
+        shell: bash
+        run: |
+          set +e
+          clasp run v2RunStage4Uat >/tmp/stage4-uat-raw.txt 2>&1
+          code=$?
+          set -e
+          if [ "$code" -eq 0 ]; then
+            echo "status=PASS" >> "$GITHUB_OUTPUT"
+          else
+            echo "status=FAIL" >> "$GITHUB_OUTPUT"
+          fi
+          echo "exit_code=$code" >> "$GITHUB_OUTPUT"
+
+      - name: Record sanitized UAT result
+        shell: bash
+        run: |
+          status="${{ steps.run_uat.outputs.status }}"
+          code="${{ steps.run_uat.outputs.exit_code }}"
+          git fetch origin main
+          git checkout -B main origin/main
+          mkdir -p uat
+          {
+            echo "Stage 4 Orientation UAT"
+            echo "Status: $status"
+            echo "Executed: $(date -u +'%Y-%m-%dT%H:%M:%SZ')"
+            echo "Runner: v2RunStage4Uat"
+            echo "Exit code: $code"
+          } > uat/stage4-orientation-latest.txt
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add uat/stage4-orientation-latest.txt
+          git commit -m "Record Stage 4 orientation UAT result" || true
+          git push origin main
+
+      - name: Fail workflow when UAT fails
+        if: steps.run_uat.outputs.status != 'PASS'
+        run: |
+          echo "Stage 4 UAT failed. Raw clasp output follows:"
+          cat /tmp/stage4-uat-raw.txt
+          exit 1
+
+      - name: Remove clasp credential
+        if: always()
+        run: rm -f "$HOME/.clasprc.json"
