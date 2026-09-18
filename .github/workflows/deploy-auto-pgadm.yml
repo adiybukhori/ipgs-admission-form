@@ -23,6 +23,8 @@ jobs:
           node --check apps-script-v2/PgEligibilityV2.js
           grep -F "v2GeneratePgAdm01OnSubmission_" apps-script-v2/AdmissionV2.js
           grep -F "attempt <= 3" apps-script-v2/AdmissionV2.js
+          grep -F "CONTROLLED_REFERENCE_LAYOUT" apps-script-v2/PgEligibilityV2.js
+          grep -F "FORM PG-ADM-01. Eligibility and Route Determination Checklist" apps-script-v2/PgEligibilityV2.js
 
       - name: Verify clasp credential
         env:
@@ -49,7 +51,7 @@ jobs:
       - name: Redeploy existing V2 web app
         env:
           V2_DEPLOYMENT_ID: AKfycbxasT_HgtRSvTbR_bsa8p17Cm-C2PKn20Ok1kU-AyJmxiKX8kX5EGOtRLwVwNlAL7JB
-        run: clasp create-deployment --deploymentId "$V2_DEPLOYMENT_ID" --description "Auto-generate PG-ADM-01 on application submission"
+        run: clasp create-deployment --deploymentId "$V2_DEPLOYMENT_ID" --description "Approved one-page PG-ADM-01 controlled layout"
 
       - name: Remove clasp credential
         if: always()
