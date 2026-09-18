@@ -20,8 +20,8 @@
     .k { font-size:11px; text-transform:uppercase; letter-spacing:.06em; color:var(--muted); margin-bottom:5px; }
     .v { font-size:14px; font-weight:700; word-break:break-word; }
     label { display:block; font-weight:700; font-size:13px; margin:16px 0 7px; }
-    input, textarea { width:100%; border:1px solid #cfd6df; border-radius:9px; padding:11px 12px; font:inherit; background:#fff; }
-    input:focus, textarea:focus { outline:2px solid rgba(75,61,134,.18); border-color:var(--primary2); }
+    input, select, textarea { width:100%; border:1px solid #cfd6df; border-radius:9px; padding:11px 12px; font:inherit; background:#fff; }
+    input:focus, select:focus, textarea:focus { outline:2px solid rgba(75,61,134,.18); border-color:var(--primary2); }
     textarea { min-height:92px; resize:vertical; }
     .hint { color:var(--muted); font-size:12px; margin-top:6px; }
     button { width:100%; margin-top:22px; padding:12px 16px; border:0; border-radius:9px; background:var(--primary); color:#fff; font-weight:700; font-size:14px; cursor:pointer; }
@@ -58,9 +58,10 @@
           <input id="skyProspectId" type="text" autocomplete="off" placeholder="Enter SKY Prospect ID" maxlength="100">
 
           <label for="feeGroup">Fee Structure / Fee Group</label>
-          <input id="feeGroup" list="feeGroupOptions" type="text" autocomplete="off" placeholder="Type to search or select a Fee Structure / Fee Group">
-          <datalist id="feeGroupOptions"></datalist>
-          <div class="hint">The list is loaded from FEE_GROUP_MASTER and cached for 5 minutes.</div>
+          <select id="feeGroup">
+            <option value="">Select Fee Structure / Fee Group</option>
+          </select>
+          <div class="hint">Select one approved Fee Group from FEE_GROUP_MASTER.</div>
 
           <label for="remarks">Remarks <span style="font-weight:400;color:#667085">(optional)</span></label>
           <textarea id="remarks" maxlength="1000" placeholder="Optional remarks for Registry"></textarea>
@@ -107,16 +108,17 @@
       document.getElementById('programme').textContent = res.programme || '-';
       document.getElementById('partnerCode').textContent = res.partnerCode || '-';
       document.getElementById('skyProspectId').value = res.skyProspectId || '';
-      document.getElementById('feeGroup').value = res.feeGroup || '';
       document.getElementById('remarks').value = res.remarks || '';
 
       feeGroups = Array.isArray(res.feeGroups) ? res.feeGroups : [];
-      const list = document.getElementById('feeGroupOptions');
-      list.innerHTML = feeGroups.map(function(v){
+      const select = document.getElementById('feeGroup');
+      select.innerHTML = '<option value="">Select Fee Structure / Fee Group</option>' + feeGroups.map(function(v){
         const o = document.createElement('option');
         o.value = v;
+        o.textContent = v;
         return o.outerHTML;
       }).join('');
+      select.value = res.feeGroup || '';
 
       if (res.submitted) {
         document.getElementById('skyProspectId').disabled = true;
