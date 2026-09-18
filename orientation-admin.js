@@ -123,15 +123,18 @@
     const mode=document.getElementById('oriMode')?.value||'ONLINE';
     const venue=document.getElementById('oriVenue')?.value.trim()||'';
     const meetingLink=document.getElementById('oriMeetingLink')?.value.trim()||'';
-    const reminderDays=Number(document.getElementById('oriReminderDays')?.value||3);
     const programmeGroup=document.getElementById('oriProgrammeGroup')?.value.trim()||'ALL';
     if(!name||!intakeId||!sessionDate) return orientationMessage('Enter Orientation Name, Intake and Session Date first.','error');
     const result=await orientationAction('v2CreateOrientationSession',{
-      name,intakeId,sessionDate,startTime,endTime,mode,venue,meetingLink,reminderDays,programmeGroup
+      name,intakeId,sessionDate,startTime,endTime,mode,venue,meetingLink,programmeGroup
     },`Create ${name} on ${sessionDate}?`);
     if(!result) return;
     const automation=result.reminderAutomation||{};
-    orientationMessage(`Orientation session created. Reminder automation: ${pretty(automation.status||'configured')}.`,'ok');
+    if(String(automation.status||'').toUpperCase()==='ACTIVE'){
+      orientationMessage('Orientation session created. Automatic reminders active: 3 days · 2 days · 1 day · ~1 hour before.','ok');
+    }else{
+      orientationMessage('Orientation session created. Automatic reminder scheduler is not active yet; Send Reminder Now remains available.','info');
+    }
     ['oriName','oriVenue','oriMeetingLink','oriProgrammeGroup'].forEach(id=>{const el=document.getElementById(id);if(el)el.value=''});
   };
 
@@ -201,7 +204,13 @@
         const id=s['Orientation Session ID']||'';
         const rows=tracking.filter(x=>String(x['Orientation Session ID']||'')===id);
         const invited=rows.filter(x=>String(x['Invitation Status']||'').toUpperCase()==='SENT').length;
-        const reminded=rows.filter(x=>String(x['Reminder Status']||'').toUpperCase()==='SENT').length;
+        const reminded=rows.reduce((n,x)=>{
+          let h={};try{h=JSON.parse(String(x['Reminder History JSON']||'{}'))||{}}catch(_){}
+          let count=['D3','D2','D1','H1'].filter(k=>h[k]).length;
+          if(Array.isArray(h.MANUAL))count+=h.MANUAL.length;
+          if(!count&&String(x['Reminder Status']||'').toUpperCase()==='SENT')count=1;
+          return n+count;
+        },0);
         const attended=rows.filter(x=>String(x['Attendance Status']||'').toUpperCase()==='ATTENDED').length;
         const name=s['Orientation Name']||id;
         const mode=s['Mode']||'ONLINE';
@@ -212,7 +221,7 @@
           <td>${esc(date||'-')}</td>
           <td><span class="badge blue">${esc(pretty(mode))}</span><div class="subline">${esc(s['Venue']||'')}</div></td>
           <td>${rows.length}<div class="subline">${invited} invited</div></td>
-          <td>${reminded}<div class="subline">${esc(String(s['Reminder Days']||3))} day reminder</div></td>
+          <td>${reminded}<div class="subline">3d · 2d · 1d · ~1h</div></td>
           <td>${attended}<div class="subline">${rows.length-attended} not attended / pending</div></td>
           <td><button class="ghost" onclick="sendOrientationReminderNow('${esc(id)}')">Send Reminder Now</button></td>
         </tr>`;
@@ -229,7 +238,7 @@
           <td>${esc(x['Programme']||'-')}</td>
           <td>${esc(session?.['Orientation Name']||x['Orientation Session ID']||'-')}</td>
           <td><span class="badge ${classifyBadge(x['Invitation Status']||'PENDING')}">${esc(pretty(x['Invitation Status']||'PENDING'))}</span></td>
-          <td><span class="badge ${classifyBadge(x['Reminder Status']||'NOT_SENT')}">${esc(pretty(x['Reminder Status']||'NOT_SENT'))}</span></td>
+          <td><span class="badge ${classifyBadge(x['Reminder Status']||'NOT_SENT')}">${esc(pretty(x['Reminder Status']||'NOT_SENT'))}</span><div class="subline">${esc(pretty(x['Last Reminder Milestone']||''))}</div></td>
           <td><span class="badge ${classifyBadge(attendance)}">${esc(pretty(attendance))}</span></td>
           <td><div style="display:flex;gap:6px;flex-wrap:wrap">
             <button class="ghost" onclick="markOrientationAttendance('${esc(x['Orientation Session ID']||'')}','${esc(x['Reference No']||'')}','ATTENDED')">Attended</button>
