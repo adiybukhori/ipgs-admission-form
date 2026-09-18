@@ -1,0 +1,75 @@
+name: Fast Manual Screening Deploy
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/fast-manual-screening-deploy.yml'
+  workflow_dispatch:
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout main
+        uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+
+      - name: Validate Admin fast screening
+        run: |
+          node --check api/admin-action.js
+          node - <<'NODE'
+          const fs = require('fs');
+          const html = fs.readFileSync('admin.html','utf8');
+          const blocks = [...html.matchAll(/<script(?:\s[^>]*)?>([\s\S]*?)<\/script>/gi)]
+            .map(m=>m[1]).filter(s=>s.trim());
+          for (const block of blocks) new Function(block);
+          if (!html.includes('manualScreeningBtn')) throw new Error('manualScreeningBtn missing');
+          if (!html.includes('Screening saved in')) throw new Error('fast screening timing feedback missing');
+          console.log('ADMIN_FAST_SCREENING_OK');
+          NODE
+
+      - name: Checkout Apps Script V2 branch
+        run: |
+          git fetch origin apps-script-v2-dev
+          git checkout -B apps-script-v2-dev origin/apps-script-v2-dev
+
+      - name: Validate fast screening backend
+        run: |
+          node --check apps-script-v2/QualificationScreeningV2.js
+          grep -F 'function v2QualificationFastSheetRecord_' apps-script-v2/QualificationScreeningV2.js
+          grep -F 'V2_QUALIFICATION_RULES_DEV_TEST_FAST_V1' apps-script-v2/QualificationScreeningV2.js
+          grep -F 'performanceMs' apps-script-v2/QualificationScreeningV2.js
+
+      - name: Verify clasp credential
+        env:
+          CLASPRC_JSON: ${{ secrets.CLASPRC_JSON }}
+        run: |
+          test -n "$CLASPRC_JSON" || (echo 'CLASPRC_JSON secret is not configured.' && exit 1)
+
+      - name: Install clasp
+        run: npm install --global @google/clasp@3.4.1
+
+      - name: Restore clasp credential
+        env:
+          CLASPRC_JSON: ${{ secrets.CLASPRC_JSON }}
+        run: |
+          printf '%s' "$CLASPRC_JSON" > "$HOME/.clasprc.json"
+          chmod 600 "$HOME/.clasprc.json"
+
+      - name: Verify locked V2 target
+        run: node tools/verify-clasp-target.mjs
+
+      - name: Push Apps Script source
+        run: clasp push -f
+
+      - name: Redeploy existing V2 web app
+        env:
+          V2_DEPLOYMENT_ID: AKfycbxasT_HgtRSvTbR_bsa8p17Cm-C2PKn20Ok1kU-AyJmxiKX8kX5EGOtRLwVwNlAL7JB
+        run: clasp create-deployment --deploymentId "$V2_DEPLOYMENT_ID" --description "Fast manual qualification screening"
+
+      - name: Remove clasp credential
+        if: always()
+        run: rm -f "$HOME/.clasprc.json"
