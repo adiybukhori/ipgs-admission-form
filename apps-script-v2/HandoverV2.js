@@ -62,47 +62,46 @@ function v2CreateAcademicHandoverBatch_(data, actor) {
   const itEmail = v2HandoverEmail_(data.itEmail, 'IT PIC email');
   const moodleEmail = v2HandoverEmail_(data.moodleEmail, 'Moodle PIC email');
   const libraryEmail = v2HandoverEmail_(data.libraryEmail, 'E-Library PIC email');
-  const name = String(data.name || '').trim() || ('Admission to Academic Handover - ' + Utilities.formatDate(new Date(), CONFIG.timezone || 'Asia/Kuala_Lumpur', 'dd MMM yyyy'));
+  const name = String(data.name || '').trim() || ('Academic Handover - ' + Utilities.formatDate(new Date(), CONFIG.timezone || 'Asia/Kuala_Lumpur', 'dd MMM yyyy'));
   const now = new Date().toISOString();
 
-  const students = references.map(function(reference) {
-    const workflow = v2Find_('V2_WORKFLOW','Reference No',reference);
-    const application = v2Find_('V2_APPLICATIONS','Reference No',reference);
-    if (!workflow || !application) throw new Error('Application/workflow not found for ' + reference + '.');
+  // Standalone module: Applications are the source list only.
+  // Admission progress, Orientation, SAC, Offer and SKY statuses do not gate Handover.
+  const alreadyHandedOver = {};
+  v2Rows_('V2_HANDOVER_STUDENTS').forEach(function(row) {
+    const ref = String(row['Reference No'] || '').trim();
+    if (ref) alreadyHandedOver[ref] = String(row['Handover Batch ID'] || '');
+  });
 
-    const orientation = String(workflow.record['Orientation Status'] || '').toUpperCase();
-    const handover = String(workflow.record['Academic Handover Status'] || '').toUpperCase();
-    const stage = String(workflow.record['Application Stage'] || '').toUpperCase();
-    if (orientation !== 'ATTENDED') {
-      throw new Error((workflow.record['Student Name'] || reference) + ' has not completed Orientation.');
+  const students = references.map(function(reference) {
+    if (alreadyHandedOver[reference]) {
+      throw new Error('Student ' + reference + ' is already included in Handover Batch ' + alreadyHandedOver[reference] + '.');
     }
-    if (handover !== 'READY' || stage !== 'ORIENTATION') {
-      throw new Error((workflow.record['Student Name'] || reference) + ' is not READY for Academic Handover.');
-    }
+
+    const application = v2Find_('V2_APPLICATIONS','Reference No',reference);
+    const workflow = v2Find_('V2_WORKFLOW','Reference No',reference);
+    if (!application) throw new Error('Application not found for ' + reference + '.');
 
     return {
       referenceNo:reference,
-      studentName:String(workflow.record['Student Name'] || application.record['Student Name'] || ''),
-      idPassport:String(workflow.record['ID / Passport No'] || application.record['ID / Passport No'] || ''),
-      personalEmail:String(application.record['Personal Email'] || workflow.record['Personal Email'] || ''),
-      programme:String(workflow.record['Programme'] || application.record['Programme'] || ''),
-      intake:String(application.record['Intake'] || workflow.record['Intake'] || ''),
-      orientationSessionId:String(workflow.record['Orientation Session ID'] || ''),
-      orientationStatus:orientation
+      studentName:String((workflow && workflow.record['Student Name']) || application.record['Student Name'] || ''),
+      idPassport:String((workflow && workflow.record['ID / Passport No']) || application.record['ID / Passport No'] || ''),
+      personalEmail:String(application.record['Personal Email'] || (workflow && workflow.record['Personal Email']) || ''),
+      programme:String((workflow && workflow.record['Programme']) || application.record['Programme'] || ''),
+      intake:String(application.record['Intake'] || (workflow && workflow.record['Intake']) || ''),
+      orientationSessionId:String((workflow && workflow.record['Orientation Session ID']) || ''),
+      orientationStatus:String((workflow && workflow.record['Orientation Status']) || '')
     };
   });
 
   const batchId = 'HND-' + Utilities.formatDate(new Date(), CONFIG.timezone || 'Asia/Kuala_Lumpur', 'yyyyMMdd') + '-' + Utilities.getUuid().slice(0,6).toUpperCase();
-  const token = v2HandoverToken_();
-  const tokenHash = v2HandoverHash_(token);
-  const acceptUrl = v2HandoverWebAppUrl_() + '?page=academic-handover-v2&token=' + encodeURIComponent(token);
   const pdf = v2HandoverGeneratePdf_(batchId, name, students, actor || 'Admin Portal V2');
-
   const intakeValues = Array.from(new Set(students.map(function(s){return s.intake;}).filter(Boolean)));
+
   const row = {
     'Handover Batch ID':batchId,
     'Handover Name':name,
-    'Status':'PENDING_ACADEMIC_ACCEPTANCE',
+    'Status':'HANDED_OVER',
     'Student Count':students.length,
     'Intake Summary':intakeValues.join(', '),
     'Academic Email':academicEmail,
@@ -110,8 +109,8 @@ function v2CreateAcademicHandoverBatch_(data, actor) {
     'Moodle PIC Email':moodleEmail,
     'E-Library PIC Email':libraryEmail,
     'Handover PDF URL':pdf.url,
-    'Academic Accept Token Hash':tokenHash,
-    'Academic Accept URL':acceptUrl,
+    'Academic Accept Token Hash':'',
+    'Academic Accept URL':'',
     'Academic Email Status':'PENDING',
     'Academic Email Sent At':'',
     'Accepted At':'',
@@ -134,39 +133,64 @@ function v2CreateAcademicHandoverBatch_(data, actor) {
       'Intake':student.intake,
       'Orientation Session ID':student.orientationSessionId,
       'Orientation Status':student.orientationStatus,
-      'Handover Status':'PENDING_ACADEMIC_ACCEPTANCE',
+      'Handover Status':'HANDED_OVER',
       'Accepted At':'',
-      'Provisioning Status':'NOT_STARTED',
+      'Provisioning Status':'IN_PROGRESS',
       'Last Updated':now
     });
 
-    const workflow = v2Find_('V2_WORKFLOW','Reference No',student.referenceNo);
-    v2UpdateRow_(workflow.sheet,workflow.rowNumber,{
-      'Application Stage':'ACADEMIC_HANDOVER',
-      'Academic Handover Status':'PENDING_ACADEMIC_ACCEPTANCE',
-      'Provisioning Status':'NOT_STARTED',
+    const existing = v2Find_('V2_PROVISIONING','Reference No',student.referenceNo);
+    const old = existing ? existing.record : {};
+    v2Upsert_('V2_PROVISIONING','Reference No',student.referenceNo,{
+      'Reference No':student.referenceNo,
+      'Handover Batch ID':batchId,
+      'Student Name':student.studentName,
+      'ID / Passport No':student.idPassport,
+      'Personal Email':student.personalEmail,
+      'Innovative Email':old['Innovative Email'] || '',
+      'IT Email Status':old['IT Email Status'] || 'PENDING',
+      'IT Completed At':old['IT Completed At'] || '',
+      'IT Completed By':old['IT Completed By'] || '',
+      'E-Library Status':old['E-Library Status'] || 'PENDING',
+      'E-Library Completed At':old['E-Library Completed At'] || '',
+      'E-Library Completed By':old['E-Library Completed By'] || '',
+      'Moodle Status':old['Moodle Status'] || 'PENDING',
+      'Moodle Login Email':old['Moodle Login Email'] || student.personalEmail,
+      'Moodle Completed At':old['Moodle Completed At'] || '',
+      'Moodle Completed By':old['Moodle Completed By'] || '',
+      'Student Notification Status':old['Student Notification Status'] || 'NOT_READY',
+      'Student Notified At':old['Student Notified At'] || '',
+      'IT Task Email Status':'PENDING',
+      'IT Task Email Sent At':'',
+      'Moodle Task Email Status':'PENDING',
+      'Moodle Task Email Sent At':'',
+      'E-Library Task Email Status':'PENDING',
+      'E-Library Task Email Sent At':'',
       'Last Updated':now,
-      'Updated By':actor || 'Admin Portal V2'
+      'Remarks':old['Remarks'] || ''
     });
-    const orientation = v2FindComposite_(
-      'V2_ORIENTATION_TRACKING',
-      ['Orientation Session ID','Reference No'],
-      [student.orientationSessionId,student.referenceNo]
-    );
-    if (orientation) {
-      v2UpdateRow_(orientation.sheet,orientation.rowNumber,{
-        'Academic Handover Status':'PENDING_ACADEMIC_ACCEPTANCE',
-        'Last Updated':now
+
+    const workflow = v2Find_('V2_WORKFLOW','Reference No',student.referenceNo);
+    if (workflow) {
+      v2UpdateRow_(workflow.sheet,workflow.rowNumber,{
+        'Academic Handover Status':'HANDED_OVER',
+        'Provisioning Status':'IN_PROGRESS',
+        'Last Updated':now,
+        'Updated By':actor || 'Admin Portal V2'
       });
     }
   });
 
-  const emailResult = v2HandoverSendAcademicEmail_(row, students, pdf.fileId, false);
+  const handoverStudents = v2HandoverStudents_(batchId);
+  const emailResult = v2HandoverSendAcademicEmail_(row, handoverStudents, pdf.fileId, false);
+  const taskResult = v2HandoverSendProvisioningTasks_(row, handoverStudents);
+
   const batch = v2Find_('V2_HANDOVER_BATCHES','Handover Batch ID',batchId);
   if (batch) {
     v2UpdateRow_(batch.sheet,batch.rowNumber,{
       'Academic Email Status':emailResult.status,
       'Academic Email Sent At':emailResult.sent ? new Date().toISOString() : '',
+      'Provisioning Tasks Sent At':taskResult.anySent ? new Date().toISOString() : '',
       'Updated At':new Date().toISOString()
     });
   }
@@ -175,29 +199,29 @@ function v2CreateAcademicHandoverBatch_(data, actor) {
     batchId:batchId,
     studentCount:students.length,
     academicEmailStatus:emailResult.status,
-    pdfUrl:pdf.url
-  }, actor || 'Admin Portal V2', 'SUCCESS', 'Students transferred to pending Academic acceptance.');
-  v2InvalidateCache_();
+    provisioningTaskStatus:taskResult,
+    pdfUrl:pdf.url,
+    standalone:true
+  }, actor || 'Admin Portal V2', 'SUCCESS', 'Standalone handover batch sent directly to Academic and provisioning PICs.');
 
+  v2InvalidateCache_();
   return {
     ok:true,
     batchId:batchId,
+    status:'HANDED_OVER',
     studentCount:students.length,
     pdfUrl:pdf.url,
-    acceptUrl:acceptUrl,
     academicEmailStatus:emailResult.status,
+    provisioningTasks:taskResult,
+    standalone:true,
     build:V2_HANDOVER_BUILD
   };
 }
-
 function v2ResendAcademicHandoverEmail_(data, actor) {
   v2HandoverEnsureFoundation_();
   const batchId = v2Required_(data.batchId,'Handover Batch ID');
   const batch = v2Find_('V2_HANDOVER_BATCHES','Handover Batch ID',batchId);
   if (!batch) throw new Error('Academic Handover batch not found.');
-  if (String(batch.record['Status'] || '').toUpperCase() === 'ACCEPTED') {
-    throw new Error('Academic Handover has already been accepted.');
-  }
   const students = v2HandoverStudents_(batchId);
   const pdfId = v2HandoverExtractDriveId_(batch.record['Handover PDF URL']);
   if (!pdfId) throw new Error('Handover PDF cannot be resolved.');
@@ -288,7 +312,7 @@ function v2AcademicHandoverAccept(token, acceptedBy) {
     );
     if (row) {
       v2UpdateRow_(row.sheet,row.rowNumber,{
-        'Handover Status':'ACCEPTED',
+        'Handover Status':'HANDED_OVER',
         'Accepted At':now,
         'Provisioning Status':'IN_PROGRESS',
         'Last Updated':now
@@ -375,7 +399,7 @@ function v2UpdateProvisioningTask_(data, actor) {
   if (['PENDING','COMPLETED'].indexOf(status) < 0) throw new Error('Invalid provisioning task status.');
 
   const provisioning = v2Find_('V2_PROVISIONING','Reference No',reference);
-  if (!provisioning) throw new Error('Provisioning record not found. Academic must accept the handover first.');
+  if (!provisioning) throw new Error('Provisioning record not found for this handover student.');
 
   const payload = {referenceNo:reference,remarks:data.remarks || ''};
   if (task === 'IT') {
@@ -402,8 +426,7 @@ function v2UpdateProvisioningTask_(data, actor) {
     const readyAt = new Date().toISOString();
     v2UpdateRow_(workflow.sheet,workflow.rowNumber,{
       'Provisioning Status':'READY_TO_NOTIFY',
-      'Academic Handover Status':'ACCEPTED',
-      'Application Stage':'ACADEMIC_HANDOVER',
+      'Academic Handover Status':'HANDED_OVER',
       'Last Updated':readyAt,
       'Updated By':actor || 'Admin Portal V2'
     });
@@ -598,9 +621,6 @@ function v2ResendProvisioningTaskEmails_(data, actor) {
   const batchId = v2Required_(data.batchId,'Handover Batch ID');
   const batch = v2Find_('V2_HANDOVER_BATCHES','Handover Batch ID',batchId);
   if (!batch) throw new Error('Academic Handover batch not found.');
-  if (String(batch.record['Status'] || '').toUpperCase() !== 'ACCEPTED') {
-    throw new Error('Provisioning tasks can only be sent after Academic accepts the handover.');
-  }
   const students = v2HandoverStudents_(batchId);
   const result = v2HandoverSendProvisioningTasks_(batch.record,students);
   v2Audit_('', 'ACADEMIC_HANDOVER', 'RESEND_PROVISIONING_TASKS', {}, {
@@ -614,28 +634,25 @@ function v2HandoverSendAcademicEmail_(batch, students, pdfFileId, resend) {
   const recipient = String(batch['Academic Email'] || '').trim();
   const batchId = String(batch['Handover Batch ID'] || '');
   const name = String(batch['Handover Name'] || batchId);
-  const acceptUrl = String(batch['Academic Accept URL'] || '');
-  const subject = '[IUC IPGS] Admission to Academic Handover - ' + name;
+  const subject = '[IUC IPGS] Academic Handover - ' + name;
   const rows = students.map(function(student){
     return '<tr><td style="padding:8px;border-bottom:1px solid #eee">'+v2Html_(student.studentName || student['Student Name'])+'</td>' +
       '<td style="padding:8px;border-bottom:1px solid #eee">'+v2Html_(student.programme || student['Programme'])+'</td></tr>';
   }).join('');
   const html = '<div style="font-family:Arial,sans-serif;max-width:720px;margin:auto;border:1px solid #e5e7eb;border-radius:16px;overflow:hidden">' +
-    '<div style="background:#2d2363;color:#fff;padding:24px"><h2 style="margin:0">Admission to Academic Handover</h2></div>' +
+    '<div style="background:#2d2363;color:#fff;padding:24px"><h2 style="margin:0">Academic Handover</h2></div>' +
     '<div style="padding:24px"><p>Dear Academic Team,</p>' +
-    '<p>Registry is transferring the following admitted postgraduate students to Academic.</p>' +
+    '<p>Registry has handed over the following students for Academic processing.</p>' +
     '<p><strong>Batch:</strong> '+v2Html_(name)+'<br><strong>Batch ID:</strong> '+v2Html_(batchId)+'<br><strong>Students:</strong> '+students.length+'</p>' +
     '<table style="width:100%;border-collapse:collapse;margin:16px 0"><thead><tr><th style="text-align:left;padding:8px;border-bottom:2px solid #ddd">Student</th><th style="text-align:left;padding:8px;border-bottom:2px solid #ddd">Programme</th></tr></thead><tbody>'+rows+'</tbody></table>' +
-    '<p>The formal handover document is attached. Please review the batch and confirm receipt.</p>' +
-    '<div style="text-align:center;margin:24px 0"><a href="'+v2Html_(acceptUrl)+'" style="display:inline-block;background:#2d2363;color:#fff;text-decoration:none;padding:13px 22px;border-radius:10px;font-weight:bold">Accept Handover</a></div>' +
-    '<p style="font-size:12px;color:#697386">After acceptance, the system will notify the relevant IT, Moodle and e-Library PICs to create student access.</p>' +
+    '<p>The handover document is attached for reference. IT, Moodle and e-Library PICs are notified from the same handover batch.</p>' +
     '<p>Regards,<br><strong>IPGS Registry</strong></p></div></div>';
   const attachment = DriveApp.getFileById(pdfFileId).getBlob();
   return v2NotificationSend_(
     resend ? 'ACADEMIC_HANDOVER_RESEND' : 'ACADEMIC_HANDOVER',
     [recipient],
     subject,
-    'Registry Academic Handover: '+name+'\nAccept handover: '+acceptUrl,
+    'Academic Handover: '+name+'\nBatch ID: '+batchId+'\nStudents: '+students.length,
     html,
     {attachments:[attachment]}
   );
@@ -726,7 +743,7 @@ function v2HandoverGeneratePdf_(batchId, name, students, actor) {
   const fileName = 'ADMISSION_TO_ACADEMIC_HANDOVER_' + batchId + '.pdf';
 
   const rows = students.map(function(student,index){
-    return '<tr><td>'+(index+1)+'</td><td>'+v2Html_(student.studentName)+'</td><td>'+v2Html_(student.idPassport)+'</td><td>'+v2Html_(student.programme)+'</td><td>'+v2Html_(student.intake)+'</td><td>ATTENDED</td></tr>';
+    return '<tr><td>'+(index+1)+'</td><td>'+v2Html_(student.studentName)+'</td><td>'+v2Html_(student.idPassport)+'</td><td>'+v2Html_(student.programme)+'</td><td>'+v2Html_(student.intake)+'</td></tr>';
   }).join('');
   const html = '<html><head><style>' +
     '@page{size:A4;margin:16mm}body{font-family:Arial,sans-serif;color:#172033;font-size:10.5pt}h1{font-size:18pt;color:#2d2363;margin:0 0 4px}h2{font-size:11pt;margin:0 0 18px;color:#555}.meta{margin:14px 0 18px;padding:10px 12px;background:#f6f4fb;border:1px solid #e2dcf2}.meta div{margin:3px 0}table{width:100%;border-collapse:collapse}th,td{border:1px solid #d9dde5;padding:6px;vertical-align:top}th{background:#2d2363;color:white;text-align:left;font-size:9pt}.foot{margin-top:22px;font-size:9pt;color:#667085}.sign{margin-top:32px;display:grid;grid-template-columns:1fr 1fr;gap:40px}.line{border-top:1px solid #333;margin-top:38px;padding-top:6px}' +
@@ -734,8 +751,8 @@ function v2HandoverGeneratePdf_(batchId, name, students, actor) {
     '<h1>Innovative University College</h1><h2>Institute of Postgraduate Studies (IPGS)</h2>' +
     '<div style="font-size:15pt;font-weight:bold;margin-bottom:8px">Admission to Academic Handover</div>' +
     '<div class="meta"><div><strong>Batch:</strong> '+v2Html_(name)+'</div><div><strong>Batch ID:</strong> '+v2Html_(batchId)+'</div><div><strong>Date:</strong> '+v2Html_(Utilities.formatDate(new Date(),CONFIG.timezone||'Asia/Kuala_Lumpur','dd MMMM yyyy'))+'</div><div><strong>Total Students:</strong> '+students.length+'</div></div>' +
-    '<table><thead><tr><th>No.</th><th>Student</th><th>ID / Passport</th><th>Programme</th><th>Intake</th><th>Orientation</th></tr></thead><tbody>'+rows+'</tbody></table>' +
-    '<div class="foot">This system-generated document records the formal transfer of admitted students from Registry to Academic after completion of the required admission and orientation process.</div>' +
+    '<table><thead><tr><th>No.</th><th>Student</th><th>ID / Passport</th><th>Programme</th><th>Intake</th></tr></thead><tbody>'+rows+'</tbody></table>' +
+    '<div class="foot">This system-generated document records the Registry handover of the listed students to Academic and the relevant service units.</div>' +
     '<div class="sign"><div><div class="line">Prepared by Registry</div></div><div><div class="line">Received by Academic</div></div></div>' +
     '</body></html>';
 
