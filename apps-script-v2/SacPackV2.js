@@ -294,7 +294,8 @@ function v2SacPackRequiredDocs_(applicationRecord) {
   else add('identityDocument', 'Identity Document / NRIC');
   add('transcript', 'Highest Academic Transcript');
   add('certificate', 'Highest Academic Certificate');
-  if (/PHD|DOCTOR OF PHILOSOPHY/.test(programme)) add('preliminaryResearchIntent', 'Preliminary Research Intent');
+  // Preliminary Research Intent is tracked separately as a non-blocking outstanding item.
+  // If uploaded it is still included in the SAC pack, but its absence does not make the pack incomplete.
   return out;
 }
 
