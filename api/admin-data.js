@@ -168,7 +168,7 @@ export default async function handler(req, res) {
   res.setHeader('Cache-Control', 'no-store, max-age=0');
 
   if (req.method === 'GET' && String(req.query?.health || '') === '1') {
-    return res.status(200).json({ ok: true, service: 'IPGS Admission Admin Data V2 + V1 Legacy', build: 'ADMIN_DATA_V2_V1_CACHE_20260915' });
+    return res.status(200).json({ ok: true, service: 'IPGS Unified Admission Admin Data', build: 'ADMIN_DATA_UNIFIED_20260919' });
   }
   if (req.method !== 'POST') return res.status(405).json({ ok: false, message: 'Method not allowed.' });
 
@@ -208,29 +208,11 @@ export default async function handler(req, res) {
     ADMIN_DATA_CACHE.v2At = nowMs;
   }
 
-  let legacyRows = [];
-  let legacySource = '';
-  if (!force && ADMIN_DATA_CACHE.v1 && (nowMs - ADMIN_DATA_CACHE.v1At) < V1_DATA_CACHE_MS) {
-    legacyRows = cloneCached(ADMIN_DATA_CACHE.v1);
-    legacySource = ADMIN_DATA_CACHE.v1Source || 'CACHE';
-    v1CacheHit = true;
-  } else {
-    legacyRows = extractLegacyRows(auth.payload);
-    legacySource = legacyRows.length ? 'V1_AUTH_WEB_APP' : '';
-    if (!legacyRows.length) {
-      try {
-        legacyRows = await fetchLegacyMasterSheet();
-        legacySource = 'V1_MASTER_DATABASE';
-      } catch (error) {
-        warnings.push(`V1 Legacy: ${error?.message || 'Unable to load legacy data'}`);
-      }
-    }
-    ADMIN_DATA_CACHE.v1 = cloneCached(legacyRows);
-    ADMIN_DATA_CACHE.v1At = nowMs;
-    ADMIN_DATA_CACHE.v1Source = legacySource;
-  }
-  data.V1_MASTER_DATABASE = legacyRows;
-  data.V1_LEGACY_META = [{ source: legacySource || 'UNAVAILABLE', count: legacyRows.length, readOnly: true, cacheHit: v1CacheHit }];
+  // V1 has been migrated into the unified V2 operational tables.
+  // The original V1 spreadsheet remains untouched as archive only and is no longer
+  // loaded into the staff portal, preventing duplicate V1/V2 records in the UI.
+  data.V1_MASTER_DATABASE = [];
+  data.V1_LEGACY_META = [{ source: 'ARCHIVED_AFTER_UNIFIED_MIGRATION', count: 0, readOnly: true, cacheHit: false }];
 
   if (Array.isArray(data.V2_SAC_SESSIONS)) {
     data.V2_SAC_SESSIONS.sort((a, b) => {
@@ -242,5 +224,5 @@ export default async function handler(req, res) {
     });
   }
 
-  return res.status(200).json({ ok: true, build: 'ADMIN_DATA_V2_V1_CACHE_20260915', loadedAt: new Date().toISOString(), warnings, cache: { v2Hit: v2CacheHit, v1Hit: v1CacheHit, v2TtlSeconds: 30, v1TtlSeconds: 300, forced: force }, data });
+  return res.status(200).json({ ok: true, build: 'ADMIN_DATA_UNIFIED_20260919', loadedAt: new Date().toISOString(), warnings, cache: { unifiedHit: v2CacheHit, ttlSeconds: 30, forced: force }, data });
 }
