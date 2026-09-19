@@ -296,7 +296,7 @@
         <button data-section="reports" onclick="go('reports',this)">▥ <span>Reports</span></button>
         <button data-section="guide" onclick="go('guide',this)">? <span>System Guide</span></button>
       </div>
-      <div class="side-footer"><div class="live"><i class="dot"></i><span>V2 + V1 Legacy</span></div><button onclick="logout()">↪ <span>Logout</span></button></div>
+      <div class="side-footer"><div class="live"><i class="dot"></i><span>Unified Admission</span></div><button onclick="logout()">↪ <span>Logout</span></button></div>
     </aside>
 
     <main class="main">
@@ -305,14 +305,14 @@
         <section id="dashboard" class="section active">
           <div class="hero"><div><h2>Admission overview</h2><p>See current workload, bottlenecks and conversion progress at a glance.</p></div></div>
           <div class="kpis">
-            <div class="kpi"><div class="label">ACTIVE V2 APPLICATIONS</div><div id="kTotal" class="value">0</div><div class="meta">Operational V2 workflow only</div></div>
+            <div class="kpi"><div class="label">TOTAL APPLICATIONS</div><div id="kTotal" class="value">0</div><div class="meta">Unified operational registry</div></div>
             <div class="kpi"><div class="label">NEEDS ATTENTION</div><div id="kAttention" class="value">0</div><div class="meta">Cases requiring operational action</div></div>
             <div class="kpi"><div class="label">OFFER / ACCEPTANCE</div><div id="kOffer" class="value">0</div><div class="meta">Offer-ready, issued or awaiting acceptance</div></div>
             <div class="kpi"><div class="label">ACCEPTED</div><div id="kAccepted" class="value">0</div><div class="meta">Admission confirmed</div></div>
           </div>
           <div class="grid-2">
             <div class="panel"><div class="panel-head"><h3>Action Center</h3><span>What needs attention now</span></div><div class="panel-body"><div id="attentionList" class="attention"></div></div></div>
-            <div class="panel"><div class="panel-head"><h3>Applications by programme</h3><span>Current V2 volume</span></div><div class="panel-body"><div id="programmeBars" class="chart-list"></div></div></div>
+            <div class="panel"><div class="panel-head"><h3>Applications by programme</h3><span>Unified application volume</span></div><div class="panel-body"><div id="programmeBars" class="chart-list"></div></div></div>
           </div>
           <div class="grid-2">
             <div class="panel"><div class="panel-head"><h3>Admission funnel</h3><span>Current workflow position</span></div><div class="panel-body"><div id="dashboardFunnel" class="funnel"></div></div></div>
@@ -321,10 +321,10 @@
         </section>
 
         <section id="applications" class="section">
-          <div class="hero"><div><h2>Applications</h2><p>Search current V2 applications and read-only V1 legacy admission records in one place.</p></div></div>
+          <div class="hero"><div><h2>Applications</h2><p>Search and manage all IPGS admission applications in one unified registry.</p></div></div>
           <div class="panel">
             <div class="panel-head"><h3>Application registry</h3><button class="ghost" onclick="exportApplicationsCsv()">Export CSV</button></div>
-            <div class="panel-body"><div class="toolbar"><input id="searchInput" class="searchbox" placeholder="Search name, reference, ID, email or programme" oninput="renderApplications()" /><select id="sourceFilter" class="compact" onchange="renderApplications()"><option value="">All records</option><option value="V2">V2 Active</option><option value="V1">V1 Legacy</option></select><select id="intakeFilter" class="compact" onchange="renderApplications()"><option value="">All intakes</option></select><select id="programmeFilter" class="compact" onchange="renderApplications()"><option value="">All programmes</option></select><select id="stageFilter" class="compact" onchange="renderApplications()"><option value="">All stages</option></select></div></div>
+            <div class="panel-body"><div class="toolbar"><input id="searchInput" class="searchbox" placeholder="Search name, reference, ID, email or programme" oninput="renderApplications()" /><select id="intakeFilter" class="compact" onchange="renderApplications()"><option value="">All intakes</option></select><select id="programmeFilter" class="compact" onchange="renderApplications()"><option value="">All programmes</option></select><select id="stageFilter" class="compact" onchange="renderApplications()"><option value="">All stages</option></select></div></div>
             <div class="table-wrap"><table><thead><tr><th>Applicant</th><th>Programme</th><th>Intake</th><th>Current stage</th><th>Recommendation / Decision</th><th>Status</th><th>Updated</th><th>Action</th></tr></thead><tbody id="applicationsBody"></tbody></table></div>
           </div>
         </section>
@@ -461,7 +461,7 @@
 
         <section id="guide" class="section">
           <div class="hero">
-            <div><h2>System Guide</h2><p>Staff operating guide for the complete IPGS Admission V2 journey — from application and Academic Consultant handoff until Active Student.</p></div>
+            <div><h2>System Guide</h2><p>Staff operating guide for the unified IPGS Admission System — from application and Academic Consultant handoff until Active Student.</p></div>
             <span class="badge green">LIVE V2 · UPDATED 18 SEP 2026</span>
           </div>
 
@@ -645,7 +645,7 @@
       const byRef=arr=>{const m={};arr.forEach(x=>{const ref=x['Reference No']||x['Reference']||'';if(ref)(m[ref]||=[]).push(x)});return m};
       const wfMap=byRef(workflows),docMap=byRef(docReviews),screenMap=byRef(screenings),aiMap=byRef(aiScreenings),sacMap=byRef(sacCandidates),assessMap=byRef(assessments),auditMap=byRef(audits);
       const v2Records=apps.map(app=>{const ref=app['Reference No']||'';let raw={};try{raw=JSON.parse(app['Raw Application JSON']||'{}')}catch(_){}let files=[];try{files=JSON.parse(app['Uploaded Files JSON']||'[]')}catch(_){}return{source:'V2',legacy:false,ref,app,raw,files,workflow:(wfMap[ref]||[]).slice(-1)[0]||{},doc:(docMap[ref]||[]).slice(-1)[0]||{},screening:(screenMap[ref]||[]).slice(-1)[0]||{},ai:(aiMap[ref]||[]).slice(-1)[0]||{},sac:(sacMap[ref]||[]).slice(-1)[0]||{},assessment:(assessMap[ref]||[]).slice(-1)[0]||{},audit:(auditMap[ref]||[]).slice().reverse()}});
-      const legacyRows=db.V1_MASTER_DATABASE||[];
+      const legacyRows=[]; // Archived V1 records are already migrated into V2_APPLICATIONS.
       const legacyRecords=legacyRows.map((row,index)=>{
         const ref=String(row['Ref No']||`V1-LEGACY-${index+1}`),acceptanceRaw=String(row['Acceptance Status']||'PENDING').toUpperCase(),accepted=/RECEIVED|ACCEPTED/.test(acceptanceRaw),intake=String(row['Intake']||[row['Session Month'],row['Session Year']].filter(Boolean).join(' ')||'');const offerSent=/YES|SENT|ISSUED/.test(String(row['Email Sent']||'').toUpperCase()),legacyOfferUrl=row['Offer Letter File']||row['Offer Letter URL']||row['LOA File']||row['LOA URL']||'',isApplicationRef=/^IUC-ADM-/i.test(ref),colUrl=isApplicationRef?legacyOfferUrl:'',officialOfferUrl=isApplicationRef?'':legacyOfferUrl,officialOfferIssued=!isApplicationRef&&(offerSent||/^LOA\//i.test(ref)||Boolean(officialOfferUrl));
         const app={'Reference No':ref,'Submitted At':row['Timestamp']||'','Student Name':row['Student Name']||'','ID / Passport No':row['IC']||'','Personal Email':row['Email']||'','Programme':row['Programme']||'','Study Mode':'','Intake':intake,'Student Folder URL':row['Folder URL']||'','Application Status':'LEGACY','Last Updated':row['Acceptance Received At']||row['Timestamp']||''};
@@ -656,9 +656,9 @@
         if(row['Surat Penerimaan File'])files.push({field:'suratPenerimaan',fileName:'Surat Penerimaan Tawaran',url:row['Surat Penerimaan File'],mimeType:'application/pdf'});
         return{source:'V1',legacy:true,ref,app,raw:{sourceSystem:'V1',remark:row['Remark']||''},files,workflow,doc:{},screening:{},ai:{},sac:{},assessment:{},audit:[],legacyRow:row};
       });
-      records=[...v2Records,...legacyRecords].sort((a,b)=>legacyDateValue(b.app['Submitted At']||b.workflow?.['Last Updated'])-legacyDateValue(a.app['Submitted At']||a.workflow?.['Last Updated']));
+      records=v2Records.sort((a,b)=>legacyDateValue(b.app['Submitted At']||b.workflow?.['Last Updated'])-legacyDateValue(a.app['Submitted At']||a.workflow?.['Last Updated']));
     }
-    function activeV2Records(){return records.filter(r=>r.source!=='V1')}
+    function activeV2Records(){return records.filter(r=>String(r.workflow?.['Application Status']||r.app?.['Application Status']||'').toUpperCase()!=='TEST')}
     function val(r,key,fallback=''){return r.workflow?.[key]||r.app?.[key]||fallback}
     function stage(r){return val(r,'Application Stage','APPLICATION_RECEIVED')||'APPLICATION_RECEIVED'}
     function status(r){return val(r,'Application Status',r.app['Application Status']||'Active')}
@@ -676,7 +676,7 @@
     function populateFilters(){fillSelect('intakeFilter',[...new Set(records.map(r=>r.app['Intake']).filter(Boolean))].sort());fillSelect('programmeFilter',[...new Set(records.map(r=>r.app['Programme']).filter(Boolean))].sort());fillSelect('stageFilter',[...new Set(records.map(stage).filter(Boolean))].sort(),true)}
     function fillSelect(id,values,prettify=false){const el=document.getElementById(id),keep=el.value,first=el.options[0].outerHTML;el.innerHTML=first+values.map(v=>`<option value="${esc(v)}">${esc(prettify?pretty(v):v)}</option>`).join('');if(values.includes(keep))el.value=keep}
     function filteredApplications(){const q=document.getElementById('searchInput')?.value.toLowerCase().trim()||'',source=document.getElementById('sourceFilter')?.value||'',intake=document.getElementById('intakeFilter')?.value||'',programme=document.getElementById('programmeFilter')?.value||'',st=document.getElementById('stageFilter')?.value||'';return records.filter(r=>{const hay=[r.ref,r.app['Student Name'],r.app['ID / Passport No'],r.app['Personal Email'],r.app['Programme']].join(' ').toLowerCase();return(!q||hay.includes(q))&&(!source||r.source===source)&&(!intake||r.app['Intake']===intake)&&(!programme||r.app['Programme']===programme)&&(!st||stage(r)===st)})}
-    function renderApplications(){const body=document.getElementById('applicationsBody');if(!body)return;const list=filteredApplications();body.innerHTML=list.map(r=>{const sourceBadge=r.source==='V1'?'<span class="badge">V1 Legacy</span>':'<span class="badge purple">V2</span>';return`<tr><td><div class="student">${esc(r.app['Student Name']||'-')} ${sourceBadge}</div><div class="subline">${esc(r.ref)}</div></td><td>${esc(r.app['Programme']||'-')}<div class="subline">${esc(r.app['Study Mode']||'')}</div></td><td>${esc(r.app['Intake']||'-')}</td><td><span class="badge ${classifyBadge(stage(r))}">${esc(pretty(stage(r)))}</span></td><td>${decision(r)?`<span class="badge ${classifyBadge(decision(r))}">${esc(pretty(decision(r)))}</span>`:'-'}</td><td><span class="badge ${classifyBadge(status(r))}">${esc(pretty(status(r)))}</span></td><td>${esc(formatDate(val(r,'Last Updated',r.app['Last Updated']||r.app['Submitted At']||'')))}</td><td><button class="ghost" onclick="openRecord('${esc(r.ref)}')">Open</button></td></tr>`}).join('')||'<tr><td colspan="8" class="empty">No applications match the selected filters.</td></tr>'}
+    function renderApplications(){const body=document.getElementById('applicationsBody');if(!body)return;const list=filteredApplications();body.innerHTML=list.map(r=>{return`<tr><td><div class="student">${esc(r.app['Student Name']||'-')}</div><div class="subline">${esc(r.ref)}</div></td><td>${esc(r.app['Programme']||'-')}<div class="subline">${esc(r.app['Study Mode']||'')}</div></td><td>${esc(r.app['Intake']||'-')}</td><td><span class="badge ${classifyBadge(stage(r))}">${esc(pretty(stage(r)))}</span></td><td>${decision(r)?`<span class="badge ${classifyBadge(decision(r))}">${esc(pretty(decision(r)))}</span>`:'-'}</td><td><span class="badge ${classifyBadge(status(r))}">${esc(pretty(status(r)))}</span></td><td>${esc(formatDate(val(r,'Last Updated',r.app['Last Updated']||r.app['Submitted At']||'')))}</td><td><button class="ghost" onclick="openRecord('${esc(r.ref)}')">Open</button></td></tr>`}).join('')||'<tr><td colspan="8" class="empty">No applications match the selected filters.</td></tr>'}
     function renderSac(){
       const sessions=db.V2_SAC_SESSIONS||[],candidates=db.V2_SAC_CANDIDATES||[];
       document.getElementById('sacSessionsKpi').textContent=sessions.length;
@@ -714,8 +714,7 @@
     function openRecord(ref){
       selected=records.find(r=>r.ref===ref);if(!selected)return;
       document.getElementById('drawerName').textContent=selected.app['Student Name']||'Applicant';
-      const sourceLabel=selected.source==='V1'?'V1 Legacy':'V2';
-      document.getElementById('drawerMeta').textContent=`${sourceLabel} · ${selected.ref} · ${selected.app['Programme']||'-'} · ${selected.app['Intake']||'-'}`;
+      document.getElementById('drawerMeta').textContent=`${selected.ref} · ${selected.app['Programme']||'-'} · ${selected.app['Intake']||'-'}`;
       const banner=document.getElementById('opsSafetyBanner');
       if(banner){
         if(selected.source==='V1'){
@@ -1060,7 +1059,7 @@
     function detailTab(name,btn){document.querySelectorAll('.detail-tab').forEach(x=>x.classList.remove('active'));document.getElementById('tab-'+name).classList.add('active');document.querySelectorAll('.tabs button').forEach(x=>x.classList.remove('active'));btn.classList.add('active')}
     function formatDate(v){if(!v)return'-';const d=new Date(v);return isNaN(d)?String(v):d.toLocaleString([],{year:'numeric',month:'short',day:'2-digit',hour:'2-digit',minute:'2-digit'})}
     async function copyText(text){try{await navigator.clipboard.writeText(text)}catch(_){}}
-    function exportApplicationsCsv(){const list=filteredApplications(),rows=[['Source','Reference','Student Name','ID / Passport','Email','Programme','Intake','Stage','Decision','Status','Last Updated']];list.forEach(r=>rows.push([r.source==='V1'?'V1 Legacy':'V2',r.ref,r.app['Student Name'],r.app['ID / Passport No'],r.app['Personal Email'],r.app['Programme'],r.app['Intake'],stage(r),decision(r),status(r),val(r,'Last Updated',r.app['Last Updated'])]));const csv=rows.map(row=>row.map(v=>`"${String(v||'').replaceAll('"','""')}"`).join(',')).join('\n'),blob=new Blob([csv],{type:'text/csv;charset=utf-8'}),a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='IPGS_Admission_V2_Report.csv';a.click();URL.revokeObjectURL(a.href)}
+    function exportApplicationsCsv(){const list=filteredApplications(),rows=[['Reference','Student Name','ID / Passport','Email','Programme','Intake','Stage','Decision','Status','Last Updated']];list.forEach(r=>rows.push([r.ref,r.app['Student Name'],r.app['ID / Passport No'],r.app['Personal Email'],r.app['Programme'],r.app['Intake'],stage(r),decision(r),status(r),val(r,'Last Updated',r.app['Last Updated'])]));const csv=rows.map(row=>row.map(v=>`"${String(v||'').replaceAll('"','""')}"`).join(',')).join('\n'),blob=new Blob([csv],{type:'text/csv;charset=utf-8'}),a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='IPGS_Admission_V2_Report.csv';a.click();URL.revokeObjectURL(a.href)}
   </script>
   <script src="/orientation-admin.js"></script>
   <script src="/handover-admin.js"></script>
