@@ -539,6 +539,105 @@
     if(result)orientationMessage('Orientation Session ended. Invitation and reminder actions are now closed.','ok');
   };
 
+
+  function closeOrientationCompletionModal(){
+    document.getElementById('orientationCompletionModal')?.remove();
+  }
+
+  window.openOrientationCompletion=async function(sessionId){
+    const assessment=await orientationAction('v2OrientationCompletionAssessment',{sessionId});
+    if(!assessment)return;
+    closeOrientationCompletionModal();
+
+    const blockers=assessment.blockers||[];
+    const warnings=assessment.warnings||[];
+    const m=assessment.metrics||{};
+    const overlay=document.createElement('div');
+    overlay.id='orientationCompletionModal';
+    overlay.style.cssText='position:fixed;inset:0;background:rgba(17,24,39,.60);z-index:9999;display:flex;align-items:center;justify-content:center;padding:18px';
+
+    const blockerHtml=blockers.length
+      ? '<div class="message" style="display:block;background:#fff0f0;color:#9d2424;margin-bottom:12px"><b>Action required before completion</b><br>'+blockers.map(function(x){return '• '+esc(x);}).join('<br>')+'</div>'
+      : '<div class="message" style="display:block;background:#eef8f4;color:#176847;margin-bottom:12px"><b>Ready to complete.</b> ACC will lock the completion snapshot and generate the official PDF report.</div>';
+    const warningHtml=warnings.length
+      ? '<div class="message" style="display:block;background:#fff8e8;color:#8a5b00;margin-bottom:12px"><b>Warnings</b><br>'+warnings.map(function(x){return '• '+esc(x);}).join('<br>')+'</div>'
+      : '';
+
+    overlay.innerHTML=[
+      '<div style="width:min(760px,96vw);max-height:92vh;overflow:auto;background:#fff;border-radius:18px;box-shadow:0 25px 70px rgba(0,0,0,.25);padding:22px">',
+        '<div style="display:flex;justify-content:space-between;gap:12px;align-items:flex-start;margin-bottom:16px">',
+          '<div><h3 style="margin:0 0 4px">Complete Orientation & Generate Report</h3><div class="subline">'+esc(sessionId)+'</div></div>',
+          '<button class="ghost" type="button" id="orientationCompletionCloseBtn">Close</button>',
+        '</div>',
+        '<div style="display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;margin-bottom:16px">',
+          '<div class="kpi" style="padding:14px"><div class="label">ASSIGNED</div><div class="value" style="font-size:24px">'+Number(m.assigned||0)+'</div></div>',
+          '<div class="kpi" style="padding:14px"><div class="label">ATTENDED</div><div class="value" style="font-size:24px">'+Number(m.attended||0)+'</div></div>',
+          '<div class="kpi" style="padding:14px"><div class="label">FEEDBACK</div><div class="value" style="font-size:24px">'+Number(m.feedbackSubmitted||0)+'</div></div>',
+        '</div>',
+        blockerHtml,
+        warningHtml,
+        '<div class="field"><label>Completion Remarks <span class="subline">(optional)</span></label><textarea id="orientationCompletionRemarks" placeholder="Add any final note or exception reference, if required."></textarea></div>',
+        '<div style="display:flex;justify-content:flex-end;gap:10px;margin-top:18px">',
+          '<button class="ghost" type="button" id="orientationCompletionCancelBtn">Cancel</button>',
+          '<button class="primary" type="button" id="orientationCompletionConfirmBtn" '+(blockers.length?'disabled':'')+'>Complete & Generate Report</button>',
+        '</div>',
+      '</div>'
+    ].join('');
+
+    document.body.appendChild(overlay);
+    document.getElementById('orientationCompletionCloseBtn').onclick=closeOrientationCompletionModal;
+    document.getElementById('orientationCompletionCancelBtn').onclick=closeOrientationCompletionModal;
+    const confirmBtn=document.getElementById('orientationCompletionConfirmBtn');
+    if(confirmBtn){
+      confirmBtn.onclick=async function(){
+        const remarks=String(document.getElementById('orientationCompletionRemarks')?.value||'').trim();
+        const result=await orientationAction(
+          'v2CompleteOrientationAndGenerateReport',
+          {sessionId,completionRemarks:remarks},
+          'Complete this Orientation Session and generate the official report?'
+        );
+        if(!result)return;
+        closeOrientationCompletionModal();
+        orientationMessage('Orientation completed. Official report v'+(result.reportVersion||1)+' generated successfully.','ok');
+      };
+    }
+  };
+
+  window.viewOrientationReport=function(sessionId){
+    const session=(db.V2_ORIENTATION_SESSIONS||[]).find(function(s){
+      return String(s['Orientation Session ID']||'')===String(sessionId);
+    });
+    const url=String(session&&session['Report PDF URL']||'').trim();
+    if(!url)return orientationMessage('Official report has not been generated yet.','error');
+    window.open(url,'_blank','noopener');
+  };
+
+  window.downloadOrientationReport=function(sessionId){
+    const session=(db.V2_ORIENTATION_SESSIONS||[]).find(function(s){
+      return String(s['Orientation Session ID']||'')===String(sessionId);
+    });
+    const fileId=String(session&&session['Report File ID']||'').trim();
+    const url=String(session&&session['Report PDF URL']||'').trim();
+    if(fileId){
+      window.open('https://drive.google.com/uc?export=download&id='+encodeURIComponent(fileId),'_blank','noopener');
+      return;
+    }
+    if(url){
+      window.open(url,'_blank','noopener');
+      return;
+    }
+    orientationMessage('Official report has not been generated yet.','error');
+  };
+
+  window.regenerateOrientationReport=async function(sessionId){
+    const result=await orientationAction(
+      'v2RegenerateOrientationReport',
+      {sessionId},
+      'Generate a new official report revision? The previous PDF remains retained for audit history.'
+    );
+    if(result)orientationMessage('Orientation report revision v'+(result.reportVersion||'')+' generated successfully.','ok');
+  };
+
   window.markOrientationAttendance=async function(sessionId,referenceNo,status){
     const result=await orientationAction('v2UpdateOrientationAttendance',{sessionId,referenceNo,attendanceStatus:status},`Mark this student as ${pretty(status)}?`);
     if(result)orientationMessage(`Attendance updated to ${pretty(status)}.`,'ok');
