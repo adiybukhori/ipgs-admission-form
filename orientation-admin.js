@@ -681,47 +681,391 @@
     if([...el.options].some(o=>o.value===current))el.value=current;
   }
 
-  function orientationSessionActionHtml(session,id,rows,attendanceState,recordingUrl,completed,ended){
-    const safeId=esc(id);
-    let html='<div class="orientation-actions">';
-    html+='<button class="ghost" onclick="openOrientationManageStudents(\''+safeId+'\')">Students ('+rows.length+')</button>';
-
-    if(completed){
-      const version=Number(session['Report Version']||1);
-      html+='<button class="primary" onclick="viewOrientationReport(\''+safeId+'\')">View Report</button>';
-      html+='<button class="ghost" onclick="downloadOrientationReport(\''+safeId+'\')">Download PDF</button>';
-      html+='<button class="ghost" onclick="regenerateOrientationReport(\''+safeId+'\')">New Revision</button>';
-      html+='<span class="badge purple">Report v'+version+'</span>';
-      return html+'</div>';
-    }
-
-    if(ended){
-      html+='<button class="ghost" onclick="openOrientationStudents(\''+safeId+'\')">Add Student Record</button>';
-      if(attendanceState==='OPEN'){
-        html+='<button class="ghost" onclick="showOrientationQr(\''+safeId+'\')">Show QR</button>';
-        html+='<button class="ghost" onclick="closeOrientationAttendance(\''+safeId+'\')">Close Attendance</button>';
-      }
-      html+='<button class="ghost" onclick="setOrientationRecording(\''+safeId+'\')">'+(recordingUrl?'Edit Recording':'Add Recording')+'</button>';
-      if(recordingUrl)html+='<button class="ghost" onclick="sendOrientationRecording(\''+safeId+'\')">Send Recording</button>';
-      html+='<button class="primary" onclick="openOrientationCompletion(\''+safeId+'\')">Complete Orientation</button>';
-      return html+'</div>';
-    }
-
-    html+='<button class="ghost" onclick="openOrientationEdit(\''+safeId+'\')">Edit</button>';
-    html+='<button class="primary" onclick="openOrientationStudents(\''+safeId+'\')">Add Students</button>';
-    html+='<button class="ghost" onclick="sendOrientationInvitation(\''+safeId+'\')">Send Invitation</button>';
-    html+='<button class="ghost" onclick="sendOrientationReminderNow(\''+safeId+'\')">Send Reminder</button>';
-    html+='<button class="ghost" onclick="endOrientationSession(\''+safeId+'\')">End Session</button>';
-    if(attendanceState==='OPEN'){
-      html+='<button class="ghost" onclick="showOrientationQr(\''+safeId+'\')">Show QR</button>';
-      html+='<button class="ghost" onclick="closeOrientationAttendance(\''+safeId+'\')">Close Attendance</button>';
-    }else{
-      html+='<button class="ghost" onclick="openOrientationAttendance(\''+safeId+'\')">Open Attendance</button>';
-    }
-    html+='<button class="ghost" onclick="setOrientationRecording(\''+safeId+'\')">'+(recordingUrl?'Edit Recording':'Add Recording')+'</button>';
-    if(recordingUrl)html+='<button class="ghost" onclick="sendOrientationRecording(\''+safeId+'\')">Send Recording</button>';
-    return html+'</div>';
+  function orientationSessionMetrics(session){
+    const id=String(session&&session['Orientation Session ID']||'');
+    const rows=(db.V2_ORIENTATION_TRACKING||[])
+      .filter(orientationAssignmentActive)
+      .filter(function(x){return String(x['Orientation Session ID']||'')===id;});
+    const invited=rows.filter(function(x){return String(x['Invitation Status']||'').toUpperCase()==='SENT';}).length;
+    const attended=rows.filter(function(x){return String(x['Attendance Status']||'').toUpperCase()==='ATTENDED';}).length;
+    const absent=rows.filter(function(x){return String(x['Attendance Status']||'').toUpperCase()==='ABSENT';}).length;
+    const excused=rows.filter(function(x){return String(x['Attendance Status']||'').toUpperCase()==='EXCUSED';}).length;
+    const pendingAttendance=rows.filter(function(x){
+      return ['ATTENDED','ABSENT','EXCUSED'].indexOf(String(x['Attendance Status']||'NOT_UPDATED').toUpperCase())<0;
+    }).length;
+    const feedbackSubmitted=rows.filter(function(x){return String(x['Feedback Status']||'').toUpperCase()==='SUBMITTED';}).length;
+    const recordingSent=rows.filter(function(x){return String(x['Recording Email Status']||'').toUpperCase()==='SENT';}).length;
+    const deliverableRecording=rows.filter(function(x){return String(x['Student Email']||'').indexOf('@')>0;}).length;
+    let reminderEvents=0;
+    rows.forEach(function(x){
+      let h={};try{h=JSON.parse(String(x['Reminder History JSON']||'{}'))||{}}catch(_){}
+      let count=['D3','D2','D1','H1'].filter(function(k){return !!h[k];}).length;
+      if(Array.isArray(h.MANUAL))count+=h.MANUAL.length;
+      if(!count&&String(x['Reminder Status']||'').toUpperCase()==='SENT')count=1;
+      reminderEvents+=count;
+    });
+    const storedStatus=String(session&&session['Status']||'SCHEDULED').toUpperCase();
+    const completed=storedStatus==='COMPLETED';
+    const ended=!completed&&orientationSessionEnded(session);
+    const attendanceState=String(session&&session['Attendance Status']||'NOT_OPEN').toUpperCase();
+    const recordingUrl=String(session&&session['Recording URL']||'').trim();
+    const reportVersion=Number(session&&session['Report Version']||0);
+    return {
+      id:id,rows:rows,invited:invited,attended:attended,absent:absent,excused:excused,
+      pendingAttendance:pendingAttendance,feedbackSubmitted:feedbackSubmitted,
+      recordingSent:recordingSent,deliverableRecording:deliverableRecording,
+      reminderEvents:reminderEvents,storedStatus:storedStatus,completed:completed,ended:ended,
+      attendanceState:attendanceState,recordingUrl:recordingUrl,reportVersion:reportVersion
+    };
   }
+
+  function orientationCurrentStage(session,m){
+    if(m.completed)return 'Completed';
+    if(m.ended){
+      if(m.attendanceState==='OPEN'||m.pendingAttendance>0)return 'Attendance Review';
+      if(!m.recordingUrl||m.recordingSent<m.deliverableRecording)return 'Recording';
+      return 'Completion';
+    }
+    if(!m.rows.length)return 'Student Setup';
+    if(m.invited<m.rows.length)return 'Invitation';
+    if(m.attendanceState==='OPEN')return 'Attendance & Feedback';
+    return 'Session Ready';
+  }
+
+  function orientationOperationalStatus(session,m){
+    if(m.completed)return {label:'Completed',cls:'purple'};
+    if(m.attendanceState==='OPEN')return {label:'In Progress',cls:'green'};
+    if(m.ended)return {label:'Action Required',cls:'amber'};
+    if(!m.rows.length||m.invited<m.rows.length)return {label:'Setup Required',cls:'amber'};
+    return {label:'Scheduled',cls:'blue'};
+  }
+
+  function orientationNextAction(session,m){
+    if(m.completed)return {
+      title:'Orientation record completed',
+      text:'The official report is available for viewing and download.',
+      buttons:[
+        ['primary','View Report','viewReport'],
+        ['ghost','Download PDF','downloadReport']
+      ]
+    };
+    if(m.ended){
+      if(m.attendanceState==='OPEN')return {
+        title:'Close attendance',
+        text:'The session has ended but student self check-in is still open.',
+        buttons:[['primary','Close Attendance','closeAttendance'],['ghost','Show QR','qr']]
+      };
+      if(m.pendingAttendance>0)return {
+        title:'Resolve attendance records',
+        text:m.pendingAttendance+' student attendance record(s) still need a final status before completion.',
+        buttons:[['primary','Review Students','manage']]
+      };
+      if(!m.recordingUrl)return {
+        title:'Add orientation recording',
+        text:'Attendance has been reviewed. Add the recording link before completing the session.',
+        buttons:[['primary','Add Recording','recording']]
+      };
+      if(m.recordingSent<m.deliverableRecording)return {
+        title:'Send orientation recording',
+        text:'The recording link is ready. Send it to students before completion.',
+        buttons:[['primary','Send Recording','sendRecording'],['ghost','Edit Recording','recording']]
+      };
+      return {
+        title:'Ready to complete Orientation',
+        text:'Attendance and recording controls are complete. Finalise the record and generate the official report.',
+        buttons:[['primary','Complete Orientation','complete']]
+      };
+    }
+    if(!m.rows.length)return {
+      title:'Add students to this session',
+      text:'No student has been assigned yet.',
+      buttons:[['primary','Add Students','addStudents'],['ghost','Edit Session','edit']]
+    };
+    if(m.invited<m.rows.length)return {
+      title:'Send pending invitations',
+      text:(m.rows.length-m.invited)+' assigned student(s) have not received the orientation invitation.',
+      buttons:[['primary','Send Invitation','invite'],['ghost','Students','manage']]
+    };
+    if(m.attendanceState==='OPEN')return {
+      title:'Attendance is open',
+      text:m.attended+' of '+m.rows.length+' student(s) have confirmed attendance.',
+      buttons:[['primary','Close Attendance','closeAttendance'],['ghost','Show QR','qr']]
+    };
+    return {
+      title:'Session ready',
+      text:'Students are assigned and invited. Open attendance when the orientation reaches the attendance / feedback stage.',
+      buttons:[['primary','Open Attendance','openAttendance'],['ghost','Send Reminder','reminder'],['ghost','Edit Session','edit']]
+    };
+  }
+
+  function orientationJourneyHtml(m){
+    const steps=[
+      ['Setup',true],
+      ['Students',m.rows.length>0],
+      ['Invitation',m.rows.length>0&&m.invited>=m.rows.length],
+      ['Session',m.ended||m.completed],
+      ['Attendance',(m.ended||m.completed)&&m.pendingAttendance===0&&m.attendanceState!=='OPEN'],
+      ['Recording',!!m.recordingUrl&&m.recordingSent>=m.deliverableRecording],
+      ['Complete',m.completed]
+    ];
+    let firstPending=steps.findIndex(function(x){return !x[1];});
+    if(firstPending<0)firstPending=steps.length-1;
+    return '<div style="display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:8px;margin:16px 0 20px">'+
+      steps.map(function(step,index){
+        const done=step[1],active=!done&&index===firstPending;
+        const bg=done?'#eaf8f3':active?'#f0edfb':'#f2f4f7';
+        const fg=done?'#0b7a5a':active?'#392678':'#8b93a3';
+        return '<div style="text-align:center"><div style="width:34px;height:34px;border-radius:50%;margin:0 auto 6px;display:grid;place-items:center;background:'+bg+';color:'+fg+';font-weight:900;border:1px solid '+(active?'#d8cff8':'transparent')+'">'+(done?'✓':String(index+1))+'</div><div style="font-size:10px;font-weight:800;color:'+fg+'">'+esc(step[0])+'</div></div>';
+      }).join('')+'</div>';
+  }
+
+  function orientationDetailActionButtons(session,m){
+    const next=orientationNextAction(session,m);
+    return next.buttons.map(function(btn){
+      return '<button class="'+btn[0]+'" type="button" onclick="orientationDetailDo(\''+esc(btn[2])+'\',\''+esc(m.id)+'\')">'+esc(btn[1])+'</button>';
+    }).join('');
+  }
+
+  function orientationDetailOverviewHtml(session,m){
+    const date=[session['Session Date'],[session['Start Time'],session['End Time']].filter(Boolean).join(' - ')].filter(Boolean).join(' · ');
+    return [
+      '<div class="detail-grid">',
+        '<div class="panel" style="box-shadow:none"><div class="panel-head"><h3>Session Details</h3></div><div class="panel-body">',
+          '<div class="detail-grid">',
+            '<div><div class="subline">Session ID</div><div class="student">'+esc(m.id)+'</div></div>',
+            '<div><div class="subline">Intake</div><div class="student">'+esc(session['Intake ID']||'-')+'</div></div>',
+            '<div><div class="subline">Programme Group</div><div class="student">'+esc(session['Programme Group']||'ALL')+'</div></div>',
+            '<div><div class="subline">Date & Time</div><div class="student">'+esc(date||'-')+'</div></div>',
+            '<div><div class="subline">Mode</div><div class="student">'+esc(pretty(session['Mode']||'ONLINE'))+'</div></div>',
+            '<div><div class="subline">Venue / Platform</div><div class="student">'+esc(session['Venue']||'-')+'</div></div>',
+          '</div>',
+          (session['Meeting Link']?'<div style="margin-top:14px"><a class="ghost" href="'+esc(session['Meeting Link'])+'" target="_blank" rel="noopener" style="text-decoration:none">Open Meeting Link</a></div>':''),
+        '</div></div>',
+        '<div class="panel" style="box-shadow:none"><div class="panel-head"><h3>Session Summary</h3></div><div class="panel-body">',
+          '<div style="display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px">',
+            '<div class="kpi" style="padding:13px"><div class="label">ASSIGNED</div><div class="value" style="font-size:24px">'+m.rows.length+'</div></div>',
+            '<div class="kpi" style="padding:13px"><div class="label">INVITED</div><div class="value" style="font-size:24px">'+m.invited+'</div></div>',
+            '<div class="kpi" style="padding:13px"><div class="label">ATTENDED</div><div class="value" style="font-size:24px">'+m.attended+'</div></div>',
+            '<div class="kpi" style="padding:13px"><div class="label">FEEDBACK</div><div class="value" style="font-size:24px">'+m.feedbackSubmitted+'</div></div>',
+          '</div>',
+        '</div></div>',
+      '</div>'
+    ].join('');
+  }
+
+  function orientationDetailStudentsHtml(session,m){
+    const completed=m.completed;
+    return [
+      '<div style="display:flex;justify-content:space-between;gap:10px;align-items:center;margin-bottom:12px;flex-wrap:wrap">',
+        '<div><div class="student">Student Roster</div><div class="subline">'+m.rows.length+' active student(s) assigned to this session</div></div>',
+        '<div class="orientation-actions">',
+          (!completed?'<button class="primary" onclick="orientationDetailDo(\'addStudents\',\''+esc(m.id)+'\')">Add Students</button>':''),
+          '<button class="ghost" onclick="orientationDetailDo(\'manage\',\''+esc(m.id)+'\')">Manage Students</button>',
+        '</div>',
+      '</div>',
+      '<div class="table-wrap"><table style="min-width:900px"><thead><tr><th>Student</th><th>Programme</th><th>Invitation</th><th>Attendance</th><th>Feedback</th><th>Recording</th></tr></thead><tbody>',
+      m.rows.map(function(x){
+        return '<tr>'+
+          '<td><div class="student">'+esc(x['Student Name']||'-')+'</div><div class="subline">'+esc(x['Reference No']||'')+'</div></td>'+
+          '<td>'+esc(x['Programme']||'-')+'</td>'+
+          '<td><span class="badge '+classifyBadge(x['Invitation Status']||'NOT_SENT')+'">'+esc(pretty(x['Invitation Status']||'NOT_SENT'))+'</span></td>'+
+          '<td><span class="badge '+classifyBadge(x['Attendance Status']||'NOT_UPDATED')+'">'+esc(pretty(x['Attendance Status']||'NOT_UPDATED'))+'</span><div class="subline">'+esc(pretty(x['Attendance Source']||''))+'</div></td>'+
+          '<td><span class="badge '+classifyBadge(x['Feedback Status']||'NOT_SUBMITTED')+'">'+esc(pretty(x['Feedback Status']||'NOT_SUBMITTED'))+'</span></td>'+
+          '<td><span class="badge '+classifyBadge(x['Recording Email Status']||'NOT_SENT')+'">'+esc(pretty(x['Recording Email Status']||'NOT_SENT'))+'</span></td>'+
+        '</tr>';
+      }).join('')+
+      (m.rows.length?'':'<tr><td colspan="6" class="empty">No students are assigned to this session.</td></tr>')+
+      '</tbody></table></div>'
+    ].join('');
+  }
+
+  function orientationDetailCommunicationHtml(session,m){
+    return [
+      '<div class="detail-grid">',
+        '<div class="panel" style="box-shadow:none"><div class="panel-head"><h3>Invitation</h3><span>'+m.invited+' / '+m.rows.length+' sent</span></div><div class="panel-body">',
+          '<p class="subline" style="margin-top:0">Invitation email is sent only when Registry explicitly clicks Send Invitation.</p>',
+          (!m.completed&&!m.ended?'<button class="primary" onclick="orientationDetailDo(\'invite\',\''+esc(m.id)+'\')">Send Pending Invitations</button>':'<span class="badge '+(m.completed?'purple':'amber')+'">'+esc(m.completed?'Record Locked':'Session Ended')+'</span>'),
+        '</div></div>',
+        '<div class="panel" style="box-shadow:none"><div class="panel-head"><h3>Reminder</h3><span>'+m.reminderEvents+' recorded event(s)</span></div><div class="panel-body">',
+          '<p class="subline" style="margin-top:0">Automatic schedule: 3 days · 2 days · 1 day · ~1 hour before the session.</p>',
+          (!m.completed&&!m.ended?'<button class="ghost" onclick="orientationDetailDo(\'reminder\',\''+esc(m.id)+'\')">Send Reminder Now</button>':''),
+        '</div></div>',
+      '</div>',
+      '<div class="table-wrap" style="margin-top:14px"><table><thead><tr><th>Student</th><th>Invitation</th><th>Invitation Sent At</th><th>Reminder</th><th>Last Milestone</th></tr></thead><tbody>',
+      m.rows.map(function(x){
+        return '<tr><td>'+esc(x['Student Name']||'-')+'</td>'+
+          '<td><span class="badge '+classifyBadge(x['Invitation Status']||'NOT_SENT')+'">'+esc(pretty(x['Invitation Status']||'NOT_SENT'))+'</span></td>'+
+          '<td>'+esc(x['Invitation Sent At']||'-')+'</td>'+
+          '<td><span class="badge '+classifyBadge(x['Reminder Status']||'NOT_SENT')+'">'+esc(pretty(x['Reminder Status']||'NOT_SENT'))+'</span></td>'+
+          '<td>'+esc(pretty(x['Last Reminder Milestone']||'-'))+'</td></tr>';
+      }).join('')+
+      (m.rows.length?'':'<tr><td colspan="5" class="empty">No student communication record yet.</td></tr>')+
+      '</tbody></table></div>'
+    ].join('');
+  }
+
+  function orientationFeedbackAverage_(rows){
+    const values=rows.map(function(x){
+      const direct=Number(x['Feedback Overall Score']||0);
+      if(direct)return direct;
+      try{return Number((JSON.parse(String(x['Feedback JSON']||'{}'))||{}).overallSatisfaction||0);}catch(_){return 0;}
+    }).filter(function(v){return v>=1&&v<=5;});
+    if(!values.length)return 0;
+    return values.reduce(function(a,b){return a+b;},0)/values.length;
+  }
+
+  function orientationDetailAttendanceHtml(session,m){
+    const avg=orientationFeedbackAverage_(m.rows);
+    return [
+      '<div style="display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:10px;margin-bottom:14px">',
+        '<div class="kpi" style="padding:13px"><div class="label">ATTENDED</div><div class="value" style="font-size:23px">'+m.attended+'</div></div>',
+        '<div class="kpi" style="padding:13px"><div class="label">ABSENT</div><div class="value" style="font-size:23px">'+m.absent+'</div></div>',
+        '<div class="kpi" style="padding:13px"><div class="label">EXCUSED</div><div class="value" style="font-size:23px">'+m.excused+'</div></div>',
+        '<div class="kpi" style="padding:13px"><div class="label">FEEDBACK</div><div class="value" style="font-size:23px">'+m.feedbackSubmitted+'</div></div>',
+        '<div class="kpi" style="padding:13px"><div class="label">AVG SCORE</div><div class="value" style="font-size:23px">'+(avg?avg.toFixed(2):'-')+'</div></div>',
+      '</div>',
+      '<div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:14px">',
+        (!m.completed&&m.attendanceState!=='OPEN'?'<button class="primary" onclick="orientationDetailDo(\'openAttendance\',\''+esc(m.id)+'\')">Open Attendance</button>':''),
+        (!m.completed&&m.attendanceState==='OPEN'?'<button class="primary" onclick="orientationDetailDo(\'closeAttendance\',\''+esc(m.id)+'\')">Close Attendance</button><button class="ghost" onclick="orientationDetailDo(\'qr\',\''+esc(m.id)+'\')">Show QR</button>':''),
+        '<button class="ghost" onclick="orientationDetailDo(\'manage\',\''+esc(m.id)+'\')">Review Student Records</button>',
+      '</div>',
+      '<div class="table-wrap"><table><thead><tr><th>Student</th><th>Attendance</th><th>Check-in</th><th>Source</th><th>Feedback</th></tr></thead><tbody>',
+      m.rows.map(function(x){
+        return '<tr><td>'+esc(x['Student Name']||'-')+'</td>'+
+          '<td><span class="badge '+classifyBadge(x['Attendance Status']||'NOT_UPDATED')+'">'+esc(pretty(x['Attendance Status']||'NOT_UPDATED'))+'</span></td>'+
+          '<td>'+esc(x['Attendance Submitted At']||'-')+'</td>'+
+          '<td>'+esc(pretty(x['Attendance Source']||'-'))+'</td>'+
+          '<td><span class="badge '+classifyBadge(x['Feedback Status']||'NOT_SUBMITTED')+'">'+esc(pretty(x['Feedback Status']||'NOT_SUBMITTED'))+'</span></td></tr>';
+      }).join('')+
+      (m.rows.length?'':'<tr><td colspan="5" class="empty">No student attendance record yet.</td></tr>')+
+      '</tbody></table></div>'
+    ].join('');
+  }
+
+  function orientationDetailRecordingHtml(session,m){
+    const completed=m.completed;
+    return [
+      '<div class="detail-grid">',
+        '<div class="panel" style="box-shadow:none"><div class="panel-head"><h3>Recording</h3><span>'+m.recordingSent+' / '+m.rows.length+' sent</span></div><div class="panel-body">',
+          '<div class="subline">Recording Link</div><div style="font-weight:800;word-break:break-word;margin:5px 0 14px">'+(m.recordingUrl?esc(m.recordingUrl):'Not added')+'</div>',
+          (!completed?'<div class="orientation-actions"><button class="ghost" onclick="orientationDetailDo(\'recording\',\''+esc(m.id)+'\')">'+(m.recordingUrl?'Edit Recording':'Add Recording')+'</button>'+(m.recordingUrl?'<button class="primary" onclick="orientationDetailDo(\'sendRecording\',\''+esc(m.id)+'\')">Send Recording</button>':'')+'</div>':''),
+        '</div></div>',
+        '<div class="panel" style="box-shadow:none"><div class="panel-head"><h3>Completion</h3><span>'+esc(pretty(m.completed?'COMPLETED':m.ended?'ENDED':'ACTIVE'))+'</span></div><div class="panel-body">',
+          '<div class="subline">Attendance unresolved: '+m.pendingAttendance+'</div>',
+          '<div class="subline">Feedback submitted: '+m.feedbackSubmitted+' / '+m.attended+'</div>',
+          '<div class="subline">Recording sent: '+m.recordingSent+' / '+m.deliverableRecording+' deliverable</div>',
+          '<div style="margin-top:14px" class="orientation-actions">',
+            (!completed&&!m.ended?'<button class="ghost" onclick="orientationDetailDo(\'end\',\''+esc(m.id)+'\')">End Session</button>':''),
+            (!completed&&m.ended?'<button class="primary" onclick="orientationDetailDo(\'complete\',\''+esc(m.id)+'\')">Complete Orientation</button>':''),
+            (completed?'<button class="primary" onclick="orientationDetailDo(\'viewReport\',\''+esc(m.id)+'\')">View Report</button><button class="ghost" onclick="orientationDetailDo(\'downloadReport\',\''+esc(m.id)+'\')">Download PDF</button><button class="ghost" onclick="orientationDetailDo(\'revision\',\''+esc(m.id)+'\')">New Revision</button>':''),
+          '</div>',
+        '</div></div>',
+      '</div>'
+    ].join('');
+  }
+
+  function orientationDetailActivityHtml(session,m){
+    const sessionId=m.id;
+    const audit=(db.V2_AUDIT_LOG||[]).filter(function(row){
+      try{return JSON.stringify(row).indexOf(sessionId)>=0;}catch(_){return false;}
+    }).sort(function(a,b){
+      return (Date.parse(String(b['Timestamp']||b['Created At']||''))||0)-(Date.parse(String(a['Timestamp']||a['Created At']||''))||0);
+    }).slice(0,30);
+    return '<div class="panel" style="box-shadow:none"><div class="panel-head"><h3>Session Activity</h3><span>'+audit.length+' event(s)</span></div><div class="panel-body">'+
+      (audit.length?audit.map(function(x){
+        return '<div style="padding:10px 0;border-bottom:1px solid var(--line)"><div class="student">'+esc(pretty(x['Action']||x['Event']||'Orientation activity'))+'</div><div class="subline">'+esc([x['Timestamp']||x['Created At']||'',x['Actor']||x['Updated By']||'',x['Result']||''].filter(Boolean).join(' · '))+'</div></div>';
+      }).join(''):'<div class="empty">No matching activity log found for this session.</div>')+
+      '</div></div>';
+  }
+
+  function orientationDetailTabHtml(session,m,tab){
+    if(tab==='students')return orientationDetailStudentsHtml(session,m);
+    if(tab==='communication')return orientationDetailCommunicationHtml(session,m);
+    if(tab==='attendance')return orientationDetailAttendanceHtml(session,m);
+    if(tab==='recording')return orientationDetailRecordingHtml(session,m);
+    if(tab==='activity')return orientationDetailActivityHtml(session,m);
+    return orientationDetailOverviewHtml(session,m);
+  }
+
+  window.orientationDetailDo=function(action,sessionId){
+    closeOrientationSessionDetail();
+    if(action==='edit')return openOrientationEdit(sessionId);
+    if(action==='addStudents')return openOrientationStudents(sessionId);
+    if(action==='manage')return openOrientationManageStudents(sessionId);
+    if(action==='invite')return sendOrientationInvitation(sessionId);
+    if(action==='reminder')return sendOrientationReminderNow(sessionId);
+    if(action==='openAttendance')return openOrientationAttendance(sessionId);
+    if(action==='closeAttendance')return closeOrientationAttendance(sessionId);
+    if(action==='qr')return showOrientationQr(sessionId);
+    if(action==='end')return endOrientationSession(sessionId);
+    if(action==='recording')return setOrientationRecording(sessionId);
+    if(action==='sendRecording')return sendOrientationRecording(sessionId);
+    if(action==='complete')return openOrientationCompletion(sessionId);
+    if(action==='viewReport')return viewOrientationReport(sessionId);
+    if(action==='downloadReport')return downloadOrientationReport(sessionId);
+    if(action==='revision')return regenerateOrientationReport(sessionId);
+  };
+
+  function closeOrientationSessionDetail(){
+    document.getElementById('orientationSessionDetailModal')?.remove();
+  }
+  window.closeOrientationSessionDetail=closeOrientationSessionDetail;
+
+  window.openOrientationSessionDetail=function(sessionId){
+    const session=(db.V2_ORIENTATION_SESSIONS||[]).find(function(s){return String(s['Orientation Session ID']||'')===String(sessionId);});
+    if(!session)return orientationMessage('Orientation Session not found.','error');
+    closeOrientationSessionDetail();
+    const m=orientationSessionMetrics(session);
+    const stage=orientationCurrentStage(session,m);
+    const opStatus=orientationOperationalStatus(session,m);
+    const next=orientationNextAction(session,m);
+    const date=[session['Session Date'],[session['Start Time'],session['End Time']].filter(Boolean).join(' - ')].filter(Boolean).join(' · ');
+
+    const overlay=document.createElement('div');
+    overlay.id='orientationSessionDetailModal';
+    overlay.style.cssText='position:fixed;inset:0;background:rgba(17,24,39,.62);z-index:9998;display:flex;justify-content:center;align-items:flex-start;padding:20px;overflow:auto';
+    overlay.innerHTML=[
+      '<div style="width:min(1180px,98vw);background:#fff;border-radius:20px;box-shadow:0 30px 80px rgba(0,0,0,.28);overflow:hidden;margin:auto">',
+        '<div style="padding:22px 26px;border-bottom:1px solid var(--line);display:flex;justify-content:space-between;align-items:flex-start;gap:14px;position:sticky;top:0;background:#fff;z-index:2">',
+          '<div><h2 style="margin:0 0 6px">'+esc(session['Orientation Name']||sessionId)+'</h2><div class="subline">'+esc(sessionId)+' · '+esc(session['Intake ID']||'-')+' · '+esc(session['Programme Group']||'ALL')+' · '+esc(date||'-')+'</div></div>',
+          '<button class="ghost" type="button" id="orientationSessionDetailClose">Close</button>',
+        '</div>',
+        '<div style="padding:24px 26px">',
+          '<div style="border:1px solid #ddd8f2;background:#fbfaff;border-radius:18px;padding:18px;margin-bottom:14px">',
+            '<div style="display:flex;justify-content:space-between;gap:12px;align-items:flex-start;flex-wrap:wrap">',
+              '<div><div style="font-size:12px;font-weight:900;color:var(--purple);margin-bottom:5px">Operational Action Center</div><div style="font-size:18px;font-weight:900">'+esc(next.title)+'</div><div class="subline" style="margin-top:4px;max-width:720px">'+esc(next.text)+'</div></div>',
+              '<div><span class="badge '+opStatus.cls+'">'+esc(opStatus.label)+'</span><div class="subline" style="margin-top:6px;text-align:right">Current Stage: '+esc(stage)+'</div></div>',
+            '</div>',
+            '<div class="orientation-actions" style="margin-top:14px">'+orientationDetailActionButtons(session,m)+'</div>',
+          '</div>',
+          orientationJourneyHtml(m),
+          '<div id="orientationDetailTabs" style="display:flex;gap:8px;flex-wrap:wrap;border-bottom:1px solid var(--line);padding-bottom:10px;margin-bottom:16px">',
+            '<button class="ghost" data-ori-tab="overview">Overview</button>',
+            '<button class="ghost" data-ori-tab="students">Students</button>',
+            '<button class="ghost" data-ori-tab="communication">Communication</button>',
+            '<button class="ghost" data-ori-tab="attendance">Attendance & Feedback</button>',
+            '<button class="ghost" data-ori-tab="recording">Recording & Completion</button>',
+            '<button class="ghost" data-ori-tab="activity">Activity</button>',
+          '</div>',
+          '<div id="orientationDetailTabBody">'+orientationDetailTabHtml(session,m,'overview')+'</div>',
+        '</div>',
+      '</div>'
+    ].join('');
+    document.body.appendChild(overlay);
+    document.getElementById('orientationSessionDetailClose').onclick=closeOrientationSessionDetail;
+    const buttons=overlay.querySelectorAll('[data-ori-tab]');
+    buttons.forEach(function(btn){
+      btn.onclick=function(){
+        buttons.forEach(function(b){b.classList.remove('primary');b.classList.add('ghost');});
+        btn.classList.remove('ghost');btn.classList.add('primary');
+        const target=String(btn.dataset.oriTab||'overview');
+        const body=document.getElementById('orientationDetailTabBody');
+        if(body)body.innerHTML=orientationDetailTabHtml(session,m,target);
+      };
+    });
+    const first=overlay.querySelector('[data-ori-tab="overview"]');
+    if(first){first.classList.remove('ghost');first.classList.add('primary');}
+  };
 
   window.renderOrientation=function(){
     const sessions=db.V2_ORIENTATION_SESSIONS||[],tracking=(db.V2_ORIENTATION_TRACKING||[]).filter(orientationAssignmentActive);
@@ -730,46 +1074,27 @@
     const k1=document.getElementById('oriSessionsKpi'),k2=document.getElementById('oriAssignedKpi'),k3=document.getElementById('oriInvitedKpi'),k4=document.getElementById('oriAttendedKpi');
     if(k1)k1.textContent=sessions.length;
     if(k2)k2.textContent=tracking.length;
-    if(k3)k3.textContent=tracking.filter(x=>String(x['Invitation Status']||'').toUpperCase()==='SENT').length;
-    if(k4)k4.textContent=tracking.filter(x=>String(x['Attendance Status']||'').toUpperCase()==='ATTENDED').length;
+    if(k3)k3.textContent=tracking.filter(function(x){return String(x['Invitation Status']||'').toUpperCase()==='SENT';}).length;
+    if(k4)k4.textContent=tracking.filter(function(x){return String(x['Attendance Status']||'').toUpperCase()==='ATTENDED';}).length;
 
     const body=document.getElementById('orientationSessionsBody');
     if(body){
-      body.innerHTML=sessions.map(s=>{
-        const id=s['Orientation Session ID']||'';
-        const rows=tracking.filter(x=>String(x['Orientation Session ID']||'')===id);
-        const invited=rows.filter(x=>String(x['Invitation Status']||'').toUpperCase()==='SENT').length;
-        const reminded=rows.reduce((n,x)=>{
-          let h={};try{h=JSON.parse(String(x['Reminder History JSON']||'{}'))||{}}catch(_){}
-          let count=['D3','D2','D1','H1'].filter(k=>h[k]).length;
-          if(Array.isArray(h.MANUAL))count+=h.MANUAL.length;
-          if(!count&&String(x['Reminder Status']||'').toUpperCase()==='SENT')count=1;
-          return n+count;
-        },0);
-        const attended=rows.filter(x=>String(x['Attendance Status']||'').toUpperCase()==='ATTENDED').length;
-        const attendanceState=String(s['Attendance Status']||'NOT_OPEN').toUpperCase();
-        const recordingUrl=String(s['Recording URL']||'').trim();
+      body.innerHTML=sessions.map(function(s){
+        const m=orientationSessionMetrics(s);
+        const stage=orientationCurrentStage(s,m);
+        const status=orientationOperationalStatus(s,m);
+        const id=m.id;
         const date=[s['Session Date'],[s['Start Time'],s['End Time']].filter(Boolean).join(' - ')].filter(Boolean).join(' · ');
-        const storedStatus=String(s['Status']||'SCHEDULED').toUpperCase();
-        const completed=storedStatus==='COMPLETED';
-        const ended=!completed&&orientationSessionEnded(s);
-        const effectiveStatus=completed?'COMPLETED':(ended?'ENDED':storedStatus);
-        const feedbackSubmitted=rows.filter(x=>String(x['Feedback Status']||'').toUpperCase()==='SUBMITTED').length;
-        const recordingSent=rows.filter(x=>String(x['Recording Email Status']||'').toUpperCase()==='SENT').length;
-        return `<tr>
-          <td><div class="student">${esc(s['Orientation Name']||id)}</div><div class="subline">${esc(id)}</div><div style="margin-top:6px"><span class="badge ${completed?'purple':ended?'amber':'green'}">${esc(pretty(effectiveStatus))}</span></div></td>
-          <td>${esc(s['Intake ID']||'-')}<div class="subline">${esc(s['Programme Group']||'ALL')}</div></td>
-          <td>${esc(date||'-')}</td>
-          <td><span class="badge blue">${esc(pretty(s['Mode']||'ONLINE'))}</span><div class="subline">${esc(s['Venue']||'')}</div></td>
-          <td>${rows.length}<div class="subline">${invited} invited · ${feedbackSubmitted} feedback</div></td>
-          <td>${reminded}<div class="subline">3d · 2d · 1d · ~1h</div></td>
-          <td>${attended}<div class="subline">${rows.length-attended} absent / pending · ${recordingSent} recording sent</div><div style="margin-top:6px"><span class="badge ${attendanceState==='OPEN'?'green':attendanceState==='CLOSED'?'amber':'blue'}">Attendance ${esc(pretty(attendanceState))}</span></div></td>
-          <td>${orientationSessionActionHtml(s,id,rows,attendanceState,recordingUrl,completed,ended)}</td>
-        </tr>`;
-      }).join('')||'<tr><td colspan="8" class="empty">No orientation session created yet.</td></tr>';
+        return '<tr>'+
+          '<td><div class="student">'+esc(s['Orientation Name']||id)+'</div><div class="subline">'+esc(id)+'</div><div class="subline">'+esc(s['Intake ID']||'-')+' · '+esc(s['Programme Group']||'ALL')+' · '+esc(pretty(s['Mode']||'ONLINE'))+'</div></td>'+
+          '<td>'+esc(date||'-')+'<div class="subline">'+esc(s['Venue']||'')+'</div></td>'+
+          '<td><div class="student">'+m.rows.length+'</div><div class="subline">'+m.invited+' invited · '+m.attended+' attended · '+m.feedbackSubmitted+' feedback</div></td>'+
+          '<td><span class="badge purple">'+esc(stage)+'</span></td>'+
+          '<td><span class="badge '+status.cls+'">'+esc(status.label)+'</span></td>'+
+          '<td><button class="primary" onclick="openOrientationSessionDetail(\''+esc(id)+'\')">View Session</button></td>'+
+        '</tr>';
+      }).join('')||'<tr><td colspan="6" class="empty">No Orientation Session created yet.</td></tr>';
     }
-
-
   };
 
   window.goOrientation=function(btn){
