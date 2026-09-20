@@ -214,17 +214,22 @@ function v2AgentGetAction(token, actionId) {
   if (!admission) return { ok: false, message: 'The application record could not be found.' };
 
   const submitted = status === 'SUBMITTED';
+  const programme = admission.record['Programme'] || match.record['Programme'] || '';
+  const feeGroupOptions = (typeof v2GetFeeGroupOptions_ === 'function')
+    ? v2GetFeeGroupOptions_(programme)
+    : v2GetFeeGroups_().map(function(code){ return {code:code,label:code}; });
   return {
     ok: true,
     submitted: submitted,
     referenceNo: match.record['Reference No'] || '',
     studentName: admission.record['Student Name'] || match.record['Student Name'] || '',
-    programme: admission.record['Programme'] || match.record['Programme'] || '',
+    programme: programme,
     intake: admission.record['Intake'] || '',
     partnerCode: admission.record['Agent Code'] || match.record['Partner Code'] || '',
     feeGroup: match.record['Fee Group'] || admission.record['Fee Group'] || '',
     remarks: match.record['Remarks'] || '',
-    feeGroups: v2GetFeeGroups_(),
+    feeGroups: feeGroupOptions.map(function(x){ return x.code; }),
+    feeGroupOptions: feeGroupOptions,
     message: submitted ? 'Prospect completion and Fee Group have already been submitted.' : ''
   };
 }
@@ -302,6 +307,13 @@ function v2AgentSubmitAction(token, actionId, formData) {
     const referenceNo = String(match.record['Reference No'] || '').trim();
     const admission = v2FindAdmissionByReference_(ss, referenceNo);
     if (!admission) throw new Error('Matching V2 application record not found.');
+
+    if (typeof v2GetFeeGroupOptions_ === 'function') {
+      const applicable = v2GetFeeGroupOptions_(admission.record['Programme'] || '').some(function(option){
+        return String(option.code || '') === feeGroup;
+      });
+      if (!applicable) throw new Error('The selected Fee Group is not active or is not applicable to this programme.');
+    }
 
     const workflow = v2Find_('V2_WORKFLOW', 'Reference No', referenceNo);
     if (!workflow) throw new Error('Matching V2 workflow record not found.');
