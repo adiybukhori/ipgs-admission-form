@@ -102,12 +102,45 @@
   }
 
   function closeFeeModal(){document.getElementById('feeStructureModal')?.remove()}
+  function feeComponentRowHtml(item,index){
+    item=item||{};
+    const type=String(item.type||'COURSEWORK_FEE').toUpperCase();
+    return `<div class="fee-component-row" data-index="${index}" style="display:grid;grid-template-columns:1.4fr .8fr 1.4fr auto;gap:8px;align-items:end;margin-bottom:8px">
+      <div class="field"><label>Fee Component</label><select data-component-field="type">${componentOptionsHtml(type)}</select></div>
+      <div class="field"><label>Amount (RM)</label><input data-component-field="amount" type="number" min="0" step="0.01" value="${item.amount!==undefined?esc(item.amount):''}" /></div>
+      <div class="field"><label>Description</label><input data-component-field="description" value="${esc(item.description||'')}" placeholder="${type==='NON_ACADEMIC_FEE'?'Required for other non-academic fee':'Optional'}" /></div>
+      <button type="button" class="ghost" onclick="removeFeeComponentRow(this)">Remove</button>
+    </div>`;
+  }
+  window.removeFeeComponentRow=function(btn){btn.closest('.fee-component-row')?.remove();recalcFeeComponentTotal()};
+  window.addFeeComponentRow=function(item){
+    const box=document.getElementById('feeComponentRows');if(!box)return;
+    const index=box.querySelectorAll('.fee-component-row').length;
+    box.insertAdjacentHTML('beforeend',feeComponentRowHtml(item||{},index));
+    box.querySelectorAll('input,select').forEach(x=>x.oninput=recalcFeeComponentTotal);
+    recalcFeeComponentTotal();
+  };
+  window.recalcFeeComponentTotal=function(){
+    const values=[...document.querySelectorAll('#feeComponentRows [data-component-field="amount"]')].map(x=>Number(x.value||0)).filter(Number.isFinite);
+    const total=values.reduce((a,b)=>a+b,0);
+    const el=document.getElementById('feeComponentsTotal');if(el)el.textContent=money(total);
+  };
+  function collectFeeComponents(){
+    return [...document.querySelectorAll('#feeComponentRows .fee-component-row')].map(row=>({
+      type:row.querySelector('[data-component-field="type"]')?.value||'',
+      amount:Number(row.querySelector('[data-component-field="amount"]')?.value||0),
+      description:row.querySelector('[data-component-field="description"]')?.value.trim()||''
+    })).filter(x=>x.type&&(x.amount||x.description));
+  }
+
   function scheduleRowHtml(item,index){
     item=item||{};
-    return `<div class="fee-schedule-row" data-index="${index}" style="display:grid;grid-template-columns:1.2fr .8fr 1fr 1.2fr auto;gap:8px;align-items:end;margin-bottom:8px">
-      <div class="field"><label>Payment</label><input data-fee-field="label" value="${esc(item.label||'')}" placeholder="e.g. Registration / Instalment 1" /></div>
+    const label=String(item.label||'Instalment 1');
+    const due=String(item.due||'Month 1');
+    return `<div class="fee-schedule-row" data-index="${index}" style="display:grid;grid-template-columns:1.1fr .8fr 1fr 1.2fr auto;gap:8px;align-items:end;margin-bottom:8px">
+      <div class="field"><label>Payment</label><select data-fee-field="label">${optionsHtml(PAYMENT_LABELS,label)}</select></div>
       <div class="field"><label>Amount (RM)</label><input data-fee-field="amount" type="number" min="0" step="0.01" value="${item.amount!==undefined?esc(item.amount):''}" /></div>
-      <div class="field"><label>Due</label><input data-fee-field="due" value="${esc(item.due||'')}" placeholder="e.g. Upon registration" /></div>
+      <div class="field"><label>Due</label><select data-fee-field="due">${optionsHtml(PAYMENT_DUE,due)}</select></div>
       <div class="field"><label>Notes</label><input data-fee-field="notes" value="${esc(item.notes||'')}" placeholder="Optional" /></div>
       <button type="button" class="ghost" onclick="removeFeeScheduleRow(this)">Remove</button>
     </div>`;
