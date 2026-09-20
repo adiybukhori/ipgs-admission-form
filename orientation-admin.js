@@ -71,6 +71,116 @@
     return !!(end&&end.getTime()<=Date.now());
   }
 
+  function orientationDateInputValue(value){
+    const raw=String(value||'').trim();
+    if(/^\d{4}-\d{2}-\d{2}/.test(raw))return raw.slice(0,10);
+    if(/^\d{1,2}\/\d{1,2}\/\d{4}$/.test(raw)){
+      const p=raw.split('/');
+      return p[2]+'-'+String(p[1]).padStart(2,'0')+'-'+String(p[0]).padStart(2,'0');
+    }
+    const d=new Date(value);
+    if(Number.isNaN(d.getTime()))return'';
+    return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
+  }
+
+  function orientationIntakeOptions(current){
+    const ids=new Map();
+    (db.V2_INTAKE_MASTER||[]).forEach(x=>{
+      const id=String(x['Intake ID']||'').trim();
+      if(id)ids.set(id,String(x['Intake Name']||id));
+    });
+    applicationRecords().forEach(r=>{
+      const id=String(r.app?.['Intake ID']||'').trim();
+      const name=String(r.app?.['Intake']||id).trim();
+      if(id&&!ids.has(id))ids.set(id,name);
+    });
+    if(current&&!ids.has(current))ids.set(current,current);
+    return [...ids.entries()].map(([id,name])=>`<option value="${esc(id)}" ${id===current?'selected':''}>${esc(name)} · ${esc(id)}</option>`).join('');
+  }
+
+  function closeOrientationEditModal(){
+    document.getElementById('orientationEditModal')?.remove();
+  }
+
+  window.openOrientationEdit=function(sessionId){
+    const session=(db.V2_ORIENTATION_SESSIONS||[]).find(s=>String(s['Orientation Session ID']||'')===String(sessionId));
+    if(!session)return orientationMessage('Orientation session not found.','error');
+    closeOrientationEditModal();
+
+    const overlay=document.createElement('div');
+    overlay.id='orientationEditModal';
+    overlay.style.cssText='position:fixed;inset:0;background:rgba(17,24,39,.55);z-index:9999;display:flex;align-items:center;justify-content:center;padding:18px';
+    overlay.innerHTML=`
+      <div style="width:min(760px,96vw);max-height:92vh;overflow:auto;background:#fff;border-radius:18px;box-shadow:0 25px 70px rgba(0,0,0,.25);padding:22px">
+        <div style="display:flex;justify-content:space-between;gap:12px;align-items:flex-start;margin-bottom:16px">
+          <div>
+            <h3 style="margin:0 0 4px">Edit Orientation Session</h3>
+            <div class="subline">${esc(session['Orientation Name']||sessionId)} · ${esc(sessionId)}</div>
+          </div>
+          <button class="ghost" type="button" id="orientationEditCloseBtn">Close</button>
+        </div>
+        <div class="message" style="display:block;background:var(--blueSoft);color:var(--blue);margin-bottom:16px">
+          Session ID will remain unchanged. If an ended session has its date/time corrected to a future schedule, it will reopen automatically.
+        </div>
+        <div style="display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px">
+          <div class="field" style="grid-column:1/-1"><label>Orientation Name</label><input id="oriEditName" /></div>
+          <div class="field"><label>Intake</label><select id="oriEditIntake">${orientationIntakeOptions(String(session['Intake ID']||''))}</select></div>
+          <div class="field"><label>Programme Group</label><input id="oriEditProgrammeGroup" /></div>
+          <div class="field"><label>Session Date</label><input id="oriEditDate" type="date" /></div>
+          <div class="field"><label>Mode</label><select id="oriEditMode"><option value="ONLINE">Online</option><option value="PHYSICAL">Physical</option><option value="HYBRID">Hybrid</option></select></div>
+          <div class="field"><label>Start Time</label><input id="oriEditStart" type="time" /></div>
+          <div class="field"><label>End Time</label><input id="oriEditEnd" type="time" /></div>
+          <div class="field" style="grid-column:1/-1"><label>Venue</label><input id="oriEditVenue" /></div>
+          <div class="field" style="grid-column:1/-1"><label>Google Meet / Meeting Link</label><input id="oriEditMeetingLink" /></div>
+        </div>
+        <div style="display:flex;justify-content:flex-end;gap:10px;margin-top:18px">
+          <button class="ghost" type="button" id="orientationEditCancelBtn">Cancel</button>
+          <button class="primary" type="button" id="orientationEditSaveBtn">Save Changes</button>
+        </div>
+      </div>`;
+    document.body.appendChild(overlay);
+
+    document.getElementById('oriEditName').value=String(session['Orientation Name']||'');
+    document.getElementById('oriEditProgrammeGroup').value=String(session['Programme Group']||'ALL');
+    document.getElementById('oriEditDate').value=orientationDateInputValue(session['Session Date']);
+    document.getElementById('oriEditStart').value=String(session['Start Time']||'08:30').slice(0,5);
+    document.getElementById('oriEditEnd').value=String(session['End Time']||'10:30').slice(0,5);
+    document.getElementById('oriEditMode').value=String(session['Mode']||'ONLINE').toUpperCase();
+    document.getElementById('oriEditVenue').value=String(session['Venue']||'');
+    document.getElementById('oriEditMeetingLink').value=String(session['Meeting Link']||'');
+
+    document.getElementById('orientationEditCloseBtn').onclick=closeOrientationEditModal;
+    document.getElementById('orientationEditCancelBtn').onclick=closeOrientationEditModal;
+    document.getElementById('orientationEditSaveBtn').onclick=async function(){
+      const data={
+        sessionId,
+        name:document.getElementById('oriEditName')?.value.trim()||'',
+        intakeId:document.getElementById('oriEditIntake')?.value||'',
+        programmeGroup:document.getElementById('oriEditProgrammeGroup')?.value.trim()||'ALL',
+        sessionDate:document.getElementById('oriEditDate')?.value||'',
+        startTime:document.getElementById('oriEditStart')?.value||'08:30',
+        endTime:document.getElementById('oriEditEnd')?.value||'10:30',
+        mode:document.getElementById('oriEditMode')?.value||'ONLINE',
+        venue:document.getElementById('oriEditVenue')?.value.trim()||'',
+        meetingLink:document.getElementById('oriEditMeetingLink')?.value.trim()||''
+      };
+      if(!data.name||!data.intakeId||!data.sessionDate)return orientationMessage('Orientation Name, Intake and Session Date are required.','error');
+      const result=await orientationAction(
+        'v2EditOrientationSession',
+        data,
+        'Save these changes? The Orientation Session ID will remain unchanged.'
+      );
+      if(!result)return;
+      closeOrientationEditModal();
+      orientationMessage(
+        result.reopened
+          ? 'Orientation session updated and reopened because the corrected date/time is in the future.'
+          : 'Orientation session updated successfully.',
+        'ok'
+      );
+    };
+  };
+
   function closeOrientationStudentModal(){
     document.getElementById('orientationStudentModal')?.remove();
     orientationSelected.clear();
@@ -79,7 +189,7 @@
   window.openOrientationStudents=function(sessionId){
     const session=(db.V2_ORIENTATION_SESSIONS||[]).find(s=>String(s['Orientation Session ID']||'')===String(sessionId));
     if(!session)return orientationMessage('Orientation session not found.','error');
-    if(orientationSessionEnded(session))return orientationMessage('This Orientation Session has ended. New student assignment and invitation emails are disabled.','error');
+    const ended=orientationSessionEnded(session);
     orientationSelected.clear();
     const students=availableOrientationStudents();
 
@@ -90,18 +200,20 @@
       <div style="width:min(900px,96vw);max-height:92vh;overflow:auto;background:#fff;border-radius:18px;box-shadow:0 25px 70px rgba(0,0,0,.25);padding:22px">
         <div style="display:flex;justify-content:space-between;gap:12px;align-items:flex-start;margin-bottom:14px">
           <div>
-            <h3 style="margin:0 0 4px">Add Students to Orientation</h3>
+            <h3 style="margin:0 0 4px">${ended?'Add Missed Student Record':'Add Students to Orientation'}</h3>
             <div class="subline">${esc(session['Orientation Name']||sessionId)} · ${esc(sessionId)}</div>
           </div>
           <button class="ghost" onclick="document.getElementById('orientationStudentModal')?.remove()">Close</button>
         </div>
         <div class="message" style="display:block;background:var(--blueSoft);color:var(--blue);margin-bottom:14px">
-          This list comes from Applications only. Admission status, documents, SAC, Offer, Acceptance and SKY status do not block Orientation. Students already assigned to any Orientation Session are automatically excluded.
+          ${ended
+            ? 'This session has ended. Students added here are recorded for historical/attendance purposes only. No invitation or reminder email will be sent.'
+            : 'This list comes from Applications only. Admission status, documents, SAC, Offer, Acceptance and SKY status do not block Orientation. Students already assigned to any Orientation Session are automatically excluded.'}
         </div>
         <div style="display:flex;gap:10px;align-items:center;margin-bottom:12px;flex-wrap:wrap;position:sticky;top:0;z-index:5;background:#fff;padding:8px 0">
           <input id="orientationStudentSearch" placeholder="Search student / reference / programme" style="flex:1;min-width:260px" />
           <span class="badge purple" id="orientationModalCount">0 selected</span>
-          <button class="primary" id="orientationAddStudentsTopBtn" type="button">Add Selected Students (0)</button>
+          <button class="primary" id="orientationAddStudentsTopBtn" type="button">${ended?'Add Student Record':'Add Selected Students'} (0)</button>
         </div>
         <div class="table-wrap">
           <table>
@@ -111,7 +223,7 @@
         </div>
         <div style="display:flex;justify-content:flex-end;gap:10px;margin-top:16px">
           <button class="ghost" onclick="document.getElementById('orientationStudentModal')?.remove()">Cancel</button>
-          <button class="primary" id="orientationAddStudentsBtn">Add Selected Students</button>
+          <button class="primary" id="orientationAddStudentsBtn">${ended?'Add Student Record':'Add Selected Students'}</button>
         </div>
       </div>`;
     document.body.appendChild(overlay);
@@ -138,7 +250,7 @@
       if(el)el.textContent=count+' selected';
       const topBtn=document.getElementById('orientationAddStudentsTopBtn');
       if(topBtn){
-        topBtn.textContent='Add Selected Students ('+count+')';
+        topBtn.textContent=(ended?'Add Student Record':'Add Selected Students')+' ('+count+')';
         topBtn.disabled=count===0;
       }
       const bottomBtn=document.getElementById('orientationAddStudentsBtn');
@@ -157,12 +269,19 @@
       if(!refs.length)return orientationMessage('Select at least one student.','error');
       const result=await orientationAction(
         'v2AssignOrientationBatch',
-        {sessionId,referenceNos:refs},
-        `Add ${refs.length} student${refs.length===1?'':'s'} to this Orientation Session and send invitation email?`
+        {sessionId,referenceNos:refs,historicalOnly:ended},
+        ended
+          ? `Add ${refs.length} student${refs.length===1?'':'s'} to this ended Orientation Session as historical record only? No email will be sent.`
+          : `Add ${refs.length} student${refs.length===1?'':'s'} to this Orientation Session and send invitation email?`
       );
       if(!result)return;
       closeOrientationStudentModal();
-      orientationMessage(`Added ${result.assignedCount||0}. Invitation sent: ${result.invitationSentCount||0}. ${result.skipped?.length?`Skipped: ${result.skipped.length}.`:''}`,'ok');
+      orientationMessage(
+        ended
+          ? `Historical record added: ${result.assignedCount||0}. No invitation email sent. ${result.skipped?.length?`Skipped: ${result.skipped.length}.`:''}`
+          : `Added ${result.assignedCount||0}. Invitation sent: ${result.invitationSentCount||0}. ${result.skipped?.length?`Skipped: ${result.skipped.length}.`:''}`,
+        'ok'
+      );
     }
 
     const topAddBtn=document.getElementById('orientationAddStudentsTopBtn');
@@ -297,8 +416,10 @@
           <td>${reminded}<div class="subline">3d · 2d · 1d · ~1h</div></td>
           <td>${attended}<div class="subline">${rows.length-attended} not attended / pending</div></td>
           <td><div style="display:flex;gap:6px;flex-wrap:wrap">
+            <button class="ghost" onclick="openOrientationEdit('${esc(id)}')">Edit</button>
             ${ended
-              ? '<span class="badge amber">Session Ended</span>'
+              ? `<button class="ghost" onclick="openOrientationStudents('${esc(id)}')">Add Student Record</button>
+                 <span class="badge amber">Session Ended</span>`
               : `<button class="primary" onclick="openOrientationStudents('${esc(id)}')">Add Students</button>
                  <button class="ghost" onclick="sendOrientationReminderNow('${esc(id)}')">Send Reminder Now</button>
                  <button class="ghost" onclick="endOrientationSession('${esc(id)}')">End Session</button>`
