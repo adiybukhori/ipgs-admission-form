@@ -308,11 +308,9 @@
           <div class="detail-grid">
             <div class="panel" style="box-shadow:none"><div class="panel-head"><h3>Fee Summary</h3></div><div class="panel-body">
               <div class="detail-grid">
-                <div><div class="subline">Tuition Fee</div><div class="student">${money(row['Tuition Fee'])}</div></div>
-                <div><div class="subline">Registration Fee</div><div class="student">${money(row['Registration Fee'])}</div></div>
-                <div><div class="subline">Other Fee</div><div class="student">${money(row['Other Fee'])}</div></div>
                 <div><div class="subline">Total Fee</div><div class="student">${money(row['Total Fee'])}</div></div>
                 <div><div class="subline">Study Mode</div><div class="student">${esc(row['Study Mode']||'-')}</div></div>
+                <div><div class="subline">Level</div><div class="student">${esc(row['Level']||'-')}</div></div>
                 <div><div class="subline">Intake Scope</div><div class="student">${esc(row['Intake Scope']||'ALL')}</div></div>
               </div>
             </div></div>
@@ -320,6 +318,11 @@
               <div class="kpi" style="box-shadow:none;padding:12px"><div class="label">APPLICATIONS USING THIS FEE GROUP</div><div class="value" style="font-size:26px">${used}</div></div>
               <div class="subline" style="margin-top:10px">Effective: ${esc(row['Effective From']||'Not set')} → ${esc(row['Effective Until']||'No end date')}</div>
             </div></div>
+          </div>
+          <div class="panel" style="box-shadow:none;margin-top:16px"><div class="panel-head"><h3>Fee Components</h3><span>${components(row).length} component(s)</span></div>
+            <div class="table-wrap"><table><thead><tr><th>Fee Component</th><th>Amount</th><th>Description</th></tr></thead><tbody>
+              ${components(row).map(x=>`<tr><td>${esc(componentLabel(String(x.type||'')))}</td><td>${money(x.amount)}</td><td>${esc(x.description||'-')}</td></tr>`).join('')||'<tr><td colspan="3" class="empty">No fee components configured.</td></tr>'}
+            </tbody></table></div>
           </div>
           <div class="panel" style="box-shadow:none;margin-top:16px"><div class="panel-head"><h3>Payment Schedule</h3><span>${plan.length} payment item(s)</span></div>
             <div class="table-wrap"><table><thead><tr><th>#</th><th>Payment</th><th>Amount</th><th>Due</th><th>Notes</th></tr></thead><tbody>
@@ -347,7 +350,7 @@
       return `<tr>
         <td><div class="student">${esc(code)}</div><div class="subline">${esc(row['Fee Structure Name']||'')}</div></td>
         <td>${esc(row['Programme']||'ALL')}<div class="subline">${esc([row['Study Mode'],row['Intake Scope']].filter(Boolean).join(' · '))}</div></td>
-        <td><div class="student">${money(row['Total Fee'])}</div><div class="subline">Tuition ${money(row['Tuition Fee'])}</div></td>
+        <td><div class="student">${money(row['Total Fee'])}</div><div class="subline">${components(row).length} fee component(s)</div></td>
         <td>${plan.length}<div class="subline">${plan.length?'schedule item(s)':'No schedule'}</div></td>
         <td><span class="badge ${isActive?'green':'amber'}">${isActive?'ACTIVE':'INACTIVE'}</span><div class="subline">${String(row['File ID PDF']||'').trim()?'PDF Ready':'PDF Missing'}</div></td>
         <td><button class="primary" onclick="openFeeStructureDetail('${esc(code)}')">View Fee Structure</button></td>
