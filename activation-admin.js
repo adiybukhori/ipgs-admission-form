@@ -73,7 +73,7 @@
     const options=['<option value="">Select Fee Group</option>'].concat(groups.map(g=>`<option value="${esc(g)}" ${g===currentGroup?'selected':''}>${esc(g)}</option>`)).join('');
     const body=`
       <div class="message" style="display:block;background:var(--blueSoft);color:var(--blue);margin-bottom:16px">
-        Marketing / Consultant creates the student Prospect in SKY, then records the SKY Prospect ID and Fee Structure here. This operational status is independent from the admission process.
+        Marketing / Academic Consultant creates the student Prospect in SKYVIALING and confirms completion through the secure email action. Registry normally does not create the Prospect. This edit function is retained only for exception / legacy correction.
       </div>
       <div class="detail-grid">
         <div class="field full"><label>Student</label><input value="${esc(r.app['Student Name']||'-')}" readonly></div>
@@ -129,7 +129,7 @@
     const w=r.workflow||{},a=r.app||{};
     const prospect=String(w['Prospect Status']||a['Prospect Status']||'PENDING').toUpperCase();
     const activated=String(w['SKY Activation Status']||a['SKY Activation Status']||'').toUpperCase()==='ACTIVATED';
-    const hasProspect=prospect==='PROSPECT_UPDATED'&&String(w['SKY Prospect ID']||a['SKY Prospect ID']||'').trim()&&String(w['Fee Group']||a['Fee Group']||'').trim();
+    const hasProspect=['PROSPECT_COMPLETED','PROSPECT_UPDATED'].includes(prospect)&&String(w['Fee Group']||a['Fee Group']||'').trim();
     if(activated)return'ACTIVE_IN_SKY_DONE';
     if(hasProspect)return'PROSPECT_DONE';
     return'PROSPECT_PENDING';
@@ -154,19 +154,19 @@
       const activation=String(w['SKY Activation Status']||a['SKY Activation Status']||'NOT_ACTIVATED').toUpperCase();
 
       let action='';
-      if(state==='PROSPECT_PENDING') action=`<button class="primary" onclick="openRegistryProspectModal('${esc(r.ref)}')">Set Prospect</button>`;
-      if(state==='PROSPECT_DONE') action=`<button class="primary" onclick="openSkyActivationModal('${esc(r.ref)}')">Active in SKY Done</button><button class="ghost" onclick="openRegistryProspectModal('${esc(r.ref)}')">Edit Prospect</button>`;
+      if(state==='PROSPECT_PENDING') action=`<span class="badge amber">Waiting Marketing / Agent</span>`;
+      if(state==='PROSPECT_DONE') action=`<button class="primary" onclick="openSkyActivationModal('${esc(r.ref)}')">Active in SKY Done</button><button class="ghost" onclick="openRegistryProspectModal('${esc(r.ref)}')">Exception Edit</button>`;
       if(state==='ACTIVE_IN_SKY_DONE') action=`<span class="badge green">Completed</span>`;
 
       return `<tr>
         <td><div class="student">${esc(a['Student Name']||'-')}</div><div class="subline">${esc(r.ref)}</div><div class="subline">${esc(agent)}</div></td>
-        <td><span class="badge ${state==='PROSPECT_PENDING'?'amber':'green'}">${state==='PROSPECT_PENDING'?'Pending':'Done'}</span><div class="subline">${esc(prospectId||'-')}</div></td>
+        <td><span class="badge ${state==='PROSPECT_PENDING'?'amber':'green'}">${state==='PROSPECT_PENDING'?'Pending':'Completed by Marketing'}</span><div class="subline">${esc(prospectId|| (state==='PROSPECT_DONE'?'Confirmed in SKYVIALING':'-'))}</div></td>
         <td><div>${esc(feeGroup||'-')}</div><div style="margin-top:5px"><span class="badge ${feeStatus==='READY'?'green':'amber'}">${esc(pretty(feeStatus))}</span></div>
           <div style="margin-top:6px;display:flex;gap:6px;flex-wrap:wrap">${feeUrl?`<a class="ghost" target="_blank" href="${esc(feeUrl)}" style="text-decoration:none">Open Fee</a>`:''}${feeGroup?`<button class="ghost" onclick="refreshFeeStructure('${esc(r.ref)}')">Refresh</button>`:''}</div>
         </td>
         <td><span class="badge ${activation==='ACTIVATED'?'green':'amber'}">${activation==='ACTIVATED'?'Done':'Pending'}</span><div class="subline">${esc(w['SKY Student ID']||'')}</div></td>
         <td><span class="badge ${state==='ACTIVE_IN_SKY_DONE'?'green':state==='PROSPECT_DONE'?'purple':'amber'}">${esc(pretty(state))}</span></td>
-        <td><div style="display:flex;gap:6px;flex-wrap:wrap">${action}${prospectId&&feeGroup?`<button class="ghost" onclick="resendRegistryProspectNotification('${esc(r.ref)}')">Notify Registry</button>`:''}</div></td>
+        <td><div style="display:flex;gap:6px;flex-wrap:wrap">${action}${state==='PROSPECT_DONE'&&feeGroup?`<button class="ghost" onclick="resendRegistryProspectNotification('${esc(r.ref)}')">Notify Registry</button>`:''}</div></td>
       </tr>`;
     }).join('')||'<tr><td colspan="6" class="empty">No V2 applications.</td></tr>';
   };
