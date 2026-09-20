@@ -685,6 +685,45 @@
     }
   }
 
+
+  function orientationSessionActionHtml(session,id,rows,attendanceState,recordingUrl,completed,ended){
+    const safeId=esc(id);
+    let html='<div class="orientation-actions">';
+    html+='<button class="ghost" onclick="openOrientationManageStudents(\''+safeId+'\')">Students ('+rows.length+')</button>';
+
+    if(completed){
+      const version=Number(session['Report Version']||1);
+      html+='<button class="primary" onclick="viewOrientationReport(\''+safeId+'\')">View Report</button>';
+      html+='<button class="ghost" onclick="downloadOrientationReport(\''+safeId+'\')">Download PDF</button>';
+      html+='<button class="ghost" onclick="regenerateOrientationReport(\''+safeId+'\')">New Revision</button>';
+      html+='<span class="badge purple">Report v'+version+'</span>';
+      return html+'</div>';
+    }
+
+    if(ended){
+      html+='<button class="ghost" onclick="openOrientationStudents(\''+safeId+'\')">Add Student Record</button>';
+      html+='<button class="ghost" onclick="setOrientationRecording(\''+safeId+'\')">'+(recordingUrl?'Edit Recording':'Add Recording')+'</button>';
+      if(recordingUrl)html+='<button class="ghost" onclick="sendOrientationRecording(\''+safeId+'\')">Send Recording</button>';
+      html+='<button class="primary" onclick="openOrientationCompletion(\''+safeId+'\')">Complete Orientation</button>';
+      return html+'</div>';
+    }
+
+    html+='<button class="ghost" onclick="openOrientationEdit(\''+safeId+'\')">Edit</button>';
+    html+='<button class="primary" onclick="openOrientationStudents(\''+safeId+'\')">Add Students</button>';
+    html+='<button class="ghost" onclick="sendOrientationInvitation(\''+safeId+'\')">Send Invitation</button>';
+    html+='<button class="ghost" onclick="sendOrientationReminderNow(\''+safeId+'\')">Send Reminder</button>';
+    html+='<button class="ghost" onclick="endOrientationSession(\''+safeId+'\')">End Session</button>';
+    if(attendanceState==='OPEN'){
+      html+='<button class="ghost" onclick="showOrientationQr(\''+safeId+'\')">Show QR</button>';
+      html+='<button class="ghost" onclick="closeOrientationAttendance(\''+safeId+'\')">Close Attendance</button>';
+    }else{
+      html+='<button class="ghost" onclick="openOrientationAttendance(\''+safeId+'\')">Open Attendance</button>';
+    }
+    html+='<button class="ghost" onclick="setOrientationRecording(\''+safeId+'\')">'+(recordingUrl?'Edit Recording':'Add Recording')+'</button>';
+    if(recordingUrl)html+='<button class="ghost" onclick="sendOrientationRecording(\''+safeId+'\')">Send Recording</button>';
+    return html+'</div>';
+  }
+
   window.renderOrientation=function(){
     const sessions=db.V2_ORIENTATION_SESSIONS||[],tracking=(db.V2_ORIENTATION_TRACKING||[]).filter(orientationAssignmentActive);
     populateOrientationIntakes();
@@ -713,36 +752,21 @@
         const attendanceState=String(s['Attendance Status']||'NOT_OPEN').toUpperCase();
         const recordingUrl=String(s['Recording URL']||'').trim();
         const date=[s['Session Date'],[s['Start Time'],s['End Time']].filter(Boolean).join(' - ')].filter(Boolean).join(' · ');
-        const ended=orientationSessionEnded(s);
         const storedStatus=String(s['Status']||'SCHEDULED').toUpperCase();
-        const effectiveStatus=ended?'ENDED':storedStatus;
+        const completed=storedStatus==='COMPLETED';
+        const ended=!completed&&orientationSessionEnded(s);
+        const effectiveStatus=completed?'COMPLETED':(ended?'ENDED':storedStatus);
+        const feedbackSubmitted=rows.filter(x=>String(x['Feedback Status']||'').toUpperCase()==='SUBMITTED').length;
+        const recordingSent=rows.filter(x=>String(x['Recording Email Status']||'').toUpperCase()==='SENT').length;
         return `<tr>
-          <td><div class="student">${esc(s['Orientation Name']||id)}</div><div class="subline">${esc(id)}</div><div style="margin-top:6px"><span class="badge ${ended?'amber':'green'}">${esc(pretty(effectiveStatus))}</span></div></td>
+          <td><div class="student">${esc(s['Orientation Name']||id)}</div><div class="subline">${esc(id)}</div><div style="margin-top:6px"><span class="badge ${completed?'purple':ended?'amber':'green'}">${esc(pretty(effectiveStatus))}</span></div></td>
           <td>${esc(s['Intake ID']||'-')}<div class="subline">${esc(s['Programme Group']||'ALL')}</div></td>
           <td>${esc(date||'-')}</td>
           <td><span class="badge blue">${esc(pretty(s['Mode']||'ONLINE'))}</span><div class="subline">${esc(s['Venue']||'')}</div></td>
-          <td>${rows.length}<div class="subline">${invited} invited</div></td>
+          <td>${rows.length}<div class="subline">${invited} invited · ${feedbackSubmitted} feedback</div></td>
           <td>${reminded}<div class="subline">3d · 2d · 1d · ~1h</div></td>
-          <td>${attended}<div class="subline">${rows.length-attended} not attended / pending</div><div style="margin-top:6px"><span class="badge ${attendanceState==='OPEN'?'green':attendanceState==='CLOSED'?'amber':'blue'}">Attendance ${esc(pretty(attendanceState))}</span></div></td>
-          <td><div class="orientation-actions">
-            <button class="ghost" onclick="openOrientationEdit('${esc(id)}')">Edit</button>
-            <button class="ghost" onclick="openOrientationManageStudents('${esc(id)}')">Students (${rows.length})</button>
-            ${ended
-              ? `<button class="ghost" onclick="openOrientationStudents('${esc(id)}')">Add Student Record</button>
-                 <span class="badge amber">Session Ended</span>`
-              : `<button class="primary" onclick="openOrientationStudents('${esc(id)}')">Add Students</button>
-                 <button class="ghost" onclick="sendOrientationInvitation('${esc(id)}')">Send Invitation</button>
-                 <button class="ghost" onclick="sendOrientationReminderNow('${esc(id)}')">Send Reminder</button>
-                 <button class="ghost" onclick="endOrientationSession('${esc(id)}')">End Session</button>`
-            }
-            ${attendanceState==='OPEN'
-              ? `<button class="ghost" onclick="showOrientationQr('${esc(id)}')">Show QR</button>
-                 <button class="ghost" onclick="closeOrientationAttendance('${esc(id)}')">Close Attendance</button>`
-              : `<button class="ghost" onclick="openOrientationAttendance('${esc(id)}')">Open Attendance</button>`
-            }
-            <button class="ghost" onclick="setOrientationRecording('${esc(id)}')">${recordingUrl?'Edit Recording':'Add Recording'}</button>
-            ${recordingUrl?`<button class="ghost" onclick="sendOrientationRecording('${esc(id)}')">Send Recording</button>`:''}
-          </div></td>
+          <td>${attended}<div class="subline">${rows.length-attended} absent / pending · ${recordingSent} recording sent</div><div style="margin-top:6px"><span class="badge ${attendanceState==='OPEN'?'green':attendanceState==='CLOSED'?'amber':'blue'}">Attendance ${esc(pretty(attendanceState))}</span></div></td>
+          <td>${orientationSessionActionHtml(s,id,rows,attendanceState,recordingUrl,completed,ended)}</td>
         </tr>`;
       }).join('')||'<tr><td colspan="8" class="empty">No orientation session created yet.</td></tr>';
     }
