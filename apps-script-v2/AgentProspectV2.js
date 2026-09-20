@@ -5,12 +5,12 @@
  * Purpose
  * - Issue one-time unique agent links without login.
  * - Store only SHA-256 token hashes (never the raw token).
- * - Let agent/staff review and complete SKYVIALING Marketing > Prospect details.
- * - Let agent/staff select an approved Fee Group before Registry creates the SKY prospect.
+ * - Give Marketing / Academic Consultant the applicant information needed to create the Prospect in SKYVIALING.
+ * - After Marketing creates the Prospect in SKYVIALING, let them confirm completion and select the approved Fee Group.
  * - Read Fee Groups from FEE_GROUP_MASTER with 5-minute cache.
  * - Prevent duplicate submissions.
- * - Keep the official admission application immutable; save the agent-confirmed prospect snapshot in V2_AGENT_ACTIONS.
- * - Update the matching V2 admission/workflow status to READY_FOR_SKY_PROSPECT and notify Registry.
+ * - Update V2 admission/workflow with Prospect completed status + Fee Group.
+ * - Notify Registry that Marketing has completed the Prospect step so Registry can process the application.
  * - Route operational email through the central V2 Notification Engine.
  *
  * V1 data is never read, migrated, or modified by this module.
@@ -200,26 +200,18 @@ function v2AgentGetAction(token) {
   if (!admission) return { ok: false, message: 'The application record could not be found.' };
 
   const submitted = status === 'SUBMITTED';
-  let savedDetails = null;
-  try {
-    savedDetails = match.record['Prospect Details JSON']
-      ? JSON.parse(String(match.record['Prospect Details JSON']))
-      : null;
-  } catch (ignore) {}
-
   return {
     ok: true,
     submitted: submitted,
     referenceNo: match.record['Reference No'] || '',
     studentName: admission.record['Student Name'] || match.record['Student Name'] || '',
     programme: admission.record['Programme'] || match.record['Programme'] || '',
+    intake: admission.record['Intake'] || '',
     partnerCode: admission.record['Agent Code'] || match.record['Partner Code'] || '',
-    prospectDetails: savedDetails || v2AgentProspectDefaults_(admission.record),
-    skyProspectId: match.record['SKY Prospect ID'] || admission.record['SKY Prospect ID'] || '',
     feeGroup: match.record['Fee Group'] || admission.record['Fee Group'] || '',
     remarks: match.record['Remarks'] || '',
     feeGroups: v2GetFeeGroups_(),
-    message: submitted ? 'This prospect and Fee Group submission has already been completed.' : ''
+    message: submitted ? 'Prospect completion and Fee Group have already been submitted.' : ''
   };
 }
 
@@ -229,24 +221,21 @@ function v2AgentSubmitAction(token, formData) {
 
   const rawToken = String(token || '').trim();
   const data = formData || {};
-  const details = v2AgentCleanProspectDetails_(data.prospectDetails || data);
+  const prospectCompleted = data.prospectCompleted === true ||
+    String(data.prospectCompleted || '').trim().toUpperCase() === 'YES';
   const feeGroup = String(data.feeGroup || '').trim();
   const remarks = String(data.remarks || '').trim();
 
   if (!rawToken) throw new Error('Invalid or missing action token.');
-  if (!details.fullName) throw new Error('Prospect name is required.');
-  if (!details.idPassport) throw new Error('ID / Passport No. is required.');
-  if (!details.email) throw new Error('Email is required.');
-  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(details.email)) throw new Error('Please enter a valid email address.');
-  if (!details.phoneNumber) throw new Error('Contact number is required.');
-  if (!details.programme) throw new Error('Programme is required.');
-  if (!details.intake) throw new Error('Intake is required.');
+  if (!prospectCompleted) {
+    throw new Error('Please confirm that the applicant has already been entered in SKYVIALING Marketing > Prospect.');
+  }
   if (!feeGroup) throw new Error('Fee Group is required.');
   if (remarks.length > 1000) throw new Error('Remarks must be 1000 characters or fewer.');
 
   const feeGroups = v2GetFeeGroups_();
   if (feeGroups.indexOf(feeGroup) === -1) {
-    throw new Error('Please select a valid Fee Group from the master list.');
+    throw new Error('Please select a valid Fee Group from the approved master list.');
   }
 
   const ss = SpreadsheetApp.openById(CONFIG.spreadsheetId);
@@ -264,7 +253,7 @@ function v2AgentSubmitAction(token, formData) {
       return {
         ok: false,
         duplicate: true,
-        message: 'This prospect and Fee Group submission has already been completed. No duplicate submission was created.'
+        message: 'Prospect completion and Fee Group have already been submitted. No duplicate update was created.'
       };
     }
     if (status !== 'ACTIVE') throw new Error('This action link is no longer active.');
@@ -277,30 +266,24 @@ function v2AgentSubmitAction(token, formData) {
     if (!workflow) throw new Error('Matching V2 workflow record not found.');
 
     const now = v2Now_();
-    const detailJson = JSON.stringify(details);
 
-    // Do not overwrite the official application identity/contact fields.
-    // The agent-confirmed SKY prospect snapshot lives in V2_AGENT_ACTIONS.
-    v2SetRecordValues_(admission.sheet, admission.rowNumber, {
-      'Prospect Status': 'READY_FOR_SKY_PROSPECT',
+    const patch = {
+      'Prospect Status': 'PROSPECT_COMPLETED',
       'Fee Group': feeGroup,
       'Prospect Updated At': now,
       'Prospect Remarks': remarks,
       'Last Updated': now
-    });
+    };
 
-    v2SetRecordValues_(workflow.sheet, workflow.rowNumber, {
-      'Prospect Status': 'READY_FOR_SKY_PROSPECT',
-      'Fee Group': feeGroup,
-      'Prospect Updated At': now,
-      'Last Updated': now,
-      'Updated By': 'Agent / Prospect Link'
-    });
+    v2SetRecordValues_(admission.sheet, admission.rowNumber, patch);
+    v2SetRecordValues_(workflow.sheet, workflow.rowNumber, Object.assign({}, patch, {
+      'Updated By': 'Marketing / Academic Consultant'
+    }));
 
     v2SetRecordValues_(actionSheet, match.rowNumber, {
       'Action Status': 'SUBMITTED',
-      'Prospect Details Status': 'SUBMITTED',
-      'Prospect Details JSON': detailJson,
+      'Prospect Details Status': 'COMPLETED_IN_SKY',
+      'Prospect Details JSON': '',
       'Fee Group': feeGroup,
       'Remarks': remarks,
       'Submitted At': now,
@@ -311,26 +294,24 @@ function v2AgentSubmitAction(token, formData) {
     v2Audit_(
       referenceNo,
       'PROSPECT',
-      'AGENT_PROSPECT_DETAILS_SUBMITTED',
+      'MARKETING_CONFIRMED_SKY_PROSPECT_COMPLETED',
       {},
       {
-        'Prospect Status': 'READY_FOR_SKY_PROSPECT',
-        'Fee Group': feeGroup,
-        'Prospect Details': details
+        'Prospect Status': 'PROSPECT_COMPLETED',
+        'Fee Group': feeGroup
       },
-      'Agent / Prospect Link',
+      'Marketing / Academic Consultant',
       'SUCCESS',
       remarks || ''
     );
 
     SpreadsheetApp.flush();
 
-    const registryNotification = v2NotifyRegistryProspectDetailsReady_(
+    const registryNotification = v2NotifyRegistryProspectCompletedByAgent_(
       referenceNo,
-      details,
       feeGroup,
       remarks,
-      'Agent / Prospect Link'
+      'Marketing / Academic Consultant'
     );
 
     v2SetRecordValues_(actionSheet, match.rowNumber, {
@@ -339,7 +320,7 @@ function v2AgentSubmitAction(token, formData) {
     });
 
     Logger.log(JSON.stringify({
-      event: 'V2_AGENT_PROSPECT_DETAILS_SUBMITTED',
+      event: 'V2_MARKETING_PROSPECT_COMPLETED',
       referenceNo: referenceNo,
       feeGroup: feeGroup,
       registryNotificationStatus: registryNotification.status || 'NOT_SENT'
@@ -349,9 +330,9 @@ function v2AgentSubmitAction(token, formData) {
       ok: true,
       referenceNo: referenceNo,
       feeGroup: feeGroup,
-      prospectStatus: 'READY_FOR_SKY_PROSPECT',
+      prospectStatus: 'PROSPECT_COMPLETED',
       registryNotificationStatus: registryNotification.status || 'NOT_SENT',
-      message: 'Prospect details and Fee Group have been submitted successfully. Registry has been notified.'
+      message: 'Prospect completion and Fee Group have been recorded. Registry has been notified to continue processing the application.'
     };
   } finally {
     lock.releaseLock();
@@ -414,61 +395,48 @@ function v2AgentCleanProspectDetails_(input) {
   };
 }
 
-function v2NotifyRegistryProspectDetailsReady_(referenceNo, details, feeGroup, remarks, actor) {
+function v2NotifyRegistryProspectCompletedByAgent_(referenceNo, feeGroup, remarks, actor) {
   assertDevIdentity_();
-  const d = details || {};
   const reference = String(referenceNo || '').trim();
+  const app = v2Find_('V2_APPLICATIONS', 'Reference No', reference);
+  const workflow = v2Find_('V2_WORKFLOW', 'Reference No', reference);
+  if (!app || !workflow) throw new Error('Application/workflow record not found.');
+
+  const a = app.record || {};
   const recipients = typeof v2NotificationAdminRecipients_ === 'function'
     ? v2NotificationAdminRecipients_()
     : [String(CONFIG.defaultNotificationEmail || '')];
-  const safe = typeof v2Html_ === 'function' ? v2Html_ : function(v) {
-    return String(v == null ? '' : v).replace(/[&<>"']/g, function(ch) {
-      return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch];
-    });
-  };
-  const student = String(d.fullName || 'Applicant');
-  const subject = '[IPGS Admission] Prospect + Fee Group Ready - ' + student + ' - ' + reference;
 
-  const rows = [
-    ['Prospect Name', d.fullName],
-    ['ID / Passport No.', d.idPassport],
-    ['Email', d.email],
-    ['Contact No.', d.phoneNumber],
-    ['Applicant Type', d.applicantType],
-    ['Nationality', d.nationality],
-    ['Gender', d.gender],
-    ['Country', d.country],
-    ['Address', d.fullAddress],
-    ['Programme', d.programme],
-    ['Level of Study', d.levelOfStudy],
-    ['Study Mode', d.studyMode],
-    ['Intake', d.intake],
-    ['Marketing / Referral Source', d.referralSource],
-    ['Agent Code', d.partnerCode],
-    ['Fee Group', feeGroup]
-  ];
+  const subject = '[IPGS Admission] Prospect Completed by Marketing - ' +
+    String(a['Student Name'] || reference);
 
-  const htmlRows = rows.map(function(row) {
-    return '<tr><td style="padding:8px 10px;border-bottom:1px solid #eceff3;color:#667085;width:210px">' +
-      safe(row[0]) + '</td><td style="padding:8px 10px;border-bottom:1px solid #eceff3;font-weight:700">' +
-      safe(row[1] || '-') + '</td></tr>';
-  }).join('');
+  const html =
+    '<div style="font-family:Arial,sans-serif;max-width:700px;margin:auto;border:1px solid #e5e7eb;border-radius:16px;overflow:hidden">' +
+      '<div style="background:#2d2363;color:#fff;padding:22px"><h2 style="margin:0">Prospect Completed by Marketing</h2></div>' +
+      '<div style="padding:24px">' +
+        '<p>Marketing / Academic Consultant has confirmed that this applicant has been entered in <strong>SKYVIALING → Marketing → Prospect</strong>.</p>' +
+        '<div style="background:#ecfdf3;border:1px solid #abefc6;border-radius:10px;padding:13px 15px;margin:16px 0;color:#147a4b"><strong>Prospect Status:</strong> COMPLETED<br><strong>Fee Group:</strong> '+v2Html_(feeGroup)+'</div>' +
+        '<p><strong>Student:</strong> '+v2Html_(a['Student Name'] || '')+
+        '<br><strong>ID / Passport:</strong> '+v2Html_(a['ID / Passport No'] || '')+
+        '<br><strong>Programme:</strong> '+v2Html_(a['Programme'] || '')+
+        '<br><strong>Intake:</strong> '+v2Html_(a['Intake'] || '')+
+        '<br><strong>Reference:</strong> '+v2Html_(reference)+'</p>' +
+        (remarks ? '<p><strong>Marketing remarks:</strong> '+v2Html_(remarks)+'</p>' : '') +
+        '<p><strong>Registry action:</strong> Continue the normal admission processing for this application.</p>' +
+        '<p>Regards,<br><strong>IPGS Admission System</strong></p>' +
+      '</div>' +
+    '</div>';
 
-  const html = '<div style="font-family:Arial,sans-serif;max-width:720px;margin:auto;border:1px solid #e5e7eb;border-radius:16px;overflow:hidden">' +
-    '<div style="background:#2d2363;color:#fff;padding:22px"><h2 style="margin:0">Prospect Details &amp; Fee Group Ready</h2></div>' +
-    '<div style="padding:24px"><p>The Academic Consultant / Agent has completed the SKYVIALING prospect details and selected the Fee Group.</p>' +
-    '<div style="padding:12px 14px;background:#fff7df;border:1px solid #f0d995;border-radius:10px;margin:16px 0"><strong>Registry action:</strong> Create / update this prospect in <strong>SKYVIALING → Marketing → Prospect</strong>, then record the SKY Prospect ID in the admission system.</div>' +
-    '<table style="border-collapse:collapse;width:100%;font-size:13px">' + htmlRows + '</table>' +
-    (remarks ? '<p><strong>Agent remarks:</strong> ' + safe(remarks) + '</p>' : '') +
-    '<p><strong>Reference:</strong> ' + safe(reference) + '</p>' +
-    '<p>Regards,<br><strong>IPGS Admission System</strong></p></div></div>';
-
-  const textBody = 'Prospect details and Fee Group are ready for SKYVIALING Marketing > Prospect.\n' +
-    'Student: ' + student + '\nReference: ' + reference + '\nFee Group: ' + String(feeGroup || '') +
-    '\nRegistry action: Create/update the prospect in SKYVIALING and record the SKY Prospect ID.';
+  const textBody =
+    'Marketing / Academic Consultant has confirmed that the applicant has been entered in SKYVIALING Marketing > Prospect.\n' +
+    'Student: ' + String(a['Student Name'] || '') + '\n' +
+    'Reference: ' + reference + '\n' +
+    'Prospect Status: COMPLETED\n' +
+    'Fee Group: ' + String(feeGroup || '') + '\n' +
+    'Registry action: Continue the normal admission processing.';
 
   const result = v2NotificationSend_(
-    'REGISTRY_PROSPECT_READY',
+    'MARKETING_PROSPECT_COMPLETED',
     recipients,
     subject,
     textBody,
@@ -477,23 +445,16 @@ function v2NotifyRegistryProspectDetailsReady_(referenceNo, details, feeGroup, r
   );
 
   const now = v2Now_();
-  const app = v2Find_('V2_APPLICATIONS', 'Reference No', reference);
-  if (app) {
-    v2SetRecordValues_(app.sheet, app.rowNumber, {
-      'Registry Prospect Notification Status': result.status || 'UNKNOWN',
-      'Registry Prospect Notified At': result.sent ? now : '',
-      'Last Updated': now
-    });
-  }
-  const wf = v2Find_('V2_WORKFLOW', 'Reference No', reference);
-  if (wf) {
-    v2SetRecordValues_(wf.sheet, wf.rowNumber, {
-      'Registry Prospect Notification Status': result.status || 'UNKNOWN',
-      'Registry Prospect Notified At': result.sent ? now : '',
-      'Last Updated': now,
-      'Updated By': actor || 'Agent / Prospect Link'
-    });
-  }
+  const notifyPatch = {
+    'Registry Prospect Notification Status': result.status || 'UNKNOWN',
+    'Registry Prospect Notified At': result.sent ? now : '',
+    'Last Updated': now
+  };
+  v2SetRecordValues_(app.sheet, app.rowNumber, notifyPatch);
+  v2SetRecordValues_(workflow.sheet, workflow.rowNumber, Object.assign({}, notifyPatch, {
+    'Updated By': actor || 'Marketing / Academic Consultant'
+  }));
+
   return result;
 }
 
