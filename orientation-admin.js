@@ -52,6 +52,25 @@
     return applicationRecords().filter(r=>!assigned.has(String(r.ref||'')));
   }
 
+  function orientationSessionEndDate(session){
+    let date=String(session?.['Session Date']||'').trim();
+    if(/^\d{1,2}\/\d{1,2}\/\d{4}$/.test(date)){
+      const p=date.split('/');
+      date=p[2]+'-'+String(p[1]).padStart(2,'0')+'-'+String(p[0]).padStart(2,'0');
+    }
+    const end=String(session?.['End Time']||session?.['Start Time']||'10:30').trim().slice(0,5);
+    if(!/^\d{4}-\d{2}-\d{2}$/.test(date)||!/^\d{2}:\d{2}$/.test(end))return null;
+    const parsed=new Date(date+'T'+end+':00');
+    return Number.isNaN(parsed.getTime())?null:parsed;
+  }
+
+  function orientationSessionEnded(session){
+    const status=String(session?.['Status']||'').trim().toUpperCase();
+    if(['ENDED','CANCELLED','CLOSED'].includes(status))return true;
+    const end=orientationSessionEndDate(session);
+    return !!(end&&end.getTime()<=Date.now());
+  }
+
   function closeOrientationStudentModal(){
     document.getElementById('orientationStudentModal')?.remove();
     orientationSelected.clear();
@@ -60,6 +79,7 @@
   window.openOrientationStudents=function(sessionId){
     const session=(db.V2_ORIENTATION_SESSIONS||[]).find(s=>String(s['Orientation Session ID']||'')===String(sessionId));
     if(!session)return orientationMessage('Orientation session not found.','error');
+    if(orientationSessionEnded(session))return orientationMessage('This Orientation Session has ended. New student assignment and invitation emails are disabled.','error');
     orientationSelected.clear();
     const students=availableOrientationStudents();
 
@@ -183,6 +203,15 @@
     if(result)orientationMessage(`Reminder sent: ${result.sentCount||0}. Skipped: ${result.skippedCount||0}. Failed: ${result.failedCount||0}.`,'ok');
   };
 
+  window.endOrientationSession=async function(sessionId){
+    const result=await orientationAction(
+      'v2EndOrientationSession',
+      {sessionId},
+      'End this Orientation Session now? New students, invitation emails and reminders will be disabled. Attendance can still be updated.'
+    );
+    if(result)orientationMessage('Orientation Session ended. Invitation and reminder actions are now closed.','ok');
+  };
+
   window.markOrientationAttendance=async function(sessionId,referenceNo,status){
     const result=await orientationAction('v2UpdateOrientationAttendance',{sessionId,referenceNo,attendanceStatus:status},`Mark this student as ${pretty(status)}?`);
     if(result)orientationMessage(`Attendance updated to ${pretty(status)}.`,'ok');
@@ -256,8 +285,11 @@
         },0);
         const attended=rows.filter(x=>String(x['Attendance Status']||'').toUpperCase()==='ATTENDED').length;
         const date=[s['Session Date'],[s['Start Time'],s['End Time']].filter(Boolean).join(' - ')].filter(Boolean).join(' · ');
+        const ended=orientationSessionEnded(s);
+        const storedStatus=String(s['Status']||'SCHEDULED').toUpperCase();
+        const effectiveStatus=ended?'ENDED':storedStatus;
         return `<tr>
-          <td><div class="student">${esc(s['Orientation Name']||id)}</div><div class="subline">${esc(id)}</div></td>
+          <td><div class="student">${esc(s['Orientation Name']||id)}</div><div class="subline">${esc(id)}</div><div style="margin-top:6px"><span class="badge ${ended?'amber':'green'}">${esc(pretty(effectiveStatus))}</span></div></td>
           <td>${esc(s['Intake ID']||'-')}<div class="subline">${esc(s['Programme Group']||'ALL')}</div></td>
           <td>${esc(date||'-')}</td>
           <td><span class="badge blue">${esc(pretty(s['Mode']||'ONLINE'))}</span><div class="subline">${esc(s['Venue']||'')}</div></td>
@@ -265,8 +297,12 @@
           <td>${reminded}<div class="subline">3d · 2d · 1d · ~1h</div></td>
           <td>${attended}<div class="subline">${rows.length-attended} not attended / pending</div></td>
           <td><div style="display:flex;gap:6px;flex-wrap:wrap">
-            <button class="primary" onclick="openOrientationStudents('${esc(id)}')">Add Students</button>
-            <button class="ghost" onclick="sendOrientationReminderNow('${esc(id)}')">Send Reminder Now</button>
+            ${ended
+              ? '<span class="badge amber">Session Ended</span>'
+              : `<button class="primary" onclick="openOrientationStudents('${esc(id)}')">Add Students</button>
+                 <button class="ghost" onclick="sendOrientationReminderNow('${esc(id)}')">Send Reminder Now</button>
+                 <button class="ghost" onclick="endOrientationSession('${esc(id)}')">End Session</button>`
+            }
           </div></td>
         </tr>`;
       }).join('')||'<tr><td colspan="8" class="empty">No orientation session created yet.</td></tr>';
