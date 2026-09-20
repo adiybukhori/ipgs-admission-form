@@ -342,6 +342,10 @@ function v2ApiOutput_(obj, callback) {
 function handleV2Post_(payload) {
   const action = String(payload.action || '');
   if (action === 'v2SubmitAdmission') return v2SubmitAdmission_(payload.data || payload);
+  if (action === 'v2GetOrientationAttendanceContext') return v2GetOrientationAttendanceContext_(payload.data || payload);
+  if (action === 'v2ResolveOrientationAttendanceIdentity') return v2ResolveOrientationAttendanceIdentity_(payload.data || payload);
+  if (action === 'v2SubmitOrientationAttendance') return v2SubmitOrientationAttendance_(payload.data || payload);
+  if (action === 'v2SubmitOrientationFeedback') return v2SubmitOrientationFeedback_(payload.data || payload);
   v2VerifyAdminApiAccess_(payload.token);
   if (action === 'v2ListWorkflow') return v2ListWorkflow_(payload);
   if (action === 'v2UpsertAgent') return v2UpsertAgent_(payload.data || {}, payload.updatedBy);
@@ -394,6 +398,10 @@ function handleV2Post_(payload) {
   if (action === 'v2SendOrientationReminderNow') return v2SendOrientationReminderNow_(payload.data || {}, payload.updatedBy || 'Admin Portal V2');
   if (action === 'v2EndOrientationSession') return v2EndOrientationSession_(payload.data || {}, payload.updatedBy || 'Admin Portal V2');
   if (action === 'v2EditOrientationSession') return v2EditOrientationSession_(payload.data || {}, payload.updatedBy || 'Admin Portal V2');
+  if (action === 'v2OpenOrientationAttendance') return v2OpenOrientationAttendance_(payload.data || {}, payload.updatedBy || 'Admin Portal V2');
+  if (action === 'v2CloseOrientationAttendance') return v2CloseOrientationAttendance_(payload.data || {}, payload.updatedBy || 'Admin Portal V2');
+  if (action === 'v2SetOrientationRecording') return v2SetOrientationRecording_(payload.data || {}, payload.updatedBy || 'Admin Portal V2');
+  if (action === 'v2SendOrientationRecording') return v2SendOrientationRecording_(payload.data || {}, payload.updatedBy || 'Admin Portal V2');
   if (action === 'v2UpsertOrientationSession') return v2UpsertOrientationSession_(payload.data || {}, payload.updatedBy);
   if (action === 'v2UpdateOrientation') return v2UpdateOrientation_(payload.data || {}, payload.updatedBy);
   if (action === 'v2CreateHandoverSession') return v2CreateHandoverSession_(payload.data || {}, payload.updatedBy || 'Admin Portal V2');
