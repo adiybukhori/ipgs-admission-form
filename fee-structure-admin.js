@@ -76,12 +76,40 @@
       ...rows().map(x=>x['Programme']).filter(x=>String(x||'').toUpperCase()!=='ALL')
     ])];
   }
+  function canonicalIntake(value){
+    const raw=String(value||'').trim();
+    if(!raw||raw.toUpperCase()==='ALL')return raw.toUpperCase()==='ALL'?'ALL':'';
+    const cleaned=raw.replace(/[_\\/]+/g,' ').replace(/-/g,' ').replace(/\s+/g,' ').trim();
+    const yearMatch=cleaned.match(/\b(20\d{2})\b/);
+    if(!yearMatch)return raw;
+    const year=Number(yearMatch[1]);
+    const lower=cleaned.toLowerCase();
+    const months=[
+      ['January',['january','jan'],1],['February',['february','feb'],2],['March',['march','mar'],3],
+      ['April',['april','apr'],4],['May',['may'],5],['June',['june','jun'],6],
+      ['July',['july','jul'],7],['August',['august','aug'],8],['September',['september','sept','sep'],9],
+      ['October',['october','oct'],10],['November',['november','nov'],11],['December',['december','dec'],12]
+    ];
+    for(const [name,aliases] of months){
+      if(aliases.some(alias=>new RegExp('(?:^|\\s)'+alias+'(?:\\s|$)','i').test(lower)))return name+' '+year;
+    }
+    return raw;
+  }
+  function intakeSortKey(value){
+    const v=canonicalIntake(value);
+    if(v==='ALL')return 0;
+    const m=v.match(/^([A-Za-z]+)\s+(20\d{2})$/);
+    if(!m)return 999999;
+    const monthMap={January:1,February:2,March:3,April:4,May:5,June:6,July:7,August:8,September:9,October:10,November:11,December:12};
+    return Number(m[2])*100+(monthMap[m[1]]||99);
+  }
   function intakeOptions(){
-    return ['ALL',...uniqueSorted([
+    const values=[
       ...(db.V2_INTAKE_MASTER||[]).flatMap(x=>[x['Intake ID'],x['Intake Name']]),
       ...(db.V2_APPLICATIONS||[]).flatMap(x=>[x['Intake ID'],x['Intake']]),
-      ...rows().map(x=>x['Intake Scope']).filter(x=>String(x||'').toUpperCase()!=='ALL')
-    ])];
+      ...rows().map(x=>x['Intake Scope'])
+    ].map(canonicalIntake).filter(x=>x&&x!=='ALL');
+    return ['ALL',...[...new Set(values)].sort((a,b)=>intakeSortKey(a)-intakeSortKey(b)||a.localeCompare(b))];
   }
   function optionsHtml(values,current){
     const cur=String(current||'');
@@ -190,9 +218,7 @@
           <div class="field full"><label>Programme</label><select id="feeProgramme">${optionsHtml(programmeOptions(),row?.['Programme']||'ALL')}</select></div>
           <div class="field"><label>Level</label><select id="feeLevel">${optionsHtml(LEVELS,row?.['Level']||'ALL')}</select></div>
           <div class="field"><label>Study Mode</label><select id="feeStudyMode">${optionsHtml(STUDY_MODES,row?.['Study Mode']||'ALL')}</select></div>
-          <div class="field"><label>Intake Scope</label><select id="feeIntake">${optionsHtml(intakeOptions(),row?.['Intake Scope']||'ALL')}</select></div>
-          <div class="field"><label>Effective From</label><input id="feeEffectiveFrom" type="date" value="${esc(row?.['Effective From']||'')}" /></div>
-          <div class="field"><label>Effective Until</label><input id="feeEffectiveUntil" type="date" value="${esc(row?.['Effective Until']||'')}" /></div>
+          <div class="field"><label>Intake</label><select id="feeIntake">${optionsHtml(intakeOptions(),canonicalIntake(row?.['Intake Scope']||'ALL'))}</select></div>
         </div>
 
         <div class="panel" style="box-shadow:none;margin-top:16px">
@@ -253,9 +279,7 @@
       programme:document.getElementById('feeProgramme')?.value.trim()||'ALL',
       level:document.getElementById('feeLevel')?.value.trim()||'',
       studyMode:document.getElementById('feeStudyMode')?.value.trim()||'',
-      intakeScope:document.getElementById('feeIntake')?.value.trim()||'ALL',
-      effectiveFrom:document.getElementById('feeEffectiveFrom')?.value||'',
-      effectiveUntil:document.getElementById('feeEffectiveUntil')?.value||'',
+      intakeScope:canonicalIntake(document.getElementById('feeIntake')?.value||'ALL'),
       feeComponents:collectFeeComponents(),
       paymentSchedule:collectSchedule(),
       fileIdPdf:document.getElementById('feePdf')?.value.trim()||'',
@@ -311,12 +335,12 @@
                 <div><div class="subline">Total Fee</div><div class="student">${money(row['Total Fee'])}</div></div>
                 <div><div class="subline">Study Mode</div><div class="student">${esc(row['Study Mode']||'-')}</div></div>
                 <div><div class="subline">Level</div><div class="student">${esc(row['Level']||'-')}</div></div>
-                <div><div class="subline">Intake Scope</div><div class="student">${esc(row['Intake Scope']||'ALL')}</div></div>
+                <div><div class="subline">Intake</div><div class="student">${esc(canonicalIntake(row['Intake Scope']||'ALL'))}</div></div>
               </div>
             </div></div>
             <div class="panel" style="box-shadow:none"><div class="panel-head"><h3>Usage</h3></div><div class="panel-body">
               <div class="kpi" style="box-shadow:none;padding:12px"><div class="label">APPLICATIONS USING THIS FEE GROUP</div><div class="value" style="font-size:26px">${used}</div></div>
-              <div class="subline" style="margin-top:10px">Effective: ${esc(row['Effective From']||'Not set')} → ${esc(row['Effective Until']||'No end date')}</div>
+              <div class="subline" style="margin-top:10px">Agent selection follows Programme, Level, Study Mode and Intake.</div>
             </div></div>
           </div>
           <div class="panel" style="box-shadow:none;margin-top:16px"><div class="panel-head"><h3>Fee Components</h3><span>${components(row).length} component(s)</span></div>
@@ -349,7 +373,7 @@
       const isActive=active(row);
       return `<tr>
         <td><div class="student">${esc(code)}</div><div class="subline">${esc(row['Fee Structure Name']||'')}</div></td>
-        <td>${esc(row['Programme']||'ALL')}<div class="subline">${esc([row['Study Mode'],row['Intake Scope']].filter(Boolean).join(' · '))}</div></td>
+        <td>${esc(row['Programme']||'ALL')}<div class="subline">${esc([row['Study Mode'],canonicalIntake(row['Intake Scope']||'ALL')].filter(Boolean).join(' · '))}</div></td>
         <td><div class="student">${money(row['Total Fee'])}</div><div class="subline">${components(row).length} fee component(s)</div></td>
         <td>${plan.length}<div class="subline">${plan.length?'schedule item(s)':'No schedule'}</div></td>
         <td><span class="badge ${isActive?'green':'amber'}">${isActive?'ACTIVE':'INACTIVE'}</span><div class="subline">${String(row['File ID PDF']||'').trim()?'PDF Ready':'PDF Missing'}</div></td>
