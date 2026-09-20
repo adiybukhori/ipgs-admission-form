@@ -7,7 +7,7 @@ const V2_FEE_STRUCTURE_BUILD = 'FEE_STRUCTURE_MASTER_V1_20260921';
 const V2_FEE_STRUCTURE_HEADERS = [
   'Fee Group Code','Fee Structure Name','Programme','Level','Study Mode','Intake Scope',
   'Tuition Fee','Registration Fee','Other Fee','Other Fee Description','Total Fee',
-  'Payment Schedule JSON','File ID PDF','Active','Effective From','Effective Until',
+  'Fee Components JSON','Payment Schedule JSON','File ID PDF','Active','Effective From','Effective Until',
   'Notes','Created At','Created By','Updated At','Updated By'
 ];
 
@@ -38,6 +38,31 @@ function v2FeeStructureDriveId_(value){
   ];
   for(let i=0;i<patterns.length;i++){const m=raw.match(patterns[i]);if(m&&m[1])return m[1];}
   throw new Error('Enter a valid Google Drive file URL or File ID for the Fee Structure PDF.');
+}
+
+function v2FeeStructureComponents_(raw){
+  let arr=raw;
+  if(typeof raw==='string'){
+    const t=raw.trim();
+    if(!t) return [];
+    try{arr=JSON.parse(t);}catch(_){throw new Error('Fee Components are not valid JSON.');}
+  }
+  if(!Array.isArray(arr)) return [];
+  const allowed=[
+    'COURSEWORK_FEE',
+    'RESEARCH_FEE',
+    'MIXED_MODE_FEE',
+    'REGISTRATION_FEE',
+    'NON_ACADEMIC_FEE'
+  ];
+  return arr.map(function(item,index){
+    const type=String(item&&item.type||'').trim().toUpperCase();
+    if(allowed.indexOf(type)<0) throw new Error('Select a valid Fee Component for row '+(index+1)+'.');
+    const amount=v2FeeStructureNumber_(item&&item.amount,'Fee Component '+(index+1)+' amount');
+    const description=String(item&&item.description||'').trim();
+    if(type==='NON_ACADEMIC_FEE'&&!description) throw new Error('Description is required for Other Approved Non-Academic Fee.');
+    return {type:type,amount:amount,description:description};
+  }).filter(function(x){return x.amount||x.description;});
 }
 
 function v2FeeStructureSchedule_(raw){
@@ -92,9 +117,26 @@ function v2UpsertFeeStructure_(data,actor){
   const level=String(data.level||'').trim();
   const studyMode=String(data.studyMode||'').trim();
   const intakeScope=String(data.intakeScope||'ALL').trim()||'ALL';
-  const tuition=v2FeeStructureNumber_(data.tuitionFee,'Tuition Fee');
-  const registration=v2FeeStructureNumber_(data.registrationFee,'Registration Fee');
-  const other=v2FeeStructureNumber_(data.otherFee,'Other Fee');
+  const components=v2FeeStructureComponents_(data.feeComponents||data.feeComponentsJson||[]);
+  let tuition=0,registration=0,other=0;
+  const otherDescriptions=[];
+  components.forEach(function(item){
+    if(['COURSEWORK_FEE','RESEARCH_FEE','MIXED_MODE_FEE'].indexOf(item.type)>-1) tuition+=Number(item.amount||0);
+    else if(item.type==='REGISTRATION_FEE') registration+=Number(item.amount||0);
+    else {
+      other+=Number(item.amount||0);
+      if(item.description) otherDescriptions.push(item.description);
+    }
+  });
+  if(!components.length){
+    tuition=v2FeeStructureNumber_(data.tuitionFee,'Academic Fee');
+    registration=v2FeeStructureNumber_(data.registrationFee,'Registration Fee');
+    other=v2FeeStructureNumber_(data.otherFee,'Other Fee');
+    if(String(data.otherFeeDescription||'').trim()) otherDescriptions.push(String(data.otherFeeDescription||'').trim());
+  }
+  tuition=Math.round(tuition*100)/100;
+  registration=Math.round(registration*100)/100;
+  other=Math.round(other*100)/100;
   const totalInput=String(data.totalFee===undefined?'':data.totalFee).trim();
   const total=totalInput===''?Math.round((tuition+registration+other)*100)/100:v2FeeStructureNumber_(data.totalFee,'Total Fee');
   const schedule=v2FeeStructureSchedule_(data.paymentSchedule||data.paymentScheduleJson||[]);
@@ -116,8 +158,8 @@ function v2UpsertFeeStructure_(data,actor){
   const patch={
     'Fee Group Code':code,'Fee Structure Name':name,'Programme':programme,'Level':level,
     'Study Mode':studyMode,'Intake Scope':intakeScope,'Tuition Fee':tuition,
-    'Registration Fee':registration,'Other Fee':other,'Other Fee Description':String(data.otherFeeDescription||'').trim(),
-    'Total Fee':total,'Payment Schedule JSON':JSON.stringify(schedule),'File ID PDF':fileId,
+    'Registration Fee':registration,'Other Fee':other,'Other Fee Description':otherDescriptions.join('; '),
+    'Total Fee':total,'Fee Components JSON':JSON.stringify(components),'Payment Schedule JSON':JSON.stringify(schedule),'File ID PDF':fileId,
     'Active':active,'Effective From':effectiveFrom,'Effective Until':effectiveUntil,'Notes':notes,
     'Updated At':now,'Updated By':actor||'Admin Portal V2'
   };
@@ -134,7 +176,7 @@ function v2UpsertFeeStructure_(data,actor){
     found?found.record:{},{feeGroupCode:code,active:active,programme:programme,totalFee:total,fileName:fileName},
     actor||'Admin Portal V2','SUCCESS','');
   v2InvalidateCache_();
-  return {ok:true,feeGroupCode:code,active:active,totalFee:total,fileIdPdf:fileId,fileName:fileName,paymentSchedule:schedule};
+  return {ok:true,feeGroupCode:code,active:active,totalFee:total,fileIdPdf:fileId,fileName:fileName,feeComponents:components,paymentSchedule:schedule};
 }
 
 function v2SetFeeStructureStatus_(data,actor){
