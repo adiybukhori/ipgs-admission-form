@@ -86,6 +86,9 @@ function v2AssignOrientationBatch_(data, actor) {
   const sessionId = v2Required_(data.sessionId,'Orientation Session ID');
   const session = v2Find_('V2_ORIENTATION_SESSIONS','Orientation Session ID',sessionId);
   if (!session) throw new Error('Orientation session not found.');
+  if (v2OrientationMarkEndedIfPast_(session, actor || 'Admin Portal V2')) {
+    throw new Error('Orientation session has ended. New students and invitation emails are disabled for this session.');
+  }
   if (!/SCHEDULED|OPEN|ACTIVE/i.test(String(session.record['Status'] || 'SCHEDULED'))) {
     throw new Error('Orientation session is not open for student assignment.');
   }
@@ -250,6 +253,12 @@ function v2UpdateOrientationAttendance_(data, actor) {
 function v2SendOrientationReminderNow_(data, actor) {
   v2OrientationEnsureHeaders_();
   const sessionId = v2Required_(data.sessionId,'Orientation Session ID');
+  const session = v2Find_('V2_ORIENTATION_SESSIONS','Orientation Session ID',sessionId);
+  if (!session) throw new Error('Orientation session not found.');
+  if (v2OrientationMarkEndedIfPast_(session, actor || 'Admin Portal V2') ||
+      ['ENDED','CANCELLED','CLOSED'].indexOf(String(session.record['Status'] || '').toUpperCase()) >= 0) {
+    throw new Error('Orientation session has ended. Reminder sending is disabled.');
+  }
   const result = v2OrientationReminderForSession_(sessionId, true, actor || 'Admin Portal V2', 'MANUAL');
   v2InvalidateCache_();
   return Object.assign({ok:true,manual:true},result);
@@ -284,6 +293,82 @@ function v2OrientationSessionStart_(session) {
   } catch (_) {
     return null;
   }
+}
+
+function v2OrientationSessionEnd_(session) {
+  const tz = CONFIG.timezone || Session.getScriptTimeZone() || 'Asia/Kuala_Lumpur';
+  let dateText = '';
+  const rawDate = session && session['Session Date'];
+  if (Object.prototype.toString.call(rawDate) === '[object Date]' && !isNaN(rawDate.getTime())) {
+    dateText = Utilities.formatDate(rawDate, tz, 'yyyy-MM-dd');
+  } else {
+    dateText = String(rawDate || '').trim();
+    if (/^\d{1,2}\/\d{1,2}\/\d{4}$/.test(dateText)) {
+      const parts = dateText.split('/');
+      dateText = parts[2] + '-' + String(parts[1]).padStart(2,'0') + '-' + String(parts[0]).padStart(2,'0');
+    }
+  }
+  const endText = String(session && (session['End Time'] || session['Start Time']) || '10:30').trim().slice(0,5);
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(dateText) || !/^\d{2}:\d{2}$/.test(endText)) return null;
+  try {
+    return Utilities.parseDate(dateText + ' ' + endText, tz, 'yyyy-MM-dd HH:mm');
+  } catch (_) {
+    return null;
+  }
+}
+
+function v2OrientationSessionHasEnded_(session, now) {
+  const status = String(session && session['Status'] || '').trim().toUpperCase();
+  if (['ENDED','CANCELLED','CLOSED'].indexOf(status) >= 0) return true;
+  const end = v2OrientationSessionEnd_(session);
+  return !!(end && end.getTime() <= (now || new Date()).getTime());
+}
+
+function v2OrientationMarkEndedIfPast_(sessionFound, actor) {
+  if (!sessionFound || !sessionFound.record) return false;
+  const status = String(sessionFound.record['Status'] || '').trim().toUpperCase();
+  if (['ENDED','CANCELLED','CLOSED'].indexOf(status) >= 0) return true;
+  if (!v2OrientationSessionHasEnded_(sessionFound.record, new Date())) return false;
+
+  const now = new Date().toISOString();
+  v2UpdateRow_(sessionFound.sheet,sessionFound.rowNumber,{
+    'Status':'ENDED',
+    'Updated At':now
+  });
+  try {
+    v2Audit_('', 'ORIENTATION', 'AUTO_END_SESSION', {status:status}, {
+      sessionId:String(sessionFound.record['Orientation Session ID'] || ''),
+      status:'ENDED',
+      endedAt:now
+    }, actor || 'Orientation Automation', 'SUCCESS', 'Orientation session ended automatically after the scheduled end time.');
+  } catch (_) {}
+  return true;
+}
+
+function v2EndOrientationSession_(data, actor) {
+  v2OrientationEnsureHeaders_();
+  const sessionId = v2Required_(data.sessionId,'Orientation Session ID');
+  const session = v2Find_('V2_ORIENTATION_SESSIONS','Orientation Session ID',sessionId);
+  if (!session) throw new Error('Orientation session not found.');
+
+  const currentStatus = String(session.record['Status'] || 'SCHEDULED').trim().toUpperCase();
+  if (currentStatus === 'ENDED') {
+    return {ok:true,sessionId:sessionId,status:'ENDED',alreadyEnded:true};
+  }
+
+  const now = new Date().toISOString();
+  v2UpdateRow_(session.sheet,session.rowNumber,{
+    'Status':'ENDED',
+    'Updated At':now
+  });
+  v2Audit_('', 'ORIENTATION', 'END_SESSION', {status:currentStatus}, {
+    sessionId:sessionId,
+    status:'ENDED',
+    endedAt:now
+  }, actor || 'Admin Portal V2', 'SUCCESS', 'Orientation session manually ended. Invitations and reminders are disabled; attendance remains editable.');
+  v2InvalidateCache_();
+
+  return {ok:true,sessionId:sessionId,status:'ENDED',endedAt:now};
 }
 
 function v2OrientationCalendarDaysUntil_(session, now) {
@@ -344,6 +429,13 @@ function v2OrientationReminderSweep() {
     sessions.forEach(function(session) {
       const status = String(session['Status'] || '').toUpperCase();
       if (['SCHEDULED','OPEN','ACTIVE'].indexOf(status) < 0) return;
+
+      if (v2OrientationSessionHasEnded_(session, now)) {
+        const current = v2Find_('V2_ORIENTATION_SESSIONS','Orientation Session ID',session['Orientation Session ID']);
+        if (current) v2OrientationMarkEndedIfPast_(current, 'Orientation Reminder Automation');
+        return;
+      }
+
       const milestone = v2OrientationDueMilestone_(session, now);
       if (!milestone) return;
       results.push(v2OrientationReminderForSession_(
@@ -373,6 +465,11 @@ function v2OrientationReminderSweep() {
 function v2OrientationReminderForSession_(sessionId, force, actor, milestone) {
   const session = v2Find_('V2_ORIENTATION_SESSIONS','Orientation Session ID',sessionId);
   if (!session) throw new Error('Orientation session not found.');
+  if (v2OrientationMarkEndedIfPast_(session, actor || 'Orientation Reminder Automation') ||
+      ['ENDED','CANCELLED','CLOSED'].indexOf(String(session.record['Status'] || '').toUpperCase()) >= 0) {
+    if (force) throw new Error('Orientation session has ended. Reminder sending is disabled.');
+    return {sessionId:sessionId,milestone:'',sentCount:0,skippedCount:0,failedCount:0,status:'ENDED'};
+  }
 
   const resolvedMilestone = String(milestone || (force ? 'MANUAL' : v2OrientationDueMilestone_(session.record, new Date()))).toUpperCase();
   if (!force && !resolvedMilestone) {
