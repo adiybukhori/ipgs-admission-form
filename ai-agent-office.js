@@ -136,7 +136,7 @@ function mount(){
 function renderDesks(){
   const stage=document.getElementById('officeStage'); if(!stage)return;
   stage.innerHTML='<div class="office-label"><small>IPGS Digital Registrar Office</small><b>Structured Event Operations Floor</b></div>'+
-    '<div class="office-corridor v"></div><div class="office-corridor h1"></div><div class="office-corridor h2"></div><div class="office-corridor h3"></div>'+
+    '<div class="office-corridor v"></div><div class="office-corridor vl"></div><div class="office-corridor vr"></div><div class="office-corridor h0"></div><div class="office-corridor h1"></div><div class="office-corridor h2"></div><div class="office-corridor h3"></div>'+
     '<div id="officeEventToast" class="office-event-toast"></div>';
   Object.entries(OFFICE_AGENTS).forEach(([key,a])=>{
     const el=document.createElement('button');
@@ -266,16 +266,25 @@ function animateHandover(from,to,caseId,label,token,duration){
     if(!stage||!src||!dst||motionDisabled()){resolve();return;}
     const sr=src.getBoundingClientRect(),dr=dst.getBoundingClientRect(),br=stage.getBoundingClientRect();
     const sx=sr.left-br.left+sr.width/2,sy=sr.top-br.top+sr.height/2,tx=dr.left-br.left+dr.width/2,ty=dr.top-br.top+dr.height/2;
-    const midX=br.width/2;
+    const fromCfg=OFFICE_AGENTS[from],toCfg=OFFICE_AGENTS[to];
+    const corridorXPct=(fromCfg.x>50||toCfg.x>50)?67:33;
+    let corridorYPct=35;
+    const avgY=(fromCfg.y+toCfg.y)/2;
+    if(avgY<20)corridorYPct=16;
+    else if(avgY<55)corridorYPct=35;
+    else if(avgY<75)corridorYPct=55;
+    else corridorYPct=75;
+    const cx=br.width*(corridorXPct/100),cy=br.height*(corridorYPct/100);
     const runner=document.createElement('div');runner.className='office-runner';
     runner.style.left=sx+'px';runner.style.top=sy+'px';
     runner.innerHTML='<div class="runner-core"><div class="runner-avatar">'+OFFICE_AGENTS[from].short+'</div><div class="runner-copy"><b>'+OFFICE_AGENTS[from].name+'</b><small>'+caseId+' · '+label+'</small></div><div class="case-orb">◆</div></div>';
     stage.appendChild(runner);
-    const dx=tx-sx,dy=ty-sy,mx=midX-sx;
+    const p1x=cx-sx,p1y=0,p2x=cx-sx,p2y=cy-sy,p3x=tx-sx,p3y=cy-sy,dx=tx-sx,dy=ty-sy;
     const frames=[
       {transform:'translate(-50%,-50%) translate(0px,0px)'},
-      {transform:'translate(-50%,-50%) translate('+mx+'px,0px)',offset:.34},
-      {transform:'translate(-50%,-50%) translate('+mx+'px,'+dy+'px)',offset:.7},
+      {transform:'translate(-50%,-50%) translate('+p1x+'px,'+p1y+'px)',offset:.2},
+      {transform:'translate(-50%,-50%) translate('+p2x+'px,'+p2y+'px)',offset:.48},
+      {transform:'translate(-50%,-50%) translate('+p3x+'px,'+p3y+'px)',offset:.78},
       {transform:'translate(-50%,-50%) translate('+dx+'px,'+dy+'px)'}
     ];
     const anim=runner.animate(frames,{duration:duration||1850,easing:'cubic-bezier(.34,.02,.16,1)',fill:'forwards'});
