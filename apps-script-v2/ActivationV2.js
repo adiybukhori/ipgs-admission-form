@@ -2,8 +2,9 @@
  * Admission V2 - Prospect & Registry Activation
  *
  * Standalone operational flow:
- * Applicant -> Consultant/Marketing creates SKY prospect + selects Fee Group ->
- * Prospect DONE -> Registry may register / activate the student in SKY -> Activation DONE.
+ * Applicant -> Consultant/Marketing creates the Prospect in SKYVIALING ->
+ * Consultant/Marketing confirms Prospect DONE + selects Fee Group ->
+ * Registry processes admission and may later register / activate the student in SKY -> Activation DONE.
  *
  * This module does not depend on Document Review, SAC, Offer, Acceptance or Orientation.
  */
@@ -104,8 +105,8 @@ function v2NotifyRegistryProspectReady_(reference, actor) {
   const prospectStatus = String(workflow.record['Prospect Status'] || '').toUpperCase();
   const skyProspectId = String(workflow.record['SKY Prospect ID'] || '').trim();
   const feeGroup = String(workflow.record['Fee Group'] || '').trim();
-  if (prospectStatus !== 'PROSPECT_UPDATED' || !skyProspectId || !feeGroup) {
-    throw new Error('Registry notification blocked: SKY Prospect ID and Fee Group are incomplete.');
+  if (['PROSPECT_COMPLETED','PROSPECT_UPDATED'].indexOf(prospectStatus) < 0 || !feeGroup) {
+    throw new Error('Registry notification blocked: Marketing Prospect completion and Fee Group are incomplete.');
   }
 
   const fee = v2ActivationSyncFeeStructure_(reference, feeGroup, actor || 'Prospect Update');
@@ -123,7 +124,7 @@ function v2NotifyRegistryProspectReady_(reference, actor) {
   const subject = '[REGISTRY ACTION] Prospect Ready - ' + String(a['Student Name'] || reference);
   const html = '<div style="font-family:Arial,sans-serif;max-width:720px;margin:auto;border:1px solid #e5e7eb;border-radius:16px;overflow:hidden">' +
     '<div style="background:#2d2363;color:#fff;padding:24px"><h2 style="margin:0">Prospect Ready for Registry Review</h2></div>' +
-    '<div style="padding:24px"><p>The assigned consultant / Registry has completed the SKY Prospect and Fee Group step.</p>' +
+    '<div style="padding:24px"><p>Marketing / Academic Consultant has confirmed that the SKYVIALING Prospect is completed and the Fee Group has been selected.</p>' +
     '<p><strong>Student:</strong> '+v2Html_(a['Student Name'])+
     '<br><strong>ID / Passport:</strong> '+v2Html_(a['ID / Passport No'])+
     '<br><strong>Personal Email:</strong> '+v2Html_(a['Personal Email'])+
@@ -131,7 +132,7 @@ function v2NotifyRegistryProspectReady_(reference, actor) {
     '<br><strong>Programme:</strong> '+v2Html_(a['Programme'])+
     '<br><strong>Intake:</strong> '+v2Html_(a['Intake'])+
     '<br><strong>Academic Consultant:</strong> '+v2Html_(agentLabel)+
-    '<br><strong>SKY Prospect ID:</strong> '+v2Html_(skyProspectId)+
+    (skyProspectId ? '<br><strong>SKY Prospect ID:</strong> '+v2Html_(skyProspectId) : '')+
     '<br><strong>Fee Group:</strong> '+v2Html_(feeGroup)+'</p>' +
     feeLink +
     '<div style="text-align:center;margin:24px 0"><a href="'+v2Html_(adminUrl)+'" style="display:inline-block;background:#2d2363;color:#fff;text-decoration:none;padding:13px 22px;border-radius:10px;font-weight:bold">Open Registry Activation</a></div>' +
@@ -142,7 +143,7 @@ function v2NotifyRegistryProspectReady_(reference, actor) {
     'REGISTRY_PROSPECT_READY',
     recipients,
     subject,
-    'Prospect ready: ' + String(a['Student Name'] || '') + ' / ' + reference + ' / SKY Prospect ' + skyProspectId + ' / Fee Group ' + feeGroup + '\nRegistry: ' + adminUrl,
+    'Prospect completed by Marketing: ' + String(a['Student Name'] || '') + ' / ' + reference + ' / Fee Group ' + feeGroup + '\nRegistry: ' + adminUrl,
     html,
     {}
   );
@@ -228,8 +229,8 @@ function v2ActivationReadiness_(reference) {
   if (!workflow && !application) throw new Error('Application record not found.');
   const w = workflow ? workflow.record : application.record;
   const reasons = [];
-  if (String(w['Prospect Status'] || '').toUpperCase() !== 'PROSPECT_UPDATED') reasons.push('Prospect not completed');
-  if (!String(w['SKY Prospect ID'] || '').trim()) reasons.push('SKY Prospect ID missing');
+  const prospectStatus = String(w['Prospect Status'] || '').toUpperCase();
+  if (['PROSPECT_COMPLETED','PROSPECT_UPDATED'].indexOf(prospectStatus) < 0) reasons.push('Marketing has not confirmed Prospect completion');
   if (!String(w['Fee Group'] || '').trim()) reasons.push('Fee Group missing');
   if (String(w['SKY Activation Status'] || '').toUpperCase() === 'ACTIVATED') reasons.push('Already activated');
   return {
