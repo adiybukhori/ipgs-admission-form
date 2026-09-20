@@ -395,6 +395,8 @@ function handleV2Post_(payload) {
   if (action === 'v2CreateOrientationSession') return v2CreateOrientationSession_(payload.data || {}, payload.updatedBy || 'Admin Portal V2');
   if (action === 'v2AssignOrientationBatch') return v2AssignOrientationBatch_(payload.data || {}, payload.updatedBy || 'Admin Portal V2');
   if (action === 'v2SendOrientationInvitation') return v2SendOrientationInvitation_(payload.data || {}, payload.updatedBy || 'Admin Portal V2');
+  if (action === 'v2RemoveOrientationStudent') return v2RemoveOrientationStudent_(payload.data || {}, payload.updatedBy || 'Admin Portal V2');
+  if (action === 'v2MoveOrientationStudent') return v2MoveOrientationStudent_(payload.data || {}, payload.updatedBy || 'Admin Portal V2');
   if (action === 'v2UpdateOrientationAttendance') return v2UpdateOrientationAttendance_(payload.data || {}, payload.updatedBy || 'Admin Portal V2');
   if (action === 'v2SendOrientationReminderNow') return v2SendOrientationReminderNow_(payload.data || {}, payload.updatedBy || 'Admin Portal V2');
   if (action === 'v2EndOrientationSession') return v2EndOrientationSession_(payload.data || {}, payload.updatedBy || 'Admin Portal V2');
