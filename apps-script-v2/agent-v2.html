@@ -96,6 +96,7 @@
 
   <script>
     const ACTION_TOKEN = <?!= JSON.stringify(token || '') ?>;
+    const ACTION_ID = <?!= JSON.stringify(actionId || '') ?>;
     let feeGroups = [];
 
     function setMessage(text, type) {
@@ -115,7 +116,7 @@
         .withFailureHandler(function(err) {
           document.getElementById('loading').textContent = err && err.message ? err.message : String(err);
         })
-        .v2AgentGetAction(ACTION_TOKEN);
+        .v2AgentGetAction(ACTION_TOKEN, ACTION_ID);
     }
 
     function renderAction(res) {
@@ -192,7 +193,7 @@
           btn.textContent = 'Confirm Prospect Done & Submit Fee Group';
           setMessage(err && err.message ? err.message : String(err), 'err');
         })
-        .v2AgentSubmitAction(ACTION_TOKEN, {
+        .v2AgentSubmitAction(ACTION_TOKEN, ACTION_ID, {
           prospectCompleted: prospectCompleted,
           feeGroup: feeGroup,
           remarks: remarks
