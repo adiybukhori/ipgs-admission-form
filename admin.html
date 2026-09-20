@@ -439,27 +439,32 @@
           <div class="hero">
             <div>
               <h2>Fee Structure</h2>
-              <p>Central workspace for programme fee structures and student payment schedules.</p>
+              <p>Master control for Fee Groups used by Academic Consultants / Marketing after SKY Prospect creation.</p>
             </div>
-            <span class="badge purple">MODULE PREPARED</span>
+            <span class="badge green">AGENT MASTER SOURCE</span>
           </div>
-          <div class="grid-2">
-            <div class="panel">
-              <div class="panel-head"><h3>Fee Structure Master</h3><span>Programme fees, registration, tuition and other approved charges</span></div>
-              <div class="panel-body">
-                <div class="message" style="display:block;background:var(--purpleSoft);color:var(--purple);margin:0">
-                  This workspace is ready for the next build. We will use it to add and maintain approved fee structures by programme and intake.
-                </div>
+
+          <div class="kpis">
+            <div class="kpi"><div class="label">TOTAL STRUCTURES</div><div id="feeTotalKpi" class="value">0</div><div class="meta">Fee Groups in master</div></div>
+            <div class="kpi"><div class="label">ACTIVE FOR AGENT</div><div id="feeActiveKpi" class="value">0</div><div class="meta">Available in agent dropdown</div></div>
+            <div class="kpi"><div class="label">INACTIVE</div><div id="feeInactiveKpi" class="value">0</div><div class="meta">Hidden from agent selection</div></div>
+            <div class="kpi"><div class="label">PDF READY</div><div id="feePdfKpi" class="value">0</div><div class="meta">Mapped Fee Structure file</div></div>
+          </div>
+
+          <div class="panel" style="margin-bottom:18px">
+            <div class="panel-body" style="display:flex;align-items:center;justify-content:space-between;gap:14px;flex-wrap:wrap">
+              <div>
+                <div class="student">Fee Structure Master</div>
+                <div class="subline">Add and maintain approved fee structures here. ACTIVE Fee Groups become selectable by agents automatically.</div>
               </div>
+              <button class="primary" onclick="openFeeStructureModal()">+ Add Fee Structure</button>
             </div>
-            <div class="panel">
-              <div class="panel-head"><h3>Payment Schedule</h3><span>Instalment plan and payment timeline</span></div>
-              <div class="panel-body">
-                <div class="message" style="display:block;background:var(--blueSoft);color:var(--blue);margin:0">
-                  Payment schedules will be configured here and later linked to the selected student Fee Group / Fee Structure.
-                </div>
-              </div>
-            </div>
+            <div id="feeStructureMessage" class="message" style="display:none;margin:0 18px 18px"></div>
+          </div>
+
+          <div class="panel">
+            <div class="panel-head"><h3>Fee Structure List</h3><span>Fee Group Code is the operational value saved into Admission V2 / SKY handoff</span></div>
+            <div class="table-wrap"><table><thead><tr><th>Fee Group</th><th>Scope</th><th>Total Fee</th><th>Payment Plan</th><th>Agent Status</th><th></th></tr></thead><tbody id="feeStructureBody"></tbody></table></div>
           </div>
         </section>
 
@@ -1073,5 +1078,6 @@
   <script src="/orientation-admin.js"></script>
   <script src="/handover-admin.js"></script>
   <script src="/activation-admin.js"></script>
+  <script src="/fee-structure-admin.js"></script>
 </body>
 </html>
