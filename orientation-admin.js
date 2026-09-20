@@ -450,6 +450,8 @@
           return n+count;
         },0);
         const attended=rows.filter(x=>String(x['Attendance Status']||'').toUpperCase()==='ATTENDED').length;
+        const attendanceState=String(s['Attendance Status']||'NOT_OPEN').toUpperCase();
+        const recordingUrl=String(s['Recording URL']||'').trim();
         const date=[s['Session Date'],[s['Start Time'],s['End Time']].filter(Boolean).join(' - ')].filter(Boolean).join(' · ');
         const ended=orientationSessionEnded(s);
         const storedStatus=String(s['Status']||'SCHEDULED').toUpperCase();
@@ -461,7 +463,7 @@
           <td><span class="badge blue">${esc(pretty(s['Mode']||'ONLINE'))}</span><div class="subline">${esc(s['Venue']||'')}</div></td>
           <td>${rows.length}<div class="subline">${invited} invited</div></td>
           <td>${reminded}<div class="subline">3d · 2d · 1d · ~1h</div></td>
-          <td>${attended}<div class="subline">${rows.length-attended} not attended / pending</div></td>
+          <td>${attended}<div class="subline">${rows.length-attended} not attended / pending</div><div style="margin-top:6px"><span class="badge ${attendanceState==='OPEN'?'green':attendanceState==='CLOSED'?'amber':'blue'}">Attendance ${esc(pretty(attendanceState))}</span></div></td>
           <td><div style="display:flex;gap:6px;flex-wrap:wrap">
             <button class="ghost" onclick="openOrientationEdit('${esc(id)}')">Edit</button>
             ${ended
@@ -471,6 +473,13 @@
                  <button class="ghost" onclick="sendOrientationReminderNow('${esc(id)}')">Send Reminder Now</button>
                  <button class="ghost" onclick="endOrientationSession('${esc(id)}')">End Session</button>`
             }
+            ${attendanceState==='OPEN'
+              ? `<button class="ghost" onclick="showOrientationQr('${esc(id)}')">Show QR</button>
+                 <button class="ghost" onclick="closeOrientationAttendance('${esc(id)}')">Close Attendance</button>`
+              : `<button class="ghost" onclick="openOrientationAttendance('${esc(id)}')">Open Attendance</button>`
+            }
+            <button class="ghost" onclick="setOrientationRecording('${esc(id)}')">${recordingUrl?'Edit Recording':'Add Recording'}</button>
+            ${recordingUrl?`<button class="ghost" onclick="sendOrientationRecording('${esc(id)}')">Send Recording</button>`:''}
           </div></td>
         </tr>`;
       }).join('')||'<tr><td colspan="8" class="empty">No orientation session created yet.</td></tr>';
@@ -492,7 +501,7 @@
           <td>${esc(session?.['Orientation Name']||x['Orientation Session ID']||'-')}</td>
           <td><span class="badge ${classifyBadge(x['Invitation Status']||'PENDING')}">${esc(pretty(x['Invitation Status']||'PENDING'))}</span></td>
           <td><span class="badge ${classifyBadge(x['Reminder Status']||'NOT_SENT')}">${esc(pretty(x['Reminder Status']||'NOT_SENT'))}</span><div class="subline">${esc(pretty(x['Last Reminder Milestone']||''))}</div></td>
-          <td><span class="badge ${classifyBadge(attendance)}">${esc(pretty(attendance))}</span></td>
+          <td><span class="badge ${classifyBadge(attendance)}">${esc(pretty(attendance))}</span><div class="subline">${esc(pretty(x['Attendance Source']||''))}</div></td>
           <td><div style="display:flex;gap:6px;flex-wrap:wrap">
             <button class="ghost" onclick="markOrientationAttendance('${esc(x['Orientation Session ID']||'')}','${esc(x['Reference No']||'')}','ATTENDED')">Attended</button>
             <button class="ghost" onclick="markOrientationAttendance('${esc(x['Orientation Session ID']||'')}','${esc(x['Reference No']||'')}','ABSENT')">Absent</button>
