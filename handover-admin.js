@@ -597,71 +597,36 @@
 
   window.renderAcademicHandover=function(){
     const batches=db.V2_HANDOVER_BATCHES||[];
-    const students=db.V2_HANDOVER_STUDENTS||[];
     const provisioning=db.V2_PROVISIONING||[];
-
-    const drafts=batches.filter(x=>String(x['Status']||'').toUpperCase()==='DRAFT');
-    const sent=batches.filter(x=>String(x['Status']||'').toUpperCase()==='HANDED_OVER');
+    const drafts=batches.filter(function(x){return String(x['Status']||'').toUpperCase()==='DRAFT';});
     const available=availableStudents();
 
-    const set=(id,n)=>{const el=document.getElementById(id);if(el)el.textContent=n};
+    const set=function(id,n){const el=document.getElementById(id);if(el)el.textContent=n;};
     set('handoverReadyKpi',available.length);
     set('handoverBatchesKpi',batches.length);
     set('handoverPendingKpi',drafts.length);
-    set('handoverProvisioningKpi',provisioning.filter(x=>{
-      const it=String(x['IT Email Status']||'').toUpperCase(),m=String(x['Moodle Status']||'').toUpperCase(),l=String(x['E-Library Status']||'').toUpperCase();
-      return !(it==='COMPLETED'&&m==='COMPLETED'&&l==='COMPLETED');
+    set('handoverProvisioningKpi',provisioning.filter(function(x){
+      const it=String(x['IT Email Status']||'').toUpperCase();
+      const moodle=String(x['Moodle Status']||'').toUpperCase();
+      const lib=String(x['E-Library Status']||'').toUpperCase();
+      const access=String(x['Student Notification Status']||'').toUpperCase();
+      return !(it==='COMPLETED'&&moodle==='COMPLETED'&&lib==='COMPLETED'&&access==='SENT');
     }).length);
-
-    const body=document.getElementById('handoverEligibleBody');
-    if(body){
-      body.innerHTML=available.slice(0,12).map(r=>`<tr>
-        <td><div class="student">${esc(r.app?.['Student Name']||'-')}</div><div class="subline">${esc(r.ref)}</div></td>
-        <td>${esc(r.app?.['Programme']||'-')}</td>
-        <td>${esc(r.app?.['Intake']||'-')}</td>
-        <td><span class="badge green">Available</span></td>
-      </tr>`).join('')||'<tr><td colspan="4" class="empty">No unassigned students available.</td></tr>';
-    }
 
     const batchBody=document.getElementById('handoverBatchesBody');
     if(batchBody){
-      batchBody.innerHTML=batches.slice().reverse().map(b=>{
-        const id=b['Handover Batch ID']||'',status=String(b['Status']||'').toUpperCase();
-        const count=students.filter(s=>String(s['Handover Batch ID']||'')===String(id)).length;
-        const pdf=b['Handover PDF URL']||'';
-        return `<tr>
-          <td><div class="student">${esc(b['Handover Name']||id)}</div><div class="subline">${esc(id)}</div></td>
-          <td>${count}<div class="subline">${esc(b['Intake Summary']||'')}</div></td>
-          <td><span class="badge ${status==='HANDED_OVER'?'green':'amber'}">${esc(pretty(status||'-'))}</span></td>
-          <td><span class="badge ${classifyBadge(b['Academic Email Status']||'NOT_SENT')}">${esc(pretty(b['Academic Email Status']||'NOT_SENT'))}</span></td>
-          <td><div style="display:flex;gap:6px;flex-wrap:wrap">
-            ${status==='DRAFT'?`<button class="primary" onclick="openHandoverStudents('${esc(id)}')">Add Students</button><button class="ghost" onclick="sendHandoverSession('${esc(id)}')">Handover Now</button>`:''}
-            ${pdf?`<a class="ghost" target="_blank" href="${esc(pdf)}" style="text-decoration:none">Open PDF</a>`:''}
-            ${status==='HANDED_OVER'?`<button class="ghost" onclick="resendAcademicHandoverEmail('${esc(id)}')">Resend Academic</button><button class="ghost" onclick="resendProvisioningTasks('${esc(id)}')">Resend PIC Tasks</button>`:''}
-          </div></td>
-        </tr>`;
-      }).join('')||'<tr><td colspan="5" class="empty">No Handover Sessions yet.</td></tr>';
-    }
-
-    const provBody=document.getElementById('provisioningBody');
-    if(provBody){
-      provBody.innerHTML=provisioning.map(p=>{
-        const ref=p['Reference No']||'';
-        const it=String(p['IT Email Status']||'PENDING').toUpperCase();
-        const moodle=String(p['Moodle Status']||'PENDING').toUpperCase();
-        const lib=String(p['E-Library Status']||'PENDING').toUpperCase();
-        const complete=it==='COMPLETED'&&moodle==='COMPLETED'&&lib==='COMPLETED';
-        const accessSent=String(p['Student Notification Status']||'').toUpperCase()==='SENT';
-        return `<tr>
-          <td><div class="student">${esc(p['Student Name']||'-')}</div><div class="subline">${esc(ref)}</div></td>
-          <td><span class="badge ${classifyBadge(it)}">${esc(pretty(it))}</span><div class="subline">${esc(p['Innovative Email']||'')}</div>${it!=='COMPLETED'?`<div style="margin-top:6px"><button class="ghost" onclick="completeProvisioningTask('${esc(ref)}','IT')">Complete IT</button></div>`:''}</td>
-          <td><span class="badge ${classifyBadge(moodle)}">${esc(pretty(moodle))}</span>${moodle!=='COMPLETED'?`<div style="margin-top:6px"><button class="ghost" onclick="completeProvisioningTask('${esc(ref)}','MOODLE')">Complete Moodle</button></div>`:''}</td>
-          <td><span class="badge ${classifyBadge(lib)}">${esc(pretty(lib))}</span>${lib!=='COMPLETED'?`<div style="margin-top:6px"><button class="ghost" onclick="completeProvisioningTask('${esc(ref)}','ELIBRARY')">Complete e-Library</button></div>`:''}</td>
-          <td><span class="badge ${accessSent?'green':complete?'purple':'amber'}">${accessSent?'Access Sent':complete?'Ready to Notify':'In Progress'}</span>
-          ${complete&&!accessSent?`<div style="margin-top:7px"><button class="primary" onclick="sendStudentAccess('${esc(ref)}',false)">Send Student Access</button></div>`:''}
-          ${accessSent?`<div style="margin-top:6px"><button class="ghost" onclick="sendStudentAccess('${esc(ref)}',true)">Resend Access</button></div>`:''}</td>
-        </tr>`;
-      }).join('')||'<tr><td colspan="5" class="empty">Provisioning tasks appear after Handover Now.</td></tr>';
+      batchBody.innerHTML=batches.slice().reverse().map(function(batch){
+        const m=handoverBatchMetrics(batch);
+        const stage=handoverCurrentStage(batch,m);
+        const status=handoverOperationalStatus(batch,m);
+        return '<tr>'+
+          '<td><div class="student">'+esc(batch['Handover Name']||m.id)+'</div><div class="subline">'+esc(m.id)+'</div><div class="subline">'+esc(batch['Intake Summary']||'No intake summary yet')+'</div></td>'+
+          '<td><div class="student">'+m.students.length+'</div><div class="subline">'+m.provisioningComplete+' provisioned · '+m.accessSent+' access sent</div></td>'+
+          '<td><span class="badge purple">'+esc(stage)+'</span></td>'+
+          '<td><span class="badge '+status.cls+'">'+esc(status.label)+'</span></td>'+
+          '<td><button class="primary" onclick="openHandoverDetail(\''+esc(m.id)+'\')">View Handover</button></td>'+
+        '</tr>';
+      }).join('')||'<tr><td colspan="5" class="empty">No Academic Handover Session created yet.</td></tr>';
     }
   };
 
