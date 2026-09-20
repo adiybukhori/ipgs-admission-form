@@ -117,7 +117,7 @@ function v2UpsertFeeStructure_(data,actor){
   const programme=String(data.programme||'ALL').trim()||'ALL';
   const level=String(data.level||'').trim();
   const studyMode=String(data.studyMode||'').trim();
-  const intakeScope=String(data.intakeScope||'ALL').trim()||'ALL';
+  const intakeScope=v2FeeStructureCanonicalIntake_(data.intakeScope||'ALL')||'ALL';
   const components=v2FeeStructureComponents_(data.feeComponents||data.feeComponentsJson||[]);
   let tuition=0,registration=0,other=0;
   const otherDescriptions=[];
@@ -143,8 +143,6 @@ function v2UpsertFeeStructure_(data,actor){
   const schedule=v2FeeStructureSchedule_(data.paymentSchedule||data.paymentScheduleJson||[]);
   const fileId=v2FeeStructureDriveId_(data.fileIdPdf||data.fileUrl||'');
   const active=String(data.active===true?'ACTIVE':data.active||'INACTIVE').toUpperCase()==='ACTIVE'?'ACTIVE':'INACTIVE';
-  const effectiveFrom=String(data.effectiveFrom||'').trim();
-  const effectiveUntil=String(data.effectiveUntil||'').trim();
   const notes=String(data.notes||'').trim();
 
   if(active==='ACTIVE'&&!fileId) throw new Error('Add the Fee Structure PDF before activating this Fee Group.');
@@ -161,7 +159,7 @@ function v2UpsertFeeStructure_(data,actor){
     'Study Mode':studyMode,'Intake Scope':intakeScope,'Tuition Fee':tuition,
     'Registration Fee':registration,'Other Fee':other,'Other Fee Description':otherDescriptions.join('; '),
     'Total Fee':total,'Fee Components JSON':JSON.stringify(components),'Payment Schedule JSON':JSON.stringify(schedule),'File ID PDF':fileId,
-    'Active':active,'Effective From':effectiveFrom,'Effective Until':effectiveUntil,'Notes':notes,
+    'Active':active,'Effective From':'','Effective Until':'','Notes':notes,
     'Updated At':now,'Updated By':actor||'Admin Portal V2'
   };
   if(found){
@@ -199,6 +197,46 @@ function v2SetFeeStructureStatus_(data,actor){
   return {ok:true,feeGroupCode:code,active:active};
 }
 
+function v2FeeStructureCanonicalIntake_(value){
+  const raw=String(value||'').trim();
+  if(!raw||raw.toUpperCase()==='ALL') return raw.toUpperCase()==='ALL'?'ALL':'';
+  const s=raw.replace(/[_\/]+/g,' ').replace(/-/g,' ').replace(/\s+/g,' ').trim();
+  const yearMatch=s.match(/\b(20\d{2})\b/);
+  if(!yearMatch) return raw;
+  const year=Number(yearMatch[1]);
+  const lower=s.toLowerCase();
+  const months=[
+    ['January',['january','jan']],
+    ['February',['february','feb']],
+    ['March',['march','mar']],
+    ['April',['april','apr']],
+    ['May',['may']],
+    ['June',['june','jun']],
+    ['July',['july','jul']],
+    ['August',['august','aug']],
+    ['September',['september','sept','sep']],
+    ['October',['october','oct']],
+    ['November',['november','nov']],
+    ['December',['december','dec']]
+  ];
+  for(let i=0;i<months.length;i++){
+    const aliases=months[i][1];
+    for(let j=0;j<aliases.length;j++){
+      if(new RegExp('(?:^|\\s)'+aliases[j]+'(?:\\s|$)','i').test(lower)){
+        return months[i][0]+' '+year;
+      }
+    }
+  }
+  return raw;
+}
+
+function v2FeeStructureIntakeMatches_(scope,intakeId,intakeName){
+  const canonicalScope=v2FeeStructureCanonicalIntake_(scope);
+  if(!canonicalScope||canonicalScope==='ALL') return true;
+  const candidates=[intakeId,intakeName].map(v2FeeStructureCanonicalIntake_).filter(Boolean);
+  return candidates.indexOf(canonicalScope)>-1;
+}
+
 function v2GetFeeGroupOptions_(programme,level,studyMode,intakeId,intakeName){
   const sheet=v2FeeStructureEnsureFoundation_();
   if(sheet.getLastRow()<2)return [];
@@ -206,8 +244,7 @@ function v2GetFeeGroupOptions_(programme,level,studyMode,intakeId,intakeName){
   const targetProgramme=String(programme||'').trim().toUpperCase();
   const targetLevel=String(level||'').trim().toUpperCase();
   const targetMode=String(studyMode||'').trim().toUpperCase();
-  const targetIntakes=[intakeId,intakeName].map(function(v){return String(v||'').trim().toUpperCase();}).filter(Boolean);
-  const now=new Date();
+
   return rows.filter(function(row){
     const code=String(row['Fee Group Code']||'').trim();if(!code)return false;
     const active=String(row['Active']||'ACTIVE').trim().toUpperCase();
@@ -222,12 +259,7 @@ function v2GetFeeGroupOptions_(programme,level,studyMode,intakeId,intakeName){
     const modeScope=String(row['Study Mode']||'ALL').trim().toUpperCase();
     if(targetMode&&modeScope&&modeScope!=='ALL'&&modeScope!==targetMode)return false;
 
-    const intakeScope=String(row['Intake Scope']||'ALL').trim().toUpperCase();
-    if(intakeScope&&intakeScope!=='ALL'&&targetIntakes.length&&targetIntakes.indexOf(intakeScope)<0)return false;
-
-    const from=String(row['Effective From']||'').trim(),until=String(row['Effective Until']||'').trim();
-    if(from){const d=new Date(from+'T00:00:00');if(!isNaN(d)&&now<d)return false;}
-    if(until){const d=new Date(until+'T23:59:59');if(!isNaN(d)&&now>d)return false;}
+    if(!v2FeeStructureIntakeMatches_(row['Intake Scope']||'ALL',intakeId,intakeName))return false;
     return true;
   }).map(function(row){
     const total=Number(row['Total Fee']||0);
