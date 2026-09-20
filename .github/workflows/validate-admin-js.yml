@@ -10,6 +10,7 @@ on:
       - 'fee-structure-admin.js'
       - 'system-guide-training.js'
       - 'system-guide-training-v2.js'
+      - 'ai-operations-center.html'
       - 'api/admin-data.js'
       - '.github/workflows/validate-admin-js.yml'
   workflow_dispatch:
@@ -28,6 +29,15 @@ jobs:
           node --check fee-structure-admin.js
           node --check system-guide-training.js
           node --check system-guide-training-v2.js
+      - name: Check AI Operations Center inline JavaScript
+        run: |
+          node - <<'NODE'
+          const fs=require('fs');
+          const html=fs.readFileSync('ai-operations-center.html','utf8');
+          const blocks=[...html.matchAll(/<script(?:\s[^>]*)?>([\s\S]*?)<\/script>/gi)].map(m=>m[1]);
+          new Function(blocks.join('\n'));
+          console.log('AI Operations Center inline JS OK');
+          NODE
       - name: Extract and check admin inline JavaScript
         run: |
           python - <<'PY'
