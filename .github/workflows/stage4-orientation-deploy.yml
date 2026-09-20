@@ -1,4 +1,5 @@
 name: Stage 4 Orientation Deploy
+# end-session-v1
 # milestone-reminders-v2
 
 on:
@@ -36,6 +37,8 @@ jobs:
           node --check apps-script-v2/OrientationV2.js
           node --check apps-script-v2/WorkflowV2.js
           grep -F 'v2OrientationReminderSweep' apps-script-v2/OrientationV2.js
+          grep -F 'function v2EndOrientationSession_' apps-script-v2/OrientationV2.js
+          grep -F 'Orientation session has ended' apps-script-v2/OrientationV2.js
           grep -F 'MILESTONE_V2_15MIN' apps-script-v2/OrientationV2.js
           grep -F '.everyMinutes(15)' apps-script-v2/OrientationV2.js
           grep -F "if (daysUntil === 3) return 'D3';" apps-script-v2/OrientationV2.js
