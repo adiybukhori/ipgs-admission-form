@@ -2,7 +2,7 @@ name: Stage 4 Orientation Deploy
 # end-session-v1
 # milestone-reminders-v2
 # edit-ended-session-v1
-# attendance-recording-v2
+# separate-invitation-v1
 
 on:
   push:
@@ -34,6 +34,8 @@ jobs:
           grep -F 'openOrientationAttendance' orientation-admin.js
           grep -F 'showOrientationQr' orientation-admin.js
           grep -F 'sendOrientationRecording' orientation-admin.js
+          grep -F 'sendOrientationInvitation' orientation-admin.js
+          grep -F 'orientation-actions' admin.html
           test -f orientation-attendance.html
           test -f api/orientation-attendance.js
 
@@ -53,6 +55,8 @@ jobs:
           grep -F 'function v2OpenOrientationAttendance_' apps-script-v2/OrientationV2.js
           grep -F 'function v2SubmitOrientationAttendance_' apps-script-v2/OrientationV2.js
           grep -F 'function v2SendOrientationRecording_' apps-script-v2/OrientationV2.js
+          grep -F 'function v2SendOrientationInvitation_' apps-script-v2/OrientationV2.js
+          grep -F "'v2SendOrientationInvitation'" apps-script-v2/WorkflowV2.js
           grep -F 'v2GetOrientationAttendanceContext' apps-script-v2/WorkflowV2.js
           grep -F 'v2SubmitOrientationAttendance' apps-script-v2/Code.js
           grep -F 'v2EditOrientationSession' apps-script-v2/WorkflowV2.js
@@ -90,7 +94,7 @@ jobs:
       - name: Redeploy existing V2 web app
         env:
           V2_DEPLOYMENT_ID: AKfycbxasT_HgtRSvTbR_bsa8p17Cm-C2PKn20Ok1kU-AyJmxiKX8kX5EGOtRLwVwNlAL7JB
-        run: clasp create-deployment --deploymentId "$V2_DEPLOYMENT_ID" --description "Stage 4 ACC attendance check-in QR walk-in feedback and recording"
+        run: clasp create-deployment --deploymentId "$V2_DEPLOYMENT_ID" --description "Stage 4 ACC separate assignment and invitation sending"
 
       - name: Remove clasp credential
         if: always()
