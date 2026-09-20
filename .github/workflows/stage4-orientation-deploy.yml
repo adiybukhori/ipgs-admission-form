@@ -1,6 +1,7 @@
 name: Stage 4 Orientation Deploy
 # end-session-v1
 # milestone-reminders-v2
+# edit-ended-session-v1
 
 on:
   push:
@@ -26,6 +27,9 @@ jobs:
           node --check api/admin-data.js
           grep -F 'Create Orientation Session' admin.html
           grep -F 'v2AssignOrientationBatch' api/admin-action.js
+          grep -F 'v2EditOrientationSession' api/admin-action.js
+          grep -F 'openOrientationEdit' orientation-admin.js
+          grep -F 'Add Student Record' orientation-admin.js
 
       - name: Checkout Apps Script branch
         run: |
@@ -38,6 +42,9 @@ jobs:
           node --check apps-script-v2/WorkflowV2.js
           grep -F 'v2OrientationReminderSweep' apps-script-v2/OrientationV2.js
           grep -F 'function v2EndOrientationSession_' apps-script-v2/OrientationV2.js
+          grep -F 'function v2EditOrientationSession_' apps-script-v2/OrientationV2.js
+          grep -F 'historicalOnly' apps-script-v2/OrientationV2.js
+          grep -F 'v2EditOrientationSession' apps-script-v2/WorkflowV2.js
           grep -F 'Orientation session has ended' apps-script-v2/OrientationV2.js
           grep -F 'MILESTONE_V2_15MIN' apps-script-v2/OrientationV2.js
           grep -F '.everyMinutes(15)' apps-script-v2/OrientationV2.js
@@ -72,7 +79,7 @@ jobs:
       - name: Redeploy existing V2 web app
         env:
           V2_DEPLOYMENT_ID: AKfycbxasT_HgtRSvTbR_bsa8p17Cm-C2PKn20Ok1kU-AyJmxiKX8kX5EGOtRLwVwNlAL7JB
-        run: clasp create-deployment --deploymentId "$V2_DEPLOYMENT_ID" --description "Stage 4 orientation milestone reminders D3 D2 D1 H1"
+        run: clasp create-deployment --deploymentId "$V2_DEPLOYMENT_ID" --description "Stage 4 orientation edit ended sessions and historical student records"
 
       - name: Remove clasp credential
         if: always()
