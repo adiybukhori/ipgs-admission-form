@@ -145,11 +145,12 @@
       document.getElementById('remarks').value = res.remarks || '';
 
       feeGroups = Array.isArray(res.feeGroups) ? res.feeGroups : [];
+      const feeGroupOptions = Array.isArray(res.feeGroupOptions) ? res.feeGroupOptions : feeGroups.map(function(v){ return {code:v,label:v}; });
       const select = document.getElementById('feeGroup');
-      select.innerHTML = '<option value="">Select Fee Group</option>' + feeGroups.map(function(v) {
+      select.innerHTML = '<option value="">Select Fee Group</option>' + feeGroupOptions.map(function(item) {
         const o = document.createElement('option');
-        o.value = v;
-        o.textContent = v;
+        o.value = item.code || '';
+        o.textContent = item.label || item.code || '';
         return o.outerHTML;
       }).join('');
       select.value = res.feeGroup || '';
