@@ -86,10 +86,12 @@ function v2AssignOrientationBatch_(data, actor) {
   const sessionId = v2Required_(data.sessionId,'Orientation Session ID');
   const session = v2Find_('V2_ORIENTATION_SESSIONS','Orientation Session ID',sessionId);
   if (!session) throw new Error('Orientation session not found.');
-  if (v2OrientationMarkEndedIfPast_(session, actor || 'Admin Portal V2')) {
-    throw new Error('Orientation session has ended. New students and invitation emails are disabled for this session.');
+  const historicalOnly = data.historicalOnly === true;
+  const sessionEnded = v2OrientationMarkEndedIfPast_(session, actor || 'Admin Portal V2');
+  if (sessionEnded && !historicalOnly) {
+    throw new Error('Orientation session has ended. New invitation emails are disabled. Use historical record mode to add a missed student without sending an email.');
   }
-  if (!/SCHEDULED|OPEN|ACTIVE/i.test(String(session.record['Status'] || 'SCHEDULED'))) {
+  if (!sessionEnded && !/SCHEDULED|OPEN|ACTIVE/i.test(String(session.record['Status'] || 'SCHEDULED'))) {
     throw new Error('Orientation session is not open for student assignment.');
   }
 
@@ -127,6 +129,8 @@ function v2AssignOrientationBatch_(data, actor) {
       );
       const old = existing ? existing.record : {};
       const now = new Date().toISOString();
+      const priorInvitationStatus = String(old['Invitation Status'] || '').trim().toUpperCase();
+      const priorReminderStatus = String(old['Reminder Status'] || '').trim().toUpperCase();
       const row = {
         'Orientation Session ID':sessionId,
         'Reference No':reference,
@@ -135,10 +139,10 @@ function v2AssignOrientationBatch_(data, actor) {
         'Student Email':application.record['Personal Email'] || (workflow && workflow.record['Personal Email']) || '',
         'Assigned At':old['Assigned At'] || now,
         'Assigned By':old['Assigned By'] || actor || 'Admin Portal V2',
-        'Invitation Status':old['Invitation Status'] || 'PENDING',
+        'Invitation Status':historicalOnly && priorInvitationStatus !== 'SENT' ? 'NOT_REQUIRED' : (old['Invitation Status'] || 'PENDING'),
         'Invitation Sent At':old['Invitation Sent At'] || '',
-        'Invitation Delivery Detail':old['Invitation Delivery Detail'] || '',
-        'Reminder Status':old['Reminder Status'] || 'NOT_SENT',
+        'Invitation Delivery Detail':historicalOnly && priorInvitationStatus !== 'SENT' ? 'HISTORICAL_RECORD_ONLY' : (old['Invitation Delivery Detail'] || ''),
+        'Reminder Status':historicalOnly && priorReminderStatus !== 'SENT' ? 'NOT_REQUIRED' : (old['Reminder Status'] || 'NOT_SENT'),
         'Reminder Sent At':old['Reminder Sent At'] || '',
         'Reminder History JSON':old['Reminder History JSON'] || '{}',
         'Last Reminder Milestone':old['Last Reminder Milestone'] || '',
@@ -166,8 +170,10 @@ function v2AssignOrientationBatch_(data, actor) {
         });
       }
 
-      let invitation = {sent:false,status:'ALREADY_SENT',mode:v2NotificationMode_()};
-      if (String(row['Invitation Status'] || '').toUpperCase() !== 'SENT' || data.resendInvitation === true) {
+      let invitation = historicalOnly
+        ? {sent:false,status:'HISTORICAL_RECORD_ONLY',mode:v2NotificationMode_()}
+        : {sent:false,status:'ALREADY_SENT',mode:v2NotificationMode_()};
+      if (!historicalOnly && (String(row['Invitation Status'] || '').toUpperCase() !== 'SENT' || data.resendInvitation === true)) {
         invitation = v2OrientationSendStudentEmail_(session.record, row, 'INVITATION');
         const tracking = v2FindComposite_(
           'V2_ORIENTATION_TRACKING',
@@ -187,7 +193,8 @@ function v2AssignOrientationBatch_(data, actor) {
       v2Audit_(reference,'ORIENTATION','ASSIGN_STUDENT',{},{
         sessionId:sessionId,
         invitationStatus:invitation.status,
-        invitationSent:!!invitation.sent
+        invitationSent:!!invitation.sent,
+        historicalOnly:historicalOnly
       },actor || 'Admin Portal V2','SUCCESS','');
       assigned.push({referenceNo:reference, invitationSent:!!invitation.sent, invitationStatus:invitation.status});
     } catch (error) {
@@ -196,7 +203,7 @@ function v2AssignOrientationBatch_(data, actor) {
   });
 
   v2OrientationRecountSession_(sessionId);
-  v2OrientationEnsureReminderTrigger_();
+  if (!historicalOnly) v2OrientationEnsureReminderTrigger_();
   v2InvalidateCache_();
   return {
     ok:true,
@@ -208,6 +215,7 @@ function v2AssignOrientationBatch_(data, actor) {
     skipped:skipped,
     failed:failed,
     sessionId:sessionId,
+    historicalOnly:historicalOnly,
     build:V2_ORIENTATION_BUILD
   };
 }
@@ -369,6 +377,82 @@ function v2EndOrientationSession_(data, actor) {
   v2InvalidateCache_();
 
   return {ok:true,sessionId:sessionId,status:'ENDED',endedAt:now};
+}
+
+function v2EditOrientationSession_(data, actor) {
+  v2OrientationEnsureHeaders_();
+  const sessionId = v2Required_(data.sessionId,'Orientation Session ID');
+  const session = v2Find_('V2_ORIENTATION_SESSIONS','Orientation Session ID',sessionId);
+  if (!session) throw new Error('Orientation session not found.');
+
+  const old = session.record || {};
+  const updates = {};
+  const has = function(key){ return Object.prototype.hasOwnProperty.call(data,key); };
+
+  if (has('name')) updates['Orientation Name'] = v2Required_(data.name,'Orientation Name');
+  if (has('intakeId')) updates['Intake ID'] = v2Required_(data.intakeId,'Intake ID');
+  if (has('programmeGroup')) updates['Programme Group'] = String(data.programmeGroup || 'ALL').trim() || 'ALL';
+  if (has('sessionDate')) updates['Session Date'] = v2Required_(data.sessionDate,'Session Date');
+  if (has('startTime')) updates['Start Time'] = v2Required_(data.startTime,'Start Time');
+  if (has('endTime')) updates['End Time'] = v2Required_(data.endTime,'End Time');
+  if (has('venue')) updates['Venue'] = String(data.venue || '').trim();
+  if (has('meetingLink')) updates['Meeting Link'] = String(data.meetingLink || '').trim();
+
+  if (has('mode')) {
+    const mode = String(data.mode || '').trim().toUpperCase();
+    if (['ONLINE','PHYSICAL','HYBRID'].indexOf(mode) < 0) throw new Error('Orientation mode must be Online, Physical or Hybrid.');
+    updates['Mode'] = mode;
+  }
+
+  if (updates['Start Time'] && !/^\d{2}:\d{2}$/.test(String(updates['Start Time']).slice(0,5))) {
+    throw new Error('Invalid Orientation start time.');
+  }
+  if (updates['End Time'] && !/^\d{2}:\d{2}$/.test(String(updates['End Time']).slice(0,5))) {
+    throw new Error('Invalid Orientation end time.');
+  }
+
+  const scheduleChanged =
+    (has('sessionDate') && String(updates['Session Date']) !== String(old['Session Date'] || '')) ||
+    (has('startTime') && String(updates['Start Time']) !== String(old['Start Time'] || '')) ||
+    (has('endTime') && String(updates['End Time']) !== String(old['End Time'] || ''));
+
+  const preview = Object.assign({}, old, updates);
+  const currentStatus = String(old['Status'] || 'SCHEDULED').trim().toUpperCase();
+  const newEnd = v2OrientationSessionEnd_(preview);
+  let reopened = false;
+
+  if (scheduleChanged && currentStatus === 'ENDED' && newEnd && newEnd.getTime() > Date.now()) {
+    updates['Status'] = 'SCHEDULED';
+    reopened = true;
+  } else if (scheduleChanged && ['SCHEDULED','OPEN','ACTIVE'].indexOf(currentStatus) >= 0 &&
+             newEnd && newEnd.getTime() <= Date.now()) {
+    updates['Status'] = 'ENDED';
+  }
+
+  const now = new Date().toISOString();
+  updates['Updated At'] = now;
+  v2UpdateRow_(session.sheet,session.rowNumber,updates);
+
+  const next = Object.assign({}, old, updates);
+  v2Audit_('', 'ORIENTATION', 'EDIT_SESSION', old, next, actor || 'Admin Portal V2', 'SUCCESS',
+    reopened
+      ? 'Orientation schedule corrected and session reopened automatically because the revised end time is in the future.'
+      : 'Orientation session details edited. Session ID remains unchanged.');
+
+  if (reopened || ['SCHEDULED','OPEN','ACTIVE'].indexOf(String(next['Status'] || '').toUpperCase()) >= 0) {
+    v2OrientationEnsureReminderTrigger_();
+  }
+  v2InvalidateCache_();
+
+  return {
+    ok:true,
+    sessionId:sessionId,
+    status:String(next['Status'] || currentStatus),
+    reopened:reopened,
+    scheduleChanged:scheduleChanged,
+    session:next,
+    build:V2_ORIENTATION_BUILD
+  };
 }
 
 function v2OrientationCalendarDaysUntil_(session, now) {
