@@ -229,6 +229,23 @@ function v2AgentGetAction(token, actionId) {
   };
 }
 
+/**
+ * JSON-safe bridge for the public agent page.
+ * Returning a string avoids Apps Script client/server serialization edge cases.
+ */
+function v2AgentGetActionJson(token, actionId) {
+  try {
+    const result = v2AgentGetAction(token, actionId);
+    return JSON.stringify(result || {ok:false, message:'No action data returned.'});
+  } catch (error) {
+    return JSON.stringify({
+      ok: false,
+      message: error && error.message ? error.message : String(error),
+      code: 'AGENT_ACTION_LOAD_ERROR'
+    });
+  }
+}
+
 /** Called once by agent-v2.html. Duplicate submissions are blocked server-side. */
 function v2AgentSubmitAction(token, actionId, formData) {
   assertDevIdentity_();
@@ -360,6 +377,25 @@ function v2AgentSubmitAction(token, actionId, formData) {
     };
   } finally {
     lock.releaseLock();
+  }
+}
+
+function v2AgentSubmitActionJson(token, actionId, formDataJson) {
+  try {
+    let formData = {};
+    if (typeof formDataJson === 'string') {
+      formData = JSON.parse(formDataJson || '{}');
+    } else {
+      formData = formDataJson || {};
+    }
+    const result = v2AgentSubmitAction(token, actionId, formData);
+    return JSON.stringify(result || {ok:false, message:'No submission response returned.'});
+  } catch (error) {
+    return JSON.stringify({
+      ok: false,
+      message: error && error.message ? error.message : String(error),
+      code: 'AGENT_ACTION_SUBMIT_ERROR'
+    });
   }
 }
 
