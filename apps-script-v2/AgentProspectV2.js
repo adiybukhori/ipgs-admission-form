@@ -360,22 +360,33 @@ function v2AgentSubmitAction(token, formData) {
 
 function v2AgentProspectDefaults_(record) {
   const r = record || {};
+  let raw = {};
+  try {
+    raw = r['Raw Application JSON'] ? JSON.parse(String(r['Raw Application JSON'])) : {};
+  } catch (ignore) {}
+
+  function pick(columnName, rawKey) {
+    const direct = String(r[columnName] || '').trim();
+    if (direct) return direct;
+    return String(raw[rawKey] || '').trim();
+  }
+
   return {
-    fullName: String(r['Student Name'] || '').trim(),
-    idPassport: String(r['ID / Passport No'] || '').trim(),
-    email: String(r['Personal Email'] || '').trim(),
-    phoneNumber: String(r['Phone Number'] || '').trim(),
-    applicantType: String(r['Applicant Type'] || '').trim(),
-    nationality: String(r['Nationality'] || '').trim(),
-    gender: String(r['Gender'] || '').trim(),
-    country: String(r['Country'] || '').trim(),
-    fullAddress: String(r['Full Address'] || '').trim(),
-    programme: String(r['Programme'] || '').trim(),
-    levelOfStudy: String(r['Level of Study'] || '').trim(),
-    studyMode: String(r['Study Mode'] || '').trim(),
-    intake: String(r['Intake'] || '').trim(),
-    referralSource: String(r['Referral Source'] || '').trim(),
-    partnerCode: String(r['Agent Code'] || '').trim()
+    fullName: pick('Student Name', 'fullName'),
+    idPassport: pick('ID / Passport No', 'idPassport'),
+    email: pick('Personal Email', 'email'),
+    phoneNumber: pick('Phone Number', 'phoneNumber'),
+    applicantType: pick('Applicant Type', 'applicantType'),
+    nationality: pick('Nationality', 'nationality'),
+    gender: pick('Gender', 'gender'),
+    country: pick('Country', 'country'),
+    fullAddress: pick('Full Address', 'fullAddress'),
+    programme: pick('Programme', 'programme'),
+    levelOfStudy: pick('Level of Study', 'levelOfStudy'),
+    studyMode: pick('Study Mode', 'studyMode'),
+    intake: pick('Intake', 'intake'),
+    referralSource: pick('Referral Source', 'referralSource'),
+    partnerCode: pick('Agent Code', 'partnerCode')
   };
 }
 
@@ -466,12 +477,14 @@ function v2NotifyRegistryProspectReady_(referenceNo, details, feeGroup, remarks,
   );
 
   const now = v2Now_();
-  v2SetRecordValues_(v2Find_('V2_APPLICATIONS', 'Reference No', reference).sheet,
-    v2Find_('V2_APPLICATIONS', 'Reference No', reference).rowNumber, {
+  const app = v2Find_('V2_APPLICATIONS', 'Reference No', reference);
+  if (app) {
+    v2SetRecordValues_(app.sheet, app.rowNumber, {
       'Registry Prospect Notification Status': result.status || 'UNKNOWN',
       'Registry Prospect Notified At': result.sent ? now : '',
       'Last Updated': now
     });
+  }
   const wf = v2Find_('V2_WORKFLOW', 'Reference No', reference);
   if (wf) {
     v2SetRecordValues_(wf.sheet, wf.rowNumber, {
