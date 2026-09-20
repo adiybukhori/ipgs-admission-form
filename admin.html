@@ -52,8 +52,8 @@
     .topbar{height:72px;background:#fff;border-bottom:1px solid var(--line);display:flex;align-items:center;justify-content:space-between;padding:0 28px;position:sticky;top:0;z-index:20}
     .page-title{font-size:19px;font-weight:850}
     .top-actions{display:flex;align-items:center;gap:10px}
-    .ai-ops-button:disabled{opacity:.82;cursor:not-allowed;background:#fff;color:var(--ink);border-color:var(--line);box-shadow:none}
-    .ai-ops-button:disabled:hover{background:#fff}
+    .ai-ops-button{display:inline-flex;align-items:center;gap:7px;text-decoration:none}
+    .ai-ops-button:hover{background:var(--purpleSoft);border-color:#d9d2f4;color:var(--purple)}
     .freshness{font-size:12px;color:var(--muted)}
     .content{padding:26px 28px 40px;max-width:1650px;margin:auto}
     .hero{display:flex;justify-content:space-between;gap:24px;align-items:flex-end;margin-bottom:22px}
@@ -307,7 +307,7 @@
     </aside>
 
     <main class="main">
-      <div class="topbar"><div id="topTitle" class="page-title">Dashboard</div><div class="top-actions"><div id="freshness" class="freshness">Not loaded</div><button class="ghost ai-ops-button" type="button" disabled aria-disabled="true" title="AI Operations Center is not active yet">🤖 AI Operations Center</button><button class="ghost refresh-btn" onclick="loadData(true)" aria-label="Refresh dashboard"><span class="refresh-icon" aria-hidden="true">↻</span><span class="refresh-text">Refresh</span></button></div></div><div class="mobile-shortcuts" aria-label="Quick navigation"><button class="active" data-mobile-section="dashboard" onclick="goMobile('dashboard')">Overview</button><button type="button" disabled aria-disabled="true">🤖 AI Ops</button><button data-mobile-section="applications" onclick="goMobile('applications')">Applications</button></div>
+      <div class="topbar"><div id="topTitle" class="page-title">Dashboard</div><div class="top-actions"><div id="freshness" class="freshness">Not loaded</div><a class="ghost ai-ops-button" href="/ai-operations-center.html" title="Open AI Operations Center">🤖 AI Operations Center</a><button class="ghost refresh-btn" onclick="loadData(true)" aria-label="Refresh dashboard"><span class="refresh-icon" aria-hidden="true">↻</span><span class="refresh-text">Refresh</span></button></div></div><div class="mobile-shortcuts" aria-label="Quick navigation"><button class="active" data-mobile-section="dashboard" onclick="goMobile('dashboard')">Overview</button><a href="/ai-operations-center.html">🤖 AI Ops</a><button data-mobile-section="applications" onclick="goMobile('applications')">Applications</button></div>
       <div class="content">
         <section id="dashboard" class="section active">
           <div class="hero"><div><h2>Admission overview</h2><p>See current workload, bottlenecks and conversion progress at a glance.</p></div></div>
