@@ -52,6 +52,8 @@
     .topbar{height:72px;background:#fff;border-bottom:1px solid var(--line);display:flex;align-items:center;justify-content:space-between;padding:0 28px;position:sticky;top:0;z-index:20}
     .page-title{font-size:19px;font-weight:850}
     .top-actions{display:flex;align-items:center;gap:10px}
+    .ai-ops-button:disabled{opacity:.82;cursor:not-allowed;background:#fff;color:var(--ink);border-color:var(--line);box-shadow:none}
+    .ai-ops-button:disabled:hover{background:#fff}
     .freshness{font-size:12px;color:var(--muted)}
     .content{padding:26px 28px 40px;max-width:1650px;margin:auto}
     .hero{display:flex;justify-content:space-between;gap:24px;align-items:flex-end;margin-bottom:22px}
@@ -296,6 +298,8 @@
         <button data-section="activation" onclick="goActivation(this)">⚙ <span>Prospect / Activation</span></button>
         <button data-section="orientation" onclick="goOrientation(this)">◉ <span>Orientation</span></button>
         <button data-section="handover" onclick="goHandover(this)">⇄ <span>Academic Handover</span></button>
+        <button type="button" onclick="window.location.href='/agents.html'">◈ <span>Academic Consultants</span></button>
+        <button data-section="feeStructure" onclick="go('feeStructure',this)">▤ <span>Fee Structure</span></button>
         <button data-section="reports" onclick="go('reports',this)">▥ <span>Reports</span></button>
         <button data-section="guide" onclick="go('guide',this)">? <span>System Guide</span></button>
       </div>
@@ -303,7 +307,7 @@
     </aside>
 
     <main class="main">
-      <div class="topbar"><div id="topTitle" class="page-title">Dashboard</div><div class="top-actions"><div id="freshness" class="freshness">Not loaded</div><a class="ghost consultants-link" href="/agents.html" style="text-decoration:none">Academic Consultants</a><button class="ghost refresh-btn" onclick="loadData(true)" aria-label="Refresh dashboard"><span class="refresh-icon" aria-hidden="true">↻</span><span class="refresh-text">Refresh</span></button></div></div><div class="mobile-shortcuts" aria-label="Quick navigation"><button class="active" data-mobile-section="dashboard" onclick="goMobile('dashboard')">Overview</button><a href="/agents.html">Consultants</a><button data-mobile-section="applications" onclick="goMobile('applications')">Applications</button></div>
+      <div class="topbar"><div id="topTitle" class="page-title">Dashboard</div><div class="top-actions"><div id="freshness" class="freshness">Not loaded</div><button class="ghost ai-ops-button" type="button" disabled aria-disabled="true" title="AI Operations Center is not active yet">🤖 AI Operations Center</button><button class="ghost refresh-btn" onclick="loadData(true)" aria-label="Refresh dashboard"><span class="refresh-icon" aria-hidden="true">↻</span><span class="refresh-text">Refresh</span></button></div></div><div class="mobile-shortcuts" aria-label="Quick navigation"><button class="active" data-mobile-section="dashboard" onclick="goMobile('dashboard')">Overview</button><button type="button" disabled aria-disabled="true">🤖 AI Ops</button><button data-mobile-section="applications" onclick="goMobile('applications')">Applications</button></div>
       <div class="content">
         <section id="dashboard" class="section active">
           <div class="hero"><div><h2>Admission overview</h2><p>See current workload, bottlenecks and conversion progress at a glance.</p></div></div>
@@ -452,6 +456,34 @@
           <div class="panel">
             <div class="panel-head"><h3>Provisioning Tasks</h3><span>Tasks are created immediately when Registry clicks Handover Now</span></div>
             <div class="table-wrap"><table><thead><tr><th>Student</th><th>Innovative Email / IT</th><th>Moodle</th><th>e-Library</th><th>Overall</th></tr></thead><tbody id="provisioningBody"></tbody></table></div>
+          </div>
+        </section>
+
+        <section id="feeStructure" class="section">
+          <div class="hero">
+            <div>
+              <h2>Fee Structure</h2>
+              <p>Central workspace for programme fee structures and student payment schedules.</p>
+            </div>
+            <span class="badge purple">MODULE PREPARED</span>
+          </div>
+          <div class="grid-2">
+            <div class="panel">
+              <div class="panel-head"><h3>Fee Structure Master</h3><span>Programme fees, registration, tuition and other approved charges</span></div>
+              <div class="panel-body">
+                <div class="message" style="display:block;background:var(--purpleSoft);color:var(--purple);margin:0">
+                  This workspace is ready for the next build. We will use it to add and maintain approved fee structures by programme and intake.
+                </div>
+              </div>
+            </div>
+            <div class="panel">
+              <div class="panel-head"><h3>Payment Schedule</h3><span>Instalment plan and payment timeline</span></div>
+              <div class="panel-body">
+                <div class="message" style="display:block;background:var(--blueSoft);color:var(--blue);margin:0">
+                  Payment schedules will be configured here and later linked to the selected student Fee Group / Fee Structure.
+                </div>
+              </div>
+            </div>
           </div>
         </section>
 
@@ -667,7 +699,7 @@
     function classifyBadge(text=''){const x=String(text).toUpperCase();if(/ACCEPT|QUALIFIED|COMPLETE|FINAL|ISSUED|DIRECT/.test(x))return'green';if(/REJECT|NOT QUAL|INCOMPLETE|DECLIN/.test(x))return'red';if(/PENDING|WAIT|REVIEW|NOT_|READY/.test(x))return'amber';if(/IA|PREREQ|ASSESS|SAC/.test(x))return'purple';return'blue'}
     function pretty(s=''){return String(s||'-').replaceAll('_',' ').replace(/\b\w/g,m=>m.toUpperCase())}
     function renderAll(){populateFilters();renderDashboard();renderApplications();renderSac();renderAssessment();renderReports()}
-    function go(id,btn){document.querySelectorAll('.section').forEach(x=>x.classList.remove('active'));document.getElementById(id).classList.add('active');document.querySelectorAll('.nav button').forEach(x=>x.classList.remove('active'));if(btn)btn.classList.add('active');const names={dashboard:'Dashboard',applications:'Applications',sac:'SAC Monitoring',assessment:'IA / Prerequisite',reports:'Reports',guide:'System Guide'};document.getElementById('topTitle').textContent=names[id]||'Admission';syncMobileShortcuts(id)} function goMobile(id){const btn=document.querySelector('.nav button[data-section="'+id+'"]');if(btn)go(id,btn)} function syncMobileShortcuts(id){document.querySelectorAll('[data-mobile-section]').forEach(x=>x.classList.toggle('active',x.dataset.mobileSection===id))}
+    function go(id,btn){document.querySelectorAll('.section').forEach(x=>x.classList.remove('active'));document.getElementById(id).classList.add('active');document.querySelectorAll('.nav button').forEach(x=>x.classList.remove('active'));if(btn)btn.classList.add('active');const names={dashboard:'Dashboard',applications:'Applications',sac:'SAC Monitoring',assessment:'IA / Prerequisite',feeStructure:'Fee Structure',reports:'Reports',guide:'System Guide'};document.getElementById('topTitle').textContent=names[id]||'Admission';syncMobileShortcuts(id)} function goMobile(id){const btn=document.querySelector('.nav button[data-section="'+id+'"]');if(btn)go(id,btn)} function syncMobileShortcuts(id){document.querySelectorAll('[data-mobile-section]').forEach(x=>x.classList.toggle('active',x.dataset.mobileSection===id))}
     function renderDashboard(){const live=activeV2Records(),total=live.length,attentionGroups=getAttentionGroups(),attention=attentionGroups.reduce((n,x)=>n+x.count,0),offer=live.filter(r=>/ELIGIBLE_FOR_OFFER|OFFER_ISSUED/.test(stage(r))||/READY|ISSUED/.test(String(r.workflow?.['Offer Letter Status']||''))).length,accepted=live.filter(r=>stage(r)==='ACCEPTED'||/ACCEPTED/.test(String(r.workflow?.['Acceptance Status']||''))).length;document.getElementById('kTotal').textContent=total;document.getElementById('kAttention').textContent=attention;document.getElementById('kOffer').textContent=offer;document.getElementById('kAccepted').textContent=accepted;document.getElementById('attentionList').innerHTML=attentionGroups.map(x=>`<div class="attention-item"><div><div class="name">${esc(x.name)}</div><div class="sub">${esc(x.sub)}</div></div><div class="count-pill">${x.count}</div></div>`).join('')||'<div class="empty">No pending cases.</div>';renderBars('programmeBars',countBy(live,r=>r.app['Programme']||'Unspecified'),7);renderBars('intakeBars',countBy(live,r=>r.app['Intake']||r.workflow?.['Intake']||'Unspecified'),7);renderFunnel('dashboardFunnel')}
     function getAttentionGroups(){const live=activeV2Records(),newApps=live.filter(r=>stage(r)==='APPLICATION_RECEIVED').length,docs=live.filter(r=>{const s=String(r.workflow?.['Document Review Status']||r.doc?.['Review Status']||r.doc?.['Document Review Status']||'').toUpperCase();return stage(r)==='DOCUMENT_REVIEW'||/PENDING|INCOMPLETE/.test(s)}).length,screening=live.filter(r=>{const rec=String(r.workflow?.['Screening Recommendation']||'').toUpperCase();return stage(r)==='QUALIFICATION_SCREENING'||rec==='PENDING_QUALIFICATION_SCREENING'}).length,sac=live.filter(r=>/SAC_REVIEW|SAC/.test(stage(r))||(/SAC/.test(String(r.workflow?.['SAC Session ID']||''))&&!r.workflow?.['SAC Decision'])).length,assessment=live.filter(r=>/ASSESSMENT|IA|PREREQ/.test(stage(r))||/PENDING|IN_PROGRESS/.test(String(r.workflow?.['Assessment Status']||'').toUpperCase())).length,acceptance=live.filter(r=>stage(r)==='OFFER_ISSUED'&&!/ACCEPTED|DECLINED/.test(String(r.workflow?.['Acceptance Status']||'').toUpperCase())).length;return[{name:'New applications',sub:'Start document review',count:newApps},{name:'Document review',sub:'Pending or incomplete documents',count:docs},{name:'Qualification screening',sub:'Cases awaiting screening outcome',count:screening},{name:'SAC decisions',sub:'Candidates waiting for endorsement',count:sac},{name:'IA / Prerequisite',sub:'Assessment cases in progress',count:assessment},{name:'Acceptance follow-up',sub:'Offer issued but not yet accepted',count:acceptance}].filter(x=>x.count>0)}
     function countBy(arr,getter){const m={};arr.forEach(x=>{const k=String(getter(x)||'Unspecified');m[k]=(m[k]||0)+1});return Object.entries(m).sort((a,b)=>b[1]-a[1])}
