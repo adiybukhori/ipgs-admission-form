@@ -216,7 +216,13 @@ function v2AgentGetAction(token, actionId) {
   const submitted = status === 'SUBMITTED';
   const programme = admission.record['Programme'] || match.record['Programme'] || '';
   const feeGroupOptions = (typeof v2GetFeeGroupOptions_ === 'function')
-    ? v2GetFeeGroupOptions_(programme)
+    ? v2GetFeeGroupOptions_(
+        programme,
+        admission.record['Level of Study'] || '',
+        admission.record['Study Mode'] || admission.record['Mode of Study'] || '',
+        admission.record['Intake ID'] || '',
+        admission.record['Intake'] || ''
+      )
     : v2GetFeeGroups_().map(function(code){ return {code:code,label:code}; });
   return {
     ok: true,
@@ -309,10 +315,16 @@ function v2AgentSubmitAction(token, actionId, formData) {
     if (!admission) throw new Error('Matching V2 application record not found.');
 
     if (typeof v2GetFeeGroupOptions_ === 'function') {
-      const applicable = v2GetFeeGroupOptions_(admission.record['Programme'] || '').some(function(option){
+      const applicable = v2GetFeeGroupOptions_(
+        admission.record['Programme'] || '',
+        admission.record['Level of Study'] || '',
+        admission.record['Study Mode'] || admission.record['Mode of Study'] || '',
+        admission.record['Intake ID'] || '',
+        admission.record['Intake'] || ''
+      ).some(function(option){
         return String(option.code || '') === feeGroup;
       });
-      if (!applicable) throw new Error('The selected Fee Group is not active or is not applicable to this programme.');
+      if (!applicable) throw new Error('The selected Fee Group is not active or is not applicable to this programme, level, study mode or intake.');
     }
 
     const workflow = v2Find_('V2_WORKFLOW', 'Reference No', referenceNo);
