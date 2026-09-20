@@ -5,6 +5,8 @@ on:
     branches: [main]
     paths:
       - 'admin.html'
+      - 'orientation-admin.js'
+      - 'handover-admin.js'
       - 'api/admin-data.js'
       - '.github/workflows/validate-admin-js.yml'
   workflow_dispatch:
@@ -16,6 +18,10 @@ jobs:
       - uses: actions/checkout@v4
       - name: Check admin-data API syntax
         run: node --check api/admin-data.js
+      - name: Check module JavaScript
+        run: |
+          node --check orientation-admin.js
+          node --check handover-admin.js
       - name: Extract and check admin inline JavaScript
         run: |
           python - <<'PY'
