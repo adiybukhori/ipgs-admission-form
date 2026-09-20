@@ -477,6 +477,7 @@ function v2UpdateOrientationAttendance_(data, actor) {
     [sessionId,reference]
   );
   if (!tracking) throw new Error('Orientation tracking record not found.');
+  if (!v2OrientationAssignmentActive_(tracking.record)) throw new Error('Student is no longer active in this Orientation Session.');
   const workflow = v2Find_('V2_WORKFLOW','Reference No',reference);
   const now = new Date().toISOString();
   const previousAttendance = String(tracking.record['Attendance Status'] || 'NOT_UPDATED').toUpperCase();
@@ -757,11 +758,12 @@ function v2SubmitOrientationAttendance_(data) {
 
   if (reference) {
     tracking=v2FindComposite_('V2_ORIENTATION_TRACKING',['Orientation Session ID','Reference No'],[sessionId,reference]);
+    if (tracking && !v2OrientationAssignmentActive_(tracking.record)) tracking=null;
     if (!tracking) {
       const app=v2Find_('V2_APPLICATIONS','Reference No',reference);
       if (!app) throw new Error('Student record not found.');
       const other=v2Rows_('V2_ORIENTATION_TRACKING').filter(function(x){
-        return String(x['Reference No'] || '')===reference && String(x['Orientation Session ID'] || '')!==sessionId;
+        return String(x['Reference No'] || '')===reference && String(x['Orientation Session ID'] || '')!==sessionId && v2OrientationAssignmentActive_(x);
       })[0];
       if (other) throw new Error('This student is already linked to another Orientation Session. Registry review is required.');
       const now=new Date().toISOString();
@@ -771,6 +773,7 @@ function v2SubmitOrientationAttendance_(data) {
         'Student Name':app.record['Student Name'] || '','Programme':app.record['Programme'] || '',
         'Student Email':app.record['Personal Email'] || '',
         'Assigned At':now,'Assigned By':'WALK_IN_SELF_CHECKIN',
+        'Assignment Status':'ACTIVE','Assignment Updated At':now,'Assignment Updated By':'Student Attendance Form',
         'Invitation Status':'NOT_REQUIRED','Reminder Status':'NOT_REQUIRED',
         'Attendance Token':newToken,'Attendance Status':'NOT_UPDATED',
         'Feedback Submitted':'NO','Feedback Status':'NOT_SUBMITTED',
