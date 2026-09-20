@@ -454,7 +454,9 @@
     if(!session)return orientationMessage('Orientation session not found.','error');
     const status=String(session['Attendance Status']||'').toUpperCase();
     if(status!=='OPEN')return orientationMessage('Open Attendance first before showing the session QR.','error');
-    const link=String(session['Attendance Link']||('https://n-form.innovative.edu.my/orientation-attendance.html?s='+encodeURIComponent(sessionId)));
+    const storedLink=String(session['Attendance Link']||'').trim();
+    const fallbackLink='https://ipgs-admission-form.innovative.edu.my/orientation-attendance.html?s='+encodeURIComponent(sessionId);
+    const link=storedLink && !/n-form\.innovative\.edu\.my/i.test(storedLink) ? storedLink : fallbackLink;
     document.getElementById('orientationQrModal')?.remove();
     const overlay=document.createElement('div');
     overlay.id='orientationQrModal';
