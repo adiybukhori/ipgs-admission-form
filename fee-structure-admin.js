@@ -85,7 +85,9 @@
   }
   function optionsHtml(values,current){
     const cur=String(current||'');
-    return values.map(v=>'<option value="'+esc(v)+'" '+(String(v)===cur?'selected':'')+'>'+esc(v)+'</option>').join('');
+    const list=values.slice();
+    if(cur&&list.indexOf(cur)<0)list.unshift(cur);
+    return list.map(v=>'<option value="'+esc(v)+'" '+(String(v)===cur?'selected':'')+'>'+esc(v)+'</option>').join('');
   }
   function componentOptionsHtml(current){
     const values=FEE_COMPONENT_TYPES.slice();
@@ -254,11 +256,7 @@
       intakeScope:document.getElementById('feeIntake')?.value.trim()||'ALL',
       effectiveFrom:document.getElementById('feeEffectiveFrom')?.value||'',
       effectiveUntil:document.getElementById('feeEffectiveUntil')?.value||'',
-      tuitionFee:document.getElementById('feeTuition')?.value||0,
-      registrationFee:document.getElementById('feeRegistration')?.value||0,
-      otherFee:document.getElementById('feeOther')?.value||0,
-      otherFeeDescription:document.getElementById('feeOtherDesc')?.value.trim()||'',
-      totalFee:document.getElementById('feeTotal')?.value||'',
+      feeComponents:collectFeeComponents(),
       paymentSchedule:collectSchedule(),
       fileIdPdf:document.getElementById('feePdf')?.value.trim()||'',
       active:document.getElementById('feeActive')?.value||'INACTIVE',
