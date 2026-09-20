@@ -681,34 +681,6 @@
     if([...el.options].some(o=>o.value===current))el.value=current;
   }
 
-  function populateOrientationTrackingSessionFilter(sessions){
-    const el=document.getElementById('orientationTrackingSessionFilter');
-    if(!el)return;
-
-    const current=el.value;
-    const ordered=[...sessions].sort((a,b)=>{
-      const ad=Date.parse(String(a['Session Date']||''))||0;
-      const bd=Date.parse(String(b['Session Date']||''))||0;
-      if(ad!==bd)return bd-ad;
-      return String(b['Orientation Session ID']||'').localeCompare(String(a['Orientation Session ID']||''));
-    });
-
-    el.innerHTML='<option value="">All Orientation Sessions</option>'+
-      ordered.map(s=>{
-        const id=String(s['Orientation Session ID']||'').trim();
-        const name=String(s['Orientation Name']||id).trim();
-        return id?'<option value="'+esc(id)+'">'+esc(name)+'</option>':'';
-      }).join('');
-
-    if(current && [...el.options].some(o=>o.value===current)){
-      el.value=current;
-    }else if(!el.dataset.defaultApplied && ordered.length){
-      el.value=String(ordered[0]['Orientation Session ID']||'');
-      el.dataset.defaultApplied='1';
-    }
-  }
-
-
   function orientationSessionActionHtml(session,id,rows,attendanceState,recordingUrl,completed,ended){
     const safeId=esc(id);
     let html='<div class="orientation-actions">';
@@ -754,7 +726,6 @@
   window.renderOrientation=function(){
     const sessions=db.V2_ORIENTATION_SESSIONS||[],tracking=(db.V2_ORIENTATION_TRACKING||[]).filter(orientationAssignmentActive);
     populateOrientationIntakes();
-    populateOrientationTrackingSessionFilter(sessions);
 
     const k1=document.getElementById('oriSessionsKpi'),k2=document.getElementById('oriAssignedKpi'),k3=document.getElementById('oriInvitedKpi'),k4=document.getElementById('oriAttendedKpi');
     if(k1)k1.textContent=sessions.length;
@@ -798,35 +769,7 @@
       }).join('')||'<tr><td colspan="8" class="empty">No orientation session created yet.</td></tr>';
     }
 
-    const trackBody=document.getElementById('orientationTrackingBody');
-    if(trackBody){
-      const selectedSessionId=String(document.getElementById('orientationTrackingSessionFilter')?.value||'').trim();
-      const filteredTracking=selectedSessionId
-        ? tracking.filter(x=>String(x['Orientation Session ID']||'')===selectedSessionId)
-        : tracking;
 
-      trackBody.innerHTML=filteredTracking.map(x=>{
-        const session=sessions.find(s=>String(s['Orientation Session ID']||'')===String(x['Orientation Session ID']||''));
-        const attendance=String(x['Attendance Status']||'NOT_UPDATED').toUpperCase();
-        const sessionCompleted=String(session?.['Status']||'').toUpperCase()==='COMPLETED';
-        return `<tr>
-          <td><div class="student">${esc(x['Student Name']||'-')}</div><div class="subline">${esc(x['Reference No']||'')}</div></td>
-          <td>${esc(x['Programme']||'-')}</td>
-          <td>${esc(session?.['Orientation Name']||x['Orientation Session ID']||'-')}</td>
-          <td><span class="badge ${classifyBadge(x['Invitation Status']||'PENDING')}">${esc(pretty(x['Invitation Status']||'PENDING'))}</span></td>
-          <td><span class="badge ${classifyBadge(x['Reminder Status']||'NOT_SENT')}">${esc(pretty(x['Reminder Status']||'NOT_SENT'))}</span><div class="subline">${esc(pretty(x['Last Reminder Milestone']||''))}</div></td>
-          <td><span class="badge ${classifyBadge(attendance)}">${esc(pretty(attendance))}</span><div class="subline">${esc(pretty(x['Attendance Source']||''))}</div></td>
-          <td>${sessionCompleted
-            ? '<span class="badge purple">Record Locked</span>'
-            : `<div style="display:flex;gap:6px;flex-wrap:wrap">
-                <button class="ghost" onclick="markOrientationAttendance('${esc(x['Orientation Session ID']||'')}','${esc(x['Reference No']||'')}','ATTENDED')">Attended</button>
-                <button class="ghost" onclick="markOrientationAttendance('${esc(x['Orientation Session ID']||'')}','${esc(x['Reference No']||'')}','ABSENT')">Absent</button>
-                <button class="ghost" onclick="markOrientationAttendance('${esc(x['Orientation Session ID']||'')}','${esc(x['Reference No']||'')}','EXCUSED')">Excused</button>
-              </div>`
-          }</td>
-        </tr>`;
-      }).join('')||'<tr><td colspan="7" class="empty">No students found for this Orientation Session.</td></tr>';
-    }
   };
 
   window.goOrientation=function(btn){
