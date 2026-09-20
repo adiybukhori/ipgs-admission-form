@@ -171,7 +171,6 @@ function v2NotifyRegistryProspectReady_(reference, actor) {
 function v2RegistryUpsertProspect_(data, actor) {
   v2ActivationEnsureFoundation_();
   const reference = v2Required_(data.referenceNo,'Reference No');
-  const skyProspectId = v2Required_(data.skyProspectId,'SKY Prospect ID');
   const feeGroup = v2Required_(data.feeGroup,'Fee Group');
   const remarks = String(data.remarks || '').trim();
 
@@ -182,32 +181,54 @@ function v2RegistryUpsertProspect_(data, actor) {
   const workflow = v2Find_('V2_WORKFLOW','Reference No',reference);
   if (!app || !workflow) throw new Error('Application/workflow record not found.');
 
+  const existingStatus = String(
+    workflow.record['Prospect Status'] ||
+    app.record['Prospect Status'] ||
+    'PROSPECT_COMPLETED'
+  ).trim() || 'PROSPECT_COMPLETED';
+
+  if (['PROSPECT_COMPLETED','PROSPECT_UPDATED'].indexOf(existingStatus.toUpperCase()) < 0) {
+    throw new Error('Fee Group correction is only available after Marketing has completed the Prospect step.');
+  }
+
+  const previousFeeGroup = String(
+    workflow.record['Fee Group'] ||
+    app.record['Fee Group'] ||
+    ''
+  ).trim();
+
   const now = new Date().toISOString();
   const patch = {
-    'Prospect Status':'PROSPECT_UPDATED',
-    'SKY Prospect ID':skyProspectId,
-    'Fee Group':feeGroup,
-    'Prospect Updated At':now,
-    'Prospect Remarks':remarks,
-    'Last Updated':now
+    'Prospect Status': existingStatus,
+    'Fee Group': feeGroup,
+    'Prospect Updated At': now,
+    'Prospect Remarks': remarks,
+    'Last Updated': now
   };
+
   v2UpdateRow_(app.sheet,app.rowNumber,patch);
-  const workflowPatch = Object.assign({},patch,{'Updated By':actor || 'Registry Admin'});
-  v2UpdateRow_(workflow.sheet,workflow.rowNumber,workflowPatch);
+  v2UpdateRow_(workflow.sheet,workflow.rowNumber,Object.assign({},patch,{
+    'Updated By': actor || 'Registry Admin'
+  }));
+
   const fee = v2ActivationSyncFeeStructure_(reference,feeGroup,actor || 'Registry Admin');
 
-  v2Audit_(reference,'PROSPECT','REGISTRY_PROSPECT_UPDATED',{},{
-    skyProspectId:skyProspectId,feeGroup:feeGroup,feeStructureStatus:fee.status
+  v2Audit_(reference,'PROSPECT','REGISTRY_FEE_GROUP_CORRECTED',{
+    feeGroup:previousFeeGroup
+  },{
+    feeGroup:feeGroup,
+    feeStructureStatus:fee.status,
+    prospectStatus:existingStatus
   },actor || 'Registry Admin','SUCCESS',remarks);
-
-  const notify = data.notifyRegistry === true
-    ? v2NotifyRegistryProspectReady_(reference,actor || 'Registry Admin')
-    : {ok:true,sent:false,status:'NOT_REQUIRED_REGISTRY_SELF_ACTION'};
 
   v2InvalidateCache_();
   return {
-    ok:true,referenceNo:reference,prospectStatus:'PROSPECT_UPDATED',
-    skyProspectId:skyProspectId,feeGroup:feeGroup,feeStructure:fee,registryNotification:notify,
+    ok:true,
+    referenceNo:reference,
+    prospectStatus:existingStatus,
+    feeGroup:feeGroup,
+    previousFeeGroup:previousFeeGroup,
+    feeStructure:fee,
     activationReady:v2ActivationReadiness_(reference)
   };
 }
