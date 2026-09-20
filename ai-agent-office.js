@@ -128,6 +128,7 @@ function mount(){
   setAllIdle();
   renderPerformance();
   renderTabViews();
+  installTabSyncObservers();
   updateSimButtons();
   window.switchOpsView=window.switchOpsView||switchOpsView;
 }
@@ -196,8 +197,15 @@ async function runSimulation(){
     await executeStep(step,scenario.case,token);
     if(token!==simulation.token)return;
     if(step.kind==='human'){
-      await waitForHuman(token);
+      const humanOutcome=await waitForHuman(token);
       if(token!==simulation.token)return;
+      if(humanOutcome!=='approve'){
+        simulation.running=false;simulation.paused=false;
+        showToast(humanOutcome==='evidence'?'MORE EVIDENCE REQUESTED':'CASE RETURNED','Workflow stopped at the recorded human decision.');
+        appendOfficeLog(nowClock(),'Simulation Engine',scenario.case,'CONTROLLED STOP','Scenario stopped because the human decision did not approve the proposed route.');
+        updateSimButtons();renderPerformance();
+        return;
+      }
     }
     await delay(500,token);
   }
@@ -251,10 +259,11 @@ async function executeStep(step,caseId,token){
   }
 }
 
+function motionDisabled(){return prefersReduced()||document.body.classList.contains('office-motion-off');}
 function animateHandover(from,to,caseId,label,token,duration){
   return new Promise(resolve=>{
     const stage=document.getElementById('officeStage'),src=document.getElementById(OFFICE_AGENTS[from].desk),dst=document.getElementById(OFFICE_AGENTS[to].desk);
-    if(!stage||!src||!dst||prefersReduced()){resolve();return;}
+    if(!stage||!src||!dst||motionDisabled()){resolve();return;}
     const sr=src.getBoundingClientRect(),dr=dst.getBoundingClientRect(),br=stage.getBoundingClientRect();
     const sx=sr.left-br.left+sr.width/2,sy=sr.top-br.top+sr.height/2,tx=dr.left-br.left+dr.width/2,ty=dr.top-br.top+dr.height/2;
     const midX=br.width/2;
@@ -295,7 +304,11 @@ function resetSimulation(log=true){
   if(log)appendOfficeLog(nowClock(),'Simulation Engine','—','RESET','Simulation state reset. No production data changed.');
 }
 function waitForHuman(token){
-  return new Promise(resolve=>{if(token!==simulation.token){resolve();return;}simulation.pendingHuman=resolve;});
+  return new Promise(resolve=>{
+    if(token!==simulation.token){resolve('cancelled');return;}
+    simulation.pendingHuman=resolve;
+    updateSimButtons();
+  });
 }
 function recordHumanDecision(decision){
   if(!simulation.pendingHuman)return;
@@ -307,7 +320,7 @@ function recordHumanDecision(decision){
   const from=Object.keys(officeState).find(k=>officeState[k].status==='WAITING'&&officeState[k].current_case===caseId);
   if(from)setAgent(from,{status:'IDLE',current_case:'—',current_task:'Waiting for event',waiting_since:'—',last_action:'Human decision: '+labels[decision],next_action:'Wait for routed event'});
   clearHumanDesk();
-  const resolve=simulation.pendingHuman;simulation.pendingHuman=null;simulation.paused=false;updateSimButtons();resolve();
+  const resolve=simulation.pendingHuman;simulation.pendingHuman=null;simulation.paused=false;updateSimButtons();resolve(decision);
 }
 
 function showHumanCase(caseId,step){
@@ -414,6 +427,18 @@ function switchOpsView(view){
   if(target==='activity')syncActivityTab();
   if(target==='performance')renderPerformance();
   window.scrollTo({top:0,behavior:prefersReduced()?'auto':'smooth'});
+}
+function installTabSyncObservers(){
+  const pairs=[
+    ['decisionList',syncDecisionTab],
+    ['exceptionList',syncExceptionTab],
+    ['activityFeed',syncActivityTab]
+  ];
+  pairs.forEach(([id,fn])=>{
+    const el=document.getElementById(id);if(!el||el.dataset.officeObserved==='1')return;
+    el.dataset.officeObserved='1';
+    new MutationObserver(()=>fn()).observe(el,{childList:true,subtree:true,characterData:true});
+  });
 }
 function renderTabViews(){
   syncDecisionTab();syncExceptionTab();syncActivityTab();renderPerformance();
