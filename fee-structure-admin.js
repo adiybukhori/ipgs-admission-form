@@ -37,6 +37,61 @@
   function schedule(row){
     try{const x=JSON.parse(String(row['Payment Schedule JSON']||'[]'));return Array.isArray(x)?x:[];}catch(_){return[]}
   }
+  const FEE_COMPONENT_TYPES=[
+    ['COURSEWORK_FEE','Coursework Fee'],
+    ['RESEARCH_FEE','Research Fee'],
+    ['MIXED_MODE_FEE','Mixed-Mode Fee'],
+    ['REGISTRATION_FEE','Registration Fee'],
+    ['NON_ACADEMIC_FEE','Other Approved Non-Academic Fee']
+  ];
+  const STUDY_MODES=['ALL','Full-Time','Part-Time','ODL','Online','Hybrid'];
+  const LEVELS=['ALL','Diploma','Bachelor','Master','Doctorate'];
+  const PAYMENT_LABELS=['Full Payment','Registration Fee','Instalment 1','Instalment 2','Instalment 3','Instalment 4','Instalment 5','Instalment 6','Instalment 7','Instalment 8','Instalment 9','Instalment 10','Instalment 11','Instalment 12','Convocation Fee','Viva Fee','Other'];
+  const PAYMENT_DUE=['Upon Registration','Before Enrolment','Month 1','Month 2','Month 3','Month 4','Month 5','Month 6','Month 7','Month 8','Month 9','Month 10','Month 11','Month 12','Before Examination','Before Viva','Before Graduation','Other'];
+
+  function components(row){
+    try{
+      const parsed=JSON.parse(String(row&&row['Fee Components JSON']||'[]'));
+      if(Array.isArray(parsed)&&parsed.length)return parsed;
+    }catch(_){}
+    const legacy=[];
+    const tuition=num(row&&row['Tuition Fee']);
+    const registration=num(row&&row['Registration Fee']);
+    const other=num(row&&row['Other Fee']);
+    if(tuition) legacy.push({type:'ACADEMIC_FEE',amount:tuition,description:'Legacy academic fee — select Coursework, Research or Mixed-Mode when editing.'});
+    if(registration) legacy.push({type:'REGISTRATION_FEE',amount:registration,description:''});
+    if(other) legacy.push({type:'NON_ACADEMIC_FEE',amount:other,description:String(row&&row['Other Fee Description']||'Other approved charge')});
+    return legacy;
+  }
+  function componentLabel(type){
+    if(type==='ACADEMIC_FEE')return 'Academic Fee (Legacy / Unclassified)';
+    return (FEE_COMPONENT_TYPES.find(x=>x[0]===type)||[type,pretty(type)])[1];
+  }
+  function uniqueSorted(values){
+    return [...new Set(values.map(v=>String(v||'').trim()).filter(Boolean))].sort((a,b)=>a.localeCompare(b));
+  }
+  function programmeOptions(){
+    return ['ALL',...uniqueSorted([
+      ...(db.V2_APPLICATIONS||[]).map(x=>x['Programme']),
+      ...rows().map(x=>x['Programme']).filter(x=>String(x||'').toUpperCase()!=='ALL')
+    ])];
+  }
+  function intakeOptions(){
+    return ['ALL',...uniqueSorted([
+      ...(db.V2_INTAKE_MASTER||[]).flatMap(x=>[x['Intake ID'],x['Intake Name']]),
+      ...(db.V2_APPLICATIONS||[]).flatMap(x=>[x['Intake ID'],x['Intake']]),
+      ...rows().map(x=>x['Intake Scope']).filter(x=>String(x||'').toUpperCase()!=='ALL')
+    ])];
+  }
+  function optionsHtml(values,current){
+    const cur=String(current||'');
+    return values.map(v=>'<option value="'+esc(v)+'" '+(String(v)===cur?'selected':'')+'>'+esc(v)+'</option>').join('');
+  }
+  function componentOptionsHtml(current){
+    const values=FEE_COMPONENT_TYPES.slice();
+    if(current==='ACADEMIC_FEE')values.unshift(['ACADEMIC_FEE','Academic Fee (Legacy / Unclassified)']);
+    return values.map(x=>'<option value="'+esc(x[0])+'" '+(x[0]===current?'selected':'')+'>'+esc(x[1])+'</option>').join('');
+  }
   function fileUrlFromId(id){
     const x=String(id||'').trim();
     return x?'https://drive.google.com/open?id='+encodeURIComponent(x):'';
