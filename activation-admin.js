@@ -79,7 +79,7 @@
       '</div>'+
       '<div class="detail-grid">'+
         '<div class="field full"><label>Student</label><input value="'+esc(r.app['Student Name']||'-')+'" readonly></div>'+
-        '<div class="field full"><label>Fee Structure / Fee Group</label><select id="registryFeeGroup">'+options+'</select></div>'+
+        '<div class="field full"><label>Fee Group</label><select id="registryFeeGroup">'+options+'</select></div>'+
         '<div class="field full"><label>Remarks</label><textarea id="registryProspectRemarks" rows="3" style="width:100%;border:1px solid #d7dce6;border-radius:12px;padding:12px 13px;resize:vertical" placeholder="Reason for Fee Group correction (optional)">'+esc(r.app?.['Prospect Remarks']||'')+'</textarea></div>'+
       '</div>';
     modalShell('Exception Edit - Fee Group',r.ref,body,'Update Fee Group');
@@ -99,10 +99,6 @@
     };
   };
 
-  window.refreshFeeStructure=async function(ref){
-    const result=await activationAction('v2RefreshFeeStructure',{referenceNo:ref},'Refresh the Fee Structure link from FEE_GROUP_MASTER?');
-    if(result)activationMsg(`Fee Structure status: ${pretty(result.feeStructure?.status||'updated')}.`,result.feeStructure?.status==='READY'?'ok':'info');
-  };
 
 
   window.openSkyActivationModal=function(ref){
@@ -115,7 +111,7 @@
       </div>
       <div class="detail-grid">
         <div class="field"><label>SKY Prospect ID</label><input value="${esc(w['SKY Prospect ID']||r.app?.['SKY Prospect ID']||'')}" readonly></div>
-        <div class="field"><label>Fee Structure</label><input value="${esc(w['Fee Group']||r.app?.['Fee Group']||'')}" readonly></div>
+        <div class="field"><label>Fee Group</label><input value="${esc(w['Fee Group']||r.app?.['Fee Group']||'')}" readonly></div>
         <div class="field full"><label>SKY Student ID / Registration No. <span class="subline">(optional)</span></label><input id="activationSkyStudentId" value="${esc(w['SKY Student ID']||'')}" placeholder="Optional"></div>
         <div class="field full"><label>Remarks</label><textarea id="activationRemarks" rows="3" style="width:100%;border:1px solid #d7dce6;border-radius:12px;padding:12px 13px;resize:vertical">${esc(w['SKY Activation Remarks']||'')}</textarea></div>
       </div>`;
@@ -151,8 +147,6 @@
       const w=r.workflow||{},a=r.app||{},state=activationState(r);
       const prospectId=w['SKY Prospect ID']||a['SKY Prospect ID']||'';
       const feeGroup=w['Fee Group']||a['Fee Group']||'';
-      const feeStatus=String(w['Fee Structure Status']||a['Fee Structure Status']||'NOT_SYNCED').toUpperCase();
-      const feeUrl=w['Fee Structure PDF URL']||a['Fee Structure PDF URL']||'';
       const agent=[a['Agent Code'],a['Agent Name']].filter(Boolean).join(' - ')||'Direct / Registry';
       const activation=String(w['SKY Activation Status']||a['SKY Activation Status']||'NOT_ACTIVATED').toUpperCase();
 
@@ -164,9 +158,7 @@
       return `<tr>
         <td><div class="student">${esc(a['Student Name']||'-')}</div><div class="subline">${esc(r.ref)}</div><div class="subline">${esc(agent)}</div></td>
         <td><span class="badge ${state==='PROSPECT_PENDING'?'amber':'green'}">${state==='PROSPECT_PENDING'?'Pending':'Completed by Marketing'}</span><div class="subline">${esc(prospectId|| (state==='PROSPECT_DONE'?'Confirmed in SKYVIALING':'-'))}</div></td>
-        <td><div>${esc(feeGroup||'-')}</div><div style="margin-top:5px"><span class="badge ${feeStatus==='READY'?'green':'amber'}">${esc(pretty(feeStatus))}</span></div>
-          <div style="margin-top:6px;display:flex;gap:6px;flex-wrap:wrap">${feeUrl?`<a class="ghost" target="_blank" href="${esc(feeUrl)}" style="text-decoration:none">Open Fee</a>`:''}${feeGroup?`<button class="ghost" onclick="refreshFeeStructure('${esc(r.ref)}')">Refresh</button>`:''}</div>
-        </td>
+        <td><div class="student">${esc(feeGroup||'-')}</div></td>
         <td><span class="badge ${activation==='ACTIVATED'?'green':'amber'}">${activation==='ACTIVATED'?'Done':'Pending'}</span><div class="subline">${esc(w['SKY Student ID']||'')}</div></td>
         <td><span class="badge ${state==='ACTIVE_IN_SKY_DONE'?'green':state==='PROSPECT_DONE'?'purple':'amber'}">${esc(pretty(state))}</span></td>
         <td><div style="display:flex;gap:6px;flex-wrap:wrap">${action}</div></td>
