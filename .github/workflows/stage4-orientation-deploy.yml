@@ -6,6 +6,7 @@ name: Stage 4 Orientation Deploy
 # official-report-v1
 # fee-structure-master-v1
 # fee-standardisation-v2
+# fee-intake-cleanup-v1
 
 on:
   push:
