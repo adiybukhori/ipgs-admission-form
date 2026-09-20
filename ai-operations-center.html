@@ -159,6 +159,7 @@
       .hero{grid-template-columns:1fr}.hero-main{padding:22px}.hero h1{font-size:27px}.kpis{grid-template-columns:repeat(2,1fr)}.kpi:nth-child(5){grid-column:1/-1}
       .agents-grid{grid-template-columns:1fr}.org{padding:20px 12px}.readiness{grid-template-columns:1fr}.brain-orb{width:60px;height:60px}.workspace{grid-template-columns:1fr}}
   </style>
+<link rel="stylesheet" href="/ai-agent-office.css">
 </head>
 <body>
 <div class="shell">
@@ -177,6 +178,16 @@
     </div>
   </header>
 
+  <nav class="ops-nav" aria-label="AI Operations Center views">
+    <button class="active" data-view="overview" type="button" onclick="switchOpsView('overview')">Overview</button>
+    <button data-view="ai-office" type="button" onclick="switchOpsView('ai-office')">AI Office</button>
+    <button data-view="decisions" type="button" onclick="switchOpsView('decisions')">Decisions</button>
+    <button data-view="exceptions" type="button" onclick="switchOpsView('exceptions')">Exceptions</button>
+    <button data-view="activity" type="button" onclick="switchOpsView('activity')">Activity</button>
+    <button data-view="performance" type="button" onclick="switchOpsView('performance')">Performance</button>
+  </nav>
+
+  <div class="ops-view active" data-view="overview" id="opsOverviewView">
   <section class="hero">
     <div class="hero-main">
       <div class="eyebrow">Agentic Registrar Office · Digital Workforce</div>
@@ -285,6 +296,94 @@
       <div class="ready-card"><div class="r-top"><span>Autonomous Action Governance</span><span class="tag amber">LATER</span></div><p>Action limits, approvals, rollback and audit policies will be activated before production autonomy.</p></div>
     </div>
   </section>
+  </div>
+
+  <section class="ops-view" data-view="ai-office" id="opsAiOfficeView">
+    <div class="ai-office-shell">
+      <div class="tab-shell">
+        <div class="tab-shell-head">
+          <div><div class="eyebrow">LIVE VISUAL LAYER · SIMULATION MODE</div><h2>AI Agent Office</h2><p>A digital IPGS Registrar Office visualising structured events, task ownership, handovers, waiting states and human authority gates. This prototype performs no production write actions.</p></div>
+          <div class="office-legend" aria-label="Agent state legend"><span><i class="lg-idle"></i>IDLE</span><span><i class="lg-working"></i>WORKING</span><span><i class="lg-handover"></i>HANDOVER</span><span><i class="lg-waiting"></i>WAITING</span><span><i class="lg-escalation"></i>ESCALATION</span></div>
+        </div>
+        <div class="tab-shell-body">
+          <div class="office-toolbar">
+            <div class="office-toolbar-left">
+              <label for="officeScenario">Scenario</label>
+              <select id="officeScenario" aria-label="Simulation scenario"></select>
+              <button id="officeRun" class="office-control primary" type="button">▶ Run Simulation</button>
+              <button id="officePause" class="office-control" type="button">Pause</button>
+              <button id="officeResume" class="office-control" type="button">Resume</button>
+              <button id="officeReset" class="office-control" type="button">Reset</button>
+            </div>
+            <div class="office-toolbar-right">
+              <span id="officeSimState" class="sim-state"><i></i>Ready</span>
+              <button id="officeMotionToggle" class="office-control" type="button" title="Optional visual motion control">Motion On</button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="pipeline-strip" aria-label="Structured backend event pipeline">
+        <div class="pipeline-step"><small>Event</small><b data-pipeline="event">Waiting</b></div>
+        <div class="pipeline-step"><small>Task</small><b data-pipeline="task">—</b></div>
+        <div class="pipeline-step"><small>Agent</small><b data-pipeline="agent">—</b></div>
+        <div class="pipeline-step"><small>Action</small><b data-pipeline="action">—</b></div>
+        <div class="pipeline-step"><small>Verification</small><b data-pipeline="verification">—</b></div>
+        <div class="pipeline-step"><small>Next Event</small><b data-pipeline="next">—</b></div>
+      </div>
+
+      <div class="office-board-wrap">
+        <div id="officeStage" class="office-stage" aria-label="Interactive AI Agent Office floor"></div>
+      </div>
+
+      <div class="office-bottom">
+        <section class="office-stream">
+          <div class="office-mini-head"><b>Live Handover Stream</b><span>Visual movement + auditable structured event log</span></div>
+          <div id="officeActivityFeed" class="office-feed">
+            <div class="office-feed-item"><time>SYSTEM</time><b>Simulation Engine</b><p>AI Office ready. Choose a scenario and run the frontend simulation.</p></div>
+          </div>
+        </section>
+        <section class="office-decision">
+          <div class="office-mini-head"><b>Registrar / Human Decision Desk</b><span>Workflow pauses when human authority is required</span></div>
+          <div id="officeHumanCase" class="human-case empty">No case is waiting for human authority. In simulation mode, a controlled escalation will appear here and the event chain will pause until a decision is recorded.</div>
+        </section>
+      </div>
+    </div>
+  </section>
+
+  <section class="ops-view" data-view="decisions" id="opsDecisionsView">
+    <div class="tab-shell"><div class="tab-shell-head"><div><div class="eyebrow">HUMAN AUTHORITY</div><h2>Decision Desk</h2><p>Cases and workflow signals that require human review or recorded authority.</p></div><span class="tag amber">CONTROLLED GATE</span></div><div id="decisionTabList" class="tab-shell-body decision-list"></div></div>
+  </section>
+
+  <section class="ops-view" data-view="exceptions" id="opsExceptionsView">
+    <div class="tab-shell"><div class="tab-shell-head"><div><div class="eyebrow">QUALITY CONTROL</div><h2>Exception Center</h2><p>Potential missing, incomplete, overdue or inconsistent workflow signals.</p></div><span class="tag red">WATCH</span></div><div id="exceptionTabList" class="tab-shell-body exceptions"></div></div>
+  </section>
+
+  <section class="ops-view" data-view="activity" id="opsActivityView">
+    <div class="tab-shell"><div class="tab-shell-head"><div><div class="eyebrow">AUDITABLE OPERATIONS</div><h2>Agent Activity & Handover Stream</h2><p>ACC audit activity and Simulation Mode events in one operational view.</p></div><span class="tag green">AUDITABLE</span></div><div id="activityTabFeed" class="tab-shell-body feed"></div></div>
+  </section>
+
+  <section class="ops-view" data-view="performance" id="opsPerformanceView">
+    <div class="tab-shell">
+      <div class="tab-shell-head"><div><div class="eyebrow">WORKFORCE TODAY</div><h2>Performance & Agentic Readiness</h2><p>Simulation metrics today and the technical readiness path toward a real event-driven agent runtime.</p></div><span class="tag green">SIMULATION METRICS</span></div>
+      <div class="tab-shell-body"><div id="performanceGrid" class="performance-grid"></div></div>
+    </div>
+    <div class="tab-shell" style="margin-top:16px">
+      <div class="tab-shell-head"><div><h2>Future Runtime Contract</h2><p>The visual office subscribes to structured agent-state events; it does not depend on free-form agent chat.</p></div></div>
+      <div class="readiness">
+        <div class="ready-card"><div class="r-top"><span>ACC Backend</span><span class="tag green">SOURCE</span></div><p>Operational student records and controlled case context.</p></div>
+        <div class="ready-card"><div class="r-top"><span>Event Bus / n8n</span><span class="tag amber">NEXT</span></div><p>Emits task and status events without changing the AI Office visual architecture.</p></div>
+        <div class="ready-card"><div class="r-top"><span>Agent Runtime / OpenAI</span><span class="tag amber">NEXT</span></div><p>Reasons about a case within encoded authority and tool limits.</p></div>
+        <div class="ready-card"><div class="r-top"><span>Agent State API</span><span class="tag amber">PLANNED</span></div><p>Publishes agent_status_changed, task_assigned, handover_started, handover_completed and human_decision_required.</p></div>
+      </div>
+    </div>
+  </section>
+
+  <aside id="officeDetailDrawer" class="office-detail-drawer" aria-label="Agent details" data-agent="">
+    <div class="drawer-head"><div><h3 id="officeDrawerTitle">Agent</h3><p id="officeDrawerSub">Operational role</p></div><button id="officeDrawerClose" type="button">Close</button></div>
+    <div id="officeDrawerBody" class="drawer-body"></div>
+  </aside>
+
   <div class="footer-note">IPGS AI Operations Center · Prototype shell connected to the existing ACC architecture · No OpenAI tokens are used in this version.</div>
 </div>
 
@@ -292,6 +391,7 @@
   const DATA_API='/api/admin-data';
   const password=sessionStorage.getItem('ipgsAdminPassword')||'';
   let state={apps:[],workflow:[],assessment:[],orientation:[],handover:[],activation:[],audit:[],decisions:0,exceptions:0};
+  window.AI_OPS_STATE=state;
 
   if(!password){ location.href='/admin.html'; }
 
@@ -493,5 +593,6 @@
 
   loadOps();
 </script>
+<script src="/ai-agent-office.js"></script>
 </body>
 </html>
