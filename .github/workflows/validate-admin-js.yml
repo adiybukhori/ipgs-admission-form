@@ -7,6 +7,7 @@ on:
       - 'admin.html'
       - 'orientation-admin.js'
       - 'handover-admin.js'
+      - 'fee-structure-admin.js'
       - 'api/admin-data.js'
       - '.github/workflows/validate-admin-js.yml'
   workflow_dispatch:
@@ -22,6 +23,7 @@ jobs:
         run: |
           node --check orientation-admin.js
           node --check handover-admin.js
+          node --check fee-structure-admin.js
       - name: Extract and check admin inline JavaScript
         run: |
           python - <<'PY'
