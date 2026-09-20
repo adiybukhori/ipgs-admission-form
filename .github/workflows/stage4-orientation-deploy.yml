@@ -2,7 +2,7 @@ name: Stage 4 Orientation Deploy
 # end-session-v1
 # milestone-reminders-v2
 # edit-ended-session-v1
-# attendance-url-fix-v1
+# feedback-form-v1
 
 on:
   push:
@@ -41,6 +41,8 @@ jobs:
           grep -F 'v2MoveOrientationStudent' orientation-admin.js
           grep -F 'orientation-actions' admin.html
           test -f orientation-attendance.html
+          grep -F 'fProgrammeStructure' orientation-attendance.html
+          grep -F 'Would you recommend this orientation session to future students?' orientation-attendance.html
           test -f api/orientation-attendance.js
 
       - name: Checkout Apps Script branch
@@ -63,6 +65,8 @@ jobs:
           grep -F 'function v2RemoveOrientationStudent_' apps-script-v2/OrientationV2.js
           grep -F 'function v2MoveOrientationStudent_' apps-script-v2/OrientationV2.js
           grep -F "V2_ORIENTATION_ATTENDANCE_BASE_URL = 'https://ipgs-admission-form.innovative.edu.my/orientation-attendance.html'" apps-script-v2/OrientationV2.js
+          grep -F 'Feedback Average Score' apps-script-v2/OrientationV2.js
+          grep -F 'IPGS_ORIENTATION_FEEDBACK_V2_20260920' apps-script-v2/OrientationV2.js
           grep -F "'v2RemoveOrientationStudent'" apps-script-v2/WorkflowV2.js
           grep -F "'v2MoveOrientationStudent'" apps-script-v2/WorkflowV2.js
           grep -F "'v2SendOrientationInvitation'" apps-script-v2/WorkflowV2.js
@@ -103,7 +107,7 @@ jobs:
       - name: Redeploy existing V2 web app
         env:
           V2_DEPLOYMENT_ID: AKfycbxasT_HgtRSvTbR_bsa8p17Cm-C2PKn20Ok1kU-AyJmxiKX8kX5EGOtRLwVwNlAL7JB
-        run: clasp create-deployment --deploymentId "$V2_DEPLOYMENT_ID" --description "Stage 4 fix Orientation attendance public URL"
+        run: clasp create-deployment --deploymentId "$V2_DEPLOYMENT_ID" --description "Stage 4 structured Orientation feedback form"
 
       - name: Remove clasp credential
         if: always()
