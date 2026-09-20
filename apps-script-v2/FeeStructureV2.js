@@ -49,6 +49,7 @@ function v2FeeStructureComponents_(raw){
   }
   if(!Array.isArray(arr)) return [];
   const allowed=[
+    'ACADEMIC_FEE',
     'COURSEWORK_FEE',
     'RESEARCH_FEE',
     'MIXED_MODE_FEE',
@@ -121,7 +122,7 @@ function v2UpsertFeeStructure_(data,actor){
   let tuition=0,registration=0,other=0;
   const otherDescriptions=[];
   components.forEach(function(item){
-    if(['COURSEWORK_FEE','RESEARCH_FEE','MIXED_MODE_FEE'].indexOf(item.type)>-1) tuition+=Number(item.amount||0);
+    if(['ACADEMIC_FEE','COURSEWORK_FEE','RESEARCH_FEE','MIXED_MODE_FEE'].indexOf(item.type)>-1) tuition+=Number(item.amount||0);
     else if(item.type==='REGISTRATION_FEE') registration+=Number(item.amount||0);
     else {
       other+=Number(item.amount||0);
