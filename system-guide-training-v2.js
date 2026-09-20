@@ -66,9 +66,150 @@ return '<div class="g2-summary"><b>MONITOR</b><i>→</i><b>OPEN</b><i>→</i><b>
 function ribbon(n){const a=[[1,'Apply'],[3,'Review'],[5,'SAC'],[7,'Offer'],[8,'Accept'],[9,'SKY'],[10,'Orientation'],[13,'Handover'],[14,'Provision'],[15,'Access']];return '<div class="g2-ribbon">'+a.map((x,i)=>'<span class="'+(n>x[0]?'done':n===x[0]?'active':'')+'"><i>'+(n>x[0]?'✓':i+1)+'</i><b>'+x[1]+'</b></span>'+(i<a.length-1?'<em>→</em>':'')).join('')+'</div>'}
 function moduleKey(s){const x=String(s).toLowerCase();if(x.includes('prospect'))return'activation';if(x.includes('orientation'))return'orientation';if(x.includes('handover'))return'handover';if(x.includes('fee'))return'feeStructure';if(x.includes('ia'))return'assessment';if(x==='sac')return'sac';return'applications'}
 window.guideOpenModule=function(k){if(document.fullscreenElement)document.exitFullscreen().catch(()=>{});if(k==='ai'){location.href='/ai-operations-center.html';return}const b=document.querySelector('.nav button[data-section="'+k+'"]');if(k==='orientation'&&window.goOrientation)return goOrientation(b);if(k==='handover'&&window.goHandover)return goHandover(b);if(k==='activation'&&window.goActivation)return goActivation(b);if(window.go)return go(k,b)};
-function flow(){return '<div class="g2-flow">'+Object.keys(phases).map(k=>'<section class="'+phases[k][1]+'"><header><b>'+phases[k][0]+'</b><span>Steps '+phases[k][2]+'</span></header><div>'+steps.filter(s=>s[1]===k).map((s,i,a)=>'<button onclick="openGuideFlowStep('+s[0]+')"><em>'+String(s[0]).padStart(2,'0')+'</em><b>'+s[2]+'</b><small>'+s[3]+'</small></button>'+(i<a.length-1?'<i>➜</i>':'')).join('')+'</div></section>').join('<strong>⬇</strong>')+'</div>'}
-window.openGuideFlowStep=function(n){const s=steps.find(x=>x[0]===Number(n));if(!s)return;document.getElementById('g2FlowModal')?.remove();const d=document.createElement('div');d.id='g2FlowModal';d.className='g2-fmodal';d.innerHTML='<article><header><div><small>STEP '+String(s[0]).padStart(2,'0')+' · '+s[4]+'</small><h3>'+s[2]+'</h3></div><button onclick="document.getElementById(\'g2FlowModal\').remove()">Close</button></header><div class="g2-fgrid"><div><small>OWNER</small><b>'+s[3]+'</b></div><div><small>ACTION</small><b>'+s[5]+'</b></div><div><small>OUTPUT</small><b>'+s[6]+'</b></div></div><footer><button onclick="guideOpenModule(\''+moduleKey(s[4])+'\')">Open Live Module</button></footer></article>';document.body.appendChild(d)};
-function renderFlow(){const r=document.getElementById('guideFlowView');if(r)r.innerHTML='<div class="guide-training-intro"><div><div class="guide-training-kicker">DETAILED PROCESS MAP · V2</div><h3>ACC Student Journey</h3><p>Compact lanes show ownership and movement. Click any stage for owner, action, output and a shortcut to the live module.</p></div><button class="primary" onclick="openGuideSlides(1)">Present Student Journey</button></div>'+flow()+'<div class="guide-flow-boundaries"><div><b>Prospect / Activation</b><span>Standalone SKY operational record.</span></div><div><b>Orientation</b><span>Own session, attendance, feedback, recording and report.</span></div><div><b>Academic Handover</b><span>Own provisioning and Student Access.</span></div></div>'}
+const flowV3={
+  master:[
+    {id:'consultants',no:'M1',title:'Academic Consultant Master',owner:'Admin',module:'Academic Consultants',trigger:'Before referral / application operations',action:'Maintain active consultant records and unique referral attribution.',output:'Valid consultant identity + referral link',next:'Application / Prospect operations',moduleKey:'applications'},
+    {id:'fees',no:'M2',title:'Fee Structure Master',owner:'Registry / Bursary Control',module:'Fee Structure',trigger:'Before agent Fee Group selection',action:'Maintain Programme, Level, Study Mode, Intake, fee components, payment schedule and approved PDF.',output:'ACTIVE selectable Fee Groups',next:'Consultant Fee Group selection',moduleKey:'feeStructure'}
+  ],
+  intake:[
+    {id:'application',no:'01',title:'Application Submitted',owner:'Student + System',module:'Applications',trigger:'Student submits online Admission Form',action:'Capture applicant data and required uploads. System creates Reference No, student folder, Admission Form PDF, workflow record and acknowledgement.',output:'Controlled application record',next:'Admission review + consultant Prospect task',moduleKey:'applications'},
+    {id:'prospect',no:'P1',title:'Consultant Creates SKY Prospect',owner:'Academic Consultant / Marketing',module:'Prospect / Activation',trigger:'New-application notification received',action:'Create Prospect in SKY, return to the action page, enter SKY Prospect ID, select the applicable ACTIVE Fee Group and mark Prospect Done.',output:'Prospect Done + SKY Prospect ID + Fee Group',next:'Registry SKY Activation track',moduleKey:'activation'}
+  ],
+  admission:[
+    {id:'documents',no:'02',title:'Document Review',owner:'Registry',module:'Applications → Documents',trigger:'Application available for Registry review',action:'Verify uploaded admission documents and controlled checklist evidence. Regenerate PG-ADM-01 only when a refreshed controlled copy is required.',output:'Document Review completed',next:'Qualification Screening',moduleKey:'applications'},
+    {id:'screening',no:'03',title:'Qualification Screening',owner:'Registry',module:'Applications → Screening',trigger:'Document review completed / sufficient for screening',action:'Review academic field relationship and relevant experience where applicable. AI/document screening may assist, but does not make the authorised decision.',output:'Screening recommendation',next:'SAC',moduleKey:'applications'},
+    {id:'sac',no:'04',title:'SAC Review',owner:'Registry + SAC',module:'SAC',trigger:'Candidate ready for formal decision',action:'Create/select SAC session, assign candidate, prepare controlled SAC pack and record the authorised result.',output:'Direct Entry · Internal Assessment · Rejected / Not Qualified',next:'Branch by SAC result',moduleKey:'sac'},
+    {id:'ia',no:'05A',title:'Internal Assessment',owner:'Registry / Academic',module:'IA / PREREQ',trigger:'SAC result = Internal Assessment',action:'Run and record the approved IA process and outcome.',output:'IA sufficient OR prerequisite required',next:'Offer route or PREREQ',moduleKey:'assessment'},
+    {id:'prereq',no:'05B',title:'Prerequisite Course',owner:'Registry / Academic',module:'IA / PREREQ',trigger:'Authorised IA outcome requires prerequisite',action:'Enrol, monitor and complete the approved prerequisite subjects. PREREQ is never selected directly as the SAC result.',output:'Prerequisite completion evidence',next:'Return to Offer eligibility',moduleKey:'assessment'},
+    {id:'offer',no:'06',title:'Official Offer',owner:'Registry',module:'Applications → Offer & Acceptance',trigger:'Approved admission route completed and case eligible',action:'Generate and send the Official Offer Letter. Store issue status, PDF and timestamp.',output:'Offer issued',next:'Electronic Acceptance',moduleKey:'applications'},
+    {id:'acceptance',no:'07',title:'Electronic Acceptance',owner:'Student + System',module:'Applications → Offer & Acceptance',trigger:'Offer issued',action:'Student opens the Acceptance link and signs electronically. System stores the signed record and timestamp.',output:'Acceptance received / admission confirmed',next:'Post-admission operational workstreams',moduleKey:'applications'},
+    {id:'rejected',no:'X',title:'Rejected / Not Qualified',owner:'SAC / Registry',module:'Applications',trigger:'SAC result = Rejected / Not Qualified',action:'Record the authorised decision and close the admission route in accordance with the controlled process.',output:'Admission route closed',next:'No Offer',moduleKey:'applications'}
+  ],
+  activation:[
+    {id:'activation',no:'A1',title:'Registry SKY Activation',owner:'Registry',module:'Prospect / Activation',trigger:'Consultant Prospect task is complete and Registry is ready to activate',action:'Confirm Prospect Done, activate/register the student in SKY and record Student ID / Registration No. when available.',output:'Active in SKY Done',next:'Operational SKY status complete',moduleKey:'activation'}
+  ],
+  orientation:[
+    {id:'ori-session',no:'O1',title:'Create Session & Add Students',owner:'Registry',module:'Orientation',trigger:'Registry schedules an Orientation session',action:'Create session, open View Session and Add Students. Adding students does not send invitation automatically.',output:'Orientation roster prepared',next:'Send Invitation',moduleKey:'orientation'},
+    {id:'ori-invite',no:'O2',title:'Invitation & Reminder',owner:'Registry / System',module:'Orientation → Communication',trigger:'Roster reviewed',action:'Explicitly Send Invitation. Reminders apply only to students whose invitation has been sent.',output:'Invitation communication recorded',next:'Run Session',moduleKey:'orientation'},
+    {id:'ori-attendance',no:'O3',title:'Attendance & Feedback',owner:'Registry + Student',module:'Orientation → Attendance & Feedback',trigger:'During the Orientation session',action:'Registry opens attendance. Student confirms through personal link or QR and completes feedback. Staff closes attendance manually and may resolve exceptions.',output:'Attendance + feedback evidence',next:'Recording & Completion',moduleKey:'orientation'},
+    {id:'ori-complete',no:'O4',title:'Recording, Completion & Report',owner:'Registry',module:'Orientation → Recording & Completion',trigger:'Session ended and completion checks ready',action:'Add recording, explicitly Send Recording, complete Orientation and generate the official PDF report. Completed records are locked; use revision controls for changes.',output:'Completed Orientation record + official report',next:'Orientation record complete',moduleKey:'orientation'}
+  ],
+  handover:[
+    {id:'ho-session',no:'H1',title:'Create Handover & Add Students',owner:'Registry',module:'Academic Handover',trigger:'Registry determines student is operationally ready for handover',action:'Create Handover Session, open View Handover and add the student roster.',output:'Handover roster ready',next:'Handover Now',moduleKey:'handover'},
+    {id:'ho-send',no:'H2',title:'Handover Now & Communication',owner:'Registry',module:'Academic Handover → Communication',trigger:'Handover roster ready',action:'Send Handover Now. Academic and configured IT / Moodle / e-Library PICs receive the operational information.',output:'Handover communication + PIC tasks',next:'Provisioning',moduleKey:'handover'},
+    {id:'ho-provision',no:'H3',title:'Provisioning',owner:'IT / Moodle / e-Library + Registry',module:'Academic Handover → Provisioning',trigger:'PIC tasks issued',action:'Complete Innovative Email, Moodle and e-Library access while Registry monitors all service statuses.',output:'Required provisioning completed',next:'Student Access',moduleKey:'handover'},
+    {id:'ho-access',no:'H4',title:'Student Access & Complete',owner:'Registry',module:'Academic Handover → Student Access',trigger:'Required provisioning complete',action:'Send final Student Access communication and complete the handover record.',output:'Access delivered + operational handover complete',next:'Academic ownership / active student operations',moduleKey:'handover'}
+  ]
+};
+
+function flowV3Card(s,extra=''){
+  return '<button type="button" class="g3-node '+extra+'" onclick="openGuideFlowStepV3(\''+s.id+'\')">'+
+    '<div class="g3-node-top"><em>'+esc(s.no)+'</em><span>'+esc(s.module)+'</span></div>'+
+    '<b>'+esc(s.title)+'</b><small>'+esc(s.owner)+'</small>'+
+    '<p>'+esc(s.action)+'</p>'+
+    '<div class="g3-output"><strong>OUTPUT</strong><span>'+esc(s.output)+'</span></div>'+
+  '</button>';
+}
+
+function flowV3Arrow(label=''){
+  return '<div class="g3-arrow"><i>→</i>'+(label?'<span>'+esc(label)+'</span>':'')+'</div>';
+}
+
+function renderFlowV3(){
+  const m=flowV3.master,i=flowV3.intake,a=flowV3.admission,act=flowV3.activation,o=flowV3.orientation,h=flowV3.handover;
+  const byId=(arr,id)=>arr.find(x=>x.id===id);
+  return '<div class="g3-map">'+
+    '<section class="g3-foundation">'+
+      '<div class="g3-section-head"><div><small>FOUNDATION CONTROLS</small><h4>Master data that feeds the operational journey</h4></div><span>Maintain before use</span></div>'+
+      '<div class="g3-master-row">'+flowV3Card(m[0],'master')+flowV3Arrow('+')+flowV3Card(m[1],'master')+'</div>'+
+    '</section>'+
+
+    '<section class="g3-stage-block intake">'+
+      '<div class="g3-section-head"><div><small>PHASE 1 · ENTRY & CAPTURE</small><h4>One application creates two operational tracks</h4></div><span>Application is the common trigger</span></div>'+
+      '<div class="g3-entry">'+
+        flowV3Card(i[0],'hero-node')+
+        '<div class="g3-split"><span></span><b>Application creates work for both Registry and Consultant</b><span></span></div>'+
+        '<div class="g3-entry-branches">'+
+          '<div class="g3-branch-card"><label>ADMISSION REVIEW TRACK</label><div class="g3-branch-start">Registry begins controlled review when the case is operationally ready.</div></div>'+
+          '<div class="g3-branch-card prospect"><label>SKY PROSPECT TRACK</label>'+flowV3Card(i[1],'compact')+'<div class="g3-branch-note">This track is recorded in Prospect / Activation and does not replace the admission decision process.</div></div>'+
+        '</div>'+
+      '</div>'+
+    '</section>'+
+
+    '<section class="g3-stage-block admission">'+
+      '<div class="g3-section-head"><div><small>PHASE 2 · ADMISSION DECISION SPINE</small><h4>Registry review → formal SAC decision → approved admission route</h4></div><span>Formal decision path</span></div>'+
+      '<div class="g3-linear">'+
+        flowV3Card(byId(a,'documents'))+flowV3Arrow()+flowV3Card(byId(a,'screening'))+flowV3Arrow()+flowV3Card(byId(a,'sac'),'decision-node')+
+      '</div>'+
+      '<div class="g3-decision-title"><span>SAC DECISION</span><b>Choose the authorised route</b></div>'+
+      '<div class="g3-sac-branches">'+
+        '<div class="g3-route direct"><div class="g3-route-tag">DIRECT ENTRY</div><div class="g3-route-copy"><b>Eligible without IA</b><span>Proceed to Offer eligibility.</span></div></div>'+
+        '<div class="g3-route ia"><div class="g3-route-tag">INTERNAL ASSESSMENT</div>'+flowV3Card(byId(a,'ia'),'compact')+
+          '<div class="g3-ia-decision"><b>IA OUTCOME</b><div><span>✓ Sufficient → Offer route</span><span>↓ Prerequisite required</span></div></div>'+
+          flowV3Card(byId(a,'prereq'),'compact')+
+          '<div class="g3-return">↩ PREREQ complete → return to Offer eligibility</div>'+
+        '</div>'+
+        '<div class="g3-route rejected"><div class="g3-route-tag">REJECTED / NOT QUALIFIED</div>'+flowV3Card(byId(a,'rejected'),'compact')+'</div>'+
+      '</div>'+
+      '<div class="g3-merge"><span>DIRECT ENTRY</span><i>+</i><span>IA SUFFICIENT</span><i>+</i><span>PREREQ COMPLETED</span><b>↓</b><strong>ELIGIBLE FOR OFFER</strong></div>'+
+      '<div class="g3-linear short">'+flowV3Card(byId(a,'offer'))+flowV3Arrow()+flowV3Card(byId(a,'acceptance'),'success-node')+'</div>'+
+    '</section>'+
+
+    '<section class="g3-stage-block operations">'+
+      '<div class="g3-section-head"><div><small>PHASE 3 · OPERATIONAL WORKSTREAMS</small><h4>Different modules can progress on their own operational triggers</h4></div><span>No artificial cross-module gate</span></div>'+
+      '<div class="g3-principle"><b>Important:</b> these are <strong>parallel operational workstreams</strong>, not one mandatory chain called “Standalone Operations”. Orientation does not have to complete before Academic Handover, and SKY Activation follows Prospect / Activation controls rather than an invented admission-stage gate.</div>'+
+      '<div class="g3-workstreams">'+
+        '<article class="g3-workstream activation"><header><div><small>WORKSTREAM A</small><h5>SKY Prospect / Activation</h5></div><span>Operational status</span></header>'+
+          '<div class="g3-origin">From Consultant Prospect Done</div>'+flowV3Card(act[0],'compact')+
+          '<div class="g3-workstream-end">✓ Active in SKY Done</div>'+
+        '</article>'+
+        '<article class="g3-workstream orientation"><header><div><small>WORKSTREAM B</small><h5>Orientation</h5></div><span>Session lifecycle</span></header>'+
+          o.map((s,idx)=>flowV3Card(s,'compact')+(idx<o.length-1?'<div class="g3-down">↓</div>':'')).join('')+
+          '<div class="g3-workstream-end">✓ Official Orientation record complete</div>'+
+        '</article>'+
+        '<article class="g3-workstream handover"><header><div><small>WORKSTREAM C</small><h5>Academic Handover</h5></div><span>Provisioning + access</span></header>'+
+          h.map((s,idx)=>flowV3Card(s,'compact')+(idx<h.length-1?'<div class="g3-down">↓</div>':'')).join('')+
+          '<div class="g3-workstream-end">✓ Operational handover complete</div>'+
+        '</article>'+
+      '</div>'+
+    '</section>'+
+
+    '<section class="g3-outcome">'+
+      '<div class="g3-section-head"><div><small>OPERATIONAL OUTCOMES</small><h4>What ACC should make visible at the end</h4></div><span>Not one hidden status</span></div>'+
+      '<div class="g3-outcome-grid">'+
+        '<div><em>01</em><b>Admission Confirmed</b><span>Offer issued + Acceptance recorded</span></div>'+
+        '<div><em>02</em><b>SKY Status Visible</b><span>Prospect / activation status and IDs recorded</span></div>'+
+        '<div><em>03</em><b>Orientation Record Visible</b><span>Invitation, attendance, feedback, recording and report remain auditable</span></div>'+
+        '<div><em>04</em><b>Academic Access Delivered</b><span>Provisioning completed + Student Access sent</span></div>'+
+      '</div>'+
+      '<div class="g3-final"><span>REGISTRY OPERATIONS</span><i>→</i><b>Academic Ownership / Active Student Operations</b></div>'+
+    '</section>'+
+  '</div>';
+}
+
+window.openGuideFlowStepV3=function(id){
+  const groups=Object.values(flowV3).flat();
+  const s=groups.find(x=>x.id===id);if(!s)return;
+  document.getElementById('g2FlowModal')?.remove();
+  const d=document.createElement('div');d.id='g2FlowModal';d.className='g2-fmodal';
+  d.innerHTML='<article class="g3-detail-modal"><header><div><small>'+esc(s.no)+' · '+esc(s.module)+'</small><h3>'+esc(s.title)+'</h3></div><button onclick="document.getElementById(\'g2FlowModal\').remove()">Close</button></header>'+
+    '<div class="g3-detail-owner"><span>OWNER</span><b>'+esc(s.owner)+'</b></div>'+
+    '<div class="g3-detail-grid">'+
+      '<div><small>TRIGGER</small><b>'+esc(s.trigger)+'</b></div>'+
+      '<div><small>ACTION</small><b>'+esc(s.action)+'</b></div>'+
+      '<div><small>OUTPUT</small><b>'+esc(s.output)+'</b></div>'+
+      '<div><small>NEXT / BRANCH</small><b>'+esc(s.next)+'</b></div>'+
+    '</div>'+
+    '<footer><button onclick="guideOpenModule(\''+esc(s.moduleKey||moduleKey(s.module))+'\')">Open Live Module</button></footer></article>';
+  document.body.appendChild(d);
+};
+
+function renderFlow(){
+  const r=document.getElementById('guideFlowView');if(!r)return;
+  r.innerHTML='<div class="guide-training-intro"><div><div class="guide-training-kicker">DETAILED PROCESS ARCHITECTURE · V3</div><h3>ACC End-to-End Student Journey</h3><p>This view separates the formal admission decision spine from parallel operational workstreams. Click any stage to see its trigger, owner, action, output and next route.</p></div><button class="primary" onclick="openGuideSlides(1)">Present Student Journey</button></div>'+
+    '<div class="g3-legend"><span><i class="student"></i>Student / External</span><span><i class="registry"></i>Registry</span><span><i class="decision"></i>Decision / Academic</span><span><i class="ops"></i>Operational Workstream</span></div>'+
+    renderFlowV3();
+}
 function renderSlide(){const r=document.getElementById('guideSlideStage');if(!r)return;idx=Math.max(0,Math.min(slides.length-1,idx));const s=slides[idx];r.innerHTML='<article class="guide-slide g2-v2"><header><div class="guide-slide-logos"><img src="'+L1+'"><img src="'+L2+'"></div><small>'+(idx+1)+' / '+slides.length+'</small></header>'+ribbon(s[3])+'<div class="guide-slide-heading"><div class="guide-slide-kicker">'+s[0]+'</div><h2>'+s[1]+'</h2><p>'+s[2]+'</p></div><div class="g2-layout"><div><label>LIVE SYSTEM PREVIEW · TRAINING DATA</label>'+preview(s[4])+'</div><aside><header><b>Trainer Notes</b><button onclick="guideOpenModule(\''+s[5]+'\')">Open Live Module ↗</button></header>'+s[6].map((x,i)=>'<p><em>'+(i+1)+'</em><span>'+x+'</span></p>').join('')+'</aside></div><footer><span>IUC · IPGS Admission Command Center</span><span>System Training Guide · September 2026</span></footer></article>';const q=document.getElementById('guideSlideSelect');if(q)q.value=idx;const c=document.getElementById('guideSlideCounter');if(c)c.textContent=(idx+1)+' / '+slides.length;const b=document.getElementById('guideSlideProgressBar');if(b)b.style.width=((idx+1)/slides.length*100)+'%'}
 function shell(){const r=document.getElementById('guideSlidesView');if(!r)return;r.innerHTML='<div class="guide-slide-toolbar"><div class="guide-slide-nav"><button class="ghost" onclick="guideSlideMove(-1)">← Previous</button><select id="guideSlideSelect" onchange="guideSlideJump(this.value)">'+slides.map((s,i)=>'<option value="'+i+'">'+String(i+1).padStart(2,'0')+' · '+s[1]+'</option>').join('')+'</select><button class="primary" onclick="guideSlideMove(1)">Next →</button></div><div class="guide-slide-nav"><span id="guideSlideCounter" class="badge purple"></span><button class="ghost" onclick="toggleGuideFullscreen()">⛶ Fullscreen</button></div></div><div class="guide-slide-progress"><span id="guideSlideProgressBar"></span></div><div id="guideSlideStage" class="guide-slide-stage"></div><div class="guide-slide-help">Click numbered hotspots. Use Open Live Module for a real demo. ← / → moves between slides.</div>';renderSlide()}
 window.setGuideMode=function(m){mode=['sop','flow','slides'].includes(m)?m:'sop';[['sop','Sop'],['flow','Flow'],['slides','Slides']].forEach(x=>{const e=document.getElementById('guide'+x[1]+'View');if(e)e.style.display=x[0]===mode?'block':'none';const b=document.querySelector('[data-guide-mode="'+x[0]+'"]');if(b){b.classList.toggle('primary',x[0]===mode);b.classList.toggle('ghost',x[0]!==mode)}});if(mode==='flow')renderFlow();if(mode==='slides')shell()};
