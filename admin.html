@@ -245,6 +245,107 @@
     .guide-role-card h4{margin:0 0 8px;color:var(--purple);font-size:13px}
     .guide-role-card ol,.guide-role-card ul{margin:0;padding-left:18px;color:#50596a;font-size:11px;line-height:1.6}
     .guide-role-card li+li{margin-top:4px}
+    .guide-training-switch{display:flex;gap:8px;flex-wrap:wrap;margin:0 0 18px}
+    .guide-training-switch .primary,.guide-training-switch .ghost{min-height:38px}
+    .guide-training-intro{display:flex;align-items:flex-end;justify-content:space-between;gap:18px;margin-bottom:16px}
+    .guide-training-kicker{font-size:10px;letter-spacing:.08em;text-transform:uppercase;font-weight:900;color:var(--purple);margin-bottom:5px}
+    .guide-training-intro h3{margin:0 0 5px;font-size:22px}
+    .guide-training-intro p{margin:0;color:var(--muted);font-size:12px;line-height:1.55;max-width:840px}
+    .guide-training-actions{display:flex;gap:8px;flex-wrap:wrap}
+    .guide-flow-legend{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:14px}
+    .guide-flow-chip{border-radius:999px;padding:6px 9px;font-size:9px;font-weight:900}
+    .guide-flow-chip.purple{background:var(--purpleSoft);color:var(--purple)}
+    .guide-flow-chip.blue{background:var(--blueSoft);color:var(--blue)}
+    .guide-flow-chip.amber{background:var(--amberSoft);color:var(--amber)}
+    .guide-flow-chip.green{background:var(--greenSoft);color:var(--green)}
+    .guide-visual-flow{display:grid;gap:12px}
+    .guide-visual-phase{border:1px solid var(--line);border-radius:18px;background:#fff;overflow:hidden}
+    .guide-visual-phase.purple{border-color:#dcd4f4}
+    .guide-visual-phase.blue{border-color:#d5e9f8}
+    .guide-visual-phase.amber{border-color:#f2dfb7}
+    .guide-visual-phase.green{border-color:#cdebdc}
+    .guide-visual-phase-head{display:flex;align-items:center;gap:10px;padding:13px 15px;background:#fafbfc;border-bottom:1px solid var(--line)}
+    .guide-visual-phase-head>span{width:30px;height:30px;border-radius:10px;display:grid;place-items:center;background:var(--purple);color:#fff;font-size:11px;font-weight:900}
+    .guide-visual-phase-head b{display:block;font-size:13px}
+    .guide-visual-phase-head small{display:block;color:var(--muted);font-size:9px;margin-top:2px}
+    .guide-visual-nodes{padding:15px}
+    .guide-visual-node{display:grid;grid-template-columns:34px 1fr;gap:10px;align-items:start;border:1px solid #edf0f4;border-radius:13px;padding:11px 12px;background:#fff}
+    .guide-visual-node-no{width:28px;height:28px;border-radius:50%;display:grid;place-items:center;background:var(--purpleSoft);color:var(--purple);font-size:10px;font-weight:900}
+    .guide-visual-node strong{display:block;font-size:12px}
+    .guide-visual-node p{margin:3px 0 0;color:var(--muted);font-size:10px;line-height:1.45}
+    .guide-visual-arrow,.guide-phase-arrow{text-align:center;color:#9ca3af;font-size:18px;font-weight:900;line-height:1.2}
+    .guide-phase-arrow{font-size:24px;margin:-4px 0}
+    .guide-flow-boundaries{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;margin-top:14px}
+    .guide-flow-boundaries>div{border-left:4px solid #e6a62d;background:#fff8e9;border-radius:12px;padding:11px 12px}
+    .guide-flow-boundaries b{display:block;font-size:10px;color:#77510c;margin-bottom:4px}
+    .guide-flow-boundaries span{font-size:10px;line-height:1.45;color:#775b28}
+    .guide-slide-toolbar{display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:10px}
+    .guide-slide-nav{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+    .guide-slide-nav select{border:1px solid var(--line);border-radius:10px;background:#fff;padding:9px 10px;color:var(--ink);font-weight:700;min-width:280px;max-width:440px}
+    .guide-slide-progress{height:4px;background:#e9e7f3;border-radius:999px;overflow:hidden;margin-bottom:12px}
+    .guide-slide-progress span{display:block;height:100%;background:var(--purple);transition:width .25s ease}
+    .guide-slide-stage{background:#16102f;border-radius:18px;padding:18px;box-shadow:0 18px 50px rgba(29,20,67,.2)}
+    .guide-slide{aspect-ratio:16/9;width:100%;background:#fff;border-radius:12px;overflow:hidden;display:grid;grid-template-rows:auto auto 1fr auto;padding:26px 32px;box-shadow:0 5px 18px rgba(0,0,0,.12)}
+    .guide-slide header{display:flex;justify-content:space-between;align-items:flex-start;gap:16px}
+    .guide-slide-logos{display:flex;align-items:center;gap:14px}
+    .guide-slide-logos img{height:34px;max-width:120px;object-fit:contain}
+    .guide-slide-count{font-size:10px;color:var(--muted);font-weight:800}
+    .guide-slide-heading{padding-top:10px}
+    .guide-slide-kicker{font-size:9px;letter-spacing:.12em;text-transform:uppercase;color:var(--purple);font-weight:900}
+    .guide-slide-heading h2{margin:6px 0 5px;font-size:28px;line-height:1.1;color:#171b2b}
+    .guide-slide-heading p{margin:0;color:#6c7485;font-size:12px}
+    .guide-slide-body{min-height:0;display:flex;flex-direction:column;justify-content:center;padding:10px 0}
+    .guide-slide footer{display:flex;justify-content:space-between;align-items:center;border-top:1px solid #eceef2;padding-top:8px;color:#8b93a3;font-size:8px}
+    .guide-slide-list{margin:0;padding-left:20px;display:grid;gap:9px;font-size:13px;line-height:1.45;color:#3d4554}
+    .guide-slide-list li::marker{color:var(--purple)}
+    .guide-slide-cover{display:grid;grid-template-columns:.6fr 1.4fr;gap:28px;align-items:center}
+    .guide-slide-cover-mark{height:150px;border-radius:28px;background:linear-gradient(135deg,#21164f,#4c36a0);color:#fff;display:grid;place-items:center;font-size:48px;font-weight:950;letter-spacing:.05em}
+    .guide-slide-module-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px}
+    .guide-slide-module{border:1px solid #e5e7ee;border-radius:14px;padding:12px;background:#fbfbfd}
+    .guide-slide-module b{display:block;color:var(--purple);font-size:12px;margin-bottom:8px}
+    .guide-slide-module span{display:block;font-size:10px;color:#555e70;padding:4px 0}
+    .guide-slide-callout{margin-top:12px;border-left:4px solid #d99a22;background:#fff8e9;border-radius:10px;padding:10px 12px;color:#715016;font-size:10px;line-height:1.45}
+    .guide-slide-timeline{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:7px}
+    .guide-slide-timeline-item{border:1px solid #e7e9ef;border-radius:12px;padding:8px;background:#fafbfc;min-height:58px}
+    .guide-slide-timeline-item em{display:block;font-style:normal;font-size:8px;color:var(--purple);font-weight:900;margin-bottom:5px}
+    .guide-slide-timeline-item span{font-size:9px;font-weight:800;line-height:1.25;color:#3d4554}
+    .guide-slide-process{display:grid;grid-template-columns:1fr auto 1fr auto 1fr auto 1fr;gap:7px;align-items:stretch}
+    .guide-slide-process-step{border:1px solid #e3e6ed;border-radius:14px;padding:12px;background:#fbfbfd;display:grid;grid-template-columns:28px 1fr;gap:8px;align-items:start}
+    .guide-slide-process-no{width:26px;height:26px;border-radius:50%;display:grid;place-items:center;background:var(--purple);color:#fff;font-size:9px;font-weight:900}
+    .guide-slide-process-step b{display:block;font-size:10px;margin-bottom:4px}
+    .guide-slide-process-step span{font-size:9px;color:#697386;line-height:1.35}
+    .guide-slide-process-arrow{display:grid;place-items:center;color:#a6aabb;font-size:15px;font-weight:900}
+    .guide-slide-decision{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;margin-bottom:16px}
+    .guide-slide-decision-card{border-radius:14px;padding:14px;border:1px solid #e4e6ec;background:#fbfbfd}
+    .guide-slide-decision-card b{display:block;font-size:12px;margin-bottom:5px}
+    .guide-slide-decision-card span{font-size:10px;color:#646d7e;line-height:1.4}
+    .guide-slide-decision-card.d0{border-top:4px solid #158467}.guide-slide-decision-card.d1{border-top:4px solid #3b5eaa}.guide-slide-decision-card.d2{border-top:4px solid #bc4d45}
+    .guide-slide-journey{display:flex;gap:7px;align-items:stretch;flex-wrap:wrap;margin-bottom:14px}
+    .guide-slide-journey-step{flex:1 1 90px;min-width:90px;border:1px solid #e2e5ec;border-radius:12px;padding:9px;background:#fbfbfd}
+    .guide-slide-journey-step em{font-style:normal;display:block;color:var(--purple);font-size:8px;font-weight:900;margin-bottom:4px}
+    .guide-slide-journey-step b{font-size:9px;line-height:1.25}
+    .guide-slide-master{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
+    .guide-slide-master>div{border:1px solid #e4e6ec;border-radius:13px;padding:12px;background:#fbfbfd}
+    .guide-slide-master b{display:block;color:var(--purple);font-size:11px;margin-bottom:4px}
+    .guide-slide-master span{font-size:10px;line-height:1.4;color:#616a7b}
+    .guide-slide-agent-org{text-align:center}
+    .guide-slide-agent{border:1px solid #ddd8ef;border-radius:13px;background:#faf8ff;padding:11px;text-align:left}
+    .guide-slide-agent.boss{width:40%;margin:auto}
+    .guide-slide-agent b{display:block;color:#302360;font-size:10px;margin-bottom:3px}
+    .guide-slide-agent span{font-size:9px;color:#697386}
+    .guide-slide-agent-line{height:22px;width:2px;background:#d8d3e9;margin:auto}
+    .guide-slide-agent-grid{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:7px}
+    .guide-slide-rules{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:9px}
+    .guide-slide-rules>div{display:grid;grid-template-columns:30px 110px 1fr;gap:8px;border:1px solid #e4e6ec;border-radius:12px;padding:10px;background:#fbfbfd;align-items:start}
+    .guide-slide-rules em{font-style:normal;color:var(--purple);font-size:9px;font-weight:900}
+    .guide-slide-rules b{font-size:10px}.guide-slide-rules span{font-size:9px;line-height:1.4;color:#626b7c}
+    .guide-slide-closing{margin-top:16px;background:linear-gradient(135deg,#21164f,#3e2b7b);color:#fff;border-radius:14px;padding:13px 15px;font-size:11px;line-height:1.45;font-weight:750}
+    .guide-slide-help{text-align:center;color:var(--muted);font-size:10px;margin-top:9px}
+    #guideSlidesView:fullscreen{background:#100b26;padding:20px;overflow:auto}
+    #guideSlidesView:fullscreen .guide-slide-toolbar{position:sticky;top:0;z-index:2;background:#100b26;padding:10px 0}
+    #guideSlidesView:fullscreen .guide-slide-stage{max-width:1500px;margin:auto}
+    @media(max-width:900px){.guide-flow-boundaries{grid-template-columns:1fr}.guide-slide-module-grid{grid-template-columns:repeat(2,1fr)}.guide-slide-process{grid-template-columns:1fr}.guide-slide-process-arrow{transform:rotate(90deg)}.guide-slide-agent-grid{grid-template-columns:repeat(2,1fr)}.guide-slide-rules{grid-template-columns:1fr}}
+    @media(max-width:700px){.guide-training-intro{align-items:flex-start;flex-direction:column}.guide-slide-stage{padding:8px;overflow:auto}.guide-slide{min-width:820px}.guide-slide-toolbar{align-items:flex-start}.guide-slide-nav select{min-width:220px;max-width:75vw}}
 
     .sac-mobile-list{display:none}
     .sac-mobile-card{border:1px solid var(--line);border-radius:16px;background:#fff;padding:15px;box-shadow:0 4px 16px rgba(29,37,59,.05)}
@@ -501,6 +602,16 @@
             <span class="badge green">CURRENT OPERATING GUIDE · SEP 2026</span>
           </div>
 
+          <div class="guide-training-switch" aria-label="System Guide display mode">
+            <button class="primary" type="button" data-guide-mode="sop" onclick="setGuideMode('sop')">☰ SOP Guide</button>
+            <button class="ghost" type="button" data-guide-mode="flow" onclick="setGuideMode('flow')">⇢ Detailed Flowchart</button>
+            <button class="ghost" type="button" data-guide-mode="slides" onclick="setGuideMode('slides')">▣ Training Slides</button>
+          </div>
+
+          <div id="guideFlowView" class="guide-mode-view" style="display:none"></div>
+          <div id="guideSlidesView" class="guide-mode-view" style="display:none"></div>
+          <div id="guideSopView" class="guide-mode-view">
+
           <div class="guide-callout blue" style="margin-bottom:18px">
             <b>Operating model:</b> the ACC combines several operational modules, but not every module is a hard gate for another. Admission workflow, Prospect / Activation, Orientation and Academic Handover each keep their own records and controls. Follow the rules inside the module being used and do not create an artificial cross-module block unless the system explicitly requires it.
           </div>
@@ -714,6 +825,7 @@
             <div class="panel-body">
               <div class="guide-callout green"><b>Minimum regression check after a system change:</b> test one application journey, one consultant Prospect/Fee Group action, one Orientation session and one Academic Handover session. Confirm module actions, emails, status transitions, popups, PDFs, audit records and ACTIVE/INACTIVE master-data behaviour before treating a new change as production-ready.</div>
             </div>
+          </div>
           </div>
         </section>
 
@@ -1188,5 +1300,6 @@
   <script src="/handover-admin.js"></script>
   <script src="/activation-admin.js"></script>
   <script src="/fee-structure-admin.js"></script>
+  <script src="/system-guide-training.js"></script>
 </body>
 </html>
