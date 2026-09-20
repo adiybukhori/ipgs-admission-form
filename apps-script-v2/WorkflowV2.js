@@ -408,6 +408,7 @@ function handleV2Post_(payload) {
   if (action === 'v2OrientationCompletionAssessment') return v2OrientationCompletionAssessment_(String((payload.data || {}).sessionId || ''));
   if (action === 'v2CompleteOrientationAndGenerateReport') return v2CompleteOrientationAndGenerateReport_(payload.data || {}, payload.updatedBy || 'Admin Portal V2');
   if (action === 'v2RegenerateOrientationReport') return v2RegenerateOrientationReport_(payload.data || {}, payload.updatedBy || 'Admin Portal V2');
+  if (action === 'v2GetOrientationReportFile') return v2GetOrientationReportFile_(payload.data || {});
   if (action === 'v2UpsertOrientationSession') return v2UpsertOrientationSession_(payload.data || {}, payload.updatedBy);
   if (action === 'v2UpdateOrientation') return v2UpdateOrientation_(payload.data || {}, payload.updatedBy);
   if (action === 'v2CreateHandoverSession') return v2CreateHandoverSession_(payload.data || {}, payload.updatedBy || 'Admin Portal V2');
