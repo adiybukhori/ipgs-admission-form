@@ -1,0 +1,434 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>IPGS AI Operations Center</title>
+  <meta name="theme-color" content="#0b0f24" />
+  <style>
+    :root{
+      --bg:#080b17;--bg2:#0d1230;--panel:rgba(17,24,56,.72);--panel2:rgba(22,31,73,.74);
+      --line:rgba(164,176,255,.16);--line2:rgba(164,176,255,.26);--ink:#f7f8ff;--muted:#98a2c6;
+      --purple:#9a7cff;--purple2:#6b50ef;--cyan:#53d9ff;--green:#43e6b0;--amber:#ffc76a;--red:#ff7185;
+      --shadow:0 24px 80px rgba(0,0,0,.36);--radius:22px;
+    }
+    *{box-sizing:border-box}
+    html{scroll-behavior:smooth}
+    body{margin:0;font-family:Inter,ui-sans-serif,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",Arial,sans-serif;color:var(--ink);
+      background:
+        radial-gradient(circle at 12% 12%,rgba(97,75,235,.22),transparent 28%),
+        radial-gradient(circle at 88% 16%,rgba(61,203,255,.12),transparent 24%),
+        radial-gradient(circle at 72% 88%,rgba(67,230,176,.08),transparent 26%),
+        linear-gradient(145deg,#070914 0%,#0b1025 46%,#090c1b 100%);
+      min-height:100vh;overflow-x:hidden}
+    body:before{content:"";position:fixed;inset:0;pointer-events:none;opacity:.18;
+      background-image:linear-gradient(rgba(255,255,255,.026) 1px,transparent 1px),linear-gradient(90deg,rgba(255,255,255,.026) 1px,transparent 1px);
+      background-size:46px 46px;mask-image:linear-gradient(to bottom,black,transparent 84%)}
+    button,input{font:inherit}
+    button{cursor:pointer}
+    a{text-decoration:none;color:inherit}
+    .shell{max-width:1740px;margin:auto;padding:22px}
+    .topbar{position:sticky;top:0;z-index:50;display:flex;align-items:center;justify-content:space-between;gap:18px;
+      margin:-22px -22px 22px;padding:15px 22px;background:rgba(7,9,20,.76);backdrop-filter:blur(22px);border-bottom:1px solid var(--line)}
+    .brand{display:flex;align-items:center;gap:14px}
+    .logos{display:flex;align-items:center;gap:8px}
+    .logo{height:39px;min-width:54px;padding:5px 8px;border-radius:11px;background:white;display:grid;place-items:center;box-shadow:0 8px 24px rgba(0,0,0,.18)}
+    .logo img{height:27px;max-width:92px;object-fit:contain}
+    .brand small{display:block;color:#8f9ac3;font-size:10px;font-weight:900;letter-spacing:.17em;text-transform:uppercase}
+    .brand strong{font-size:17px;letter-spacing:-.02em}
+    .top-actions{display:flex;align-items:center;gap:9px;flex-wrap:wrap;justify-content:flex-end}
+    .chip,.btn{display:inline-flex;align-items:center;gap:8px;border:1px solid var(--line);background:rgba(255,255,255,.045);color:#dce2ff;border-radius:12px;padding:9px 11px;font-size:11px;font-weight:800}
+    .chip.live{color:#bffbea;border-color:rgba(67,230,176,.25)}
+    .dot{width:7px;height:7px;border-radius:50%;background:var(--green);box-shadow:0 0 0 5px rgba(67,230,176,.10),0 0 18px rgba(67,230,176,.7)}
+    .btn:hover{border-color:var(--line2);background:rgba(255,255,255,.075)}
+    .hero{display:grid;grid-template-columns:minmax(0,1.3fr) minmax(330px,.7fr);gap:20px;align-items:stretch;margin-bottom:18px}
+    .hero-main,.status-card,.glass{border:1px solid var(--line);background:linear-gradient(145deg,rgba(21,28,67,.84),rgba(12,17,40,.76));
+      box-shadow:var(--shadow);border-radius:var(--radius);position:relative;overflow:hidden}
+    .hero-main{padding:28px 30px 26px}
+    .hero-main:after{content:"";position:absolute;width:280px;height:280px;border-radius:50%;right:-70px;top:-110px;
+      background:radial-gradient(circle,rgba(154,124,255,.38),rgba(83,217,255,.10) 42%,transparent 68%);filter:blur(2px)}
+    .eyebrow{font-size:10px;font-weight:900;letter-spacing:.18em;color:#9fa9d4;text-transform:uppercase}
+    .hero h1{font-size:34px;letter-spacing:-.045em;margin:10px 0 9px;max-width:880px;line-height:1.06}
+    .hero p{color:var(--muted);line-height:1.62;max-width:850px;margin:0}
+    .mode-row{display:flex;gap:9px;flex-wrap:wrap;margin-top:18px}
+    .mode{border-radius:999px;padding:8px 10px;font-size:10px;font-weight:900;border:1px solid rgba(255,255,255,.1)}
+    .mode.demo{color:#ffe7b0;background:rgba(255,199,106,.08);border-color:rgba(255,199,106,.25)}
+    .mode.ready{color:#c7fff0;background:rgba(67,230,176,.07);border-color:rgba(67,230,176,.22)}
+    .status-card{padding:23px}
+    .status-top{display:flex;align-items:flex-start;justify-content:space-between;gap:12px}
+    .brain-orb{width:72px;height:72px;border-radius:50%;position:relative;background:radial-gradient(circle at 32% 28%,#c8bcff,#8f70ff 32%,#3c37a8 70%,#141840);
+      box-shadow:0 0 45px rgba(154,124,255,.42),inset -8px -10px 24px rgba(0,0,0,.25)}
+    .brain-orb:before,.brain-orb:after{content:"";position:absolute;border-radius:50%;border:1px solid rgba(119,220,255,.38);inset:-10px;animation:spin 8s linear infinite}
+    .brain-orb:after{inset:-17px;border-color:rgba(154,124,255,.18);animation-direction:reverse;animation-duration:13s}
+    @keyframes spin{to{transform:rotate(360deg)}}
+    .brain-state{font-size:12px;color:var(--muted)}
+    .brain-state b{display:block;color:#fff;font-size:18px;margin:4px 0}
+    .connector-list{display:grid;gap:9px;margin-top:20px}
+    .connector{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:9px 10px;border:1px solid var(--line);border-radius:12px;background:rgba(255,255,255,.025)}
+    .connector span{font-size:11px;color:#c9d0ef;font-weight:750}
+    .connector em{font-size:9px;font-style:normal;font-weight:900;letter-spacing:.08em;color:#8792ba}
+    .connector .on{color:var(--green)} .connector .off{color:var(--amber)}
+    .kpis{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:12px;margin-bottom:18px}
+    .kpi{padding:17px 18px;border:1px solid var(--line);background:rgba(14,20,48,.72);border-radius:18px;position:relative;overflow:hidden}
+    .kpi:before{content:"";position:absolute;left:0;top:0;bottom:0;width:2px;background:linear-gradient(var(--purple),var(--cyan))}
+    .kpi .label{font-size:9px;letter-spacing:.12em;text-transform:uppercase;color:#8f99bd;font-weight:900}
+    .kpi .value{font-size:28px;font-weight:900;margin:7px 0 2px;letter-spacing:-.04em}
+    .kpi .meta{font-size:10px;color:#7783aa}
+    .layout{display:grid;grid-template-columns:minmax(0,1.45fr) minmax(340px,.55fr);gap:18px}
+    .glass{padding:0}
+    .panel-head{display:flex;align-items:center;justify-content:space-between;gap:14px;padding:17px 19px;border-bottom:1px solid var(--line)}
+    .panel-head h2,.panel-head h3{margin:0;font-size:14px;letter-spacing:-.01em}
+    .panel-head p{margin:4px 0 0;font-size:10px;color:#818caf}
+    .panel-body{padding:18px}
+    .section-title{display:flex;align-items:center;gap:9px}
+    .section-icon{width:31px;height:31px;border-radius:10px;display:grid;place-items:center;background:rgba(154,124,255,.11);border:1px solid rgba(154,124,255,.18)}
+    .org{padding:26px 22px 24px;overflow:auto}
+    .org-stage{min-width:780px;position:relative}
+    .human{width:210px;margin:0 auto 24px;text-align:center;border:1px solid rgba(83,217,255,.22);background:rgba(83,217,255,.06);border-radius:16px;padding:12px}
+    .human small{color:#7f8bb0;font-size:9px;text-transform:uppercase;letter-spacing:.12em;font-weight:900}
+    .human b{display:block;margin-top:4px;font-size:13px}
+    .connector-line{width:1px;height:23px;background:linear-gradient(var(--cyan),var(--purple));margin:auto;opacity:.7}
+    .orchestrator{width:330px;margin:0 auto 34px;border:1px solid rgba(154,124,255,.35);background:linear-gradient(135deg,rgba(91,70,213,.22),rgba(35,39,91,.5));
+      border-radius:20px;padding:16px 17px;box-shadow:0 14px 40px rgba(84,61,196,.14);position:relative}
+    .orchestrator:after{content:"";position:absolute;left:50%;bottom:-35px;width:1px;height:35px;background:rgba(154,124,255,.42)}
+    .agent-top{display:flex;align-items:center;gap:11px}
+    .avatar{width:42px;height:42px;border-radius:13px;display:grid;place-items:center;font-size:20px;background:linear-gradient(145deg,rgba(154,124,255,.22),rgba(83,217,255,.12));border:1px solid rgba(174,184,255,.18)}
+    .agent-name{font-size:13px;font-weight:900}
+    .agent-role{font-size:9px;color:#8d98bd;margin-top:2px;text-transform:uppercase;letter-spacing:.09em;font-weight:850}
+    .status-mini{margin-left:auto;width:9px;height:9px;border-radius:50%;background:var(--green);box-shadow:0 0 16px rgba(67,230,176,.6)}
+    .agent-meta{display:flex;gap:8px;margin-top:11px;flex-wrap:wrap}
+    .agent-meta span{font-size:9px;color:#9da8cb;border:1px solid var(--line);border-radius:999px;padding:5px 7px}
+    .agents-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;position:relative}
+    .agents-grid:before{content:"";position:absolute;top:-1px;left:12.5%;right:12.5%;height:1px;background:linear-gradient(90deg,transparent,rgba(154,124,255,.48),rgba(83,217,255,.36),rgba(154,124,255,.48),transparent)}
+    .agent-card{border:1px solid var(--line);border-radius:17px;padding:14px;background:rgba(255,255,255,.025);transition:.2s transform,.2s border-color;min-height:145px;position:relative}
+    .agent-card:before{content:"";position:absolute;top:-13px;left:50%;width:1px;height:13px;background:rgba(154,124,255,.36)}
+    .agent-card:hover{transform:translateY(-3px);border-color:rgba(154,124,255,.34)}
+    .agent-task{margin-top:12px;color:#cbd2ef;font-size:10px;line-height:1.42}
+    .agent-load{display:flex;justify-content:space-between;gap:10px;margin-top:12px;color:#7f8aae;font-size:9px}
+    .agent-load b{color:#fff;font-size:10px}
+    .side-stack{display:grid;gap:18px}
+    .decision-list,.feed,.exceptions{display:grid;gap:9px}
+    .decision,.feed-item,.exception{border:1px solid var(--line);border-radius:14px;padding:11px 12px;background:rgba(255,255,255,.026)}
+    .decision{border-left:2px solid var(--amber)}
+    .decision b,.exception b{font-size:11px}
+    .decision p,.exception p{font-size:9px;color:#8994b8;margin:5px 0 0;line-height:1.45}
+    .tag{display:inline-flex;border-radius:999px;padding:4px 7px;font-size:8px;font-weight:900;letter-spacing:.06em;text-transform:uppercase;border:1px solid var(--line)}
+    .tag.amber{color:#ffd889;border-color:rgba(255,199,106,.25);background:rgba(255,199,106,.06)}
+    .tag.green{color:#aaffdf;border-color:rgba(67,230,176,.22);background:rgba(67,230,176,.05)}
+    .tag.red{color:#ff9aaa;border-color:rgba(255,113,133,.22);background:rgba(255,113,133,.05)}
+    .feed-item{display:grid;grid-template-columns:42px 1fr;gap:10px;align-items:flex-start}
+    .time{font-size:8px;color:#6f7a9f;padding-top:2px}
+    .feed-copy{font-size:9px;color:#c0c8e5;line-height:1.5}
+    .feed-copy b{color:#fff}
+    .workspace{margin-top:18px;display:grid;grid-template-columns:minmax(0,1.05fr) minmax(330px,.95fr);gap:18px}
+    .command-box{position:relative;padding:18px}
+    .command-input{display:flex;gap:9px;align-items:center;background:rgba(4,7,18,.62);border:1px solid rgba(154,124,255,.24);border-radius:16px;padding:8px}
+    .command-input input{flex:1;border:0;background:transparent;color:#fff;outline:none;padding:10px;font-size:12px;min-width:0}
+    .command-input input::placeholder{color:#637094}
+    .send{border:0;border-radius:11px;background:linear-gradient(135deg,#7657f2,#3c9ce8);color:white;font-weight:900;padding:10px 13px}
+    .chips{display:flex;gap:7px;flex-wrap:wrap;margin-top:11px}
+    .chips button{border:1px solid var(--line);background:rgba(255,255,255,.025);color:#929dc2;border-radius:999px;padding:6px 8px;font-size:9px}
+    .answer{margin-top:13px;display:none;border:1px solid var(--line);border-radius:14px;padding:13px;background:rgba(255,255,255,.023);font-size:10px;line-height:1.6;color:#cbd3ef}
+    .answer.show{display:block}
+    .answer b{color:white}
+    .readiness{display:grid;grid-template-columns:repeat(2,1fr);gap:10px;padding:18px}
+    .ready-card{border:1px solid var(--line);border-radius:14px;padding:12px;background:rgba(255,255,255,.024)}
+    .ready-card .r-top{display:flex;justify-content:space-between;align-items:center;gap:8px;font-size:10px;font-weight:850}
+    .ready-card p{font-size:9px;color:#7f8aaf;line-height:1.45;margin:6px 0 0}
+    .footer-note{margin:18px 0 2px;color:#6f7a9d;text-align:center;font-size:9px}
+    @media(max-width:1180px){.kpis{grid-template-columns:repeat(3,1fr)}.layout,.workspace{grid-template-columns:1fr}.agents-grid{grid-template-columns:repeat(2,1fr)}}
+    @media(max-width:760px){.shell{padding:13px}.topbar{margin:-13px -13px 15px;padding:12px 13px}.logos{display:none}.brand strong{font-size:14px}.top-actions .chip:nth-child(2){display:none}
+      .hero{grid-template-columns:1fr}.hero-main{padding:22px}.hero h1{font-size:27px}.kpis{grid-template-columns:repeat(2,1fr)}.kpi:nth-child(5){grid-column:1/-1}
+      .agents-grid{grid-template-columns:1fr}.org{padding:20px 12px}.readiness{grid-template-columns:1fr}.brain-orb{width:60px;height:60px}.workspace{grid-template-columns:1fr}}
+  </style>
+</head>
+<body>
+<div class="shell">
+  <header class="topbar">
+    <div class="brand">
+      <div class="logos">
+        <div class="logo"><img src="https://lh3.googleusercontent.com/d/135uWJ59t0Gs5fey1Ef7548V-HBWsOiCk=s1000" alt="IUC"></div>
+        <div class="logo"><img src="https://lh3.googleusercontent.com/d/1iKsYwAVivYw9uRl2kLzt0LcKK7CAJPvd=s1000" alt="IPGS"></div>
+      </div>
+      <div><small>IUC · IPGS</small><strong>AI Operations Center</strong></div>
+    </div>
+    <div class="top-actions">
+      <span id="dataChip" class="chip"><i class="dot"></i> Loading ACC data</span>
+      <span class="chip">AI Brain · Simulation</span>
+      <a class="btn" href="/admin.html">← Command Center</a>
+    </div>
+  </header>
+
+  <section class="hero">
+    <div class="hero-main">
+      <div class="eyebrow">Agentic Registrar Office · Digital Workforce</div>
+      <h1>Your AI operations team for the IPGS student lifecycle.</h1>
+      <p>One operational layer coordinating admission, student communication, assessment, orientation, compliance and academic handover. Human staff remain focused on governance, judgement and higher-value decisions.</p>
+      <div class="mode-row">
+        <span class="mode demo">● AI REASONING NOT CONNECTED YET</span>
+        <span class="mode ready">✓ ACC DATA LAYER READY</span>
+        <span class="mode ready">✓ AGENT WORKSPACE READY</span>
+      </div>
+    </div>
+    <div class="status-card">
+      <div class="status-top">
+        <div class="brain-state">CORE INTELLIGENCE<b>Orchestrator Brain</b><span id="brainNote">Simulation mode · awaiting OpenAI API</span></div>
+        <div class="brain-orb" aria-hidden="true"></div>
+      </div>
+      <div class="connector-list">
+        <div class="connector"><span>ACC Operational Data</span><em id="accConnector" class="off">CHECKING</em></div>
+        <div class="connector"><span>OpenAI Reasoning</span><em class="off">NOT CONNECTED</em></div>
+        <div class="connector"><span>n8n Event Orchestration</span><em class="off">NOT CONNECTED</em></div>
+        <div class="connector"><span>Hermes Computer Operator</span><em class="off">NOT CONNECTED</em></div>
+      </div>
+    </div>
+  </section>
+
+  <section class="kpis">
+    <div class="kpi"><div class="label">Active Student Cases</div><div id="kCases" class="value">—</div><div class="meta">Loaded from ACC</div></div>
+    <div class="kpi"><div class="label">Digital Workforce</div><div class="value">8</div><div class="meta">AI roles designed</div></div>
+    <div class="kpi"><div class="label">Human Decisions</div><div id="kDecisions" class="value">—</div><div class="meta">Estimated from workflow state</div></div>
+    <div class="kpi"><div class="label">Exceptions Detected</div><div id="kExceptions" class="value">—</div><div class="meta">Operational flags</div></div>
+    <div class="kpi"><div class="label">AI Autonomous Actions</div><div class="value">0</div><div class="meta">Locked until brain is connected</div></div>
+  </section>
+
+  <div class="layout">
+    <section class="glass">
+      <div class="panel-head">
+        <div class="section-title"><div class="section-icon">⌘</div><div><h2>IPGS Digital Workforce</h2><p>Organisation structure · one source of truth · controlled authority</p></div></div>
+        <span class="tag green">DESIGN LOCKED · V1</span>
+      </div>
+      <div class="org">
+        <div class="org-stage">
+          <div class="human"><small>Human Governance</small><b>Registrar / Authorised Decision Maker</b></div>
+          <div class="connector-line"></div>
+          <div class="orchestrator">
+            <div class="agent-top"><div class="avatar">🧠</div><div><div class="agent-name">AI Orchestrator</div><div class="agent-role">Digital Operations Manager</div></div><i class="status-mini"></i></div>
+            <div class="agent-meta"><span>Case routing</span><span>Priority</span><span>Escalation</span><span>Next-best action</span></div>
+          </div>
+          <div class="agents-grid">
+            <article class="agent-card"><div class="agent-top"><div class="avatar">◫</div><div><div class="agent-name">Admission Intelligence</div><div class="agent-role">Case screening</div></div><i class="status-mini"></i></div><div class="agent-task">Reads application context, checks completeness and prepares the case for the correct route.</div><div class="agent-load"><span>Workload</span><b id="loadAdmission">— cases</b></div></article>
+            <article class="agent-card"><div class="agent-top"><div class="avatar">✦</div><div><div class="agent-name">Student Concierge</div><div class="agent-role">Student communication</div></div><i class="status-mini"></i></div><div class="agent-task">Maintains one consistent student-facing voice across the full operational journey.</div><div class="agent-load"><span>Workload</span><b id="loadConcierge">— cases</b></div></article>
+            <article class="agent-card"><div class="agent-top"><div class="avatar">◎</div><div><div class="agent-name">SAC & Assessment</div><div class="agent-role">Academic routing support</div></div><i class="status-mini"></i></div><div class="agent-task">Prepares SAC cases, IA routing, prerequisite tracking and evidence summaries.</div><div class="agent-load"><span>Workload</span><b id="loadAssessment">— cases</b></div></article>
+            <article class="agent-card"><div class="agent-top"><div class="avatar">⚙</div><div><div class="agent-name">Systems Operator</div><div class="agent-role">Operational execution</div></div><i class="status-mini"></i></div><div class="agent-task">Executes approved system actions and later delegates no-API work to Hermes.</div><div class="agent-load"><span>Workload</span><b id="loadSystems">— tasks</b></div></article>
+            <article class="agent-card"><div class="agent-top"><div class="avatar">◉</div><div><div class="agent-name">Orientation & Engagement</div><div class="agent-role">Student readiness</div></div><i class="status-mini"></i></div><div class="agent-task">Manages invitations, reminders, attendance, feedback and readiness before handover.</div><div class="agent-load"><span>Workload</span><b id="loadOrientation">— students</b></div></article>
+            <article class="agent-card"><div class="agent-top"><div class="avatar">◇</div><div><div class="agent-name">Compliance & Quality</div><div class="agent-role">Continuous assurance</div></div><i class="status-mini"></i></div><div class="agent-task">Looks for missing gates, stale cases, mismatched records and unusual operational patterns.</div><div class="agent-load"><span>Flags</span><b id="loadCompliance">— flags</b></div></article>
+            <article class="agent-card"><div class="agent-top"><div class="avatar">⇄</div><div><div class="agent-name">Academic Handover</div><div class="agent-role">Completion gate</div></div><i class="status-mini"></i></div><div class="agent-task">Checks that required milestones are complete before transferring a clean case to Academic.</div><div class="agent-load"><span>Workload</span><b id="loadHandover">— cases</b></div></article>
+            <article class="agent-card"><div class="agent-top"><div class="avatar">▥</div><div><div class="agent-name">Management Intelligence</div><div class="agent-role">Operational insight</div></div><i class="status-mini"></i></div><div class="agent-task">Explains bottlenecks, trends, throughput and what management should pay attention to next.</div><div class="agent-load"><span>Signals</span><b>Live dashboard</b></div></article>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <aside class="side-stack">
+      <section class="glass">
+        <div class="panel-head"><div><h3>Human Decision Desk</h3><p>Only matters that require human authority</p></div><span id="decisionTag" class="tag amber">SCANNING</span></div>
+        <div id="decisionList" class="panel-body decision-list"><div class="decision"><b>Loading operational cases…</b><p>Decision queue will use current ACC workflow data.</p></div></div>
+      </section>
+      <section class="glass">
+        <div class="panel-head"><div><h3>Exception Center</h3><p>Potential gaps the AI workforce should investigate</p></div><span class="tag red">WATCH</span></div>
+        <div id="exceptionList" class="panel-body exceptions"><div class="exception"><b>Awaiting ACC data</b><p>Compliance rules will populate after the operational dataset is loaded.</p></div></div>
+      </section>
+    </aside>
+  </div>
+
+  <div class="workspace">
+    <section class="glass">
+      <div class="panel-head"><div><h3>Agent Handover Stream</h3><p>Structured communication — not untracked agent chat</p></div><span class="tag green">AUDITABLE</span></div>
+      <div id="activityFeed" class="panel-body feed">
+        <div class="feed-item"><div class="time">SYSTEM</div><div class="feed-copy"><b>AI Operations Center</b> initialised in simulation mode. Autonomous actions remain locked.</div></div>
+      </div>
+    </section>
+
+    <section class="glass">
+      <div class="panel-head"><div><h3>Ask AI Operations</h3><p>Interface ready now · real LLM reasoning connects later</p></div><span class="tag amber">SIMULATION</span></div>
+      <div class="command-box">
+        <div class="command-input"><input id="askInput" placeholder="Ask: Apa masalah paling besar sekarang?" onkeydown="if(event.key==='Enter')askOps()"><button class="send" onclick="askOps()">Ask</button></div>
+        <div class="chips">
+          <button onclick="quickAsk('Apa masalah paling besar sekarang?')">Main bottleneck</button>
+          <button onclick="quickAsk('Berapa active student cases?')">Active cases</button>
+          <button onclick="quickAsk('Apa yang perlukan human decision?')">Human decisions</button>
+          <button onclick="quickAsk('Status orientation sekarang?')">Orientation</button>
+        </div>
+        <div id="answer" class="answer"></div>
+      </div>
+    </section>
+  </div>
+
+  <section class="glass" style="margin-top:18px">
+    <div class="panel-head"><div><h3>Agentic Readiness</h3><p>What exists now vs what will be connected later</p></div><span class="tag green">BUILD PHASE 1</span></div>
+    <div class="readiness">
+      <div class="ready-card"><div class="r-top"><span>ACC Data & Case Context</span><span class="tag green">READY</span></div><p>Reuses the current operational dataset and student lifecycle records.</p></div>
+      <div class="ready-card"><div class="r-top"><span>Agent Organisation & Authority</span><span class="tag green">READY</span></div><p>Roles, human escalation model and digital workforce structure are defined.</p></div>
+      <div class="ready-card"><div class="r-top"><span>OpenAI Brain / Tool Calling</span><span class="tag amber">NEXT</span></div><p>Will enable reasoning, case interpretation and autonomous tool selection.</p></div>
+      <div class="ready-card"><div class="r-top"><span>n8n Triggers & Orchestration</span><span class="tag amber">NEXT</span></div><p>Will wake agents on events, schedules and pending-case conditions.</p></div>
+      <div class="ready-card"><div class="r-top"><span>Hermes Computer Operator</span><span class="tag amber">LATER</span></div><p>Reserved for systems such as SkyVialing when direct APIs are unavailable.</p></div>
+      <div class="ready-card"><div class="r-top"><span>Autonomous Action Governance</span><span class="tag amber">LATER</span></div><p>Action limits, approvals, rollback and audit policies will be activated before production autonomy.</p></div>
+    </div>
+  </section>
+  <div class="footer-note">IPGS AI Operations Center · Prototype shell connected to the existing ACC architecture · No OpenAI tokens are used in this version.</div>
+</div>
+
+<script>
+  const DATA_API='/api/admin-data';
+  const password=sessionStorage.getItem('ipgsAdminPassword')||'';
+  let state={apps:[],workflow:[],assessment:[],orientation:[],handover:[],audit:[],decisions:0,exceptions:0};
+
+  if(!password){ location.href='/admin.html'; }
+
+  function rows(data,key){ return Array.isArray(data && data[key]) ? data[key] : []; }
+  function text(row){ return Object.values(row||{}).join(' ').toLowerCase(); }
+  function pick(row,keys){ for(const k of keys){ if(row && row[k]!==undefined && String(row[k]).trim()!=='') return String(row[k]).trim(); } return ''; }
+  function nameOf(row){ return pick(row,['Student Name','Applicant Name','Name','Full Name']) || 'Student case'; }
+  function refOf(row){ return pick(row,['Ref No','Reference No','Application Ref','Reference','Application ID']) || 'ACC case'; }
+  function containsAny(s,arr){ return arr.some(x=>s.includes(x)); }
+
+  async function loadOps(){
+    try{
+      const res=await fetch(DATA_API,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({password})});
+      const out=await res.json();
+      if(res.status===401){ sessionStorage.removeItem('ipgsAdminPassword'); location.href='/admin.html'; return; }
+      if(!res.ok||!out.ok) throw new Error(out.message||'Unable to load ACC data');
+      const d=out.data||{};
+      state.apps=rows(d,'V2_APPLICATIONS');
+      state.workflow=rows(d,'V2_WORKFLOW');
+      state.assessment=rows(d,'V2_ASSESSMENT_PROGRESS');
+      state.orientation=rows(d,'V2_ORIENTATION_TRACKING');
+      state.handover=rows(d,'V2_HANDOVER_STUDENTS');
+      state.audit=rows(d,'V2_AUDIT_LOG');
+      derive();
+      document.getElementById('dataChip').innerHTML='<i class="dot"></i> Live ACC data connected';
+      document.getElementById('accConnector').textContent='CONNECTED';
+      document.getElementById('accConnector').className='on';
+      document.getElementById('brainNote').textContent='ACC context loaded · OpenAI reasoning pending';
+    }catch(e){
+      document.getElementById('dataChip').textContent='ACC data unavailable';
+      document.getElementById('accConnector').textContent='UNAVAILABLE';
+      document.getElementById('accConnector').className='off';
+      renderFallback(e.message||'Unable to load operational data.');
+    }
+  }
+
+  function derive(){
+    const total=state.apps.length;
+    const workflowText=state.workflow.map(r=>({row:r,t:text(r)}));
+    const assessmentText=state.assessment.map(r=>({row:r,t:text(r)}));
+    const orientationText=state.orientation.map(r=>({row:r,t:text(r)}));
+    const handoverText=state.handover.map(r=>({row:r,t:text(r)}));
+
+    const decisionRows=[...workflowText,...assessmentText].filter(x=>
+      containsAny(x.t,['pending decision','awaiting decision','sac pending','pending sac','review required','requires review','manual review','registrar'])
+      && !containsAny(x.t,['completed','finalised','finalized','approved','rejected'])
+    );
+    const exceptionRows=workflowText.filter(x=>
+      containsAny(x.t,['overdue','incomplete','missing','stuck','error','failed','exception','not received'])
+      && !containsAny(x.t,['completed','resolved'])
+    );
+    state.decisions=decisionRows.length;
+    state.exceptions=exceptionRows.length;
+
+    document.getElementById('kCases').textContent=total;
+    document.getElementById('kDecisions').textContent=state.decisions;
+    document.getElementById('kExceptions').textContent=state.exceptions;
+
+    const pendingAdmissions=workflowText.filter(x=>!containsAny(x.t,['handed over','handover complete','completed','closed'])).length;
+    const assessmentLoad=assessmentText.filter(x=>!containsAny(x.t,['completed','passed','failed','final'])).length;
+    const orientationLoad=orientationText.filter(x=>!containsAny(x.t,['attended','completed'])).length;
+    const handoverLoad=handoverText.filter(x=>!containsAny(x.t,['handed over','completed'])).length;
+
+    document.getElementById('loadAdmission').textContent=(pendingAdmissions||total)+' cases';
+    document.getElementById('loadConcierge').textContent=Math.max(0,Math.min(total,Math.round(total*.35)))+' cases';
+    document.getElementById('loadAssessment').textContent=assessmentLoad+' cases';
+    document.getElementById('loadSystems').textContent=Math.max(0,state.exceptions)+' tasks';
+    document.getElementById('loadOrientation').textContent=orientationLoad+' students';
+    document.getElementById('loadCompliance').textContent=state.exceptions+' flags';
+    document.getElementById('loadHandover').textContent=handoverLoad+' cases';
+
+    renderDecisions(decisionRows);
+    renderExceptions(exceptionRows);
+    renderActivity();
+  }
+
+  function renderDecisions(list){
+    const host=document.getElementById('decisionList');
+    const tag=document.getElementById('decisionTag');
+    tag.textContent=list.length ? list.length+' REVIEW' : 'CLEAR';
+    tag.className='tag '+(list.length?'amber':'green');
+    if(!list.length){ host.innerHTML='<div class="decision" style="border-left-color:var(--green)"><b>No obvious human-decision flags detected</b><p>The future AI agent will apply stricter rule-based and LLM-assisted escalation logic.</p></div>'; return; }
+    host.innerHTML=list.slice(0,4).map(x=>{
+      const r=x.row; const n=nameOf(r); const ref=refOf(r);
+      return '<div class="decision"><b>'+escapeHtml(n)+'</b><p>'+escapeHtml(ref)+' · Potential decision / review gate detected in current workflow.</p></div>';
+    }).join('');
+  }
+
+  function renderExceptions(list){
+    const host=document.getElementById('exceptionList');
+    if(!list.length){ host.innerHTML='<div class="exception"><b>No explicit exception keywords detected</b><p>Once the Compliance Agent is connected, it will evaluate cross-table inconsistencies and time-based rules rather than keywords alone.</p></div>'; return; }
+    host.innerHTML=list.slice(0,4).map(x=>{
+      const r=x.row;
+      return '<div class="exception"><b>'+escapeHtml(nameOf(r))+'</b><p>'+escapeHtml(refOf(r))+' · Operational status contains a potential incomplete / overdue / exception signal.</p></div>';
+    }).join('');
+  }
+
+  function renderActivity(){
+    const host=document.getElementById('activityFeed');
+    const audit=state.audit.slice(-5).reverse();
+    if(audit.length){
+      host.innerHTML=audit.map(r=>{
+        const at=pick(r,['Timestamp','Created At','Updated At','Date'])||'Recent';
+        const actor=pick(r,['Actor','Updated By','User','Action By'])||'ACC';
+        const action=pick(r,['Action','Activity','Event','Remark','Details'])||'Operational record updated';
+        return '<div class="feed-item"><div class="time">'+escapeHtml(shortTime(at))+'</div><div class="feed-copy"><b>'+escapeHtml(actor)+'</b> · '+escapeHtml(action)+'</div></div>';
+      }).join('');
+    } else {
+      host.innerHTML=[
+        feed('NOW','Orchestrator','ACC dataset scanned and workload map refreshed.'),
+        feed('READY','Compliance Agent','Prepared to monitor lifecycle gaps once rules are activated.'),
+        feed('LOCKED','Systems Operator','Autonomous write actions remain disabled until governance and tool connections are ready.')
+      ].join('');
+    }
+  }
+
+  function feed(t,a,c){ return '<div class="feed-item"><div class="time">'+t+'</div><div class="feed-copy"><b>'+a+'</b> · '+c+'</div></div>'; }
+  function shortTime(v){ const d=new Date(v); if(!isNaN(d)) return d.toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'}); return String(v).slice(0,8); }
+  function escapeHtml(v){ return String(v||'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[c])); }
+
+  function quickAsk(q){ document.getElementById('askInput').value=q; askOps(); }
+  function askOps(){
+    const q=(document.getElementById('askInput').value||'').trim().toLowerCase();
+    const ans=document.getElementById('answer');
+    if(!q){ ans.className='answer show'; ans.innerHTML='Type a question about IPGS operations.'; return; }
+    let html='';
+    if(q.includes('masalah')||q.includes('bottleneck')||q.includes('problem')){
+      const parts=[];
+      if(state.decisions) parts.push('<b>'+state.decisions+'</b> cases show possible human-decision / review signals');
+      if(state.exceptions) parts.push('<b>'+state.exceptions+'</b> cases contain explicit exception or incomplete-status signals');
+      const ori=state.orientation.filter(r=>!containsAny(text(r),['attended','completed'])).length;
+      if(ori) parts.push('<b>'+ori+'</b> orientation records are not yet marked attended/completed');
+      html=parts.length?'Current deterministic scan found: '+parts.join('; ')+'. <br><br><span style="color:#7f8aaf">When OpenAI is connected, the Orchestrator will reason across case history instead of relying on keyword rules.</span>':'No obvious bottleneck was detected by the current simulation rules. Real agentic reasoning is not connected yet.';
+    }else if(q.includes('active')||q.includes('student cases')||q.includes('application')){
+      html='ACC currently exposes <b>'+state.apps.length+'</b> application cases to this Operations Center.';
+    }else if(q.includes('human')||q.includes('decision')){
+      html='The current scan found <b>'+state.decisions+'</b> potential cases that may require human review. This is an estimate until formal authority rules are encoded.';
+    }else if(q.includes('orientation')){
+      const total=state.orientation.length;
+      const done=state.orientation.filter(r=>containsAny(text(r),['attended','completed'])).length;
+      html='Orientation tracking contains <b>'+total+'</b> records, with <b>'+done+'</b> containing attended/completed signals in the current data.';
+    }else{
+      html='This interface is ready, but the <b>OpenAI reasoning layer is intentionally not connected yet</b>. For now I can answer a limited set of deterministic operational questions using live ACC data.';
+    }
+    ans.className='answer show'; ans.innerHTML=html;
+  }
+
+  function renderFallback(msg){
+    document.getElementById('kCases').textContent='—';
+    document.getElementById('kDecisions').textContent='—';
+    document.getElementById('kExceptions').textContent='—';
+    document.getElementById('decisionList').innerHTML='<div class="decision"><b>ACC data not loaded</b><p>'+escapeHtml(msg)+'</p></div>';
+    document.getElementById('exceptionList').innerHTML='<div class="exception"><b>Simulation shell remains available</b><p>The UI can still be reviewed without AI tokens or live operational data.</p></div>';
+  }
+
+  loadOps();
+</script>
+</body>
+</html>
