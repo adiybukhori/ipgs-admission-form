@@ -268,8 +268,15 @@ function doPost(e) {
     const payload = JSON.parse(e.postData.contents);
     const action = String(payload && payload.action ? payload.action : '');
 
-    // Public Admission V2 submission remains available without admin token.
-    if (action === 'v2SubmitAdmission') {
+    // Public V2 actions that are designed for applicant/student-facing forms.
+    const publicV2Actions = [
+      'v2SubmitAdmission',
+      'v2GetOrientationAttendanceContext',
+      'v2ResolveOrientationAttendanceIdentity',
+      'v2SubmitOrientationAttendance',
+      'v2SubmitOrientationFeedback'
+    ];
+    if (publicV2Actions.indexOf(action) >= 0) {
       const result = handleV2Post_(payload);
       return ContentService
         .createTextOutput(JSON.stringify(result))
