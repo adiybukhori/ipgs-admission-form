@@ -189,21 +189,39 @@ function v2SendAgentNotificationCentral_(payload, reference, intake, pdf, agent,
   if (!secureUrl) throw new Error('Agent Prospect / Fee Group action link is missing.');
 
   const subject = '[IPGS Admission] New Referred Applicant - ' + studentName + ' - ' + reference;
-  const textBody = 'Dear ' + agentName + ',\n\nYour referred applicant has submitted the IUC Admission Form.\n\nStudent: ' + studentName + '\nProgramme: ' + programme + '\nIntake: ' + intakeName + '\nReference: ' + reference + '\n\nUpdate Prospect & Fee Structure: ' + secureUrl;
-  const htmlBody = '<div style="font-family:Arial,sans-serif;max-width:680px;margin:auto;border:1px solid #e5e7eb;border-radius:16px;overflow:hidden">' +
-    '<div style="background:#2d2363;color:#fff;padding:22px"><h2 style="margin:0">New Referred Applicant</h2></div>' +
-    '<div style="padding:24px"><p>Dear <strong>'+v2Html_(agentName)+'</strong>,</p><p>Your referred applicant has submitted the IUC Admission Form.</p>' +
-    '<p><strong>Student:</strong> '+v2Html_(studentName)+
-    '<br><strong>ID / Passport:</strong> '+v2Html_(payload && payload.idPassport || '')+
-    '<br><strong>Personal Email:</strong> '+v2Html_(payload && payload.email || '')+
-    '<br><strong>Phone:</strong> '+v2Html_(payload && payload.phoneNumber || '')+
-    '<br><strong>Applicant Type:</strong> '+v2Html_(payload && payload.applicantType || '')+
-    '<br><strong>Programme:</strong> '+v2Html_(programme)+
-    '<br><strong>Study Mode:</strong> '+v2Html_(payload && payload.studyMode || '')+
-    '<br><strong>Intake:</strong> '+v2Html_(intakeName)+
-    '<br><strong>Reference:</strong> '+v2Html_(reference)+'</p>' +
-    '<p><a href="'+v2Html_(secureUrl)+'" style="display:inline-block;background:#2d2363;color:#fff;text-decoration:none;padding:12px 18px;border-radius:10px;font-weight:700">Update Prospect &amp; Fee Structure</a></p>' +
-    '<p>The Admission Form is attached for your reference.</p><p>Regards,<br><strong>IPGS Registry</strong></p></div></div>';
+  const textBody =
+    'Dear ' + agentName + ',\n\n' +
+    'Your referred applicant has submitted the IUC Admission Form.\n\n' +
+    'Student: ' + studentName + '\n' +
+    'Programme: ' + programme + '\n' +
+    'Intake: ' + intakeName + '\n' +
+    'Reference: ' + reference + '\n\n' +
+    'Next action: open the secure link, confirm/complete the information required for SKYVIALING Marketing > Prospect, select the Fee Group and submit.\n' +
+    'Complete Prospect Details: ' + secureUrl;
+
+  const htmlBody =
+    '<div style="font-family:Arial,sans-serif;max-width:680px;margin:auto;border:1px solid #e5e7eb;border-radius:16px;overflow:hidden">' +
+      '<div style="background:#2d2363;color:#fff;padding:22px"><h2 style="margin:0">New Referred Applicant</h2></div>' +
+      '<div style="padding:24px">' +
+        '<p>Dear <strong>'+v2Html_(agentName)+'</strong>,</p>' +
+        '<p>Your referred applicant has submitted the IUC Admission Form.</p>' +
+        '<div style="background:#faf8ff;border:1px solid #e5def6;border-radius:12px;padding:16px;line-height:1.65">' +
+          '<strong>Student:</strong> '+v2Html_(studentName)+
+          '<br><strong>ID / Passport:</strong> '+v2Html_(payload && payload.idPassport || '')+
+          '<br><strong>Personal Email:</strong> '+v2Html_(payload && payload.email || '')+
+          '<br><strong>Phone:</strong> '+v2Html_(payload && payload.phoneNumber || '')+
+          '<br><strong>Applicant Type:</strong> '+v2Html_(payload && payload.applicantType || '')+
+          '<br><strong>Programme:</strong> '+v2Html_(programme)+
+          '<br><strong>Study Mode:</strong> '+v2Html_(payload && payload.studyMode || '')+
+          '<br><strong>Intake:</strong> '+v2Html_(intakeName)+
+          '<br><strong>Reference:</strong> '+v2Html_(reference)+
+        '</div>' +
+        '<p style="margin-top:18px">Please confirm or complete the information needed for <strong>SKYVIALING → Marketing → Prospect</strong>, then select the approved <strong>Fee Group</strong>.</p>' +
+        '<p style="text-align:center;margin:24px 0"><a href="'+v2Html_(secureUrl)+'" style="display:inline-block;background:#2d2363;color:#fff;text-decoration:none;padding:13px 20px;border-radius:10px;font-weight:700">Complete Prospect Details</a></p>' +
+        '<p style="font-size:12px;color:#667085">After you submit, Registry will be notified automatically. The Admission Form is attached for reference.</p>' +
+        '<p>Regards,<br><strong>IPGS Registry</strong></p>' +
+      '</div>' +
+    '</div>';
 
   const opts = options || {};
   const result = v2NotificationSend_(
