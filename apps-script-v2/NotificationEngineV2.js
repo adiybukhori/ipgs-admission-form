@@ -180,45 +180,106 @@ function v2SendApplicationNotifications_(payload, reference, intake, pdf) {
 
 function v2SendAgentNotificationCentral_(payload, reference, intake, pdf, agent, actionUrl, options) {
   v2NotificationEnsureHeaders_();
-  const studentName = String(payload && payload.fullName || 'Applicant').trim();
-  const programme = String(payload && payload.programme || '').trim();
-  const agentName = String(agent && agent.name || 'Academic Consultant').trim();
-  const intakeName = String(intake && intake.name || payload && payload.intake || '').trim();
+
+  payload = payload || {};
+  agent = agent || {};
+
+  const studentName = String(payload.fullName || 'Applicant').trim();
+  const programme = String(payload.programme || '').trim();
+  const agentName = String(agent.name || 'Academic Consultant').trim();
+  const agentOrganisation = String(agent.organisation || '').trim();
+  const intakeName = String(intake && intake.name || payload.intake || '').trim();
   const secureUrl = String(actionUrl || '').trim();
-  const intendedEmail = String(agent && agent.email || '').trim();
+  const intendedEmail = String(agent.email || '').trim();
+
   if (!secureUrl) throw new Error('Agent Prospect / Fee Group action link is missing.');
 
+  const isInternational = String(payload.applicantType || '').toLowerCase().indexOf('international') >= 0;
+  const internationalText = isInternational ? 'Yes' : 'No';
+  const idType = isInternational ? 'Passport' : 'MyKad';
+  const safeAddress = v2Html_(payload.fullAddress || '').replace(/\r?\n/g, '<br>');
+
   const subject = '[IPGS Admission] New Referred Applicant - ' + studentName + ' - ' + reference;
+
   const textBody =
     'Dear ' + agentName + ',\n\n' +
     'Your referred applicant has submitted the IUC Admission Form.\n\n' +
-    'Student: ' + studentName + '\n' +
-    'Programme: ' + programme + '\n' +
+    'ACTION REQUIRED:\n' +
+    'Please create this applicant in SKYVIALING > Marketing > Prospect using the information below.\n\n' +
+    'PERSONAL INFORMATION\n' +
+    'International: ' + internationalText + '\n' +
+    'ID Type: ' + idType + '\n' +
+    'ID No: ' + String(payload.idPassport || '') + '\n' +
+    'Name: ' + studentName + '\n' +
+    'Gender: ' + String(payload.gender || '') + '\n' +
+    'Email: ' + String(payload.email || '') + '\n' +
+    'Phone: ' + String(payload.phoneNumber || '') + '\n' +
+    'Nationality: ' + String(payload.nationality || '') + '\n' +
+    'Race: ' + String(payload.race || '') + '\n' +
+    'Religion: ' + String(payload.religion || '') + '\n' +
+    'Place of Birth: ' + String(payload.placeOfBirth || '') + '\n\n' +
+    'ADDRESS\n' +
+    String(payload.fullAddress || '') + '\n\n' +
+    'PROGRAMME\n' +
     'Intake: ' + intakeName + '\n' +
-    'Reference: ' + reference + '\n\n' +
-    'Next action: open the secure link, confirm/complete the information required for SKYVIALING Marketing > Prospect, select the Fee Group and submit.\n' +
-    'Complete Prospect Details: ' + secureUrl;
+    'Programme: ' + programme + '\n' +
+    'Study Mode: ' + String(payload.studyMode || '') + '\n' +
+    'Level of Study: ' + String(payload.levelOfStudy || '') + '\n\n' +
+    'Reference No: ' + reference + '\n' +
+    'Assigned Agent: ' + agentName + '\n' +
+    'Agent Organisation: ' + agentOrganisation + '\n\n' +
+    'After you have successfully created the Prospect in SKYVIALING, return to this email and click the link below to confirm completion and select the Fee Group:\n' +
+    secureUrl;
 
   const htmlBody =
-    '<div style="font-family:Arial,sans-serif;max-width:680px;margin:auto;border:1px solid #e5e7eb;border-radius:16px;overflow:hidden">' +
+    '<div style="font-family:Arial,sans-serif;max-width:720px;margin:auto;border:1px solid #e5e7eb;border-radius:16px;overflow:hidden">' +
       '<div style="background:#2d2363;color:#fff;padding:22px"><h2 style="margin:0">New Referred Applicant</h2></div>' +
       '<div style="padding:24px">' +
         '<p>Dear <strong>'+v2Html_(agentName)+'</strong>,</p>' +
         '<p>Your referred applicant has submitted the IUC Admission Form.</p>' +
-        '<div style="background:#faf8ff;border:1px solid #e5def6;border-radius:12px;padding:16px;line-height:1.65">' +
-          '<strong>Student:</strong> '+v2Html_(studentName)+
-          '<br><strong>ID / Passport:</strong> '+v2Html_(payload && payload.idPassport || '')+
-          '<br><strong>Personal Email:</strong> '+v2Html_(payload && payload.email || '')+
-          '<br><strong>Phone:</strong> '+v2Html_(payload && payload.phoneNumber || '')+
-          '<br><strong>Applicant Type:</strong> '+v2Html_(payload && payload.applicantType || '')+
-          '<br><strong>Programme:</strong> '+v2Html_(programme)+
-          '<br><strong>Study Mode:</strong> '+v2Html_(payload && payload.studyMode || '')+
-          '<br><strong>Intake:</strong> '+v2Html_(intakeName)+
-          '<br><strong>Reference:</strong> '+v2Html_(reference)+
+
+        '<div style="background:#fff7df;border:1px solid #f0d995;border-radius:12px;padding:14px 16px;margin:16px 0;color:#785816">' +
+          '<strong>ACTION REQUIRED</strong><br>' +
+          'Please create this applicant in <strong>SKYVIALING → Marketing → Prospect</strong> using the information below.' +
         '</div>' +
-        '<p style="margin-top:18px">Please confirm or complete the information needed for <strong>SKYVIALING → Marketing → Prospect</strong>, then select the approved <strong>Fee Group</strong>.</p>' +
-        '<p style="text-align:center;margin:24px 0"><a href="'+v2Html_(secureUrl)+'" style="display:inline-block;background:#2d2363;color:#fff;text-decoration:none;padding:13px 20px;border-radius:10px;font-weight:700">Complete Prospect Details</a></p>' +
-        '<p style="font-size:12px;color:#667085">After you submit, Registry will be notified automatically. The Admission Form is attached for reference.</p>' +
+
+        '<div style="font-size:12px;font-weight:800;letter-spacing:.08em;color:#2d2363;margin:20px 0 8px">PERSONAL INFORMATION</div>' +
+        '<table style="border-collapse:collapse;width:100%;font-size:13px">' +
+          '<tr><td style="padding:7px 8px;border-bottom:1px solid #eceff3;width:190px">International</td><td style="padding:7px 8px;border-bottom:1px solid #eceff3;font-weight:700">'+v2Html_(internationalText)+'</td></tr>' +
+          '<tr><td style="padding:7px 8px;border-bottom:1px solid #eceff3">ID Type</td><td style="padding:7px 8px;border-bottom:1px solid #eceff3;font-weight:700">'+v2Html_(idType)+'</td></tr>' +
+          '<tr><td style="padding:7px 8px;border-bottom:1px solid #eceff3">ID No.</td><td style="padding:7px 8px;border-bottom:1px solid #eceff3;font-weight:700">'+v2Html_(payload.idPassport || '')+'</td></tr>' +
+          '<tr><td style="padding:7px 8px;border-bottom:1px solid #eceff3">Name</td><td style="padding:7px 8px;border-bottom:1px solid #eceff3;font-weight:700">'+v2Html_(studentName)+'</td></tr>' +
+          '<tr><td style="padding:7px 8px;border-bottom:1px solid #eceff3">Gender</td><td style="padding:7px 8px;border-bottom:1px solid #eceff3">'+v2Html_(payload.gender || '')+'</td></tr>' +
+          '<tr><td style="padding:7px 8px;border-bottom:1px solid #eceff3">Email</td><td style="padding:7px 8px;border-bottom:1px solid #eceff3">'+v2Html_(payload.email || '')+'</td></tr>' +
+          '<tr><td style="padding:7px 8px;border-bottom:1px solid #eceff3">Phone</td><td style="padding:7px 8px;border-bottom:1px solid #eceff3">'+v2Html_(payload.phoneNumber || '')+'</td></tr>' +
+          '<tr><td style="padding:7px 8px;border-bottom:1px solid #eceff3">Nationality</td><td style="padding:7px 8px;border-bottom:1px solid #eceff3">'+v2Html_(payload.nationality || '')+'</td></tr>' +
+          '<tr><td style="padding:7px 8px;border-bottom:1px solid #eceff3">Race</td><td style="padding:7px 8px;border-bottom:1px solid #eceff3">'+v2Html_(payload.race || '')+'</td></tr>' +
+          '<tr><td style="padding:7px 8px;border-bottom:1px solid #eceff3">Religion</td><td style="padding:7px 8px;border-bottom:1px solid #eceff3">'+v2Html_(payload.religion || '')+'</td></tr>' +
+          '<tr><td style="padding:7px 8px;border-bottom:1px solid #eceff3">Place of Birth</td><td style="padding:7px 8px;border-bottom:1px solid #eceff3">'+v2Html_(payload.placeOfBirth || '')+'</td></tr>' +
+        '</table>' +
+
+        '<div style="font-size:12px;font-weight:800;letter-spacing:.08em;color:#2d2363;margin:20px 0 8px">ADDRESS</div>' +
+        '<div style="background:#fafbfc;border:1px solid #eceff3;border-radius:10px;padding:12px 14px;line-height:1.55">'+(safeAddress || '-')+'</div>' +
+
+        '<div style="font-size:12px;font-weight:800;letter-spacing:.08em;color:#2d2363;margin:20px 0 8px">PROGRAMME</div>' +
+        '<table style="border-collapse:collapse;width:100%;font-size:13px">' +
+          '<tr><td style="padding:7px 8px;border-bottom:1px solid #eceff3;width:190px">Intake</td><td style="padding:7px 8px;border-bottom:1px solid #eceff3;font-weight:700">'+v2Html_(intakeName)+'</td></tr>' +
+          '<tr><td style="padding:7px 8px;border-bottom:1px solid #eceff3">Programme</td><td style="padding:7px 8px;border-bottom:1px solid #eceff3;font-weight:700">'+v2Html_(programme)+'</td></tr>' +
+          '<tr><td style="padding:7px 8px;border-bottom:1px solid #eceff3">Study Mode</td><td style="padding:7px 8px;border-bottom:1px solid #eceff3">'+v2Html_(payload.studyMode || '')+'</td></tr>' +
+          '<tr><td style="padding:7px 8px;border-bottom:1px solid #eceff3">Level of Study</td><td style="padding:7px 8px;border-bottom:1px solid #eceff3">'+v2Html_(payload.levelOfStudy || '')+'</td></tr>' +
+        '</table>' +
+
+        '<div style="margin:20px 0 0;padding:13px 14px;background:#faf8ff;border:1px solid #e5def6;border-radius:10px;font-size:13px;line-height:1.6">' +
+          '<strong>Reference No:</strong> '+v2Html_(reference)+
+          '<br><strong>Assigned Agent:</strong> '+v2Html_(agentName)+
+          (agentOrganisation ? '<br><strong>Agent Organisation:</strong> '+v2Html_(agentOrganisation) : '') +
+        '</div>' +
+
+        '<p style="margin-top:20px"><strong>After you have created and saved the Prospect in SKYVIALING:</strong> return to this email, click the button below, confirm Prospect completion and select the correct Fee Group.</p>' +
+
+        '<p style="text-align:center;margin:24px 0"><a href="'+v2Html_(secureUrl)+'" style="display:inline-block;background:#2d2363;color:#fff;text-decoration:none;padding:13px 20px;border-radius:10px;font-weight:700">Prospect Done → Select Fee Group</a></p>' +
+
+        '<p style="font-size:12px;color:#667085">The Admission Form is attached for reference. After your confirmation, Admission V2 will update the Prospect status and Fee Group automatically, and Registry will be notified to continue processing the application.</p>' +
         '<p>Regards,<br><strong>IPGS Registry</strong></p>' +
       '</div>' +
     '</div>';
@@ -228,12 +289,14 @@ function v2SendAgentNotificationCentral_(payload, reference, intake, pdf, agent,
     'AGENT_NEW_APPLICATION', [intendedEmail], subject, textBody, htmlBody,
     {attachments:(pdf && pdf.blob ? [pdf.blob] : []), modeOverride:opts.modeOverride}
   );
+
   const now = new Date().toISOString();
   v2NotificationUpdateApplication_(reference, {
     'Agent Notification Status': result.status,
     'Agent Notification Sent At': result.sent ? now : '',
     'Last Updated': now
   });
+
   return result;
 }
 
