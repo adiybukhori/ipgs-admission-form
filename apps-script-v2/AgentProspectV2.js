@@ -164,7 +164,9 @@ function v2CreateAgentActionLink_(payload, reference) {
   }
 
   const base = v2AgentBaseUrl_();
-  return base + (base.indexOf('?') === -1 ? '?' : '&') + 'page=agent-v2&token=' + encodeURIComponent(token);
+  return base + (base.indexOf('?') === -1 ? '?' : '&') +
+    'page=agent-v2&actionId=' + encodeURIComponent(actionId) +
+    '&token=' + encodeURIComponent(token);
 }
 
 /** Render the no-login agent page. */
@@ -172,23 +174,35 @@ function v2RenderAgentPage_(params) {
   assertDevIdentity_();
   const template = HtmlService.createTemplateFromFile('agent-v2');
   template.token = String((params && (params.token || params.t)) || '');
+  template.actionId = String((params && (params.actionId || params.a)) || '');
   return template.evaluate()
     .setTitle('IUC Prospect & Fee Group Update')
     .setXFrameOptionsMode(HtmlService.XFrameOptionsMode.ALLOWALL);
 }
 
 /** Called by agent-v2.html when the page opens. */
-function v2AgentGetAction(token) {
+function v2AgentGetAction(token, actionId) {
   assertDevIdentity_();
 
   const rawToken = String(token || '').trim();
+  const cleanActionId = String(actionId || '').trim();
   if (!rawToken) return { ok: false, message: 'Invalid or missing action link.' };
 
   const ss = SpreadsheetApp.openById(CONFIG.spreadsheetId);
   const actionSheet = ss.getSheetByName(V2_AGENT_ACTIONS_SHEET);
   if (!actionSheet) return { ok: false, message: 'Agent action module is not set up.' };
 
-  const match = v2FindActionByTokenHash_(actionSheet, v2HashToken_(rawToken));
+  let match = cleanActionId ? v2FindActionById_(actionSheet, cleanActionId) : null;
+  if (match) {
+    const expectedHash = String(match.record['Token Hash'] || '').trim();
+    const actualHash = v2HashToken_(rawToken);
+    if (!expectedHash || expectedHash !== actualHash) {
+      return { ok: false, message: 'This secure action link is invalid.' };
+    }
+  } else {
+    // Backward compatibility for previously issued links without actionId.
+    match = v2FindActionByTokenHash_(actionSheet, v2HashToken_(rawToken));
+  }
   if (!match) return { ok: false, message: 'This action link is invalid or no longer available.' };
 
   const status = String(match.record['Action Status'] || '').trim().toUpperCase();
@@ -216,10 +230,11 @@ function v2AgentGetAction(token) {
 }
 
 /** Called once by agent-v2.html. Duplicate submissions are blocked server-side. */
-function v2AgentSubmitAction(token, formData) {
+function v2AgentSubmitAction(token, actionId, formData) {
   assertDevIdentity_();
 
   const rawToken = String(token || '').trim();
+  const cleanActionId = String(actionId || '').trim();
   const data = formData || {};
   const prospectCompleted = data.prospectCompleted === true ||
     String(data.prospectCompleted || '').trim().toUpperCase() === 'YES';
@@ -245,7 +260,16 @@ function v2AgentSubmitAction(token, formData) {
   lock.waitLock(10000);
 
   try {
-    const match = v2FindActionByTokenHash_(actionSheet, v2HashToken_(rawToken));
+    let match = cleanActionId ? v2FindActionById_(actionSheet, cleanActionId) : null;
+    if (match) {
+      const expectedHash = String(match.record['Token Hash'] || '').trim();
+      const actualHash = v2HashToken_(rawToken);
+      if (!expectedHash || expectedHash !== actualHash) {
+        throw new Error('This secure action link is invalid.');
+      }
+    } else {
+      match = v2FindActionByTokenHash_(actionSheet, v2HashToken_(rawToken));
+    }
     if (!match) throw new Error('This action link is invalid or no longer available.');
 
     const status = String(match.record['Action Status'] || '').trim().toUpperCase();
@@ -571,6 +595,22 @@ function v2SupersedeOpenActionsForReference_(sheet, referenceNo, nowText) {
       if (idxUpdated > -1) sheet.getRange(i + 1, idxUpdated + 1).setValue(nowText);
     }
   }
+}
+
+function v2FindActionById_(sheet, actionId) {
+  if (!sheet || sheet.getLastRow() < 2) return null;
+  const values = sheet.getDataRange().getValues();
+  const headers = values[0].map(function (v) { return String(v || '').trim(); });
+  const idxAction = headers.indexOf('Action ID');
+  if (idxAction < 0) return null;
+
+  const cleanId = String(actionId || '').trim();
+  for (let i = 1; i < values.length; i++) {
+    if (String(values[i][idxAction] || '').trim() === cleanId) {
+      return { sheet: sheet, rowNumber: i + 1, record: v2RowToRecord_(headers, values[i]) };
+    }
+  }
+  return null;
 }
 
 function v2FindActionByTokenHash_(sheet, tokenHash) {
