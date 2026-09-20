@@ -322,7 +322,7 @@ function v2BuildMigrationPlan_() {
 
 function handleV2Get_(params) {
   const action = String(params.action || '');
-  if (action === 'v2Health') return v2ApiOutput_({ok:true, build:V2_BUILD, workflowReady:v2FoundationReady_(), notificationBuild:(typeof V2_NOTIFICATION_BUILD !== 'undefined' ? V2_NOTIFICATION_BUILD : ''), notificationMode:(typeof v2NotificationMode_ === 'function' ? v2NotificationMode_() : 'UNAVAILABLE')}, params.callback);
+  if (action === 'v2Health') return v2ApiOutput_({ok:true, build:V2_BUILD, workflowReady:v2FoundationReady_(), orientationBuild:(typeof V2_ORIENTATION_BUILD !== 'undefined' ? V2_ORIENTATION_BUILD : ''), notificationBuild:(typeof V2_NOTIFICATION_BUILD !== 'undefined' ? V2_NOTIFICATION_BUILD : ''), notificationMode:(typeof v2NotificationMode_ === 'function' ? v2NotificationMode_() : 'UNAVAILABLE')}, params.callback);
   if (action === 'v2Bootstrap') {
     v2VerifyAdminApiAccess_(params.token);
     return v2ApiOutput_(v2Bootstrap_(), params.callback);
