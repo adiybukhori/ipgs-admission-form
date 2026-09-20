@@ -203,9 +203,23 @@
     if([...el.options].some(o=>o.value===current))el.value=current;
   }
 
+  function populateOrientationTrackingSessionFilter(sessions){
+    const el=document.getElementById('orientationTrackingSessionFilter');
+    if(!el)return;
+    const current=el.value;
+    el.innerHTML='<option value="">All Orientation Sessions</option>'+
+      sessions.map(s=>{
+        const id=String(s['Orientation Session ID']||'').trim();
+        const name=String(s['Orientation Name']||id).trim();
+        return id?'<option value="'+esc(id)+'">'+esc(name)+'</option>':'';
+      }).join('');
+    if([...el.options].some(o=>o.value===current))el.value=current;
+  }
+
   window.renderOrientation=function(){
     const sessions=db.V2_ORIENTATION_SESSIONS||[],tracking=db.V2_ORIENTATION_TRACKING||[];
     populateOrientationIntakes();
+    populateOrientationTrackingSessionFilter(sessions);
 
     const k1=document.getElementById('oriSessionsKpi'),k2=document.getElementById('oriAssignedKpi'),k3=document.getElementById('oriInvitedKpi'),k4=document.getElementById('oriAttendedKpi');
     if(k1)k1.textContent=sessions.length;
@@ -246,7 +260,19 @@
 
     const trackBody=document.getElementById('orientationTrackingBody');
     if(trackBody){
-      trackBody.innerHTML=tracking.map(x=>{
+      const selectedSessionId=String(document.getElementById('orientationTrackingSessionFilter')?.value||'').trim();
+      const filteredTracking=selectedSessionId
+        ? tracking.filter(x=>String(x['Orientation Session ID']||'')===selectedSessionId)
+        : tracking;
+
+      const countEl=document.getElementById('orientationTrackingFilterCount');
+      if(countEl){
+        countEl.textContent=selectedSessionId
+          ? filteredTracking.length+' student'+(filteredTracking.length===1?'':'s')+' in selected session'
+          : tracking.length+' student'+(tracking.length===1?'':'s')+' across all sessions';
+      }
+
+      trackBody.innerHTML=filteredTracking.map(x=>{
         const session=sessions.find(s=>String(s['Orientation Session ID']||'')===String(x['Orientation Session ID']||''));
         const attendance=String(x['Attendance Status']||'NOT_UPDATED').toUpperCase();
         return `<tr>
@@ -262,7 +288,7 @@
             <button class="ghost" onclick="markOrientationAttendance('${esc(x['Orientation Session ID']||'')}','${esc(x['Reference No']||'')}','EXCUSED')">Excused</button>
           </div></td>
         </tr>`;
-      }).join('')||'<tr><td colspan="7" class="empty">No students assigned to orientation yet.</td></tr>';
+      }).join('')||'<tr><td colspan="7" class="empty">No students found for this Orientation Session.</td></tr>';
     }
   };
 
