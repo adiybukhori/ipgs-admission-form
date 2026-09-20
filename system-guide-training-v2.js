@@ -17,10 +17,10 @@ const steps=[
 [14,'handover','Provisioning','IT / Moodle / e-Library','Academic Handover','Complete all required accounts','Provisioning complete'],
 [15,'handover','Student Access','Registry','Academic Handover','Send final access communication','Operational onboarding complete']
 ];
-const phases={master:['Master & Intake','purple','01–02'],admission:['Admission Decision','blue','03–08'],ops:['Standalone Operations','amber','09–12'],handover:['Provisioning & Completion','green','13–15']};
+const phases={master:['Master & Intake','purple','01–02'],admission:['Admission Decision','blue','03–08'],ops:['Operational Workstreams','amber','09–12'],handover:['Provisioning & Completion','green','13–15']};
 const slides=[
 ['SYSTEM OVERVIEW','Admission Command Center','One operational workspace for the postgraduate admission journey',0,'overview','dashboard',['Move between operational modules from the sidebar.','Main pages monitor; detailed views process.','Refresh after actions when the latest status has not appeared.']],
-['STUDENT JOURNEY','From Application to Active Student','See the student move across the full ACC journey',0,'journey','applications',['Formal admission decisions and standalone operations are different layers.','Orientation does not perform Academic Handover.','Student Access closes the operational journey.']],
+['STUDENT JOURNEY','From Application to Active Student','See the student move across the full ACC journey',0,'journey','applications',['Formal admission decisions and operational workstreams are different layers.','Orientation and Academic Handover are separate workstreams; neither should be drawn as a child of the other.','Student Access closes the Academic Handover workstream.']],
 ['APPLICATIONS','Monitor New Applications','Search, filter and open the student record',1,'apps','applications',['Reference No is the primary internal identifier.','The list shows programme, intake and current stage.','Open the applicant to process the next action.']],
 ['APPLICATION DETAIL','Process the Applicant','Operational Action Center + progress tracker + controlled tabs',3,'appdetail','applications',['Operational Action Center tells staff what happens next.','Journey tracker shows completed/current stages.','Tabs keep all controlled evidence in one record.']],
 ['SAC','Formal Admission Decision','Create session, assign candidates and record the authorised outcome',5,'sac','sac',['Assign only eligible candidates.','Retain the controlled SAC pack.','Record Direct Entry, IA or Rejected / Not Qualified.']],
