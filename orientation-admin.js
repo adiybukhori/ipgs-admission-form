@@ -607,30 +607,49 @@
     }
   };
 
-  window.viewOrientationReport=function(sessionId){
-    const session=(db.V2_ORIENTATION_SESSIONS||[]).find(function(s){
-      return String(s['Orientation Session ID']||'')===String(sessionId);
-    });
-    const url=String(session&&session['Report PDF URL']||'').trim();
-    if(!url)return orientationMessage('Official report has not been generated yet.','error');
-    window.open(url,'_blank','noopener');
+
+  function orientationReportBlob_(result){
+    const binary=atob(String(result&&result.base64||''));
+    const bytes=new Uint8Array(binary.length);
+    for(let i=0;i<binary.length;i++)bytes[i]=binary.charCodeAt(i);
+    return new Blob([bytes],{type:String(result&&result.mimeType||'application/pdf')});
+  }
+
+  window.viewOrientationReport=async function(sessionId){
+    const result=await orientationAction('v2GetOrientationReportFile',{sessionId});
+    if(!result)return;
+    const blob=orientationReportBlob_(result);
+    const objectUrl=URL.createObjectURL(blob);
+    document.getElementById('orientationReportViewer')?.remove();
+    const overlay=document.createElement('div');
+    overlay.id='orientationReportViewer';
+    overlay.style.cssText='position:fixed;inset:0;background:rgba(17,24,39,.72);z-index:10000;display:flex;flex-direction:column;padding:18px';
+    overlay.innerHTML=[
+      '<div style="background:#fff;border-radius:16px 16px 0 0;padding:12px 16px;display:flex;align-items:center;justify-content:space-between;gap:12px">',
+        '<div><b>Official Orientation Report</b><div class="subline">'+esc(result.reportReference||'')+' · v'+Number(result.reportVersion||1)+'</div></div>',
+        '<button class="ghost" type="button" id="orientationReportViewerClose">Close</button>',
+      '</div>',
+      '<iframe title="Official Orientation Report" style="width:100%;flex:1;border:0;background:#fff;border-radius:0 0 16px 16px" src="'+objectUrl+'"></iframe>'
+    ].join('');
+    document.body.appendChild(overlay);
+    document.getElementById('orientationReportViewerClose').onclick=function(){
+      overlay.remove();
+      URL.revokeObjectURL(objectUrl);
+    };
   };
 
-  window.downloadOrientationReport=function(sessionId){
-    const session=(db.V2_ORIENTATION_SESSIONS||[]).find(function(s){
-      return String(s['Orientation Session ID']||'')===String(sessionId);
-    });
-    const fileId=String(session&&session['Report File ID']||'').trim();
-    const url=String(session&&session['Report PDF URL']||'').trim();
-    if(fileId){
-      window.open('https://drive.google.com/uc?export=download&id='+encodeURIComponent(fileId),'_blank','noopener');
-      return;
-    }
-    if(url){
-      window.open(url,'_blank','noopener');
-      return;
-    }
-    orientationMessage('Official report has not been generated yet.','error');
+  window.downloadOrientationReport=async function(sessionId){
+    const result=await orientationAction('v2GetOrientationReportFile',{sessionId});
+    if(!result)return;
+    const blob=orientationReportBlob_(result);
+    const objectUrl=URL.createObjectURL(blob);
+    const a=document.createElement('a');
+    a.href=objectUrl;
+    a.download=String(result.fileName||'Orientation-Session-Report.pdf');
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    setTimeout(function(){URL.revokeObjectURL(objectUrl);},1000);
   };
 
   window.regenerateOrientationReport=async function(sessionId){
