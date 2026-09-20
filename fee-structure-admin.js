@@ -185,30 +185,31 @@
         <div class="detail-grid">
           <div class="field"><label>Fee Group Code *</label><input id="feeCode" value="${esc(row?.['Fee Group Code']||'')}" ${editing?'readonly':''} placeholder="e.g. MBA-15000" /></div>
           <div class="field"><label>Fee Structure Name</label><input id="feeName" value="${esc(row?.['Fee Structure Name']||'')}" placeholder="e.g. MBA Standard Fee 2026" /></div>
-          <div class="field full"><label>Programme</label><input id="feeProgramme" value="${esc(row?.['Programme']||'ALL')}" placeholder="Exact programme name or ALL" /></div>
-          <div class="field"><label>Level</label><input id="feeLevel" value="${esc(row?.['Level']||'')}" placeholder="Master / Doctorate / Diploma" /></div>
-          <div class="field"><label>Study Mode</label><input id="feeStudyMode" value="${esc(row?.['Study Mode']||'')}" placeholder="Full-Time / Part-Time / ODL / ALL" /></div>
-          <div class="field"><label>Intake Scope</label><input id="feeIntake" value="${esc(row?.['Intake Scope']||'ALL')}" placeholder="ALL or e.g. Sep-2026" /></div>
+          <div class="field full"><label>Programme</label><select id="feeProgramme">${optionsHtml(programmeOptions(),row?.['Programme']||'ALL')}</select></div>
+          <div class="field"><label>Level</label><select id="feeLevel">${optionsHtml(LEVELS,row?.['Level']||'ALL')}</select></div>
+          <div class="field"><label>Study Mode</label><select id="feeStudyMode">${optionsHtml(STUDY_MODES,row?.['Study Mode']||'ALL')}</select></div>
+          <div class="field"><label>Intake Scope</label><select id="feeIntake">${optionsHtml(intakeOptions(),row?.['Intake Scope']||'ALL')}</select></div>
           <div class="field"><label>Effective From</label><input id="feeEffectiveFrom" type="date" value="${esc(row?.['Effective From']||'')}" /></div>
           <div class="field"><label>Effective Until</label><input id="feeEffectiveUntil" type="date" value="${esc(row?.['Effective Until']||'')}" /></div>
         </div>
 
         <div class="panel" style="box-shadow:none;margin-top:16px">
-          <div class="panel-head"><h3>Fee Components</h3><span>Total may be adjusted manually if required</span></div>
+          <div class="panel-head"><div><h3 style="margin:0">Fee Components</h3><span>Standardised academic / non-academic fee classification</span></div><button type="button" class="ghost" onclick="addFeeComponentRow()">+ Add Component</button></div>
           <div class="panel-body">
-            <div class="detail-grid">
-              <div class="field"><label>Tuition Fee (RM)</label><input id="feeTuition" type="number" min="0" step="0.01" value="${esc(row?.['Tuition Fee']||'')}" /></div>
-              <div class="field"><label>Registration Fee (RM)</label><input id="feeRegistration" type="number" min="0" step="0.01" value="${esc(row?.['Registration Fee']||'')}" /></div>
-              <div class="field"><label>Other Fee (RM)</label><input id="feeOther" type="number" min="0" step="0.01" value="${esc(row?.['Other Fee']||'')}" /></div>
-              <div class="field"><label>Other Fee Description</label><input id="feeOtherDesc" value="${esc(row?.['Other Fee Description']||'')}" placeholder="Optional" /></div>
-              <div class="field full"><label>Total Fee (RM)</label><input id="feeTotal" type="number" min="0" step="0.01" value="${esc(row?.['Total Fee']||'')}" placeholder="Leave blank to auto-calculate components" /></div>
+            <div class="message" style="display:block;background:var(--blueSoft);color:var(--blue);margin:0 0 14px">
+              Academic fee categories follow the KPT distinction between <b>Coursework Fee</b>, <b>Research Fee</b> and <b>Mixed-Mode Fee</b>. Registration and other approved non-academic charges are recorded separately.
             </div>
+            <div id="feeComponentRows"></div>
+            <div style="display:flex;justify-content:flex-end;gap:8px;align-items:center;border-top:1px solid var(--line);padding-top:12px"><span class="subline">Fee Structure Total</span><strong id="feeComponentsTotal">RM 0.00</strong></div>
           </div>
         </div>
 
         <div class="panel" style="box-shadow:none;margin-top:16px">
-          <div class="panel-head"><h3>Payment Schedule</h3><button type="button" class="ghost" onclick="addFeeScheduleRow()">+ Add Payment</button></div>
+          <div class="panel-head"><div><h3 style="margin:0">Payment Schedule</h3><span>How the approved total fee is expected to be paid over time</span></div><button type="button" class="ghost" onclick="addFeeScheduleRow()">+ Add Payment</button></div>
           <div class="panel-body">
+            <div class="message" style="display:block;background:var(--purpleSoft);color:var(--purple);margin:0 0 14px">
+              Payment Schedule does <b>not</b> collect payment and does not create an invoice. It records the approved payment sequence for this Fee Group — for example Registration Fee upon registration, followed by Instalment 1 in Month 1, Instalment 2 in Month 2, and so on. This schedule can later be reused by Bursary / payment tracking.
+            </div>
             <div id="feeScheduleRows"></div>
             <div style="display:flex;justify-content:flex-end;gap:8px;align-items:center;border-top:1px solid var(--line);padding-top:12px"><span class="subline">Schedule Total</span><strong id="feeScheduleTotal">RM 0.00</strong></div>
           </div>
@@ -222,8 +223,9 @@
               <div class="field"><label>Status</label><select id="feeActive"><option value="INACTIVE">INACTIVE</option><option value="ACTIVE">ACTIVE</option></select></div>
               <div class="field"><label>Notes</label><input id="feeNotes" value="${esc(row?.['Notes']||'')}" placeholder="Internal note" /></div>
             </div>
-            <div class="message" style="display:block;background:var(--blueSoft);color:var(--blue);margin-top:10px">
-              ACTIVE fee structures must have a valid Drive PDF. Once active, the Fee Group Code becomes selectable by the agent for applicable programmes.
+            <div class="message" style="display:block;background:var(--blueSoft);color:var(--blue);margin-top:10px;line-height:1.55">
+              <b>Agent Availability:</b> ACTIVE means this Fee Group appears in the agent dropdown for the applicable programme. INACTIVE hides it from new selections without deleting historical records.<br><br>
+              <b>Fee Structure PDF:</b> paste the approved fee-structure document from Google Drive. The PDF acts as the official reference mapped to the Fee Group after the agent selects it. A structure cannot be activated until the PDF is accessible.
             </div>
           </div>
         </div>
@@ -235,6 +237,8 @@
       </div>`;
     document.body.appendChild(overlay);
     document.getElementById('feeActive').value=(editing&&active(row))?'ACTIVE':'INACTIVE';
+    const existingComponents=row?components(row):[];
+    if(existingComponents.length)existingComponents.forEach(x=>addFeeComponentRow(x));else addFeeComponentRow({type:'COURSEWORK_FEE'});
     if(existingSchedule.length)existingSchedule.forEach(x=>addFeeScheduleRow(x));else addFeeScheduleRow();
     document.getElementById('saveFeeStructureBtn').onclick=saveFeeStructure;
   };
