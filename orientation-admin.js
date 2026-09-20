@@ -38,9 +38,15 @@
     });
   }
 
+  function orientationAssignmentActive(row){
+    const status=String(row?.['Assignment Status']||'').trim().toUpperCase();
+    return !status||status==='ACTIVE';
+  }
+
   function assignedOrientationRefs(){
     const set=new Set();
     (db.V2_ORIENTATION_TRACKING||[]).forEach(x=>{
+      if(!orientationAssignmentActive(x))return;
       const ref=String(x['Reference No']||'').trim();
       if(ref)set.add(ref);
     });
@@ -291,6 +297,108 @@
     updateOrientationSelectedUi();
   };
 
+  function closeOrientationManageModal(){
+    document.getElementById('orientationManageModal')?.remove();
+  }
+
+  function orientationMoveTargets(currentSessionId){
+    return (db.V2_ORIENTATION_SESSIONS||[])
+      .filter(s=>String(s['Orientation Session ID']||'')!==String(currentSessionId))
+      .filter(s=>!orientationSessionEnded(s))
+      .sort((a,b)=>(Date.parse(String(a['Session Date']||''))||0)-(Date.parse(String(b['Session Date']||''))||0));
+  }
+
+  window.openOrientationManageStudents=function(sessionId){
+    const session=(db.V2_ORIENTATION_SESSIONS||[]).find(s=>String(s['Orientation Session ID']||'')===String(sessionId));
+    if(!session)return orientationMessage('Orientation session not found.','error');
+    closeOrientationManageModal();
+
+    const rows=(db.V2_ORIENTATION_TRACKING||[])
+      .filter(x=>String(x['Orientation Session ID']||'')===String(sessionId)&&orientationAssignmentActive(x))
+      .sort((a,b)=>String(a['Student Name']||'').localeCompare(String(b['Student Name']||'')));
+    const targets=orientationMoveTargets(sessionId);
+    const targetOptions='<option value="">Move to session…</option>'+targets.map(s=>{
+      const id=String(s['Orientation Session ID']||'');
+      const label=[s['Orientation Name']||id,s['Session Date']||''].filter(Boolean).join(' · ');
+      return '<option value="'+esc(id)+'">'+esc(label)+'</option>';
+    }).join('');
+
+    const overlay=document.createElement('div');
+    overlay.id='orientationManageModal';
+    overlay.style.cssText='position:fixed;inset:0;background:rgba(17,24,39,.58);z-index:9999;display:flex;align-items:center;justify-content:center;padding:18px';
+    overlay.innerHTML=`
+      <div style="width:min(1020px,97vw);max-height:92vh;overflow:auto;background:#fff;border-radius:18px;box-shadow:0 25px 70px rgba(0,0,0,.25);padding:22px">
+        <div style="display:flex;justify-content:space-between;gap:12px;align-items:flex-start;margin-bottom:14px">
+          <div>
+            <h3 style="margin:0 0 4px">Students in Orientation Session</h3>
+            <div class="subline">${esc(session['Orientation Name']||sessionId)} · ${esc(sessionId)}</div>
+          </div>
+          <button class="ghost" type="button" id="orientationManageCloseBtn">Close</button>
+        </div>
+        <div class="message" style="display:block;background:var(--blueSoft);color:var(--blue);margin-bottom:14px">
+          ${rows.length} active student${rows.length===1?'':'s'} assigned. Moving a student keeps the old session in the audit history, creates a new active assignment in the selected session, and does not send an email automatically.
+        </div>
+        <div class="table-wrap">
+          <table style="min-width:900px">
+            <thead><tr><th>Student</th><th>Programme</th><th>Invitation</th><th>Attendance</th><th>Move Session</th><th>Action</th></tr></thead>
+            <tbody>
+              ${rows.map((x,index)=>`
+                <tr>
+                  <td><div class="student">${esc(x['Student Name']||'-')}</div><div class="subline">${esc(x['Reference No']||'')}</div></td>
+                  <td>${esc(x['Programme']||'-')}</td>
+                  <td><span class="badge ${classifyBadge(x['Invitation Status']||'NOT_SENT')}">${esc(pretty(x['Invitation Status']||'NOT_SENT'))}</span></td>
+                  <td><span class="badge ${classifyBadge(x['Attendance Status']||'NOT_UPDATED')}">${esc(pretty(x['Attendance Status']||'NOT_UPDATED'))}</span></td>
+                  <td><select class="compact" id="oriMoveTarget_${index}" style="min-width:210px">${targetOptions}</select></td>
+                  <td><div class="orientation-actions">
+                    <button class="ghost" type="button" data-move-index="${index}">Move</button>
+                    <button class="ghost" type="button" data-remove-index="${index}">Remove</button>
+                  </div></td>
+                </tr>`).join('')||'<tr><td colspan="6" class="empty">No active students are assigned to this session.</td></tr>'}
+            </tbody>
+          </table>
+        </div>
+      </div>`;
+    document.body.appendChild(overlay);
+    document.getElementById('orientationManageCloseBtn').onclick=closeOrientationManageModal;
+
+    overlay.querySelectorAll('[data-remove-index]').forEach(btn=>{
+      btn.onclick=async()=>{
+        const index=Number(btn.dataset.removeIndex);
+        const row=rows[index];if(!row)return;
+        const ref=String(row['Reference No']||'');
+        const result=await orientationAction(
+          'v2RemoveOrientationStudent',
+          {sessionId,referenceNo:ref,reason:'Removed from session through ACC'},
+          'Remove '+String(row['Student Name']||ref)+' from this Orientation Session? The historical record will be retained and no email will be sent.'
+        );
+        if(!result)return;
+        closeOrientationManageModal();
+        orientationMessage('Student removed from this Orientation Session.','ok');
+        openOrientationManageStudents(sessionId);
+      };
+    });
+
+    overlay.querySelectorAll('[data-move-index]').forEach(btn=>{
+      btn.onclick=async()=>{
+        const index=Number(btn.dataset.moveIndex);
+        const row=rows[index];if(!row)return;
+        const select=document.getElementById('oriMoveTarget_'+index);
+        const targetSessionId=String(select?.value||'');
+        if(!targetSessionId)return orientationMessage('Select the target Orientation Session first.','error');
+        const target=(db.V2_ORIENTATION_SESSIONS||[]).find(s=>String(s['Orientation Session ID']||'')===targetSessionId);
+        const result=await orientationAction(
+          'v2MoveOrientationStudent',
+          {sourceSessionId:sessionId,targetSessionId,referenceNo:String(row['Reference No']||'')},
+          'Move '+String(row['Student Name']||row['Reference No']||'this student')+' to '+String(target?.['Orientation Name']||targetSessionId)+'? No invitation email will be sent automatically.'
+        );
+        if(!result)return;
+        closeOrientationManageModal();
+        orientationMessage('Student moved successfully. Invitation in the new session is NOT SENT until Registry clicks Send Invitation.','ok');
+        openOrientationManageStudents(sessionId);
+      };
+    });
+  };
+
   window.createOrientationSession=async function(){
     const name=document.getElementById('oriName')?.value.trim()||'';
     const intakeId=document.getElementById('oriIntake')?.value||'';
@@ -435,7 +543,7 @@
   }
 
   window.renderOrientation=function(){
-    const sessions=db.V2_ORIENTATION_SESSIONS||[],tracking=db.V2_ORIENTATION_TRACKING||[];
+    const sessions=db.V2_ORIENTATION_SESSIONS||[],tracking=(db.V2_ORIENTATION_TRACKING||[]).filter(orientationAssignmentActive);
     populateOrientationIntakes();
     populateOrientationTrackingSessionFilter(sessions);
 
@@ -475,6 +583,7 @@
           <td>${attended}<div class="subline">${rows.length-attended} not attended / pending</div><div style="margin-top:6px"><span class="badge ${attendanceState==='OPEN'?'green':attendanceState==='CLOSED'?'amber':'blue'}">Attendance ${esc(pretty(attendanceState))}</span></div></td>
           <td><div class="orientation-actions">
             <button class="ghost" onclick="openOrientationEdit('${esc(id)}')">Edit</button>
+            <button class="ghost" onclick="openOrientationManageStudents('${esc(id)}')">Students (${rows.length})</button>
             ${ended
               ? `<button class="ghost" onclick="openOrientationStudents('${esc(id)}')">Add Student Record</button>
                  <span class="badge amber">Session Ended</span>`
