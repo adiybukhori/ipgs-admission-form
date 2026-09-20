@@ -272,14 +272,14 @@
         {sessionId,referenceNos:refs,historicalOnly:ended},
         ended
           ? `Add ${refs.length} student${refs.length===1?'':'s'} to this ended Orientation Session as historical record only? No email will be sent.`
-          : `Add ${refs.length} student${refs.length===1?'':'s'} to this Orientation Session and send invitation email?`
+          : `Add ${refs.length} student${refs.length===1?'':'s'} to this Orientation Session? No invitation email will be sent yet.`
       );
       if(!result)return;
       closeOrientationStudentModal();
       orientationMessage(
         ended
           ? `Historical record added: ${result.assignedCount||0}. No invitation email sent. ${result.skipped?.length?`Skipped: ${result.skipped.length}.`:''}`
-          : `Added ${result.assignedCount||0}. Invitation sent: ${result.invitationSentCount||0}. ${result.skipped?.length?`Skipped: ${result.skipped.length}.`:''}`,
+          : `Added ${result.assignedCount||0}. Invitation not sent yet. Click Send Invitation when ready. ${result.skipped?.length?`Skipped: ${result.skipped.length}.`:''}`,
         'ok'
       );
     }
@@ -310,11 +310,20 @@
 
     const automation=result.reminderAutomation||{};
     if(String(automation.status||'').toUpperCase()==='ACTIVE'){
-      orientationMessage('Orientation session created. Click Add Students to assign applicants. Automatic reminders: 3d · 2d · 1d · ~1h.','ok');
+      orientationMessage('Orientation session created. Add students first, then click Send Invitation when ready. Automatic reminders run only for students whose invitation was sent.','ok');
     }else{
-      orientationMessage('Orientation session created. Click Add Students to assign applicants. Automatic reminder scheduler is not active yet; Send Reminder Now remains available.','info');
+      orientationMessage('Orientation session created. Add students first, then click Send Invitation when ready. Automatic reminder scheduler is not active yet; manual reminder remains available after invitation is sent.','info');
     }
     ['oriName','oriVenue','oriMeetingLink','oriProgrammeGroup'].forEach(id=>{const el=document.getElementById(id);if(el)el.value=''});
+  };
+
+  window.sendOrientationInvitation=async function(sessionId){
+    const result=await orientationAction(
+      'v2SendOrientationInvitation',
+      {sessionId},
+      'Send Orientation invitation now? Only students whose invitation has not been sent will receive the email.'
+    );
+    if(result)orientationMessage(`Invitation sent: ${result.sentCount||0}. Skipped: ${result.skippedCount||0}. Failed: ${result.failedCount||0}.`,'ok');
   };
 
   window.sendOrientationReminderNow=async function(sessionId){
@@ -464,13 +473,14 @@
           <td>${rows.length}<div class="subline">${invited} invited</div></td>
           <td>${reminded}<div class="subline">3d · 2d · 1d · ~1h</div></td>
           <td>${attended}<div class="subline">${rows.length-attended} not attended / pending</div><div style="margin-top:6px"><span class="badge ${attendanceState==='OPEN'?'green':attendanceState==='CLOSED'?'amber':'blue'}">Attendance ${esc(pretty(attendanceState))}</span></div></td>
-          <td><div style="display:flex;gap:6px;flex-wrap:wrap">
+          <td><div class="orientation-actions">
             <button class="ghost" onclick="openOrientationEdit('${esc(id)}')">Edit</button>
             ${ended
               ? `<button class="ghost" onclick="openOrientationStudents('${esc(id)}')">Add Student Record</button>
                  <span class="badge amber">Session Ended</span>`
               : `<button class="primary" onclick="openOrientationStudents('${esc(id)}')">Add Students</button>
-                 <button class="ghost" onclick="sendOrientationReminderNow('${esc(id)}')">Send Reminder Now</button>
+                 <button class="ghost" onclick="sendOrientationInvitation('${esc(id)}')">Send Invitation</button>
+                 <button class="ghost" onclick="sendOrientationReminderNow('${esc(id)}')">Send Reminder</button>
                  <button class="ghost" onclick="endOrientationSession('${esc(id)}')">End Session</button>`
             }
             ${attendanceState==='OPEN'
