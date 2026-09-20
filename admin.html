@@ -419,32 +419,19 @@
           </div>
 
           <div class="panel" style="margin-bottom:18px">
-            <div class="panel-head"><h3>Create Academic Handover Session</h3><span>Create the session first, then use Add Students in the session list</span></div>
-            <div class="panel-body">
-              <div class="detail-grid">
-                <div class="field full"><label>Handover Batch Name</label><input id="handoverName" placeholder="e.g. Academic Handover - October 2026 Batch 1" /></div>
-                <div class="field"><label>Academic Recipient</label><input id="handoverAcademicEmail" type="email" value="academicIUC@innovative.edu.my" /></div>
-                <div class="field"><label>IT PIC</label><input id="handoverItEmail" type="email" value="it@innovative.edu.my" /></div>
-                <div class="field"><label>Moodle PIC</label><input id="handoverMoodleEmail" type="email" value="moodle@innovative.edu.my" /></div>
-                <div class="field"><label>e-Library PIC</label><input id="handoverLibraryEmail" type="email" value="library@innovative.edu.my" /></div>
+            <div class="panel-body" style="display:flex;align-items:center;justify-content:space-between;gap:14px;flex-wrap:wrap">
+              <div>
+                <div class="student">Academic Handover Workspace</div>
+                <div class="subline">Create the handover session first. Student roster, handover communication, provisioning and student access are managed inside each session.</div>
               </div>
-              <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin:8px 0 14px">
-                <button class="primary" onclick="createAcademicHandoverBatch()">Create & Transfer to Academic</button>
-                <span id="handoverSelectionCount" class="badge purple">0 selected</span>
-              </div>
-              <div id="handoverMessage" class="message" style="display:none"></div>
-              <div class="table-wrap"><table><thead><tr><th>Available Student</th><th>Programme</th><th>Intake</th><th>Status</th></tr></thead><tbody id="handoverEligibleBody"></tbody></table></div>
+              <button class="primary" onclick="openHandoverCreateModal()">+ Create Handover Session</button>
             </div>
+            <div id="handoverMessage" class="message" style="display:none;margin:0 18px 18px"></div>
           </div>
 
           <div class="panel" style="margin-bottom:18px">
-            <div class="panel-head"><h3>Handover Sessions</h3><span>DRAFT → Add Students → Handover Now → Academic / IT / Moodle / e-Library notified</span></div>
-            <div class="table-wrap"><table><thead><tr><th>Session</th><th>Students</th><th>Status</th><th>Academic Email</th><th>Action</th></tr></thead><tbody id="handoverBatchesBody"></tbody></table></div>
-          </div>
-
-          <div class="panel">
-            <div class="panel-head"><h3>Provisioning Tasks</h3><span>Tasks are created immediately when Registry clicks Handover Now</span></div>
-            <div class="table-wrap"><table><thead><tr><th>Student</th><th>Innovative Email / IT</th><th>Moodle</th><th>e-Library</th><th>Overall</th></tr></thead><tbody id="provisioningBody"></tbody></table></div>
+            <div class="panel-head"><h3>Academic Handover Sessions</h3><span>Monitor each session here; open the session to process operational actions</span></div>
+            <div class="table-wrap"><table><thead><tr><th>Handover Session</th><th>Students</th><th>Current Stage</th><th>Status</th><th></th></tr></thead><tbody id="handoverBatchesBody"></tbody></table></div>
           </div>
         </section>
 
