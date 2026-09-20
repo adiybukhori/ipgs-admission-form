@@ -199,18 +199,32 @@ function v2SetFeeStructureStatus_(data,actor){
   return {ok:true,feeGroupCode:code,active:active};
 }
 
-function v2GetFeeGroupOptions_(programme){
+function v2GetFeeGroupOptions_(programme,level,studyMode,intakeId,intakeName){
   const sheet=v2FeeStructureEnsureFoundation_();
   if(sheet.getLastRow()<2)return [];
   const rows=v2Rows_(CONFIG.feeGroupMasterSheetName||'FEE_GROUP_MASTER');
-  const target=String(programme||'').trim().toUpperCase();
+  const targetProgramme=String(programme||'').trim().toUpperCase();
+  const targetLevel=String(level||'').trim().toUpperCase();
+  const targetMode=String(studyMode||'').trim().toUpperCase();
+  const targetIntakes=[intakeId,intakeName].map(function(v){return String(v||'').trim().toUpperCase();}).filter(Boolean);
   const now=new Date();
   return rows.filter(function(row){
     const code=String(row['Fee Group Code']||'').trim();if(!code)return false;
     const active=String(row['Active']||'ACTIVE').trim().toUpperCase();
     if(active&&!['ACTIVE','YES','TRUE','1'].includes(active))return false;
-    const scope=String(row['Programme']||'ALL').trim().toUpperCase();
-    if(target&&scope&&scope!=='ALL'&&scope!==target)return false;
+
+    const programmeScope=String(row['Programme']||'ALL').trim().toUpperCase();
+    if(targetProgramme&&programmeScope&&programmeScope!=='ALL'&&programmeScope!==targetProgramme)return false;
+
+    const levelScope=String(row['Level']||'ALL').trim().toUpperCase();
+    if(targetLevel&&levelScope&&levelScope!=='ALL'&&levelScope!==targetLevel)return false;
+
+    const modeScope=String(row['Study Mode']||'ALL').trim().toUpperCase();
+    if(targetMode&&modeScope&&modeScope!=='ALL'&&modeScope!==targetMode)return false;
+
+    const intakeScope=String(row['Intake Scope']||'ALL').trim().toUpperCase();
+    if(intakeScope&&intakeScope!=='ALL'&&targetIntakes.length&&targetIntakes.indexOf(intakeScope)<0)return false;
+
     const from=String(row['Effective From']||'').trim(),until=String(row['Effective Until']||'').trim();
     if(from){const d=new Date(from+'T00:00:00');if(!isNaN(d)&&now<d)return false;}
     if(until){const d=new Date(until+'T23:59:59');if(!isNaN(d)&&now>d)return false;}
@@ -224,6 +238,9 @@ function v2GetFeeGroupOptions_(programme){
       label:[code,name,total?('RM'+total.toLocaleString('en-MY',{minimumFractionDigits:0,maximumFractionDigits:2})):'' ].filter(Boolean).join(' · '),
       name:name,
       programme:String(row['Programme']||'ALL'),
+      level:String(row['Level']||'ALL'),
+      studyMode:String(row['Study Mode']||'ALL'),
+      intakeScope:String(row['Intake Scope']||'ALL'),
       totalFee:total
     };
   }).sort(function(a,b){return a.code.localeCompare(b.code);});
