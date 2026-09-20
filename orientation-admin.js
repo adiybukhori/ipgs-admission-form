@@ -72,7 +72,7 @@
 
   function orientationSessionEnded(session){
     const status=String(session?.['Status']||'').trim().toUpperCase();
-    if(['ENDED','CANCELLED','CLOSED'].includes(status))return true;
+    if(['ENDED','CANCELLED','CLOSED','COMPLETED'].includes(status))return true;
     const end=orientationSessionEndDate(session);
     return !!(end&&end.getTime()<=Date.now());
   }
@@ -399,6 +399,47 @@
     });
   };
 
+
+  function closeOrientationCreateModal(){
+    document.getElementById('orientationCreateModal')?.remove();
+  }
+
+  window.openOrientationCreateModal=function(){
+    closeOrientationCreateModal();
+    const overlay=document.createElement('div');
+    overlay.id='orientationCreateModal';
+    overlay.style.cssText='position:fixed;inset:0;background:rgba(17,24,39,.58);z-index:9999;display:flex;align-items:center;justify-content:center;padding:18px';
+    overlay.innerHTML=[
+      '<div style="width:min(900px,97vw);max-height:92vh;overflow:auto;background:#fff;border-radius:18px;box-shadow:0 25px 70px rgba(0,0,0,.25);padding:22px">',
+        '<div style="display:flex;justify-content:space-between;gap:12px;align-items:flex-start;margin-bottom:16px">',
+          '<div><h3 style="margin:0 0 4px">Create Orientation Session</h3><div class="subline">Create the session first. Students and invitation emails are managed after the session is saved.</div></div>',
+          '<button class="ghost" type="button" id="orientationCreateCloseBtn">Close</button>',
+        '</div>',
+        '<div class="detail-grid">',
+          '<div class="field"><label>Orientation Name</label><input id="oriName" placeholder="e.g. Orientation October 2026" /></div>',
+          '<div class="field"><label>Intake</label><select id="oriIntake"><option value="">Select intake</option></select></div>',
+          '<div class="field"><label>Session Date</label><input id="oriDate" type="date" /></div>',
+          '<div class="field"><label>Programme Group</label><input id="oriProgrammeGroup" placeholder="ALL" value="ALL" /></div>',
+          '<div class="field"><label>Start Time</label><input id="oriStart" type="time" value="08:30" /></div>',
+          '<div class="field"><label>End Time</label><input id="oriEnd" type="time" value="10:30" /></div>',
+          '<div class="field"><label>Mode</label><select id="oriMode"><option value="ONLINE">Online</option><option value="PHYSICAL">Physical</option><option value="HYBRID">Hybrid</option></select></div>',
+          '<div class="field"><label>Automatic Reminders</label><input value="3 days · 2 days · 1 day · ~1 hour before" readonly /></div>',
+          '<div class="field"><label>Venue</label><input id="oriVenue" placeholder="Physical venue, if applicable" /></div>',
+          '<div class="field"><label>Meeting Link</label><input id="oriMeetingLink" placeholder="Google Meet / online link" /></div>',
+        '</div>',
+        '<div style="display:flex;justify-content:flex-end;gap:10px;margin-top:18px">',
+          '<button class="ghost" type="button" id="orientationCreateCancelBtn">Cancel</button>',
+          '<button class="primary" type="button" id="orientationCreateSaveBtn">Create Session</button>',
+        '</div>',
+      '</div>'
+    ].join('');
+    document.body.appendChild(overlay);
+    populateOrientationIntakes();
+    document.getElementById('orientationCreateCloseBtn').onclick=closeOrientationCreateModal;
+    document.getElementById('orientationCreateCancelBtn').onclick=closeOrientationCreateModal;
+    document.getElementById('orientationCreateSaveBtn').onclick=createOrientationSession;
+  };
+
   window.createOrientationSession=async function(){
     const name=document.getElementById('oriName')?.value.trim()||'';
     const intakeId=document.getElementById('oriIntake')?.value||'';
@@ -415,6 +456,7 @@
       name,intakeId,sessionDate,startTime,endTime,mode,venue,meetingLink,programmeGroup
     },`Create ${name} on ${sessionDate}?`);
     if(!result)return;
+    closeOrientationCreateModal();
 
     const automation=result.reminderAutomation||{};
     if(String(automation.status||'').toUpperCase()==='ACTIVE'){
