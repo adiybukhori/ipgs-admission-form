@@ -2,7 +2,7 @@ name: Stage 4 Orientation Deploy
 # end-session-v1
 # milestone-reminders-v2
 # edit-ended-session-v1
-# attendance-recording-v1
+# attendance-recording-v2
 
 on:
   push:
