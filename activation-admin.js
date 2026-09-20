@@ -70,25 +70,32 @@
     if(!r)return activationMsg('Application record not found.','error');
     const groups=feeGroups();
     const currentGroup=String(r.workflow?.['Fee Group']||r.app?.['Fee Group']||'');
-    const options=['<option value="">Select Fee Group</option>'].concat(groups.map(g=>`<option value="${esc(g)}" ${g===currentGroup?'selected':''}>${esc(g)}</option>`)).join('');
-    const body=`
-      <div class="message" style="display:block;background:var(--blueSoft);color:var(--blue);margin-bottom:16px">
-        Marketing / Academic Consultant creates the student Prospect in SKYVIALING and confirms completion through the secure email action. Registry normally does not create the Prospect. This edit function is retained only for exception / legacy correction.
-      </div>
-      <div class="detail-grid">
-        <div class="field full"><label>Student</label><input value="${esc(r.app['Student Name']||'-')}" readonly></div>
-        <div class="field"><label>SKY Prospect ID</label><input id="registrySkyProspectId" value="${esc(r.workflow?.['SKY Prospect ID']||r.app?.['SKY Prospect ID']||'')}" placeholder="Enter SKY Prospect ID"></div>
-        <div class="field"><label>Fee Structure / Fee Group</label><select id="registryFeeGroup">${options}</select></div>
-        <div class="field full"><label>Remarks</label><textarea id="registryProspectRemarks" rows="3" style="width:100%;border:1px solid #d7dce6;border-radius:12px;padding:12px 13px;resize:vertical">${esc(r.app?.['Prospect Remarks']||'')}</textarea></div>
-      </div>`;
-    modalShell('Complete Prospect',r.ref,body,'Mark Prospect Done');
+    const options=['<option value="">Select Fee Group</option>'].concat(
+      groups.map(g=>'<option value="'+esc(g)+'" '+(g===currentGroup?'selected':'')+'>'+esc(g)+'</option>')
+    ).join('');
+    const body=
+      '<div class="message" style="display:block;background:var(--blueSoft);color:var(--blue);margin-bottom:16px">'+
+        'Use this only when Registry needs to correct the Fee Group selected by Marketing / Academic Consultant. Prospect completion remains owned by Marketing.'+
+      '</div>'+
+      '<div class="detail-grid">'+
+        '<div class="field full"><label>Student</label><input value="'+esc(r.app['Student Name']||'-')+'" readonly></div>'+
+        '<div class="field full"><label>Fee Structure / Fee Group</label><select id="registryFeeGroup">'+options+'</select></div>'+
+        '<div class="field full"><label>Remarks</label><textarea id="registryProspectRemarks" rows="3" style="width:100%;border:1px solid #d7dce6;border-radius:12px;padding:12px 13px;resize:vertical" placeholder="Reason for Fee Group correction (optional)">'+esc(r.app?.['Prospect Remarks']||'')+'</textarea></div>'+
+      '</div>';
+    modalShell('Exception Edit - Fee Group',r.ref,body,'Update Fee Group');
     document.getElementById('activationModalPrimary').onclick=async()=>{
-      const skyProspectId=document.getElementById('registrySkyProspectId')?.value.trim()||'';
       const feeGroup=document.getElementById('registryFeeGroup')?.value||'';
       const remarks=document.getElementById('registryProspectRemarks')?.value.trim()||'';
-      if(!skyProspectId||!feeGroup)return activationMsg('SKY Prospect ID and Fee Structure are required.','error');
-      const result=await activationAction('v2RegistryUpsertProspect',{referenceNo:ref,skyProspectId,feeGroup,remarks,notifyRegistry:false},'Mark this Prospect as DONE?');
-      if(result){closeActivationModal();activationMsg('Prospect DONE. Registry may now activate the student in SKY.','ok')}
+      if(!feeGroup)return activationMsg('Fee Group is required.','error');
+      const result=await activationAction(
+        'v2RegistryUpsertProspect',
+        {referenceNo:ref,feeGroup,remarks},
+        'Update the Fee Group for this applicant?'
+      );
+      if(result){
+        closeActivationModal();
+        activationMsg('Fee Group updated successfully. Prospect remains completed by Marketing.','ok');
+      }
     };
   };
 
@@ -97,10 +104,6 @@
     if(result)activationMsg(`Fee Structure status: ${pretty(result.feeStructure?.status||'updated')}.`,result.feeStructure?.status==='READY'?'ok':'info');
   };
 
-  window.resendRegistryProspectNotification=async function(ref){
-    const result=await activationAction('v2NotifyRegistryProspectReady',{referenceNo:ref},'Send Prospect Done notification to Registry?');
-    if(result)activationMsg(`Registry notification: ${pretty(result.status||'processed')}.`,result.sent?'ok':'info');
-  };
 
   window.openSkyActivationModal=function(ref){
     const r=liveActivationRecords().find(x=>String(x.ref)===String(ref));
@@ -166,7 +169,7 @@
         </td>
         <td><span class="badge ${activation==='ACTIVATED'?'green':'amber'}">${activation==='ACTIVATED'?'Done':'Pending'}</span><div class="subline">${esc(w['SKY Student ID']||'')}</div></td>
         <td><span class="badge ${state==='ACTIVE_IN_SKY_DONE'?'green':state==='PROSPECT_DONE'?'purple':'amber'}">${esc(pretty(state))}</span></td>
-        <td><div style="display:flex;gap:6px;flex-wrap:wrap">${action}${state==='PROSPECT_DONE'&&feeGroup?`<button class="ghost" onclick="resendRegistryProspectNotification('${esc(r.ref)}')">Notify Registry</button>`:''}</div></td>
+        <td><div style="display:flex;gap:6px;flex-wrap:wrap">${action}</div></td>
       </tr>`;
     }).join('')||'<tr><td colspan="6" class="empty">No V2 applications.</td></tr>';
   };
