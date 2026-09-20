@@ -6,7 +6,7 @@
  * automatic reminder -> attendance tracking. This module is standalone.
  */
 
-const V2_ORIENTATION_BUILD = 'ORIENTATION_V2_ATTENDANCE_URL_FIX_20260920';
+const V2_ORIENTATION_BUILD = 'ORIENTATION_V2_FEEDBACK_FORM_20260920';
 const V2_ORIENTATION_TRIGGER_VERSION = 'MILESTONE_V2_15MIN';
 const V2_ORIENTATION_REMINDER_HANDLER = 'v2OrientationReminderSweep';
 const V2_ORIENTATION_SESSION_HEADERS = [
@@ -21,7 +21,7 @@ const V2_ORIENTATION_TRACKING_HEADERS = [
   'Invitation Delivery Detail',
   'Attendance Token','Attendance Source','Attendance Submitted At','Attendance Identifier',
   'Attendance Link Status','Attendance Link Sent At',
-  'Feedback Status','Feedback JSON',
+  'Feedback Status','Feedback JSON','Feedback Overall Score','Feedback Average Score','Feedback Recommend',
   'Manual Override At','Manual Override By','Manual Override From',
   'Recording Email Sent At','Recording Delivery Detail',
   'Assignment Status','Assignment Updated At','Assignment Updated By',
@@ -832,26 +832,93 @@ function v2SubmitOrientationAttendance_(data) {
 function v2SubmitOrientationFeedback_(data) {
   v2OrientationEnsureHeaders_();
   const token=v2Required_(data.token,'Attendance token');
-  const row=v2Rows_('V2_ORIENTATION_TRACKING').filter(function(x){return String(x['Attendance Token'] || '')===token && v2OrientationAssignmentActive_(x);})[0];
+  const row=v2Rows_('V2_ORIENTATION_TRACKING').filter(function(x){
+    return String(x['Attendance Token'] || '')===token && v2OrientationAssignmentActive_(x);
+  })[0];
   if (!row) throw new Error('Attendance record not found.');
-  const found=v2FindComposite_('V2_ORIENTATION_TRACKING',['Orientation Session ID','Reference No'],[row['Orientation Session ID'],row['Reference No']]);
+  const found=v2FindComposite_(
+    'V2_ORIENTATION_TRACKING',
+    ['Orientation Session ID','Reference No'],
+    [row['Orientation Session ID'],row['Reference No']]
+  );
   if (!found) throw new Error('Attendance record not found.');
+
+  const overall=Number(data.overallSatisfaction || 0);
+  const nextSteps=String(data.nextSteps || '').trim();
+  const pace=String(data.pace || '').trim();
+  const ratings=data.ratings && typeof data.ratings === 'object' ? data.ratings : {};
+  const requiredRatingKeys=[
+    'objectives','introduction','programmeStructure','academicJourney',
+    'academicCalendar','portalCommunication','fees','presenter','organisation'
+  ];
+  const ratingValues=requiredRatingKeys.map(function(key){ return Number(ratings[key] || 0); });
+  const usefulAreas=Array.isArray(data.usefulAreas) ? data.usefulAreas.map(function(v){return String(v||'').trim();}).filter(Boolean) : [];
+  const recommend=String(data.recommend || '').trim();
+  const confirmation=data.confirmation === true;
+
+  if (!(overall>=1 && overall<=5)) throw new Error('Overall satisfaction is required.');
+  if (!nextSteps) throw new Error('Please indicate whether you understand the next steps.');
+  if (!pace) throw new Error('Please rate the session pace.');
+  if (ratingValues.some(function(v){return !(v>=1 && v<=5);})){
+    throw new Error('Please complete all required orientation rating questions.');
+  }
+  if (!usefulAreas.length) throw new Error('Please select at least one useful area.');
+  if (!recommend) throw new Error('Please indicate whether you would recommend this orientation.');
+  if (!confirmation) throw new Error('Student confirmation is required.');
+
+  const avg=ratingValues.reduce(function(total,v){return total+v;},0)/ratingValues.length;
   const now=new Date().toISOString();
   const feedback={
-    satisfaction:String(data.satisfaction || ''),
-    clarity:String(data.clarity || ''),
-    useful:String(data.useful || ''),
-    improvement:String(data.improvement || '')
+    feedbackVersion:String(data.feedbackVersion || 'IPGS_ORIENTATION_FEEDBACK_V2_20260920'),
+    overallSatisfaction:overall,
+    ratings:{
+      objectives:ratingValues[0],
+      introduction:ratingValues[1],
+      programmeStructure:ratingValues[2],
+      academicJourney:ratingValues[3],
+      academicCalendar:ratingValues[4],
+      portalCommunication:ratingValues[5],
+      fees:ratingValues[6],
+      presenter:ratingValues[7],
+      organisation:ratingValues[8]
+    },
+    nextSteps:nextSteps,
+    usefulAreas:usefulAreas,
+    pace:pace,
+    mostUsefulInformation:String(data.mostUsefulInformation || '').trim(),
+    unclearInformation:String(data.unclearInformation || '').trim(),
+    improvement:String(data.improvement || '').trim(),
+    recommend:recommend,
+    confirmation:true,
+    submittedAt:now
   };
+
   v2UpdateRow_(found.sheet,found.rowNumber,{
-    'Feedback Submitted':'YES','Feedback Status':'SUBMITTED',
-    'Feedback Submitted At':now,'Feedback JSON':JSON.stringify(feedback),'Last Updated':now
+    'Feedback Submitted':'YES',
+    'Feedback Status':'SUBMITTED',
+    'Feedback Submitted At':now,
+    'Feedback JSON':JSON.stringify(feedback),
+    'Feedback Overall Score':overall,
+    'Feedback Average Score':Math.round(avg*100)/100,
+    'Feedback Recommend':recommend,
+    'Last Updated':now
   });
   v2Audit_(String(row['Reference No'] || ''),'ORIENTATION','SUBMIT_FEEDBACK',{},{
-    sessionId:String(row['Orientation Session ID'] || ''),feedbackStatus:'SUBMITTED'
-  },'Student Attendance Form','SUCCESS','');
+    sessionId:String(row['Orientation Session ID'] || ''),
+    feedbackStatus:'SUBMITTED',
+    overallSatisfaction:overall,
+    averageRating:Math.round(avg*100)/100,
+    recommend:recommend,
+    usefulAreas:usefulAreas
+  },'Student Attendance Form','SUCCESS','Structured IPGS Orientation feedback submitted.');
   v2InvalidateCache_();
-  return {ok:true,feedbackStatus:'SUBMITTED',submittedAt:now};
+  return {
+    ok:true,
+    feedbackStatus:'SUBMITTED',
+    submittedAt:now,
+    overallSatisfaction:overall,
+    averageRating:Math.round(avg*100)/100
+  };
 }
 
 function v2SetOrientationRecording_(data, actor) {
