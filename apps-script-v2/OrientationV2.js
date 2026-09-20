@@ -6,7 +6,7 @@
  * automatic reminder -> attendance tracking. This module is standalone.
  */
 
-const V2_ORIENTATION_BUILD = 'ORIENTATION_V2_SESSION_MEMBERSHIP_20260920';
+const V2_ORIENTATION_BUILD = 'ORIENTATION_V2_ATTENDANCE_URL_FIX_20260920';
 const V2_ORIENTATION_TRIGGER_VERSION = 'MILESTONE_V2_15MIN';
 const V2_ORIENTATION_REMINDER_HANDLER = 'v2OrientationReminderSweep';
 const V2_ORIENTATION_SESSION_HEADERS = [
@@ -507,7 +507,7 @@ function v2UpdateOrientationAttendance_(data, actor) {
 }
 
 
-const V2_ORIENTATION_ATTENDANCE_BASE_URL = 'https://n-form.innovative.edu.my/orientation-attendance.html';
+const V2_ORIENTATION_ATTENDANCE_BASE_URL = 'https://ipgs-admission-form.innovative.edu.my/orientation-attendance.html';
 
 function v2OrientationAttendancePublicSession_(session) {
   return {
