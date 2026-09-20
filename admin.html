@@ -48,6 +48,25 @@
     .side-footer .live{display:flex;align-items:center;gap:8px;font-size:12px;color:#d7f7ea}
     .dot{width:8px;height:8px;border-radius:50%;background:#31c48d;box-shadow:0 0 0 4px rgba(49,196,141,.12)}
     .side-footer button{margin-top:12px;width:100%;border:1px solid rgba(255,255,255,.18);background:transparent;color:white;border-radius:10px;padding:9px}
+    @media(min-width:701px){
+      .sidebar{overflow:hidden}
+      .side-brand{flex:0 0 auto}
+      .nav{
+        flex:1 1 auto;
+        min-height:0;
+        overflow-y:auto;
+        overscroll-behavior-y:contain;
+        padding-right:5px;
+        margin-right:-5px;
+        scrollbar-width:thin;
+        scrollbar-color:rgba(255,255,255,.28) transparent
+      }
+      .nav::-webkit-scrollbar{width:5px}
+      .nav::-webkit-scrollbar-track{background:transparent}
+      .nav::-webkit-scrollbar-thumb{background:rgba(255,255,255,.24);border-radius:999px}
+      .nav::-webkit-scrollbar-thumb:hover{background:rgba(255,255,255,.38)}
+      .side-footer{flex:0 0 auto;margin-top:14px}
+    }
     .main{min-width:0}
     .topbar{height:72px;background:#fff;border-bottom:1px solid var(--line);display:flex;align-items:center;justify-content:space-between;padding:0 28px;position:sticky;top:0;z-index:20}
     .page-title{font-size:19px;font-weight:850}
