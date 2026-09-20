@@ -388,23 +388,14 @@
           </div>
 
           <div class="panel" style="margin-bottom:18px">
-            <div class="panel-head"><h3>Create Orientation Session</h3><span>Reminder is automatically scheduled before the session</span></div>
-            <div class="panel-body">
-              <div class="detail-grid">
-                <div class="field"><label>Orientation Name</label><input id="oriName" placeholder="e.g. Orientation October 2026" /></div>
-                <div class="field"><label>Intake</label><select id="oriIntake"><option value="">Select intake</option></select></div>
-                <div class="field"><label>Session Date</label><input id="oriDate" type="date" /></div>
-                <div class="field"><label>Programme Group</label><input id="oriProgrammeGroup" placeholder="ALL" value="ALL" /></div>
-                <div class="field"><label>Start Time</label><input id="oriStart" type="time" value="08:30" /></div>
-                <div class="field"><label>End Time</label><input id="oriEnd" type="time" value="10:30" /></div>
-                <div class="field"><label>Mode</label><select id="oriMode"><option value="ONLINE">Online</option><option value="PHYSICAL">Physical</option><option value="HYBRID">Hybrid</option></select></div>
-                <div class="field"><label>Automatic Reminders</label><input id="oriReminderSchedule" value="3 days · 2 days · 1 day · 1 hour before" readonly></div>
-                <div class="field"><label>Venue</label><input id="oriVenue" placeholder="Physical venue, if applicable" /></div>
-                <div class="field"><label>Meeting Link</label><input id="oriMeetingLink" placeholder="Google Meet / online link" /></div>
+            <div class="panel-body" style="display:flex;align-items:center;justify-content:space-between;gap:14px;flex-wrap:wrap">
+              <div>
+                <div class="student">Orientation Session Workspace</div>
+                <div class="subline">Create a session first, then manage students, invitations, attendance, feedback, recording and completion from the session list.</div>
               </div>
-              <div style="margin-top:8px"><button class="primary" onclick="createOrientationSession()">Create Orientation Session</button></div>
-              <div id="orientationMessage" class="message" style="display:none"></div>
+              <button class="primary" onclick="openOrientationCreateModal()">+ Create Orientation Session</button>
             </div>
+            <div id="orientationMessage" class="message" style="display:none;margin:0 18px 18px"></div>
           </div>
 
           <div class="panel" style="margin-bottom:18px">
