@@ -494,135 +494,225 @@
 
         <section id="guide" class="section">
           <div class="hero">
-            <div><h2>System Guide</h2><p>Staff operating guide for the unified IPGS Admission System — from application and Academic Consultant handoff until Active Student.</p></div>
-            <span class="badge green">UNIFIED SYSTEM · LIVE</span>
+            <div>
+              <h2>System Guide</h2>
+              <p>Current operating guide for the IPGS Admission Command Center — master data, admission, SKY operations, Orientation, Academic Handover and student access.</p>
+            </div>
+            <span class="badge green">CURRENT OPERATING GUIDE · SEP 2026</span>
           </div>
 
           <div class="guide-callout blue" style="margin-bottom:18px">
-            <b>Core rule:</b> Admission processing, Prospect/SKY operations, Orientation, and Academic Handover serve different operational purposes. Do not use a pending status in one module to block another standalone module unless that module itself explicitly requires it.
+            <b>Operating model:</b> the ACC combines several operational modules, but not every module is a hard gate for another. Admission workflow, Prospect / Activation, Orientation and Academic Handover each keep their own records and controls. Follow the rules inside the module being used and do not create an artificial cross-module block unless the system explicitly requires it.
           </div>
 
           <div class="panel" style="margin-bottom:18px">
-            <div class="panel-head"><h3>Detailed End-to-End Flow</h3><span>Who acts · what to do · what happens next</span></div>
+            <div class="panel-head"><h3>Quick Module Map</h3><span>What each area is for</span></div>
+            <div class="panel-body"><div class="guide-role-grid">
+              <div class="guide-role-card"><h4>Dashboard</h4><ol><li>Monitor total workload, pending actions and funnel progress.</li><li>Use Refresh when a newly completed action is not yet reflected.</li></ol></div>
+              <div class="guide-role-card"><h4>Applications</h4><ol><li>Main admission workflow.</li><li>Open an applicant to review documents, screening, SAC / Assessment, Offer & Acceptance and Activity.</li><li>Use the applicant Operational Action Center for the current next action.</li></ol></div>
+              <div class="guide-role-card"><h4>SAC</h4><ol><li>Create SAC sessions and assign candidates.</li><li>Prepare the controlled SAC pack.</li><li>Record authorised SAC decisions.</li></ol></div>
+              <div class="guide-role-card"><h4>IA / PREREQ</h4><ol><li>Track candidates routed to Internal Assessment.</li><li>PREREQ follows IA only where required by the approved route.</li><li>Complete the route before Offer.</li></ol></div>
+              <div class="guide-role-card"><h4>Prospect / Activation</h4><ol><li>Tracks consultant / Marketing completion of SKY Prospect setup.</li><li>Registry records SKY activation separately.</li><li>This module is operationally independent from admission stage.</li></ol></div>
+              <div class="guide-role-card"><h4>Orientation</h4><ol><li>Main page is for session monitoring.</li><li>Click <b>View Session</b> for student roster, communication, attendance & feedback, recording, completion and activity.</li><li>Completion generates the official Orientation report.</li></ol></div>
+              <div class="guide-role-card"><h4>Academic Handover</h4><ol><li>Main page is for handover-session monitoring.</li><li>Click <b>View Handover</b> for students, communication, provisioning, Student Access and activity.</li><li>Academic Handover is managed separately from Orientation.</li></ol></div>
+              <div class="guide-role-card"><h4>Academic Consultants</h4><ol><li>Maintain consultant / Marketing records.</li><li>Use unique referral links for attribution.</li><li>Do not overwrite an existing consultant when adding a new one.</li></ol></div>
+              <div class="guide-role-card"><h4>Fee Structure</h4><ol><li>Master source for agent Fee Group selection.</li><li>Maintain programme, level, study mode, intake, fee components, payment schedule and approved PDF.</li><li>Only ACTIVE structures appear to agents.</li></ol></div>
+              <div class="guide-role-card"><h4>AI Operations Center</h4><ol><li>Current control room for live workload visibility and agent ownership.</li><li>AI agents shown as NOT ACTIVATED are monitoring / design placeholders only.</li><li>Autonomous execution will be enabled module by module after testing and approval.</li></ol></div>
+              <div class="guide-role-card"><h4>Reports</h4><ol><li>Use operational distributions and funnel reporting.</li><li>Export data when required for internal analysis.</li><li>Session-specific official reports are viewed inside the relevant module.</li></ol></div>
+              <div class="guide-role-card"><h4>System Guide</h4><ol><li>Use this page as the current staff operating reference.</li><li>When system behaviour changes, this guide must be updated together with the module.</li></ol></div>
+            </div></div>
+          </div>
+
+          <div class="panel" style="margin-bottom:18px">
+            <div class="panel-head"><h3>End-to-End Operating Flow</h3><span>Preferred journey · standalone-module rules still apply</span></div>
             <div class="panel-body">
               <div class="guide-flowchart">
-                <div class="guide-flow-row"><div class="guide-flow-no">01</div><div class="guide-flow-stage">Application Submitted</div><div class="guide-flow-arrow">→</div><div class="guide-flow-action"><span class="guide-role">Student</span> Completes the online Admission Form and uploads required documents. <b>System:</b> creates the student Drive folder, Admission Form PDF, workflow record, acknowledgement email and PG-ADM-01.</div></div>
-
-                <div class="guide-flow-row"><div class="guide-flow-no">02</div><div class="guide-flow-stage">Academic Consultant / Prospect Setup</div><div class="guide-flow-arrow">→</div><div class="guide-flow-action"><span class="guide-role">Consultant / Marketing</span> After receiving the prospect email, create the student as a Prospect in SKY, return to the email action page, enter the <b>SKY Prospect ID</b>, select the approved <b>Fee Structure / Fee Group</b>, then mark <b>Prospect Done</b>. <span class="guide-role">Registry</span> Once Prospect is Done, Registry may activate/register the student in SKY and mark <b>Active in SKY Done</b>. This module is independent from admission workflow progress.</div></div>
 
                 <div class="guide-parallel">
-                  <div class="guide-parallel-title">Admission review continues in parallel while Prospect / Fee Group is being prepared</div>
-                  <div class="guide-mini-flow"><span>Document Review</span><i>→</i><span>Qualification Screening</span><i>→</i><span>Ready for SAC</span></div>
+                  <div class="guide-parallel-title">Master data prepared before operational use</div>
+                  <div class="guide-mini-flow"><span>Academic Consultants</span><i>+</i><span>Fee Structure Master</span><i>→</i><span>Ready for Application / Prospect Operations</span></div>
                 </div>
 
-                <div class="guide-flow-row"><div class="guide-flow-no">03</div><div class="guide-flow-stage">Document Review</div><div class="guide-flow-arrow">→</div><div class="guide-flow-action"><span class="guide-role">Registry</span> Open <b>Applications → Open → Documents</b>. Verify uploaded documents and complete the document review. PG-ADM-01 must use the controlled one-page layout. If required, use <b>Regenerate PG-ADM-01</b>. For PhD, Preliminary Research Intent may remain <b>Outstanding</b> and is followed up separately; it does not block SAC assignment or the next admission stage.</div></div>
+                <div class="guide-flow-row"><div class="guide-flow-no">01</div><div class="guide-flow-stage">Application Submitted</div><div class="guide-flow-arrow">→</div><div class="guide-flow-action"><span class="guide-role">Student</span> Completes the online Admission Form and uploads the required documents. <b>System:</b> creates the application record, student folder, Admission Form PDF, workflow record, acknowledgement and controlled admission documents.</div></div>
 
-                <div class="guide-flow-row"><div class="guide-flow-no">04</div><div class="guide-flow-stage">Qualification Screening</div><div class="guide-flow-arrow">→</div><div class="guide-flow-action"><span class="guide-role">Registry</span> Review AI/document screening where available, then confirm Field Relationship and Relevant Work Experience. Complete the formal qualification screening. <b>Important:</b> the screening recommendation does not replace the SAC decision.</div></div>
+                <div class="guide-flow-row"><div class="guide-flow-no">02</div><div class="guide-flow-stage">Consultant / SKY Prospect Setup</div><div class="guide-flow-arrow">→</div><div class="guide-flow-action"><span class="guide-role">Academic Consultant / Marketing</span> Receives the new-application notification, creates the Prospect in SKY, returns to the action page, enters the <b>SKY Prospect ID</b>, selects the applicable <b>Fee Group</b> from the live Fee Structure Master and marks <b>Prospect Done</b>. <b>Add Students / admission processing is not done by Marketing.</b></div></div>
 
-                <div class="guide-flow-row"><div class="guide-flow-no">05</div><div class="guide-flow-stage">SAC Review</div><div class="guide-flow-arrow">→</div><div class="guide-flow-action"><span class="guide-role">Registry / SAC</span> Create or select the SAC session, assign eligible candidates and prepare the SAC pack. PG-ADM-01 is the first controlled document in the pack. After the physical/manual SAC meeting, Registry records the authorised decision: <b>Direct Entry</b>, <b>Internal Assessment</b>, or <b>Rejected</b>. PREREQ is not selected directly at SAC.</div></div>
+                <div class="guide-parallel">
+                  <div class="guide-parallel-title">Admission review continues while SKY Prospect operations are being completed</div>
+                  <div class="guide-mini-flow"><span>Document Review</span><i>→</i><span>Qualification Screening</span><i>→</i><span>SAC</span><i>→</i><span>IA / PREREQ if required</span></div>
+                </div>
 
-                <div class="guide-flow-row"><div class="guide-flow-no">06</div><div class="guide-flow-stage">IA / PREREQ (if required)</div><div class="guide-flow-arrow">→</div><div class="guide-flow-action"><span class="guide-role">Registry / Academic</span> Direct Entry bypasses this stage. IA candidates complete the Internal Assessment process. Where the approved IA outcome requires a prerequisite course, PREREQ is handled <b>after IA</b>. Only a completed eligible route may proceed to Offer.</div></div>
+                <div class="guide-flow-row"><div class="guide-flow-no">03</div><div class="guide-flow-stage">Document Review</div><div class="guide-flow-arrow">→</div><div class="guide-flow-action"><span class="guide-role">Registry</span> Open <b>Applications → Open → Documents</b>. Verify uploaded documents and complete the document review. Use the controlled PG-ADM-01 and regenerate it only when a refreshed copy is required.</div></div>
 
-                <div class="guide-flow-row"><div class="guide-flow-no">07</div><div class="guide-flow-stage">Official Offer Letter</div><div class="guide-flow-arrow">→</div><div class="guide-flow-action"><span class="guide-role">Registry</span> When the case is <b>Eligible for Offer</b>, generate and send the Official Offer Letter. The system records the PDF URL, issue status and timestamp. Do not issue before the admission route is complete.</div></div>
+                <div class="guide-flow-row"><div class="guide-flow-no">04</div><div class="guide-flow-stage">Qualification Screening</div><div class="guide-flow-arrow">→</div><div class="guide-flow-action"><span class="guide-role">Registry</span> Confirm academic field relationship and relevant experience where applicable. AI/document screening may assist review, but it does <b>not</b> replace the authorised SAC decision.</div></div>
 
-                <div class="guide-flow-row"><div class="guide-flow-no">08</div><div class="guide-flow-stage">Electronic Acceptance</div><div class="guide-flow-arrow">→</div><div class="guide-flow-action"><span class="guide-role">Student</span> Opens the Acceptance link, reviews the required documents and signs electronically. <b>System:</b> saves signed acceptance documents and timestamp, then updates <b>Acceptance Status = ACCEPTED</b>.</div></div>
+                <div class="guide-flow-row"><div class="guide-flow-no">05</div><div class="guide-flow-stage">SAC Review</div><div class="guide-flow-arrow">→</div><div class="guide-flow-action"><span class="guide-role">Registry / SAC</span> Create or select the SAC session, assign eligible candidates, prepare the SAC pack and record the authorised outcome. Current route options include <b>Direct Entry</b>, <b>Internal Assessment</b> and <b>Rejected / Not Qualified</b>. PREREQ is not selected directly as a SAC outcome.</div></div>
 
-                <div class="guide-gate"><b>Prospect / SKY operational rule:</b> once Marketing has completed the Prospect and Fee Structure, Registry may mark the SKY activation task as done. Offer, Acceptance, SAC and Document Review do not gate this module.</div>
+                <div class="guide-flow-row"><div class="guide-flow-no">06</div><div class="guide-flow-stage">IA / PREREQ (if required)</div><div class="guide-flow-arrow">→</div><div class="guide-flow-action"><span class="guide-role">Registry / Academic</span> Candidates routed to IA complete Internal Assessment. If the authorised IA outcome requires a prerequisite course, PREREQ is handled after IA. Direct Entry bypasses this stage.</div></div>
 
-                <div class="guide-flow-row"><div class="guide-flow-no">09</div><div class="guide-flow-stage">Registry SKY Activation</div><div class="guide-flow-arrow">→</div><div class="guide-flow-action"><span class="guide-role">Registry</span> Open <b>Prospect / Activation</b>. Prospect Pending becomes <b>Prospect Done</b> after Marketing submits the SKY Prospect ID + Fee Structure. Registry then activates/registers the student in SKY and clicks <b>Active in SKY Done</b>. SKY Student ID / Registration No. may be recorded if available.</div></div>
+                <div class="guide-flow-row"><div class="guide-flow-no">07</div><div class="guide-flow-stage">Offer</div><div class="guide-flow-arrow">→</div><div class="guide-flow-action"><span class="guide-role">Registry</span> Once the approved admission route is complete and the case is eligible, generate and send the Official Offer Letter. The system records the issue status, PDF and timestamp.</div></div>
 
-                <div class="guide-gate"><b>Orientation rule:</b> Orientation is a standalone session module. The Add Students list comes from Applications and excludes only students already assigned to another Orientation Session.</div>
+                <div class="guide-flow-row"><div class="guide-flow-no">08</div><div class="guide-flow-stage">Electronic Acceptance</div><div class="guide-flow-arrow">→</div><div class="guide-flow-action"><span class="guide-role">Student</span> Opens the Acceptance link and signs electronically. <b>System:</b> stores the signed acceptance record and timestamp and updates Acceptance status.</div></div>
 
-                <div class="guide-flow-row"><div class="guide-flow-no">10</div><div class="guide-flow-stage">Orientation</div><div class="guide-flow-arrow">→</div><div class="guide-flow-action"><span class="guide-role">Registry</span> Create the Orientation session and click <b>Add Students</b>. The list shows applicants who have not been assigned to any previous Orientation Session. Add the selected students; invitation is sent immediately and reminders follow at <b>3 days, 2 days, 1 day and approximately 1 hour before</b>. Attendance is tracked inside Orientation only.</div></div>
+                <div class="guide-gate"><b>Prospect / Activation rule:</b> this is a standalone operational module. Once the consultant has completed the SKY Prospect + Fee Group task, Registry may complete SKY activation and record the relevant SKY Student / Registration ID. Do not invent a cross-module gate that the Prospect / Activation module itself does not require.</div>
 
-                <div class="guide-flow-row"><div class="guide-flow-no">11</div><div class="guide-flow-stage">Academic Handover</div><div class="guide-flow-arrow">→</div><div class="guide-flow-action"><span class="guide-role">Registry</span> Create a <b>Handover Session</b>, click <b>Add Students</b>, then click <b>Handover Now</b>. The list comes from Applications and excludes students already used in another Handover Session. Academic and the configured IT / Moodle / e-Library PICs receive the student list immediately.</div></div>
+                <div class="guide-flow-row"><div class="guide-flow-no">09</div><div class="guide-flow-stage">Registry SKY Activation</div><div class="guide-flow-arrow">→</div><div class="guide-flow-action"><span class="guide-role">Registry</span> Open <b>Prospect / Activation</b>. Confirm Prospect Done, activate/register the student in SKY and mark <b>Active in SKY Done</b>. Record SKY Student ID / Registration No. when available.</div></div>
 
-                <div class="guide-flow-row"><div class="guide-flow-no">12</div><div class="guide-flow-stage">IT / Moodle / e-Library Provisioning</div><div class="guide-flow-arrow">→</div><div class="guide-flow-action"><span class="guide-role">PICs</span> IT completes Innovative Email, Moodle PIC completes Moodle access, and e-Library PIC completes e-Library access. Registry monitors the Provisioning queue until all three are complete.</div></div>
+                <div class="guide-gate"><b>Orientation rule:</b> Orientation is a standalone session-management module. It does not perform Academic Handover. Main page = monitoring; <b>View Session</b> = processing.</div>
 
-                <div class="guide-gate"><b>GATE C — Active Student:</b> completion of the three provisioning tasks alone does not make the student Active. Registry must send the final Student Access email.</div>
+                <div class="guide-flow-row"><div class="guide-flow-no">10</div><div class="guide-flow-stage">Orientation Session Setup</div><div class="guide-flow-arrow">→</div><div class="guide-flow-action"><span class="guide-role">Registry</span> Click <b>+ Create Orientation Session</b>, create the session, then open it and <b>Add Students</b>. Adding students does <b>not</b> send email automatically. Review the roster, then explicitly click <b>Send Invitation</b>. Automatic reminders apply only to students whose invitation has been sent.</div></div>
 
-                <div class="guide-flow-row"><div class="guide-flow-no">13</div><div class="guide-flow-stage">Send Student Access → ACTIVE STUDENT</div><div class="guide-flow-arrow">✓</div><div class="guide-flow-action"><span class="guide-role">Registry</span> Click <b>Send Student Access</b>, enter the temporary credentials and send the access email. Temporary passwords are not stored in the Admission spreadsheet/audit. After successful send, the workflow becomes <b>ACTIVE_STUDENT</b> and the Academic Portal record is activated.</div></div>
+                <div class="guide-flow-row"><div class="guide-flow-no">11</div><div class="guide-flow-stage">Orientation Attendance & Feedback</div><div class="guide-flow-arrow">→</div><div class="guide-flow-action"><span class="guide-role">Registry / Student</span> At the appropriate point in the session, Registry opens Attendance. Attendance remains open until staff clicks <b>Close Attendance</b>; there is no timed auto-close. Students may confirm through their personalised link or the session QR. Feedback is completed after attendance confirmation. Registry may manually resolve attendance where necessary.</div></div>
+
+                <div class="guide-flow-row"><div class="guide-flow-no">12</div><div class="guide-flow-stage">Orientation Recording & Completion</div><div class="guide-flow-arrow">→</div><div class="guide-flow-action"><span class="guide-role">Registry</span> End the session, add the recording link and explicitly send the recording. When the completion checks are satisfied, click <b>Complete Orientation</b>. The system locks the completion record and generates the official Orientation PDF report. Completed sessions provide <b>View Report</b>, <b>Download PDF</b> and report revision controls.</div></div>
+
+                <div class="guide-gate"><b>Academic Handover rule:</b> Academic Handover is its own module and is not embedded inside Orientation. Main page = monitoring; <b>View Handover</b> = processing.</div>
+
+                <div class="guide-flow-row"><div class="guide-flow-no">13</div><div class="guide-flow-stage">Academic Handover</div><div class="guide-flow-arrow">→</div><div class="guide-flow-action"><span class="guide-role">Registry</span> Click <b>+ Create Handover Session</b>, open the session, add students and click <b>Handover Now</b>. Academic and the configured IT / Moodle / e-Library PICs receive the handover information. Use the Handover & Communication tab to monitor or resend operational emails.</div></div>
+
+                <div class="guide-flow-row"><div class="guide-flow-no">14</div><div class="guide-flow-stage">Provisioning</div><div class="guide-flow-arrow">→</div><div class="guide-flow-action"><span class="guide-role">PICs / Registry</span> IT completes Innovative Email, Moodle completes LMS access and e-Library completes library access. Registry monitors progress inside <b>View Handover → Provisioning</b>. When all three are complete, the student becomes ready for final access notification.</div></div>
+
+                <div class="guide-flow-row"><div class="guide-flow-no">15</div><div class="guide-flow-stage">Student Access → ACTIVE STUDENT</div><div class="guide-flow-arrow">✓</div><div class="guide-flow-action"><span class="guide-role">Registry</span> Open <b>View Handover → Student Access</b> and send the final student-access email after provisioning is complete. Temporary credentials are not retained as ordinary admission data. Successful access delivery completes the operational student-activation journey.</div></div>
               </div>
             </div>
           </div>
 
           <div class="panel" style="margin-bottom:18px">
-            <div class="panel-head"><h3>How staff use each module</h3><span>Screen → action → expected result</span></div>
-            <div class="panel-body"><div class="guide-role-grid">
-              <div class="guide-role-card"><h4>Dashboard</h4><ol><li>Check Action Center and pending KPIs.</li><li>Identify bottlenecks by stage, programme and intake.</li><li>Use Refresh if the figures are stale.</li></ol></div>
-              <div class="guide-role-card"><h4>Applications</h4><ol><li>Search by name, reference, ID/Passport or email.</li><li>Click <b>Open</b> for the applicant drawer.</li><li>Use Overview, Documents, Screening, SAC/Assessment, Offer & Acceptance and Activity.</li></ol></div>
-              <div class="guide-role-card"><h4>Academic Consultants</h4><ol><li>Add/maintain consultant records from the consultant page.</li><li>Share the unique referral link.</li><li>Referral-link consultant is auto-selected/locked.</li><li>New consultants append as a new record; they must not overwrite the previous consultant.</li></ol></div>
-              <div class="guide-role-card"><h4>PG-ADM-01</h4><ol><li>Generated automatically after application.</li><li>Controlled layout is the approved one-page table form.</li><li>Applicant biodata is auto-filled.</li><li>Yes/No, Evidence/Remarks, route and signatures are completed by authorised staff/SAC.</li><li>Use Regenerate only when a refreshed copy is required.</li></ol></div>
-              <div class="guide-role-card"><h4>SAC Monitoring</h4><ol><li>Create session and assign eligible candidates.</li><li>Print/prepare SAC pack.</li><li>Record the authorised physical/manual SAC result.</li><li>Finalize the session after all decisions are entered.</li></ol></div>
-              <div class="guide-role-card"><h4>IA / PREREQ</h4><ol><li>Track only candidates routed to IA.</li><li>Record assessment/interview/result progress.</li><li>Apply PREREQ only after IA when required by the approved route.</li><li>Complete the route before Offer.</li></ol></div>
-              <div class="guide-role-card"><h4>Offer & Acceptance</h4><ol><li>Issue according to the admission decision.</li><li>Monitor Offer and Acceptance status inside the Admission workflow.</li><li>Use signed PDFs saved in the student folder as the record.</li><li>Acceptance status does not control Prospect/SKY, Orientation or Handover operational modules.</li></ol></div>
-              <div class="guide-role-card"><h4>Prospect / Activation</h4><ol><li>Marketing / Consultant creates Prospect in SKY.</li><li>Enter SKY Prospect ID + Fee Structure and mark Prospect Done.</li><li>Registry activates/registers student in SKY.</li><li>Click Active in SKY Done. This tracking is standalone.</li></ol></div>
-              <div class="guide-role-card"><h4>Orientation</h4><ol><li>Create session.</li><li>Click Add Students.</li><li>Select applicants not previously assigned to any Orientation Session.</li><li>Invitation is sent immediately.</li><li>Automatic reminders: 3 days → 2 days → 1 day → approximately 1 hour before.</li><li>Use End Session if the session needs to be closed early. Otherwise it ends automatically after the scheduled end time.</li><li>Ended sessions cannot accept new students or send reminders; attendance can still be updated.</li><li>Mark attendance for Orientation tracking.</li></ol></div>
-              <div class="guide-role-card"><h4>Academic Handover</h4><ol><li>Create Handover Session.</li><li>Click Add Students and select applicants not used in another handover.</li><li>Click Handover Now.</li><li>Academic and service PICs receive the list immediately; no Orientation or admission status gate is applied.</li></ol></div>
-              <div class="guide-role-card"><h4>Provisioning</h4><ol><li>Monitor Innovative Email, Moodle and e-Library.</li><li>When all three complete, status becomes Ready to Notify.</li><li>Registry sends Student Access.</li><li>Only then does the student become Active.</li></ol></div>
-              <div class="guide-role-card"><h4>Reports</h4><ol><li>Use funnel and programme/intake/referral distributions.</li><li>Export filtered Applications to CSV when needed.</li><li>Use Reference No as the main identifier in internal follow-up.</li></ol></div>
-            </div></div>
+            <div class="panel-head"><h3>How to Use the New Session-Based Modules</h3><span>Monitoring page → processing popup</span></div>
+            <div class="panel-body">
+              <div class="guide-grid">
+                <div>
+                  <h4 style="margin-top:0">Orientation</h4>
+                  <ul class="guide-list">
+                    <li>Main table shows only session summary, student count, current stage, status and <b>View Session</b>.</li>
+                    <li><b>Overview:</b> session details and headline counts.</li>
+                    <li><b>Students:</b> assigned roster, invitation, attendance, feedback and recording status.</li>
+                    <li><b>Communication:</b> invitation and reminder records.</li>
+                    <li><b>Attendance & Feedback:</b> Open / Close Attendance, QR, manual review and feedback summary.</li>
+                    <li><b>Recording & Completion:</b> recording link, recording distribution, completion checks and official report.</li>
+                    <li><b>Activity:</b> audit trail for the session.</li>
+                  </ul>
+                </div>
+                <div>
+                  <h4 style="margin-top:0">Academic Handover</h4>
+                  <ul class="guide-list">
+                    <li>Main table shows handover summary, student count, current stage, status and <b>View Handover</b>.</li>
+                    <li><b>Overview:</b> batch details and headline status.</li>
+                    <li><b>Students:</b> handover roster and each student's current progress.</li>
+                    <li><b>Handover & Communication:</b> Academic email, PDF and PIC task notifications.</li>
+                    <li><b>Provisioning:</b> Innovative Email, Moodle and e-Library status.</li>
+                    <li><b>Student Access:</b> final access notification after provisioning.</li>
+                    <li><b>Activity:</b> handover audit trail.</li>
+                  </ul>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div class="panel" style="margin-bottom:18px">
+            <div class="panel-head"><h3>Fee Structure Master</h3><span>Single source for agent Fee Group selection</span></div>
+            <div class="panel-body">
+              <div class="guide-callout blue" style="margin-bottom:14px"><b>Core rule:</b> do not type or invent a Fee Group outside the master. Academic Consultants select from the ACTIVE list supplied by the Fee Structure module.</div>
+              <div class="guide-grid">
+                <div><ul class="guide-list">
+                  <li><b>Fee Group Code</b> is the operational value saved to the Prospect / Admission record.</li>
+                  <li><b>Fee Structure Name</b> is the staff-friendly description.</li>
+                  <li>Scope is controlled by <b>Programme + Level + Study Mode + Intake</b>.</li>
+                  <li>Intake names are standardised chronologically, e.g. January 2026, May 2026, September 2026.</li>
+                  <li>Use <b>ALL</b> only when the structure genuinely applies across that dimension.</li>
+                </ul></div>
+                <div><ul class="guide-list">
+                  <li><b>Fee Components</b> use standard categories: Coursework Fee, Research Fee, Mixed-Mode Fee, Registration Fee and Other Approved Non-Academic Fee.</li>
+                  <li><b>Payment Schedule</b> records the approved payment sequence only. It does not collect money and does not create an invoice.</li>
+                  <li><b>Fee Structure PDF</b> is the approved Drive reference mapped to the Fee Group.</li>
+                  <li><b>ACTIVE</b> = available to agent. <b>INACTIVE</b> = hidden from new selection but historical records remain.</li>
+                  <li>A Fee Structure cannot be activated without an accessible PDF.</li>
+                </ul></div>
+              </div>
+            </div>
           </div>
 
           <div class="grid-2">
             <div class="panel">
-              <div class="panel-head"><h3>Decision & workflow gates</h3><span>Never bypass these controls</span></div>
-              <div class="table-wrap"><table class="guide-table"><thead><tr><th>Gate</th><th>Required before proceeding</th></tr></thead><tbody>
-                <tr><td><span class="guide-badge purple">SAC</span></td><td>Document Review complete, qualification screening resolved, and programme-specific mandatory items completed. Preliminary Research Intent may remain outstanding as a non-blocking follow-up item.</td></tr>
-                <tr><td><span class="guide-badge blue">Offer</span></td><td>Direct Entry endorsed or IA/PREREQ route successfully completed.</td></tr>
-                <tr><td><span class="guide-badge amber">Prospect / SKY</span></td><td>Standalone operational tracking. Prospect Done enables Registry to complete SKY activation; no Admission status gate.</td></tr>
-                <tr><td><span class="guide-badge amber">Orientation</span></td><td>Standalone. Applicant can be added if not already assigned to another Orientation Session.</td></tr>
-                <tr><td><span class="guide-badge purple">Handover</span></td><td>Standalone. Applicant can be added if not already included in another Handover Session.</td></tr>
-                <tr><td><span class="guide-badge green">Active Student</span></td><td>IT + Moodle + e-Library complete and Student Access email successfully sent.</td></tr>
+              <div class="panel-head"><h3>Decision & Workflow Controls</h3><span>Use these as the operating boundaries</span></div>
+              <div class="table-wrap"><table class="guide-table"><thead><tr><th>Area</th><th>Control</th></tr></thead><tbody>
+                <tr><td><span class="guide-badge purple">SAC</span></td><td>Screening supports SAC; it does not replace the authorised SAC decision.</td></tr>
+                <tr><td><span class="guide-badge blue">Offer</span></td><td>Issue only after the approved admission route is complete.</td></tr>
+                <tr><td><span class="guide-badge amber">IA / PREREQ</span></td><td>PREREQ follows IA when required; do not select PREREQ directly as the SAC decision.</td></tr>
+                <tr><td><span class="guide-badge amber">Prospect / SKY</span></td><td>Standalone operational tracking. Use the module's own status and controls.</td></tr>
+                <tr><td><span class="guide-badge amber">Orientation</span></td><td>Standalone session record. Add Students does not send invitation automatically. Completion locks the official Orientation record.</td></tr>
+                <tr><td><span class="guide-badge purple">Academic Handover</span></td><td>Separate module from Orientation. Provisioning and Student Access are processed inside the Handover session.</td></tr>
+                <tr><td><span class="guide-badge blue">Fee Structure</span></td><td>Only ACTIVE structures with an accessible approved PDF are selectable by agents.</td></tr>
+                <tr><td><span class="guide-badge green">Active Student</span></td><td>Provisioning alone is not the final communication step; Student Access must be sent.</td></tr>
               </tbody></table></div>
             </div>
 
             <div class="panel">
-              <div class="panel-head"><h3>Status colour guide</h3><span>Fast visual reading</span></div>
+              <div class="panel-head"><h3>Status Colour Guide</h3><span>Fast visual reading</span></div>
               <div class="table-wrap"><table class="guide-table"><thead><tr><th>Colour</th><th>Typical meaning</th></tr></thead><tbody>
-                <tr><td><span class="guide-badge green">Green</span></td><td>Completed / accepted / activated / successful</td></tr>
-                <tr><td><span class="guide-badge amber">Amber</span></td><td>Pending / waiting / ready for action / review required</td></tr>
-                <tr><td><span class="guide-badge purple">Purple</span></td><td>SAC / IA / PREREQ / controlled academic route</td></tr>
-                <tr><td><span class="guide-badge red">Red</span></td><td>Rejected / not qualified / incomplete / failed</td></tr>
-                <tr><td><span class="guide-badge blue">Blue</span></td><td>General active stage / information status</td></tr>
+                <tr><td><span class="guide-badge green">Green</span></td><td>Completed / accepted / successful / active</td></tr>
+                <tr><td><span class="guide-badge amber">Amber</span></td><td>Pending / waiting / action required / review required</td></tr>
+                <tr><td><span class="guide-badge purple">Purple</span></td><td>Controlled workflow stage / current operational stage / formal process</td></tr>
+                <tr><td><span class="guide-badge red">Red</span></td><td>Rejected / failed / incomplete / invalid</td></tr>
+                <tr><td><span class="guide-badge blue">Blue</span></td><td>General active / information / scheduled status</td></tr>
               </tbody></table></div>
             </div>
           </div>
 
           <div class="panel" style="margin-top:18px">
-            <div class="panel-head"><h3>Academic Consultant / Sales flow</h3><span>Staff reference</span></div>
+            <div class="panel-head"><h3>Academic Consultant / Sales Flow</h3><span>Current operational sequence</span></div>
             <div class="panel-body">
               <div class="guide-mini-flow">
-                <span>Share Consultant Referral Link</span><i>→</i><span>Student Applies</span><i>→</i><span>Consultant Receives Email</span><i>→</i><span>Create SKY Prospect</span><i>→</i><span>Enter Prospect ID</span><i>→</i><span>Select Fee Group</span><i>→</i><span>Registry Notified</span><i>→</i><span>Wait for Acceptance</span><i>→</i><span>Registry Activates in SKY</span>
+                <span>Share Referral Link</span><i>→</i><span>Student Applies</span><i>→</i><span>Consultant Receives Notification</span><i>→</i><span>Create SKY Prospect</span><i>→</i><span>Enter SKY Prospect ID</span><i>→</i><span>Select ACTIVE Fee Group</span><i>→</i><span>Prospect Done</span><i>→</i><span>Registry Processes / Activates in SKY</span>
               </div>
-              <div class="guide-callout amber" style="margin-top:12px"><b>Fee Structure master-data note:</b> if a selected Fee Group shows <b>TEMPLATE_MISSING</b>, the Fee Group remains recorded but the corresponding Fee Structure PDF has not yet been mapped in FEE_GROUP_MASTER. Escalate for master-data configuration; do not invent or manually substitute a fee PDF.</div>
+              <div class="guide-callout amber" style="margin-top:12px"><b>If a Fee Group is missing from the consultant dropdown:</b> check Fee Structure status, approved PDF, Programme, Level, Study Mode and Intake. Do not create a substitute code manually.</div>
             </div>
           </div>
 
           <div class="panel" style="margin-top:18px">
-            <div class="panel-head"><h3>Troubleshooting & good practice</h3><span>Check these first</span></div>
+            <div class="panel-head"><h3>AI Operations Center</h3><span>Current capability boundary</span></div>
+            <div class="panel-body">
+              <div class="guide-grid">
+                <div><ul class="guide-list">
+                  <li>Displays current operational workload and agent ownership model.</li>
+                  <li>Registrar Office Agent is the supervisory layer in the planned agentic architecture.</li>
+                  <li>Admission Intake, Admission Evaluation, IA, Prerequisite and Orientation agents are represented in the control room.</li>
+                </ul></div>
+                <div><ul class="guide-list">
+                  <li><b>NOT ACTIVATED</b> means the agent is not yet authorised to execute actions autonomously.</li>
+                  <li>Do not assume a displayed AI agent has changed, emailed or approved a record unless the corresponding operational action exists in ACC.</li>
+                  <li>Future layers include agent communication, human approval queue and agent performance / run history.</li>
+                </ul></div>
+              </div>
+            </div>
+          </div>
+
+          <div class="panel" style="margin-top:18px">
+            <div class="panel-head"><h3>Troubleshooting & Good Practice</h3><span>Check these first</span></div>
             <div class="panel-body"><div class="guide-grid">
               <div><ul class="guide-list">
-                <li>If numbers look outdated, click <b>Refresh</b>.</li>
-                <li>If an applicant cannot be found, clear filters and search using Reference No or ID/Passport.</li>
-                <li>Open student Drive folders/PDFs from the applicant drawer instead of browsing manually.</li>
-                <li>Use the application Reference No as the primary identifier for internal discussion.</li>
-                <li>If PG-ADM-01 looks different from the approved one-page table layout, do not use it for SAC; regenerate and report the issue.</li><li>For PhD, an outstanding Preliminary Research Intent is a follow-up remark only and must not be used to block SAC or subsequent admission processing.</li>
+                <li>If figures look outdated, click <b>Refresh</b>.</li>
+                <li>Use Reference No as the main identifier for internal follow-up.</li>
+                <li>Open student folders and generated documents from the applicant record instead of browsing Drive manually.</li>
+                <li>If an applicant cannot be found, clear filters and search by Reference No, ID / Passport or email.</li>
+                <li>Do not treat AI/document screening as the authorised SAC decision.</li>
+                <li>Do not select PREREQ directly at SAC; follow the approved IA route.</li>
               </ul></div>
               <div><ul class="guide-list">
-                <li>Do not treat screening recommendation as the final SAC decision.</li>
-                <li>Do not select PREREQ directly at SAC; it follows IA where applicable.</li>
-                <li>Do not activate in SKY before Acceptance = ACCEPTED.</li>
-                <li>Do not use Admission, SKY or Orientation status as a cross-module block. Check only the rules inside the module currently being used.</li>
-                <li>Do not mark a student Active merely because accounts are created; send Student Access first.</li>
+                <li>If a Fee Group is not available to the agent, verify ACTIVE status, PDF and matching scope.</li>
+                <li>In Orientation, <b>Add Students</b> does not send invitation; use <b>Send Invitation</b> explicitly.</li>
+                <li>Attendance stays open until Registry closes it manually.</li>
+                <li>Do not put Academic Handover actions inside Orientation; use the Academic Handover module.</li>
+                <li>Do not mark the student operational journey complete merely because accounts were created; final Student Access must be sent.</li>
+                <li>Completed Orientation records are locked. Use report revision instead of silently changing the completed record.</li>
               </ul></div>
             </div></div>
           </div>
 
           <div class="panel" style="margin-top:18px">
-            <div class="panel-head"><h3>Recommended UAT for a complete journey</h3><span>Use one controlled applicant</span></div>
+            <div class="panel-head"><h3>Recommended UAT</h3><span>Use controlled test records</span></div>
             <div class="panel-body">
-              <div class="guide-callout green"><b>UAT approach:</b> test Admission workflow, Prospect/SKY, Orientation, and Academic Handover as separate operational modules. Confirm that a pending status in one module does not prevent actions in another. For Orientation and Handover, also confirm that a student already assigned to a previous session no longer appears in the Add Students list.</div>
+              <div class="guide-callout green"><b>Minimum regression check after a system change:</b> test one application journey, one consultant Prospect/Fee Group action, one Orientation session and one Academic Handover session. Confirm module actions, emails, status transitions, popups, PDFs, audit records and ACTIVE/INACTIVE master-data behaviour before treating a new change as production-ready.</div>
             </div>
           </div>
         </section>
