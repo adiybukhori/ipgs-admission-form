@@ -146,7 +146,7 @@
         </div>
       </div>`;
     document.body.appendChild(overlay);
-    document.getElementById('feeActive').value=active(row||{})?'ACTIVE':'INACTIVE';
+    document.getElementById('feeActive').value=(editing&&active(row))?'ACTIVE':'INACTIVE';
     if(existingSchedule.length)existingSchedule.forEach(x=>addFeeScheduleRow(x));else addFeeScheduleRow();
     document.getElementById('saveFeeStructureBtn').onclick=saveFeeStructure;
   };
