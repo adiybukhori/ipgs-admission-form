@@ -78,9 +78,10 @@
         <div class="message" style="display:block;background:var(--blueSoft);color:var(--blue);margin-bottom:14px">
           This list comes from Applications only. Admission status, documents, SAC, Offer, Acceptance and SKY status do not block Orientation. Students already assigned to any Orientation Session are automatically excluded.
         </div>
-        <div style="display:flex;gap:10px;align-items:center;margin-bottom:12px;flex-wrap:wrap">
+        <div style="display:flex;gap:10px;align-items:center;margin-bottom:12px;flex-wrap:wrap;position:sticky;top:0;z-index:5;background:#fff;padding:8px 0">
           <input id="orientationStudentSearch" placeholder="Search student / reference / programme" style="flex:1;min-width:260px" />
           <span class="badge purple" id="orientationModalCount">0 selected</span>
+          <button class="primary" id="orientationAddStudentsTopBtn" type="button">Add Selected Students (0)</button>
         </div>
         <div class="table-wrap">
           <table>
@@ -111,14 +112,27 @@
       </tr>`).join('')||'<tr><td colspan="5" class="empty">No unassigned students available.</td></tr>';
     }
 
+    function updateOrientationSelectedUi(){
+      const count=orientationSelected.size;
+      const el=document.getElementById('orientationModalCount');
+      if(el)el.textContent=count+' selected';
+      const topBtn=document.getElementById('orientationAddStudentsTopBtn');
+      if(topBtn){
+        topBtn.textContent='Add Selected Students ('+count+')';
+        topBtn.disabled=count===0;
+      }
+      const bottomBtn=document.getElementById('orientationAddStudentsBtn');
+      if(bottomBtn)bottomBtn.disabled=count===0;
+    }
+
     window.toggleOrientationModalStudent=function(ref,checked){
       if(checked)orientationSelected.add(ref);else orientationSelected.delete(ref);
-      const el=document.getElementById('orientationModalCount');if(el)el.textContent=orientationSelected.size+' selected';
+      updateOrientationSelectedUi();
     };
     document.getElementById('orientationStudentSearch').oninput=renderModalRows;
     renderModalRows();
 
-    document.getElementById('orientationAddStudentsBtn').onclick=async()=>{
+    async function submitSelectedOrientationStudents(){
       const refs=[...orientationSelected];
       if(!refs.length)return orientationMessage('Select at least one student.','error');
       const result=await orientationAction(
@@ -129,7 +143,13 @@
       if(!result)return;
       closeOrientationStudentModal();
       orientationMessage(`Added ${result.assignedCount||0}. Invitation sent: ${result.invitationSentCount||0}. ${result.skipped?.length?`Skipped: ${result.skipped.length}.`:''}`,'ok');
-    };
+    }
+
+    const topAddBtn=document.getElementById('orientationAddStudentsTopBtn');
+    const bottomAddBtn=document.getElementById('orientationAddStudentsBtn');
+    if(topAddBtn)topAddBtn.onclick=submitSelectedOrientationStudents;
+    if(bottomAddBtn)bottomAddBtn.onclick=submitSelectedOrientationStudents;
+    updateOrientationSelectedUi();
   };
 
   window.createOrientationSession=async function(){
