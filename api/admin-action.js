@@ -35,6 +35,7 @@ const ALLOWED_ACTIONS = new Set([
   'v2UpdateAssessment',
   'v2CreateOrientationSession',
   'v2AssignOrientationBatch',
+  'v2SendOrientationInvitation',
   'v2UpdateOrientationAttendance',
   'v2SendOrientationReminderNow',
   'v2EndOrientationSession',
