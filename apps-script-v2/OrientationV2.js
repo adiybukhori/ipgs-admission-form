@@ -463,8 +463,8 @@ function v2OrientationSendStudentEmail_(session, tracking, type, milestone) {
   const student = String(tracking['Student Name'] || 'Student').trim();
   const name = String(session['Orientation Name'] || 'Postgraduate Orientation Session').trim();
   const date = v2OrientationDisplayDate_(session['Session Date']);
-  const start = String(session['Start Time'] || '').trim();
-  const end = String(session['End Time'] || '').trim();
+  const start = v2OrientationDisplayTime_(session['Start Time']);
+  const end = v2OrientationDisplayTime_(session['End Time']);
   const mode = String(session['Mode'] || 'ONLINE').trim().toUpperCase();
   const venue = String(session['Venue'] || '').trim();
   const meetingLink = String(session['Meeting Link'] || '').trim();
@@ -609,16 +609,59 @@ function v2OrientationDaysUntil_(dateValue) {
 }
 
 function v2OrientationDisplayDate_(dateValue) {
+  if (!dateValue) return '';
+  const timezone = CONFIG.timezone || 'Asia/Kuala_Lumpur';
+
+  if (Object.prototype.toString.call(dateValue) === '[object Date]' && !isNaN(dateValue.getTime())) {
+    return Utilities.formatDate(dateValue, timezone, 'dd MMMM yyyy');
+  }
+
   const text = String(dateValue || '').trim();
   if (!text) return '';
-  const parts = text.slice(0,10).split('-').map(Number);
-  if (parts.length === 3 && parts.every(function(n){return isFinite(n);})){
+
+  const ymd = text.match(/^(\d{4})-(\d{2})-(\d{2})/);
+  if (ymd) {
     return Utilities.formatDate(
-      new Date(parts[0],parts[1]-1,parts[2],12,0,0),
-      CONFIG.timezone || 'Asia/Kuala_Lumpur',
+      new Date(Number(ymd[1]), Number(ymd[2]) - 1, Number(ymd[3]), 12, 0, 0),
+      timezone,
       'dd MMMM yyyy'
     );
   }
+
+  const parsed = new Date(text);
+  if (!isNaN(parsed.getTime())) {
+    return Utilities.formatDate(parsed, timezone, 'dd MMMM yyyy');
+  }
+
+  return text;
+}
+
+function v2OrientationDisplayTime_(timeValue) {
+  if (timeValue === null || timeValue === undefined || timeValue === '') return '';
+  const timezone = CONFIG.timezone || 'Asia/Kuala_Lumpur';
+
+  if (Object.prototype.toString.call(timeValue) === '[object Date]' && !isNaN(timeValue.getTime())) {
+    return Utilities.formatDate(timeValue, timezone, 'h:mm a');
+  }
+
+  const text = String(timeValue || '').trim();
+  if (!text) return '';
+
+  const hhmm = text.match(/^(\d{1,2}):(\d{2})(?::\d{2})?$/);
+  if (hhmm) {
+    const hour = Number(hhmm[1]);
+    const minute = Number(hhmm[2]);
+    if (hour >= 0 && hour <= 23 && minute >= 0 && minute <= 59) {
+      const d = new Date(2000, 0, 1, hour, minute, 0);
+      return Utilities.formatDate(d, timezone, 'h:mm a');
+    }
+  }
+
+  const parsed = new Date(text);
+  if (!isNaN(parsed.getTime())) {
+    return Utilities.formatDate(parsed, timezone, 'h:mm a');
+  }
+
   return text;
 }
 
