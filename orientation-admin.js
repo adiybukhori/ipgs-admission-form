@@ -322,6 +322,53 @@
     if(result)orientationMessage(`Reminder sent: ${result.sentCount||0}. Skipped: ${result.skippedCount||0}. Failed: ${result.failedCount||0}.`,'ok');
   };
 
+  window.openOrientationAttendance=async function(sessionId){
+    const result=await orientationAction('v2OpenOrientationAttendance',{sessionId},'Open attendance now? Assigned students will receive their personalised attendance link by email. The session QR/link will also become active.');
+    if(result)orientationMessage('Attendance opened. Personal links sent: '+(result.sentCount||0)+'. Failed: '+(result.failedCount||0)+'. No email: '+(result.skippedCount||0)+'.','ok');
+  };
+
+  window.closeOrientationAttendance=async function(sessionId){
+    const result=await orientationAction('v2CloseOrientationAttendance',{sessionId},'Close student self check-in for this session? Manual attendance in ACC will remain available.');
+    if(result)orientationMessage('Attendance closed. Manual attendance can still be updated in ACC.','ok');
+  };
+
+  window.showOrientationQr=function(sessionId){
+    const session=(db.V2_ORIENTATION_SESSIONS||[]).find(s=>String(s['Orientation Session ID']||'')===String(sessionId));
+    if(!session)return orientationMessage('Orientation session not found.','error');
+    const status=String(session['Attendance Status']||'').toUpperCase();
+    if(status!=='OPEN')return orientationMessage('Open Attendance first before showing the session QR.','error');
+    const link=String(session['Attendance Link']||('https://n-form.innovative.edu.my/orientation-attendance.html?s='+encodeURIComponent(sessionId)));
+    document.getElementById('orientationQrModal')?.remove();
+    const overlay=document.createElement('div');
+    overlay.id='orientationQrModal';
+    overlay.style.cssText='position:fixed;inset:0;background:rgba(17,24,39,.62);z-index:9999;display:flex;align-items:center;justify-content:center;padding:18px';
+    const qr='https://quickchart.io/qr?size=300&margin=2&text='+encodeURIComponent(link);
+    overlay.innerHTML='<div style="width:min(480px,94vw);background:#fff;border-radius:22px;padding:24px;text-align:center;box-shadow:0 28px 80px rgba(0,0,0,.3)">'+
+      '<div style="font-size:12px;font-weight:800;letter-spacing:.08em;color:var(--purple);text-transform:uppercase">Orientation Attendance</div>'+
+      '<h2 style="margin:8px 0 4px">'+esc(session['Orientation Name']||sessionId)+'</h2>'+
+      '<div class="subline" style="margin-bottom:16px">Students without the personalised email link may scan this QR.</div>'+
+      '<img src="'+qr+'" alt="Orientation attendance QR" style="width:280px;max-width:100%;border-radius:14px;border:1px solid var(--line);padding:8px;background:#fff" />'+
+      '<div style="font-size:11px;color:var(--muted);word-break:break-all;margin:14px 0">'+esc(link)+'</div>'+
+      '<div style="display:flex;gap:10px"><button class="ghost" style="flex:1" id="orientationQrCopyBtn">Copy Link</button><button class="primary" style="flex:1" id="orientationQrDoneBtn">Done</button></div></div>';
+    document.body.appendChild(overlay);
+    document.getElementById('orientationQrCopyBtn').onclick=async()=>{await copyText(link);orientationMessage('Attendance link copied.','ok')};
+    document.getElementById('orientationQrDoneBtn').onclick=()=>overlay.remove();
+  };
+
+  window.setOrientationRecording=async function(sessionId){
+    const session=(db.V2_ORIENTATION_SESSIONS||[]).find(s=>String(s['Orientation Session ID']||'')===String(sessionId));
+    const current=String(session?.['Recording URL']||'');
+    const url=prompt('Paste the orientation recording link:',current);
+    if(url===null)return;
+    if(!/^https?:\/\//i.test(String(url).trim()))return orientationMessage('Enter a valid recording URL beginning with http:// or https://','error');
+    const result=await orientationAction('v2SetOrientationRecording',{sessionId,recordingUrl:String(url).trim()});
+    if(result)orientationMessage('Recording link saved. Send Recording is now ready.','ok');
+  };
+
+  window.sendOrientationRecording=async function(sessionId){
+    const result=await orientationAction('v2SendOrientationRecording',{sessionId},'Send the saved orientation recording to all students assigned to this session?');
+    if(result)orientationMessage('Recording sent: '+(result.sentCount||0)+'. Failed: '+(result.failedCount||0)+'. No email: '+(result.skippedCount||0)+'.','ok');
+  };
   window.endOrientationSession=async function(sessionId){
     const result=await orientationAction(
       'v2EndOrientationSession',
