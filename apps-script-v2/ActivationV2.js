@@ -211,13 +211,10 @@ function v2RegistryUpsertProspect_(data, actor) {
     'Updated By': actor || 'Registry Admin'
   }));
 
-  const fee = v2ActivationSyncFeeStructure_(reference,feeGroup,actor || 'Registry Admin');
-
   v2Audit_(reference,'PROSPECT','REGISTRY_FEE_GROUP_CORRECTED',{
     feeGroup:previousFeeGroup
   },{
     feeGroup:feeGroup,
-    feeStructureStatus:fee.status,
     prospectStatus:existingStatus
   },actor || 'Registry Admin','SUCCESS',remarks);
 
@@ -228,7 +225,6 @@ function v2RegistryUpsertProspect_(data, actor) {
     prospectStatus:existingStatus,
     feeGroup:feeGroup,
     previousFeeGroup:previousFeeGroup,
-    feeStructure:fee,
     activationReady:v2ActivationReadiness_(reference)
   };
 }
