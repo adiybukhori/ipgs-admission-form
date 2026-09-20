@@ -325,7 +325,7 @@ function v2AgentSubmitAction(token, formData) {
 
     SpreadsheetApp.flush();
 
-    const registryNotification = v2NotifyRegistryProspectReady_(
+    const registryNotification = v2NotifyRegistryProspectDetailsReady_(
       referenceNo,
       details,
       feeGroup,
@@ -414,7 +414,7 @@ function v2AgentCleanProspectDetails_(input) {
   };
 }
 
-function v2NotifyRegistryProspectReady_(referenceNo, details, feeGroup, remarks, actor) {
+function v2NotifyRegistryProspectDetailsReady_(referenceNo, details, feeGroup, remarks, actor) {
   assertDevIdentity_();
   const d = details || {};
   const reference = String(referenceNo || '').trim();
