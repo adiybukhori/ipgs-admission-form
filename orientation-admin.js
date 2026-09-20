@@ -725,6 +725,10 @@
 
     if(ended){
       html+='<button class="ghost" onclick="openOrientationStudents(\''+safeId+'\')">Add Student Record</button>';
+      if(attendanceState==='OPEN'){
+        html+='<button class="ghost" onclick="showOrientationQr(\''+safeId+'\')">Show QR</button>';
+        html+='<button class="ghost" onclick="closeOrientationAttendance(\''+safeId+'\')">Close Attendance</button>';
+      }
       html+='<button class="ghost" onclick="setOrientationRecording(\''+safeId+'\')">'+(recordingUrl?'Edit Recording':'Add Recording')+'</button>';
       if(recordingUrl)html+='<button class="ghost" onclick="sendOrientationRecording(\''+safeId+'\')">Send Recording</button>';
       html+='<button class="primary" onclick="openOrientationCompletion(\''+safeId+'\')">Complete Orientation</button>';
@@ -804,6 +808,7 @@
       trackBody.innerHTML=filteredTracking.map(x=>{
         const session=sessions.find(s=>String(s['Orientation Session ID']||'')===String(x['Orientation Session ID']||''));
         const attendance=String(x['Attendance Status']||'NOT_UPDATED').toUpperCase();
+        const sessionCompleted=String(session?.['Status']||'').toUpperCase()==='COMPLETED';
         return `<tr>
           <td><div class="student">${esc(x['Student Name']||'-')}</div><div class="subline">${esc(x['Reference No']||'')}</div></td>
           <td>${esc(x['Programme']||'-')}</td>
@@ -811,11 +816,14 @@
           <td><span class="badge ${classifyBadge(x['Invitation Status']||'PENDING')}">${esc(pretty(x['Invitation Status']||'PENDING'))}</span></td>
           <td><span class="badge ${classifyBadge(x['Reminder Status']||'NOT_SENT')}">${esc(pretty(x['Reminder Status']||'NOT_SENT'))}</span><div class="subline">${esc(pretty(x['Last Reminder Milestone']||''))}</div></td>
           <td><span class="badge ${classifyBadge(attendance)}">${esc(pretty(attendance))}</span><div class="subline">${esc(pretty(x['Attendance Source']||''))}</div></td>
-          <td><div style="display:flex;gap:6px;flex-wrap:wrap">
-            <button class="ghost" onclick="markOrientationAttendance('${esc(x['Orientation Session ID']||'')}','${esc(x['Reference No']||'')}','ATTENDED')">Attended</button>
-            <button class="ghost" onclick="markOrientationAttendance('${esc(x['Orientation Session ID']||'')}','${esc(x['Reference No']||'')}','ABSENT')">Absent</button>
-            <button class="ghost" onclick="markOrientationAttendance('${esc(x['Orientation Session ID']||'')}','${esc(x['Reference No']||'')}','EXCUSED')">Excused</button>
-          </div></td>
+          <td>${sessionCompleted
+            ? '<span class="badge purple">Record Locked</span>'
+            : `<div style="display:flex;gap:6px;flex-wrap:wrap">
+                <button class="ghost" onclick="markOrientationAttendance('${esc(x['Orientation Session ID']||'')}','${esc(x['Reference No']||'')}','ATTENDED')">Attended</button>
+                <button class="ghost" onclick="markOrientationAttendance('${esc(x['Orientation Session ID']||'')}','${esc(x['Reference No']||'')}','ABSENT')">Absent</button>
+                <button class="ghost" onclick="markOrientationAttendance('${esc(x['Orientation Session ID']||'')}','${esc(x['Reference No']||'')}','EXCUSED')">Excused</button>
+              </div>`
+          }</td>
         </tr>`;
       }).join('')||'<tr><td colspan="7" class="empty">No students found for this Orientation Session.</td></tr>';
     }
