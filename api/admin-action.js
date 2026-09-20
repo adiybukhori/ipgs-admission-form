@@ -5,6 +5,8 @@ const AUTH_WEB_APP = 'https://script.google.com/macros/s/AKfycbw22-UOsHkaap3dzU1
 
 const ALLOWED_ACTIONS = new Set([
   'v2ListWorkflow',
+  'v2UpsertFeeStructure',
+  'v2SetFeeStructureStatus',
   'v2UpsertAgent',
   'v2AgentAdminStatus',
   'v2UpdateStage',
