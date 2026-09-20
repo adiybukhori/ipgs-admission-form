@@ -11,6 +11,7 @@ permissions:
   contents: read
 
 # Force-sync the full Admission V2 source tree to the locked Apps Script project.
+# Deployment trigger: JSON-safe agent action bridge 2026-09-20.
 # Deployment trigger: Action ID + token agent link fix 2026-09-20.
 # Deployment trigger: Marketing-owned prospect flow confirmed 2026-09-20.
 jobs:
