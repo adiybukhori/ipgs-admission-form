@@ -1595,6 +1595,27 @@ function v2RegenerateOrientationReport_(data, actor) {
   };
 }
 
+
+function v2GetOrientationReportFile_(data) {
+  v2OrientationEnsureHeaders_();
+  const sessionId=v2Required_(data.sessionId,'Orientation Session ID');
+  const found=v2Find_('V2_ORIENTATION_SESSIONS','Orientation Session ID',sessionId);
+  if(!found)throw new Error('Orientation session not found.');
+  const fileId=String(found.record['Report File ID']||'').trim();
+  if(!fileId)throw new Error('Official Orientation report has not been generated yet.');
+  const file=DriveApp.getFileById(fileId);
+  const blob=file.getBlob();
+  return {
+    ok:true,
+    sessionId:sessionId,
+    reportReference:String(found.record['Report Reference']||''),
+    reportVersion:Number(found.record['Report Version']||1),
+    fileName:file.getName(),
+    mimeType:blob.getContentType()||'application/pdf',
+    base64:Utilities.base64Encode(blob.getBytes())
+  };
+}
+
 function v2SendOrientationReminderNow_(data, actor) {
   v2OrientationEnsureHeaders_();
   const sessionId = v2Required_(data.sessionId,'Orientation Session ID');
