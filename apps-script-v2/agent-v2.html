@@ -112,11 +112,20 @@
       }
 
       google.script.run
-        .withSuccessHandler(renderAction)
-        .withFailureHandler(function(err) {
-          document.getElementById('loading').textContent = err && err.message ? err.message : String(err);
+        .withSuccessHandler(function(raw) {
+          try {
+            const res = JSON.parse(String(raw || ''));
+            renderAction(res);
+          } catch (e) {
+            document.getElementById('loading').textContent =
+              'Unable to load this action. Invalid server response: ' + (e && e.message ? e.message : String(e));
+          }
         })
-        .v2AgentGetAction(ACTION_TOKEN, ACTION_ID);
+        .withFailureHandler(function(err) {
+          document.getElementById('loading').textContent =
+            'Unable to load this action: ' + (err && err.message ? err.message : String(err));
+        })
+        .v2AgentGetActionJson(ACTION_TOKEN, ACTION_ID);
     }
 
     function renderAction(res) {
@@ -175,7 +184,17 @@
       btn.textContent = 'Submitting…';
 
       google.script.run
-        .withSuccessHandler(function(res) {
+        .withSuccessHandler(function(raw) {
+          let res = null;
+          try {
+            res = JSON.parse(String(raw || ''));
+          } catch (e) {
+            btn.disabled = false;
+            btn.textContent = 'Confirm Prospect Done & Submit Fee Group';
+            setMessage('Invalid server response: ' + (e && e.message ? e.message : String(e)), 'err');
+            return;
+          }
+
           btn.textContent = 'Confirm Prospect Done & Submit Fee Group';
           if (!res || !res.ok) {
             btn.disabled = !!(res && res.duplicate);
@@ -191,13 +210,17 @@
         .withFailureHandler(function(err) {
           btn.disabled = false;
           btn.textContent = 'Confirm Prospect Done & Submit Fee Group';
-          setMessage(err && err.message ? err.message : String(err), 'err');
+          setMessage('Unable to save: ' + (err && err.message ? err.message : String(err)), 'err');
         })
-        .v2AgentSubmitAction(ACTION_TOKEN, ACTION_ID, {
-          prospectCompleted: prospectCompleted,
-          feeGroup: feeGroup,
-          remarks: remarks
-        });
+        .v2AgentSubmitActionJson(
+          ACTION_TOKEN,
+          ACTION_ID,
+          JSON.stringify({
+            prospectCompleted: prospectCompleted,
+            feeGroup: feeGroup,
+            remarks: remarks
+          })
+        );
     }
 
     loadAction();
