@@ -6,7 +6,7 @@
  * automatic reminder -> attendance tracking. This module is standalone.
  */
 
-const V2_ORIENTATION_BUILD = 'ORIENTATION_V2_ATTENDANCE_RECORDING_20260920';
+const V2_ORIENTATION_BUILD = 'ORIENTATION_V2_SEPARATE_INVITATION_20260920';
 const V2_ORIENTATION_TRIGGER_VERSION = 'MILESTONE_V2_15MIN';
 const V2_ORIENTATION_REMINDER_HANDLER = 'v2OrientationReminderSweep';
 const V2_ORIENTATION_SESSION_HEADERS = [
@@ -146,7 +146,7 @@ function v2AssignOrientationBatch_(data, actor) {
         'Student Email':application.record['Personal Email'] || (workflow && workflow.record['Personal Email']) || '',
         'Assigned At':old['Assigned At'] || now,
         'Assigned By':old['Assigned By'] || actor || 'Admin Portal V2',
-        'Invitation Status':historicalOnly && priorInvitationStatus !== 'SENT' ? 'NOT_REQUIRED' : (old['Invitation Status'] || 'PENDING'),
+        'Invitation Status':historicalOnly && priorInvitationStatus !== 'SENT' ? 'NOT_REQUIRED' : (old['Invitation Status'] || 'NOT_SENT'),
         'Invitation Sent At':old['Invitation Sent At'] || '',
         'Invitation Delivery Detail':historicalOnly && priorInvitationStatus !== 'SENT' ? 'HISTORICAL_RECORD_ONLY' : (old['Invitation Delivery Detail'] || ''),
         'Reminder Status':historicalOnly && priorReminderStatus !== 'SENT' ? 'NOT_REQUIRED' : (old['Reminder Status'] || 'NOT_SENT'),
@@ -177,33 +177,18 @@ function v2AssignOrientationBatch_(data, actor) {
         });
       }
 
-      let invitation = historicalOnly
+      const invitation = historicalOnly
         ? {sent:false,status:'HISTORICAL_RECORD_ONLY',mode:v2NotificationMode_()}
-        : {sent:false,status:'ALREADY_SENT',mode:v2NotificationMode_()};
-      if (!historicalOnly && (String(row['Invitation Status'] || '').toUpperCase() !== 'SENT' || data.resendInvitation === true)) {
-        invitation = v2OrientationSendStudentEmail_(session.record, row, 'INVITATION');
-        const tracking = v2FindComposite_(
-          'V2_ORIENTATION_TRACKING',
-          ['Orientation Session ID','Reference No'],
-          [sessionId,reference]
-        );
-        if (tracking) {
-          v2UpdateRow_(tracking.sheet,tracking.rowNumber,{
-            'Invitation Status':invitation.sent ? 'SENT' : (invitation.status === 'DISABLED' ? 'DISABLED' : 'FAILED'),
-            'Invitation Sent At':invitation.sent ? new Date().toISOString() : '',
-            'Invitation Delivery Detail':String(invitation.status || ''),
-            'Last Updated':new Date().toISOString()
-          });
-        }
-      }
+        : {sent:false,status:'NOT_SENT',mode:v2NotificationMode_()};
 
       v2Audit_(reference,'ORIENTATION','ASSIGN_STUDENT',{},{
         sessionId:sessionId,
         invitationStatus:invitation.status,
-        invitationSent:!!invitation.sent,
+        invitationSent:false,
         historicalOnly:historicalOnly
-      },actor || 'Admin Portal V2','SUCCESS','');
-      assigned.push({referenceNo:reference, invitationSent:!!invitation.sent, invitationStatus:invitation.status});
+      },actor || 'Admin Portal V2','SUCCESS',
+        historicalOnly ? 'Historical record only. No invitation email sent.' : 'Student assigned only. Invitation email requires Send Invitation action.');
+      assigned.push({referenceNo:reference, invitationSent:false, invitationStatus:invitation.status});
     } catch (error) {
       failed.push({referenceNo:reference, message:String(error && error.message || error)});
     }
@@ -223,6 +208,81 @@ function v2AssignOrientationBatch_(data, actor) {
     failed:failed,
     sessionId:sessionId,
     historicalOnly:historicalOnly,
+    build:V2_ORIENTATION_BUILD
+  };
+}
+
+function v2SendOrientationInvitation_(data, actor) {
+  v2OrientationEnsureHeaders_();
+  const sessionId = v2Required_(data.sessionId,'Orientation Session ID');
+  const session = v2Find_('V2_ORIENTATION_SESSIONS','Orientation Session ID',sessionId);
+  if (!session) throw new Error('Orientation session not found.');
+  if (v2OrientationMarkEndedIfPast_(session, actor || 'Admin Portal V2') ||
+      ['ENDED','CANCELLED','CLOSED'].indexOf(String(session.record['Status'] || '').toUpperCase()) >= 0) {
+    throw new Error('Orientation session has ended. Invitation sending is disabled.');
+  }
+
+  const rows = v2Rows_('V2_ORIENTATION_TRACKING').filter(function(row){
+    return String(row['Orientation Session ID'] || '') === sessionId;
+  });
+  if (!rows.length) throw new Error('No students are assigned to this Orientation Session.');
+
+  let sentCount = 0;
+  let skippedCount = 0;
+  let failedCount = 0;
+  const details = [];
+
+  rows.forEach(function(row) {
+    const status = String(row['Invitation Status'] || 'NOT_SENT').trim().toUpperCase();
+    if (status === 'SENT' || status === 'NOT_REQUIRED') {
+      skippedCount += 1;
+      details.push({referenceNo:row['Reference No'],status:'SKIPPED_'+status});
+      return;
+    }
+
+    try {
+      const delivery = v2OrientationSendStudentEmail_(session.record, row, 'INVITATION');
+      const current = v2FindComposite_(
+        'V2_ORIENTATION_TRACKING',
+        ['Orientation Session ID','Reference No'],
+        [sessionId,row['Reference No']]
+      );
+      const now = new Date().toISOString();
+      const nextStatus = delivery.sent ? 'SENT' : (delivery.status === 'DISABLED' ? 'DISABLED' : 'FAILED');
+      if (current) {
+        v2UpdateRow_(current.sheet,current.rowNumber,{
+          'Invitation Status':nextStatus,
+          'Invitation Sent At':delivery.sent ? now : String(current.record['Invitation Sent At'] || ''),
+          'Invitation Delivery Detail':String(delivery.status || ''),
+          'Last Updated':now
+        });
+      }
+      if (delivery.sent) sentCount += 1;
+      else failedCount += 1;
+      details.push({referenceNo:row['Reference No'],status:nextStatus,deliveryStatus:String(delivery.status || '')});
+    } catch (error) {
+      failedCount += 1;
+      details.push({referenceNo:row['Reference No'],status:'FAILED',message:String(error && error.message || error)});
+    }
+  });
+
+  v2OrientationRecountSession_(sessionId);
+  v2OrientationEnsureReminderTrigger_();
+  v2Audit_('','ORIENTATION','SEND_INVITATION',{},{
+    sessionId:sessionId,
+    sentCount:sentCount,
+    skippedCount:skippedCount,
+    failedCount:failedCount
+  },actor || 'Admin Portal V2','SUCCESS','Invitation sent only to students not previously marked SENT.');
+  v2InvalidateCache_();
+
+  return {
+    ok:true,
+    sessionId:sessionId,
+    sentCount:sentCount,
+    skippedCount:skippedCount,
+    failedCount:failedCount,
+    details:details,
     build:V2_ORIENTATION_BUILD
   };
 }
@@ -994,7 +1054,7 @@ function v2OrientationReminderForSession_(sessionId, force, actor, milestone) {
   trackingRows.forEach(function(row) {
     const history = v2OrientationReminderHistory_(row);
     if (!force && history[resolvedMilestone]) { skippedCount += 1; return; }
-    if (!force && String(row['Invitation Status'] || '').toUpperCase() !== 'SENT') { skippedCount += 1; return; }
+    if (String(row['Invitation Status'] || '').toUpperCase() !== 'SENT') { skippedCount += 1; return; }
 
     try {
       const delivery = v2OrientationSendStudentEmail_(session.record, row, 'REMINDER', resolvedMilestone);
