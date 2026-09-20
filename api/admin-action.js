@@ -49,6 +49,7 @@ const ALLOWED_ACTIONS = new Set([
   'v2OrientationCompletionAssessment',
   'v2CompleteOrientationAndGenerateReport',
   'v2RegenerateOrientationReport',
+  'v2GetOrientationReportFile',
   'v2CreateHandoverSession',
   'v2AddHandoverStudents',
   'v2SendHandoverSession',
