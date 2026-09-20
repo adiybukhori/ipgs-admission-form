@@ -5,6 +5,7 @@ name: Stage 4 Orientation Deploy
 # feedback-form-v1
 # official-report-v1
 # fee-structure-master-v1
+# fee-standardisation-v2
 
 on:
   push:
@@ -107,6 +108,10 @@ jobs:
           grep -F 'function v2UpsertFeeStructure_' apps-script-v2/FeeStructureV2.js
           grep -F 'function v2SetFeeStructureStatus_' apps-script-v2/FeeStructureV2.js
           grep -F 'function v2GetFeeGroupOptions_' apps-script-v2/FeeStructureV2.js
+          grep -F "'Fee Components JSON'" apps-script-v2/FeeStructureV2.js
+          grep -F "'COURSEWORK_FEE'" apps-script-v2/FeeStructureV2.js
+          grep -F "'RESEARCH_FEE'" apps-script-v2/FeeStructureV2.js
+          grep -F "'MIXED_MODE_FEE'" apps-script-v2/FeeStructureV2.js
           grep -F "'v2UpsertFeeStructure'" apps-script-v2/WorkflowV2.js
           grep -F "'v2SetFeeStructureStatus'" apps-script-v2/WorkflowV2.js
           grep -F 'feeGroupOptions' apps-script-v2/AgentProspectV2.js
@@ -137,7 +142,7 @@ jobs:
       - name: Redeploy existing V2 web app
         env:
           V2_DEPLOYMENT_ID: AKfycbxasT_HgtRSvTbR_bsa8p17Cm-C2PKn20Ok1kU-AyJmxiKX8kX5EGOtRLwVwNlAL7JB
-        run: clasp create-deployment --deploymentId "$V2_DEPLOYMENT_ID" --description "Stage 4 Orientation + Fee Structure Master"
+        run: clasp create-deployment --deploymentId "$V2_DEPLOYMENT_ID" --description "Stage 4 Orientation + standardised Fee Structure Master"
 
       - name: Remove clasp credential
         if: always()
