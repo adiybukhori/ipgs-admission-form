@@ -312,6 +312,7 @@
     const session=(db.V2_ORIENTATION_SESSIONS||[]).find(s=>String(s['Orientation Session ID']||'')===String(sessionId));
     if(!session)return orientationMessage('Orientation session not found.','error');
     closeOrientationManageModal();
+    const completed=String(session['Status']||'').toUpperCase()==='COMPLETED';
 
     const rows=(db.V2_ORIENTATION_TRACKING||[])
       .filter(x=>String(x['Orientation Session ID']||'')===String(sessionId)&&orientationAssignmentActive(x))
@@ -336,11 +337,13 @@
           <button class="ghost" type="button" id="orientationManageCloseBtn">Close</button>
         </div>
         <div class="message" style="display:block;background:var(--blueSoft);color:var(--blue);margin-bottom:14px">
-          ${rows.length} active student${rows.length===1?'':'s'} assigned. Moving a student keeps the old session in the audit history, creates a new active assignment in the selected session, and does not send an email automatically.
+          ${completed
+            ? rows.length+' student'+(rows.length===1?'':'s')+' in the completed Orientation record. This record is locked; student movement and removal are disabled.'
+            : rows.length+' active student'+(rows.length===1?'':'s')+' assigned. Moving a student keeps the old session in the audit history, creates a new active assignment in the selected session, and does not send an email automatically.'}
         </div>
         <div class="table-wrap">
           <table style="min-width:900px">
-            <thead><tr><th>Student</th><th>Programme</th><th>Invitation</th><th>Attendance</th><th>Move Session</th><th>Action</th></tr></thead>
+            <thead><tr><th>Student</th><th>Programme</th><th>Invitation</th><th>Attendance</th><th>Feedback</th><th>Recording</th><th>Move Session</th><th>Action</th></tr></thead>
             <tbody>
               ${rows.map((x,index)=>`
                 <tr>
@@ -348,12 +351,13 @@
                   <td>${esc(x['Programme']||'-')}</td>
                   <td><span class="badge ${classifyBadge(x['Invitation Status']||'NOT_SENT')}">${esc(pretty(x['Invitation Status']||'NOT_SENT'))}</span></td>
                   <td><span class="badge ${classifyBadge(x['Attendance Status']||'NOT_UPDATED')}">${esc(pretty(x['Attendance Status']||'NOT_UPDATED'))}</span></td>
-                  <td><select class="compact" id="oriMoveTarget_${index}" style="min-width:210px">${targetOptions}</select></td>
-                  <td><div class="orientation-actions">
-                    <button class="ghost" type="button" data-move-index="${index}">Move</button>
-                    <button class="ghost" type="button" data-remove-index="${index}">Remove</button>
-                  </div></td>
-                </tr>`).join('')||'<tr><td colspan="6" class="empty">No active students are assigned to this session.</td></tr>'}
+                  <td><span class="badge ${classifyBadge(x['Feedback Status']||'NOT_SUBMITTED')}">${esc(pretty(x['Feedback Status']||'NOT_SUBMITTED'))}</span></td>
+                  <td><span class="badge ${classifyBadge(x['Recording Email Status']||'NOT_SENT')}">${esc(pretty(x['Recording Email Status']||'NOT_SENT'))}</span></td>
+                  <td>${completed?'<span class="subline">Locked</span>':'<select class="compact" id="oriMoveTarget_'+index+'" style="min-width:210px">'+targetOptions+'</select>'}</td>
+                  <td>${completed
+                    ? '<span class="badge purple">Record Locked</span>'
+                    : '<div class="orientation-actions"><button class="ghost" type="button" data-move-index="'+index+'">Move</button><button class="ghost" type="button" data-remove-index="'+index+'">Remove</button></div>'}</td>
+                </tr>`).join('')||'<tr><td colspan="8" class="empty">No active students are assigned to this session.</td></tr>'}
             </tbody>
           </table>
         </div>
