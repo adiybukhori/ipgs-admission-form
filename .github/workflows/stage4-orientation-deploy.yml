@@ -3,6 +3,7 @@ name: Stage 4 Orientation Deploy
 # milestone-reminders-v2
 # edit-ended-session-v1
 # feedback-form-v1
+# official-report-v1
 
 on:
   push:
@@ -36,6 +37,11 @@ jobs:
           grep -F 'sendOrientationRecording' orientation-admin.js
           grep -F 'sendOrientationInvitation' orientation-admin.js
           grep -F 'openOrientationManageStudents' orientation-admin.js
+          grep -F 'openOrientationCreateModal' orientation-admin.js
+          grep -F 'openOrientationCompletion' orientation-admin.js
+          grep -F 'viewOrientationReport' orientation-admin.js
+          grep -F 'downloadOrientationReport' orientation-admin.js
+          grep -F 'v2GetOrientationReportFile' api/admin-action.js
           grep -F 'ipgs-admission-form.innovative.edu.my/orientation-attendance.html' orientation-admin.js
           grep -F 'v2RemoveOrientationStudent' orientation-admin.js
           grep -F 'v2MoveOrientationStudent' orientation-admin.js
@@ -64,6 +70,13 @@ jobs:
           grep -F 'function v2SendOrientationInvitation_' apps-script-v2/OrientationV2.js
           grep -F 'function v2RemoveOrientationStudent_' apps-script-v2/OrientationV2.js
           grep -F 'function v2MoveOrientationStudent_' apps-script-v2/OrientationV2.js
+          grep -F 'function v2CompleteOrientationAndGenerateReport_' apps-script-v2/OrientationV2.js
+          grep -F 'function v2RegenerateOrientationReport_' apps-script-v2/OrientationV2.js
+          grep -F 'function v2GetOrientationReportFile_' apps-script-v2/OrientationV2.js
+          grep -F "V2_ORIENTATION_REPORT_TEMPLATE_ID = '1NiNXYRb0-6ighA016hk9vqdyv4lGyqtcY6DBdS8nSxg'" apps-script-v2/OrientationV2.js
+          grep -F "V2_ORIENTATION_BUILD = 'ORIENTATION_V2_OFFICIAL_REPORT_20260920'" apps-script-v2/OrientationV2.js
+          grep -F "'v2CompleteOrientationAndGenerateReport'" apps-script-v2/WorkflowV2.js
+          grep -F "'v2GetOrientationReportFile'" apps-script-v2/WorkflowV2.js
           grep -F "V2_ORIENTATION_ATTENDANCE_BASE_URL = 'https://ipgs-admission-form.innovative.edu.my/orientation-attendance.html'" apps-script-v2/OrientationV2.js
           grep -F 'Feedback Average Score' apps-script-v2/OrientationV2.js
           grep -F 'IPGS_ORIENTATION_FEEDBACK_V2_20260920' apps-script-v2/OrientationV2.js
@@ -107,7 +120,7 @@ jobs:
       - name: Redeploy existing V2 web app
         env:
           V2_DEPLOYMENT_ID: AKfycbxasT_HgtRSvTbR_bsa8p17Cm-C2PKn20Ok1kU-AyJmxiKX8kX5EGOtRLwVwNlAL7JB
-        run: clasp create-deployment --deploymentId "$V2_DEPLOYMENT_ID" --description "Stage 4 structured Orientation feedback form"
+        run: clasp create-deployment --deploymentId "$V2_DEPLOYMENT_ID" --description "Stage 4 official Orientation completion report"
 
       - name: Remove clasp credential
         if: always()
