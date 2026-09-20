@@ -505,7 +505,21 @@
           <div class="kpis"><div class="kpi"><div class="label">SESSIONS</div><div id="sacSessionsKpi" class="value">0</div><div class="meta">SAC sessions</div></div><div class="kpi"><div class="label">CANDIDATES</div><div id="sacCandidatesKpi" class="value">0</div><div class="meta">Assigned candidates</div></div><div class="kpi"><div class="label">PENDING DECISION</div><div id="sacPendingKpi" class="value">0</div><div class="meta">Awaiting manual SAC result</div></div><div class="kpi"><div class="label">FINALISED</div><div id="sacFinalKpi" class="value">0</div><div class="meta">Completed candidate decisions</div></div></div>
 
           <div class="panel" style="margin-bottom:18px">
-            <div class="panel-head"><h3>Create SAC Session</h3><span>Physical meeting · calendar invitation is safety-gated</span></div>
+            <div class="panel-body" style="display:flex;align-items:center;justify-content:space-between;gap:14px;flex-wrap:wrap">
+              <div>
+                <div class="student">SAC Session Workspace</div>
+                <div class="subline">Create a SAC session only when needed. Existing sessions remain the main monitoring view below.</div>
+              </div>
+              <button id="sacCreateOpenBtn" class="primary" type="button" onclick="openSacCreatePanel()">+ Create SAC Session</button>
+            </div>
+            <div id="sacCreateMessage" class="message" style="display:none;margin:0 18px 18px"></div>
+          </div>
+
+          <div id="sacCreatePanel" class="panel" style="display:none;margin-bottom:18px">
+            <div class="panel-head">
+              <div><h3 style="margin:0">Create SAC Session</h3><span>Physical meeting · calendar invitation is safety-gated</span></div>
+              <button class="ghost" type="button" onclick="closeSacCreatePanel()">Cancel</button>
+            </div>
             <div class="panel-body">
               <div class="warning-banner">Current operating mode: <b>Manual / Physical SAC</b>. Committee portal and digital voting are not active. Admin will record the authorised result after the meeting. Prerequisite cannot be selected directly at SAC; it can only arise after IA.</div>
               <div class="detail-grid">
@@ -516,12 +530,15 @@
                 <div class="field full"><label>Physical Venue</label><input id="sacCreateVenue" placeholder="Meeting room / campus venue" /></div>
                 <div class="field full"><label>SAC Committee Emails</label><textarea id="sacCommitteeEmails" rows="3" placeholder="committee1@innovative.edu.my, committee2@innovative.edu.my" style="width:100%;border:1px solid #d7dce6;border-radius:12px;padding:12px 13px;background:white;color:var(--ink);outline:none;resize:vertical"></textarea><div class="subline">Leave blank to use active default members from SAC_COMMITTEE_MASTER. Calendar invitation will only send when the backend invitation mode is explicitly enabled.</div></div>
               </div>
-              <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-top:8px"><button class="primary" onclick="createSacSession()">Create SAC Session</button><span class="badge amber">Invitation safety gate active</span></div>
-              <div id="sacCreateMessage" class="message" style="display:none"></div>
+              <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-top:8px">
+                <button class="primary" onclick="createSacSession()">Create SAC Session</button>
+                <button class="ghost" type="button" onclick="closeSacCreatePanel()">Cancel</button>
+                <span class="badge amber">Invitation safety gate active</span>
+              </div>
             </div>
           </div>
 
-          <div class="panel"><div class="panel-head"><h3>SAC sessions</h3><span>Assign candidates → physical meeting → admin result → minutes & endorsement</span></div><div class="table-wrap sac-desktop-table"><table><thead><tr><th>Session</th><th>Date</th><th>Mode</th><th>Status</th><th>Chairperson</th><th>Candidates</th><th>Invitation</th><th>Documents</th><th>Action</th></tr></thead><tbody id="sacBody"></tbody></table></div><div id="sacMobileCards" class="sac-mobile-list"></div></div>
+          <div class="panel"><div class="panel-head"><h3>SAC Sessions</h3><span>Assign candidates → physical meeting → admin result → minutes & endorsement</span></div><div class="table-wrap sac-desktop-table"><table><thead><tr><th>Session</th><th>Date</th><th>Mode</th><th>Status</th><th>Chairperson</th><th>Candidates</th><th>Invitation</th><th>Documents</th><th>Action</th></tr></thead><tbody id="sacBody"></tbody></table></div><div id="sacMobileCards" class="sac-mobile-list"></div></div>
         </section>
 
         <section id="assessment" class="section">
@@ -1249,6 +1266,21 @@
         return out.result||out;
       }catch(e){sacPageMsg(e.message||'Unable to complete SAC action.','error');return null}
     }
+    function openSacCreatePanel(){
+      const panel=document.getElementById('sacCreatePanel');
+      const btn=document.getElementById('sacCreateOpenBtn');
+      if(panel)panel.style.display='block';
+      if(btn){btn.disabled=true;btn.textContent='Creating SAC Session…'}
+      const msg=document.getElementById('sacCreateMessage');if(msg)msg.style.display='none';
+      setTimeout(()=>document.getElementById('sacCreateName')?.focus(),50);
+      panel?.scrollIntoView({behavior:'smooth',block:'start'});
+    }
+    function closeSacCreatePanel(){
+      const panel=document.getElementById('sacCreatePanel');
+      const btn=document.getElementById('sacCreateOpenBtn');
+      if(panel)panel.style.display='none';
+      if(btn){btn.disabled=false;btn.textContent='+ Create SAC Session'}
+    }
     async function createSacSession(){
       const name=document.getElementById('sacCreateName')?.value.trim()||'',meetingDate=document.getElementById('sacCreateDate')?.value||'',meetingTime=document.getElementById('sacCreateTime')?.value||'10:00',chairperson=document.getElementById('sacCreateChair')?.value.trim()||'',venue=document.getElementById('sacCreateVenue')?.value.trim()||'',committeeEmails=document.getElementById('sacCommitteeEmails')?.value.trim()||'';
       if(!name||!meetingDate)return sacPageMsg('Enter SAC Name and Meeting Date first.','error');
@@ -1257,7 +1289,9 @@
       const inv=result.invitation||{};
       const invText=inv.sent?'Calendar invitation sent.':`Calendar invitation not sent (${pretty(inv.reason||inv.mode||'safety gate')}).`;
       sacPageMsg(`SAC session created. ${invText}`,'ok');
-      ['sacCreateName','sacCreateChair','sacCreateVenue','sacCommitteeEmails'].forEach(id=>{const el=document.getElementById(id);if(el)el.value=''});
+      ['sacCreateName','sacCreateDate','sacCreateChair','sacCreateVenue','sacCommitteeEmails'].forEach(id=>{const el=document.getElementById(id);if(el)el.value=''});
+      const timeEl=document.getElementById('sacCreateTime');if(timeEl)timeEl.value='10:00';
+      closeSacCreatePanel();
     }
     async function sendSacInvite(sessionId){
       const result=await runSacPageAction('v2SendSacCalendarInvitationManual',{sessionId},'Send the calendar invitation for this SAC session?');
