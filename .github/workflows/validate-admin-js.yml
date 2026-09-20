@@ -11,6 +11,8 @@ on:
       - 'system-guide-training.js'
       - 'system-guide-training-v2.js'
       - 'ai-operations-center.html'
+      - 'ai-agent-office.js'
+      - 'ai-agent-office.css'
       - 'api/admin-data.js'
       - '.github/workflows/validate-admin-js.yml'
   workflow_dispatch:
@@ -29,6 +31,7 @@ jobs:
           node --check fee-structure-admin.js
           node --check system-guide-training.js
           node --check system-guide-training-v2.js
+          node --check ai-agent-office.js
       - name: Check AI Operations Center inline JavaScript
         run: |
           node - <<'NODE'
