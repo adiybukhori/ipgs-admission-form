@@ -136,6 +136,24 @@
     .ready-card .r-top{display:flex;justify-content:space-between;align-items:center;gap:8px;font-size:10px;font-weight:850}
     .ready-card p{font-size:9px;color:#7f8aaf;line-height:1.45;margin:6px 0 0}
     .footer-note{margin:18px 0 2px;color:#6f7a9d;text-align:center;font-size:9px}
+    .org-stage:before{content:"";position:absolute;inset:70px 8% 8%;pointer-events:none;background:radial-gradient(circle at 50% 18%,rgba(154,124,255,.09),transparent 32%);filter:blur(8px)}
+    .orchestrator{animation:agentGlow 4.5s ease-in-out infinite}
+    @keyframes agentGlow{0%,100%{box-shadow:0 14px 40px rgba(84,61,196,.14),0 0 0 rgba(154,124,255,0)}50%{box-shadow:0 18px 48px rgba(84,61,196,.24),0 0 38px rgba(154,124,255,.10)}}
+    .agents-grid .agent-card{cursor:pointer}
+    .agents-grid .agent-card:hover .avatar{box-shadow:0 0 22px rgba(83,217,255,.18)}
+    .agent-detail-overlay{position:fixed;inset:0;background:rgba(3,5,14,.76);backdrop-filter:blur(8px);z-index:100;display:flex;align-items:center;justify-content:center;padding:20px}
+    .agent-detail-card{width:min(720px,96vw);border:1px solid rgba(154,124,255,.28);background:linear-gradient(145deg,rgba(20,27,65,.98),rgba(9,13,31,.98));border-radius:22px;box-shadow:0 35px 100px rgba(0,0,0,.55),0 0 55px rgba(116,88,255,.12);overflow:hidden}
+    .agent-detail-head{display:flex;align-items:flex-start;justify-content:space-between;gap:16px;padding:20px 22px;border-bottom:1px solid var(--line)}
+    .agent-detail-title{display:flex;gap:12px;align-items:center}.agent-detail-title .avatar{width:48px;height:48px}
+    .agent-detail-title h3{margin:0;font-size:17px}.agent-detail-title p{margin:4px 0 0;color:#8e99bd;font-size:10px;text-transform:uppercase;letter-spacing:.08em;font-weight:850}
+    .agent-detail-head button{border:1px solid var(--line);background:rgba(255,255,255,.04);color:#dce2ff;border-radius:10px;padding:8px 10px;font-weight:850}
+    .agent-detail-body{padding:20px 22px}.agent-detail-body>p{color:#a9b2d2;line-height:1.6;font-size:11px;margin:0 0 15px}
+    .agent-detail-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}
+    .agent-detail-grid>div{border:1px solid var(--line);border-radius:13px;padding:11px;background:rgba(255,255,255,.026)}
+    .agent-detail-grid small{display:block;color:#7783a8;font-size:8px;text-transform:uppercase;letter-spacing:.08em;font-weight:900;margin-bottom:5px}
+    .agent-detail-grid b{font-size:10px;line-height:1.4;color:#fff}
+    .agent-detail-foot{display:flex;justify-content:space-between;gap:10px;align-items:center;margin-top:14px;padding-top:14px;border-top:1px solid var(--line);color:#7480a5;font-size:9px}
+    .network-label{text-align:center;margin:-22px auto 13px;width:max-content;max-width:90%;padding:5px 8px;border:1px solid rgba(154,124,255,.18);border-radius:999px;background:#0b1025;color:#8e99bd;font-size:8px;font-weight:900;letter-spacing:.08em;text-transform:uppercase}
     @media(max-width:1180px){.kpis{grid-template-columns:repeat(3,1fr)}.layout,.workspace{grid-template-columns:1fr}.agents-grid{grid-template-columns:repeat(2,1fr)}}
     @media(max-width:760px){.shell{padding:13px}.topbar{margin:-13px -13px 15px;padding:12px 13px}.logos{display:none}.brand strong{font-size:14px}.top-actions .chip:nth-child(2){display:none}
       .hero{grid-template-columns:1fr}.hero-main{padding:22px}.hero h1{font-size:27px}.kpis{grid-template-columns:repeat(2,1fr)}.kpi:nth-child(5){grid-column:1/-1}
@@ -206,15 +224,16 @@
             <div class="agent-top"><div class="avatar">🧠</div><div><div class="agent-name">Registrar Office Agent</div><div class="agent-role">Supervisory & Orchestration Layer</div></div><span class="tag amber" style="margin-left:auto">MONITORING</span></div>
             <div class="agent-meta"><span>Case routing</span><span>Priority</span><span>Escalation</span><span>Cross-module monitoring</span><span>Human approval routing</span></div>
           </div>
+          <div class="network-label">Operational Agent Network</div>
           <div class="agents-grid">
-            <article class="agent-card"><div class="agent-top"><div class="avatar">📥</div><div><div class="agent-name">Admission Intake Agent</div><div class="agent-role">New application intake</div></div><span class="tag amber" style="margin-left:auto">NOT ACTIVATED</span></div><div class="agent-task">Monitors new applications, submission completeness and intake readiness before Registry processing.</div><div class="agent-load"><span>Workload</span><b id="loadIntake">— cases</b></div></article>
-            <article class="agent-card"><div class="agent-top"><div class="avatar">🔎</div><div><div class="agent-name">Admission Evaluation Agent</div><div class="agent-role">Document & qualification review</div></div><span class="tag amber" style="margin-left:auto">NOT ACTIVATED</span></div><div class="agent-task">Tracks document review, qualification screening and cases moving toward SAC or offer readiness.</div><div class="agent-load"><span>Workload</span><b id="loadEvaluation">— cases</b></div></article>
-            <article class="agent-card"><div class="agent-top"><div class="avatar">🎯</div><div><div class="agent-name">IA Agent</div><div class="agent-role">Internal Assessment operations</div></div><span class="tag amber" style="margin-left:auto">NOT ACTIVATED</span></div><div class="agent-task">Monitors IA scheduling, assessment progress, evidence and authorised outcomes.</div><div class="agent-load"><span>Workload</span><b id="loadIA">— cases</b></div></article>
-            <article class="agent-card"><div class="agent-top"><div class="avatar">📘</div><div><div class="agent-name">Prerequisite Agent</div><div class="agent-role">Prerequisite operations</div></div><span class="tag amber" style="margin-left:auto">NOT ACTIVATED</span></div><div class="agent-task">Tracks prerequisite enrolment, learning progress, completion evidence and readiness to return to the admission route.</div><div class="agent-load"><span>Workload</span><b id="loadPrereq">— cases</b></div></article>
-            <article class="agent-card"><div class="agent-top"><div class="avatar">⚙</div><div><div class="agent-name">Prospect / Activation Agent</div><div class="agent-role">SKY operational control</div></div><span class="tag amber" style="margin-left:auto">NOT ACTIVATED</span></div><div class="agent-task">Monitors consultant Prospect completion, Fee Group selection and Registry SKY activation records.</div><div class="agent-load"><span>Workload</span><b id="loadActivation">— cases</b></div></article>
-            <article class="agent-card"><div class="agent-top"><div class="avatar">🎓</div><div><div class="agent-name">Orientation Agent</div><div class="agent-role">Orientation operations</div></div><span class="tag amber" style="margin-left:auto">NOT ACTIVATED</span></div><div class="agent-task">Tracks session readiness, invitation, reminders, attendance, feedback, recording and completion report.</div><div class="agent-load"><span>Workload</span><b id="loadOrientation">— students</b></div></article>
-            <article class="agent-card"><div class="agent-top"><div class="avatar">⇄</div><div><div class="agent-name">Academic Handover Agent</div><div class="agent-role">Provisioning & student access</div></div><span class="tag amber" style="margin-left:auto">NOT ACTIVATED</span></div><div class="agent-task">Tracks handover communication, IT / Moodle / e-Library provisioning and final Student Access.</div><div class="agent-load"><span>Workload</span><b id="loadHandover">— cases</b></div></article>
-            <article class="agent-card"><div class="agent-top"><div class="avatar">▥</div><div><div class="agent-name">Management Intelligence Agent</div><div class="agent-role">Operational insight</div></div><span class="tag amber" style="margin-left:auto">NOT ACTIVATED</span></div><div class="agent-task">Surfaces throughput, exceptions, bottlenecks and management signals across the Registrar operation.</div><div class="agent-load"><span>Signals</span><b id="loadManagement">Live dashboard</b></div></article>
+            <article class="agent-card" tabindex="0" role="button" data-agent="Admission Intake Agent"><div class="agent-top"><div class="avatar">📥</div><div><div class="agent-name">Admission Intake Agent</div><div class="agent-role">New application intake</div></div><span class="tag amber" style="margin-left:auto">NOT ACTIVATED</span></div><div class="agent-task">Monitors new applications, submission completeness and intake readiness before Registry processing.</div><div class="agent-load"><span>Workload</span><b id="loadIntake">— cases</b></div></article>
+            <article class="agent-card" tabindex="0" role="button" data-agent="Admission Evaluation Agent"><div class="agent-top"><div class="avatar">🔎</div><div><div class="agent-name">Admission Evaluation Agent</div><div class="agent-role">Document & qualification review</div></div><span class="tag amber" style="margin-left:auto">NOT ACTIVATED</span></div><div class="agent-task">Tracks document review, qualification screening and cases moving toward SAC or offer readiness.</div><div class="agent-load"><span>Workload</span><b id="loadEvaluation">— cases</b></div></article>
+            <article class="agent-card" tabindex="0" role="button" data-agent="IA Agent"><div class="agent-top"><div class="avatar">🎯</div><div><div class="agent-name">IA Agent</div><div class="agent-role">Internal Assessment operations</div></div><span class="tag amber" style="margin-left:auto">NOT ACTIVATED</span></div><div class="agent-task">Monitors IA scheduling, assessment progress, evidence and authorised outcomes.</div><div class="agent-load"><span>Workload</span><b id="loadIA">— cases</b></div></article>
+            <article class="agent-card" tabindex="0" role="button" data-agent="Prerequisite Agent"><div class="agent-top"><div class="avatar">📘</div><div><div class="agent-name">Prerequisite Agent</div><div class="agent-role">Prerequisite operations</div></div><span class="tag amber" style="margin-left:auto">NOT ACTIVATED</span></div><div class="agent-task">Tracks prerequisite enrolment, learning progress, completion evidence and readiness to return to the admission route.</div><div class="agent-load"><span>Workload</span><b id="loadPrereq">— cases</b></div></article>
+            <article class="agent-card" tabindex="0" role="button" data-agent="Prospect / Activation Agent"><div class="agent-top"><div class="avatar">⚙</div><div><div class="agent-name">Prospect / Activation Agent</div><div class="agent-role">SKY operational control</div></div><span class="tag amber" style="margin-left:auto">NOT ACTIVATED</span></div><div class="agent-task">Monitors consultant Prospect completion, Fee Group selection and Registry SKY activation records.</div><div class="agent-load"><span>Workload</span><b id="loadActivation">— cases</b></div></article>
+            <article class="agent-card" tabindex="0" role="button" data-agent="Orientation Agent"><div class="agent-top"><div class="avatar">🎓</div><div><div class="agent-name">Orientation Agent</div><div class="agent-role">Orientation operations</div></div><span class="tag amber" style="margin-left:auto">NOT ACTIVATED</span></div><div class="agent-task">Tracks session readiness, invitation, reminders, attendance, feedback, recording and completion report.</div><div class="agent-load"><span>Workload</span><b id="loadOrientation">— students</b></div></article>
+            <article class="agent-card" tabindex="0" role="button" data-agent="Academic Handover Agent"><div class="agent-top"><div class="avatar">⇄</div><div><div class="agent-name">Academic Handover Agent</div><div class="agent-role">Provisioning & student access</div></div><span class="tag amber" style="margin-left:auto">NOT ACTIVATED</span></div><div class="agent-task">Tracks handover communication, IT / Moodle / e-Library provisioning and final Student Access.</div><div class="agent-load"><span>Workload</span><b id="loadHandover">— cases</b></div></article>
+            <article class="agent-card" tabindex="0" role="button" data-agent="Management Intelligence Agent"><div class="agent-top"><div class="avatar">▥</div><div><div class="agent-name">Management Intelligence Agent</div><div class="agent-role">Operational insight</div></div><span class="tag amber" style="margin-left:auto">NOT ACTIVATED</span></div><div class="agent-task">Surfaces throughput, exceptions, bottlenecks and management signals across the Registrar operation.</div><div class="agent-load"><span>Signals</span><b id="loadManagement">Live dashboard</b></div></article>
           </div>
         </div>
       </div>
@@ -433,6 +452,44 @@
     document.getElementById('decisionList').innerHTML='<div class="decision"><b>ACC data not loaded</b><p>'+escapeHtml(msg)+'</p></div>';
     document.getElementById('exceptionList').innerHTML='<div class="exception"><b>Simulation shell remains available</b><p>The UI can still be reviewed without AI tokens or live operational data.</p></div>';
   }
+
+
+  const AGENT_DIRECTORY={"Admission Intake Agent":{"icon":"📥","role":"New application intake","description":"Monitors new applications, submission completeness and intake readiness before Registry processing.","module":"Applications / Workflow","workload":"New application queue","escalation":"Registrar Office Agent","status":"NOT ACTIVATED"},"Admission Evaluation Agent":{"icon":"🔎","role":"Document & qualification review","description":"Tracks document review, qualification screening and cases moving toward SAC or offer readiness.","module":"Applications / SAC","workload":"Evaluation queue","escalation":"Registrar Office Agent","status":"NOT ACTIVATED"},"IA Agent":{"icon":"🎯","role":"Internal Assessment operations","description":"Monitors IA scheduling, assessment progress, evidence and authorised outcomes.","module":"IA / PREREQ","workload":"IA cases","escalation":"Registrar Office Agent","status":"NOT ACTIVATED"},"Prerequisite Agent":{"icon":"📘","role":"Prerequisite operations","description":"Tracks prerequisite enrolment, learning progress, completion evidence and readiness to return to the admission route.","module":"IA / PREREQ","workload":"Prerequisite cases","escalation":"Registrar Office Agent","status":"NOT ACTIVATED"},"Prospect / Activation Agent":{"icon":"⚙","role":"SKY operational control","description":"Monitors consultant Prospect completion, Fee Group selection and Registry SKY activation records.","module":"Prospect / Activation","workload":"Prospect + activation cases","escalation":"Registrar Office Agent","status":"NOT ACTIVATED"},"Orientation Agent":{"icon":"🎓","role":"Orientation operations","description":"Tracks session readiness, invitation, reminders, attendance, feedback, recording and completion report.","module":"Orientation","workload":"Orientation records","escalation":"Registrar Office Agent","status":"NOT ACTIVATED"},"Academic Handover Agent":{"icon":"⇄","role":"Provisioning & student access","description":"Tracks handover communication, IT / Moodle / e-Library provisioning and final Student Access.","module":"Academic Handover","workload":"Handover / provisioning","escalation":"Registrar Office Agent","status":"NOT ACTIVATED"},"Management Intelligence Agent":{"icon":"▥","role":"Operational insight","description":"Surfaces throughput, exceptions, bottlenecks and management signals across the Registrar operation.","module":"Cross-module ACC","workload":"Management signals","escalation":"Registrar / Management","status":"NOT ACTIVATED"}};
+
+  function openAgentDetail(name){
+    const agent=AGENT_DIRECTORY[name]; if(!agent) return;
+    document.getElementById('agentDetailOverlay')?.remove();
+    const overlay=document.createElement('div');
+    overlay.id='agentDetailOverlay';
+    overlay.className='agent-detail-overlay';
+    overlay.innerHTML=
+      '<div class="agent-detail-card">'+
+        '<div class="agent-detail-head">'+
+          '<div class="agent-detail-title"><div class="avatar">'+escapeHtml(agent.icon)+'</div><div><h3>'+escapeHtml(name)+'</h3><p>'+escapeHtml(agent.role)+'</p></div></div>'+
+          '<button type="button" id="agentDetailClose">Close</button>'+
+        '</div>'+
+        '<div class="agent-detail-body">'+
+          '<p>'+escapeHtml(agent.description)+'</p>'+
+          '<div class="agent-detail-grid">'+
+            '<div><small>Primary Module</small><b>'+escapeHtml(agent.module)+'</b></div>'+
+            '<div><small>Operational Scope</small><b>'+escapeHtml(agent.workload)+'</b></div>'+
+            '<div><small>Escalation</small><b>'+escapeHtml(agent.escalation)+'</b></div>'+
+            '<div><small>Execution Status</small><b>'+escapeHtml(agent.status)+'</b></div>'+
+            '<div><small>Authority</small><b>Monitoring only · no autonomous write action</b></div>'+
+            '<div><small>Future State</small><b>Reason → recommend → execute approved tools</b></div>'+
+          '</div>'+
+          '<div class="agent-detail-foot"><span>Agentic Registrar Office · controlled authority model</span><span>ACC live context</span></div>'+
+        '</div>'+
+      '</div>';
+    document.body.appendChild(overlay);
+    document.getElementById('agentDetailClose').onclick=()=>overlay.remove();
+    overlay.onclick=e=>{ if(e.target===overlay) overlay.remove(); };
+  }
+
+  document.querySelectorAll('.agent-card[data-agent]').forEach(card=>{
+    card.addEventListener('click',()=>openAgentDetail(card.dataset.agent));
+    card.addEventListener('keydown',e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();openAgentDetail(card.dataset.agent);}});
+  });
 
   loadOps();
 </script>
