@@ -48,6 +48,41 @@
     return applicationRecords().filter(r=>!used.has(String(r.ref||'')));
   }
 
+
+  function closeHandoverCreateModal(){
+    document.getElementById('handoverCreateModal')?.remove();
+  }
+
+  window.openHandoverCreateModal=function(){
+    closeHandoverCreateModal();
+    const overlay=document.createElement('div');
+    overlay.id='handoverCreateModal';
+    overlay.style.cssText='position:fixed;inset:0;background:rgba(17,24,39,.58);z-index:9999;display:flex;align-items:center;justify-content:center;padding:18px';
+    overlay.innerHTML=[
+      '<div style="width:min(820px,96vw);max-height:92vh;overflow:auto;background:#fff;border-radius:18px;box-shadow:0 25px 70px rgba(0,0,0,.25);padding:22px">',
+        '<div style="display:flex;justify-content:space-between;gap:12px;align-items:flex-start;margin-bottom:16px">',
+          '<div><h3 style="margin:0 0 4px">Create Academic Handover Session</h3><div class="subline">Create the batch first. Students and operational actions are managed after the session is saved.</div></div>',
+          '<button class="ghost" type="button" id="handoverCreateCloseBtn">Close</button>',
+        '</div>',
+        '<div class="detail-grid">',
+          '<div class="field full"><label>Handover Session Name</label><input id="handoverName" placeholder="e.g. Academic Handover - October 2026 Batch 1" /></div>',
+          '<div class="field"><label>Academic Recipient</label><input id="handoverAcademicEmail" type="email" value="academicIUC@innovative.edu.my" /></div>',
+          '<div class="field"><label>IT PIC</label><input id="handoverItEmail" type="email" value="it@innovative.edu.my" /></div>',
+          '<div class="field"><label>Moodle PIC</label><input id="handoverMoodleEmail" type="email" value="moodle@innovative.edu.my" /></div>',
+          '<div class="field"><label>e-Library PIC</label><input id="handoverLibraryEmail" type="email" value="library@innovative.edu.my" /></div>',
+        '</div>',
+        '<div style="display:flex;justify-content:flex-end;gap:10px;margin-top:18px">',
+          '<button class="ghost" type="button" id="handoverCreateCancelBtn">Cancel</button>',
+          '<button class="primary" type="button" id="handoverCreateSaveBtn">Create Session</button>',
+        '</div>',
+      '</div>'
+    ].join('');
+    document.body.appendChild(overlay);
+    document.getElementById('handoverCreateCloseBtn').onclick=closeHandoverCreateModal;
+    document.getElementById('handoverCreateCancelBtn').onclick=closeHandoverCreateModal;
+    document.getElementById('handoverCreateSaveBtn').onclick=createHandoverSession;
+  };
+
   window.createHandoverSession=async function(){
     const name=document.getElementById('handoverName')?.value.trim()||'';
     const academicEmail=document.getElementById('handoverAcademicEmail')?.value.trim()||'';
@@ -60,8 +95,8 @@
       name,academicEmail,itEmail,moodleEmail,libraryEmail
     },'Create this Academic Handover Session?');
     if(!result)return;
-    handoverMsg(`Handover Session ${result.batchId} created. Click Add Students to build the list before sending.`,'ok');
-    const el=document.getElementById('handoverName');if(el)el.value='';
+    closeHandoverCreateModal();
+    handoverMsg(`Handover Session ${result.batchId} created. Open the session and add students when ready.`,'ok');
   };
 
   function closeModal(){document.getElementById('handoverStudentModal')?.remove();selected.clear()}
