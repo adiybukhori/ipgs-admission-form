@@ -11,12 +11,19 @@ const V2_ORIENTATION_TRIGGER_VERSION = 'MILESTONE_V2_15MIN';
 const V2_ORIENTATION_REMINDER_HANDLER = 'v2OrientationReminderSweep';
 const V2_ORIENTATION_SESSION_HEADERS = [
   'Orientation Name','Mode','Venue','Reminder Days','Assigned Count',
-  'Invitation Count','Reminder Count','Updated At'
+  'Invitation Count','Reminder Count',
+  'Attendance Status','Attendance Opened At','Attendance Opened By','Attendance Closed At',
+  'Attendance Link','Recording Email Count','Recording Sent At','Updated At'
 ];
 const V2_ORIENTATION_TRACKING_HEADERS = [
   'Student Email','Assigned At','Assigned By','Invitation Sent At',
   'Reminder Status','Reminder Sent At','Reminder History JSON','Last Reminder Milestone',
-  'Invitation Delivery Detail'
+  'Invitation Delivery Detail',
+  'Attendance Token','Attendance Source','Attendance Submitted At','Attendance Identifier',
+  'Attendance Link Status','Attendance Link Sent At',
+  'Feedback Status','Feedback JSON',
+  'Manual Override At','Manual Override By','Manual Override From',
+  'Recording Email Sent At','Recording Delivery Detail'
 ];
 
 function v2OrientationEnsureHeaders_() {
@@ -237,8 +244,13 @@ function v2UpdateOrientationAttendance_(data, actor) {
   if (!tracking) throw new Error('Orientation tracking record not found.');
   const workflow = v2Find_('V2_WORKFLOW','Reference No',reference);
   const now = new Date().toISOString();
+  const previousAttendance = String(tracking.record['Attendance Status'] || 'NOT_UPDATED').toUpperCase();
   v2UpdateRow_(tracking.sheet,tracking.rowNumber,{
     'Attendance Status':attendance,
+    'Attendance Source':'MANUAL',
+    'Manual Override At':now,
+    'Manual Override By':actor || 'Admin Portal V2',
+    'Manual Override From':previousAttendance,
     'Last Updated':now
   });
   if (workflow) {
@@ -256,6 +268,417 @@ function v2UpdateOrientationAttendance_(data, actor) {
   },actor || 'Admin Portal V2','SUCCESS','');
   v2InvalidateCache_();
   return {ok:true,referenceNo:reference,sessionId:sessionId,attendanceStatus:attendance,standalone:true};
+}
+
+
+const V2_ORIENTATION_ATTENDANCE_BASE_URL = 'https://n-form.innovative.edu.my/orientation-attendance.html';
+
+function v2OrientationAttendancePublicSession_(session) {
+  return {
+    sessionId:String(session['Orientation Session ID'] || ''),
+    name:String(session['Orientation Name'] || 'Postgraduate Orientation Session'),
+    date:v2OrientationDisplayDate_(session['Session Date']),
+    startTime:v2OrientationDisplayTime_(session['Start Time']),
+    endTime:v2OrientationDisplayTime_(session['End Time']),
+    mode:v2OrientationPretty_(session['Mode'] || 'ONLINE'),
+    venue:String(session['Venue'] || ''),
+    attendanceStatus:String(session['Attendance Status'] || 'NOT_OPEN').toUpperCase()
+  };
+}
+
+function v2OrientationAttendanceToken_() {
+  return Utilities.getUuid().replace(/-/g,'') + Utilities.getUuid().replace(/-/g,'').slice(0,16);
+}
+
+function v2OrientationAttendanceOpen_(sessionRecord) {
+  return String(sessionRecord && sessionRecord['Attendance Status'] || '').toUpperCase() === 'OPEN';
+}
+
+function v2OrientationAttendanceRequireOpen_(sessionRecord) {
+  if (!v2OrientationAttendanceOpen_(sessionRecord)) {
+    throw new Error('Attendance for this Orientation Session is not open.');
+  }
+}
+
+function v2OrientationEnsureWalkinSheet_() {
+  const ss = SpreadsheetApp.openById(CONFIG.spreadsheetId);
+  let sheet = ss.getSheetByName('V2_ORIENTATION_WALKINS');
+  const headers = [
+    'Walk-in ID','Orientation Session ID','Reference No','Student Name','Personal Email',
+    'ID / Passport No','Programme','Match Status','Review Status','Attendance Status',
+    'Attendance At','Source','Remarks','Created At','Last Updated'
+  ];
+  if (!sheet) {
+    sheet = ss.insertSheet('V2_ORIENTATION_WALKINS');
+    sheet.getRange(1,1,1,headers.length).setValues([headers]);
+    try { v2StyleHeader_(sheet, headers.length); } catch (_) {}
+  } else {
+    v2EnsureHeaders_(sheet, headers);
+  }
+  return sheet;
+}
+
+function v2OrientationNormaliseIdentifier_(value) {
+  return String(value || '').trim().toLowerCase().replace(/[\s-]+/g,'');
+}
+
+function v2OrientationFindApplicationByIdentifier_(identifier) {
+  const key = v2OrientationNormaliseIdentifier_(identifier);
+  if (!key) return null;
+  const apps = v2Rows_('V2_APPLICATIONS');
+  for (let i=0;i<apps.length;i++) {
+    const app = apps[i];
+    const candidates = [
+      app['Personal Email'],
+      app['ID / Passport No'],
+      app['SKY Student ID'],
+      app['Reference No']
+    ].map(v2OrientationNormaliseIdentifier_);
+    if (candidates.indexOf(key) >= 0) return app;
+  }
+  const workflow = v2Rows_('V2_WORKFLOW');
+  for (let i=0;i<workflow.length;i++) {
+    const row = workflow[i];
+    const candidates = [
+      row['Personal Email'],
+      row['ID / Passport No'],
+      row['SKY Student ID'],
+      row['Reference No']
+    ].map(v2OrientationNormaliseIdentifier_);
+    if (candidates.indexOf(key) >= 0) {
+      return apps.filter(function(app){return String(app['Reference No']||'')===String(row['Reference No']||'');})[0] || row;
+    }
+  }
+  return null;
+}
+
+function v2OpenOrientationAttendance_(data, actor) {
+  v2OrientationEnsureHeaders_();
+  const sessionId = v2Required_(data.sessionId,'Orientation Session ID');
+  const session = v2Find_('V2_ORIENTATION_SESSIONS','Orientation Session ID',sessionId);
+  if (!session) throw new Error('Orientation session not found.');
+  if (String(session.record['Status'] || '').toUpperCase() === 'CANCELLED') throw new Error('Cancelled Orientation Session cannot open attendance.');
+
+  const trackingRows = v2Rows_('V2_ORIENTATION_TRACKING').filter(function(row){
+    return String(row['Orientation Session ID'] || '') === sessionId;
+  });
+  if (!trackingRows.length) throw new Error('Add students to this Orientation Session before opening attendance.');
+
+  const now = new Date().toISOString();
+  const genericLink = V2_ORIENTATION_ATTENDANCE_BASE_URL + '?s=' + encodeURIComponent(sessionId);
+  v2UpdateRow_(session.sheet,session.rowNumber,{
+    'Attendance Status':'OPEN',
+    'Attendance Opened At':now,
+    'Attendance Opened By':actor || 'Admin Portal V2',
+    'Attendance Closed At':'',
+    'Attendance Link':genericLink,
+    'Updated At':now
+  });
+
+  let sentCount=0, failedCount=0, skippedCount=0;
+  trackingRows.forEach(function(row){
+    const found = v2FindComposite_('V2_ORIENTATION_TRACKING',['Orientation Session ID','Reference No'],[sessionId,row['Reference No']]);
+    if (!found) return;
+    let token = String(found.record['Attendance Token'] || '').trim();
+    if (!token) token = v2OrientationAttendanceToken_();
+    const personalLink = V2_ORIENTATION_ATTENDANCE_BASE_URL + '?t=' + encodeURIComponent(token);
+    const email = String(found.record['Student Email'] || '').trim();
+    const student = String(found.record['Student Name'] || 'Student').trim();
+    let delivery = {sent:false,status:'NO_EMAIL'};
+    if (email && email.indexOf('@') > 0) {
+      const subject='[IUC IPGS] Orientation Attendance is Now Open';
+      const html='<div style="font-family:Arial,sans-serif;max-width:680px;margin:auto;border:1px solid #e5e7eb;border-radius:16px;overflow:hidden">'+
+        '<div style="background:#2d2363;color:#fff;padding:24px"><h2 style="margin:0">Orientation Attendance</h2></div>'+
+        '<div style="padding:24px"><p>Dear <strong>'+v2Html_(student)+'</strong>,</p>'+
+        '<p>Attendance for <strong>'+v2Html_(session.record['Orientation Name'] || 'Postgraduate Orientation')+'</strong> is now open.</p>'+
+        '<p style="margin:28px 0"><a href="'+v2Html_(personalLink)+'" style="background:#2d2363;color:#fff;text-decoration:none;padding:14px 22px;border-radius:10px;font-weight:bold">Confirm Attendance</a></p>'+
+        '<p>This link is personalised for you. Please do not forward it to another student.</p>'+
+        '<p>Regards,<br><strong>IPGS Registry</strong><br>Innovative University College</p></div></div>';
+      const textBody='Orientation attendance is now open.\nConfirm attendance: '+personalLink;
+      delivery=v2NotificationSend_('ORIENTATION_ATTENDANCE_OPEN',[email],subject,textBody,html,{});
+    }
+    if (delivery.sent) sentCount++; else if (delivery.status === 'NO_EMAIL') skippedCount++; else failedCount++;
+    v2UpdateRow_(found.sheet,found.rowNumber,{
+      'Attendance Token':token,
+      'Attendance Link Status':delivery.sent ? 'SENT' : (delivery.status || 'NOT_SENT'),
+      'Attendance Link Sent At':delivery.sent ? now : '',
+      'Last Updated':now
+    });
+  });
+
+  v2Audit_('','ORIENTATION','OPEN_ATTENDANCE',{},{
+    sessionId:sessionId, attendanceStatus:'OPEN', sentCount:sentCount, failedCount:failedCount, skippedCount:skippedCount
+  },actor || 'Admin Portal V2','SUCCESS','Attendance remains open until Registry closes it manually.');
+  v2InvalidateCache_();
+  return {ok:true,sessionId:sessionId,attendanceStatus:'OPEN',attendanceLink:genericLink,sentCount:sentCount,failedCount:failedCount,skippedCount:skippedCount};
+}
+
+function v2CloseOrientationAttendance_(data, actor) {
+  v2OrientationEnsureHeaders_();
+  const sessionId=v2Required_(data.sessionId,'Orientation Session ID');
+  const session=v2Find_('V2_ORIENTATION_SESSIONS','Orientation Session ID',sessionId);
+  if (!session) throw new Error('Orientation session not found.');
+  const now=new Date().toISOString();
+  v2UpdateRow_(session.sheet,session.rowNumber,{
+    'Attendance Status':'CLOSED','Attendance Closed At':now,'Updated At':now
+  });
+  v2Audit_('','ORIENTATION','CLOSE_ATTENDANCE',{status:session.record['Attendance Status'] || ''},{
+    sessionId:sessionId,attendanceStatus:'CLOSED',closedAt:now
+  },actor || 'Admin Portal V2','SUCCESS','Manual attendance remains available in ACC.');
+  v2InvalidateCache_();
+  return {ok:true,sessionId:sessionId,attendanceStatus:'CLOSED',closedAt:now};
+}
+
+function v2GetOrientationAttendanceContext_(data) {
+  v2OrientationEnsureHeaders_();
+  const token=String(data.token || '').trim();
+  const sessionId=String(data.sessionId || '').trim();
+
+  if (token) {
+    const rows=v2Rows_('V2_ORIENTATION_TRACKING');
+    const tracking=rows.filter(function(row){return String(row['Attendance Token'] || '')===token;})[0];
+    if (!tracking) throw new Error('Attendance link is invalid or no longer available.');
+    const session=v2Find_('V2_ORIENTATION_SESSIONS','Orientation Session ID',tracking['Orientation Session ID']);
+    if (!session) throw new Error('Orientation session not found.');
+    return {
+      ok:true,mode:'PERSONAL',open:v2OrientationAttendanceOpen_(session.record),
+      session:v2OrientationAttendancePublicSession_(session.record),
+      student:{
+        referenceNo:String(tracking['Reference No'] || ''),
+        name:String(tracking['Student Name'] || ''),
+        programme:String(tracking['Programme'] || ''),
+        attendanceStatus:String(tracking['Attendance Status'] || 'NOT_UPDATED'),
+        feedbackStatus:String(tracking['Feedback Status'] || 'NOT_SUBMITTED')
+      }
+    };
+  }
+
+  const session=v2Find_('V2_ORIENTATION_SESSIONS','Orientation Session ID',v2Required_(sessionId,'Orientation Session ID'));
+  if (!session) throw new Error('Orientation session not found.');
+  return {ok:true,mode:'SESSION',open:v2OrientationAttendanceOpen_(session.record),session:v2OrientationAttendancePublicSession_(session.record)};
+}
+
+function v2ResolveOrientationAttendanceIdentity_(data) {
+  v2OrientationEnsureHeaders_();
+  const sessionId=v2Required_(data.sessionId,'Orientation Session ID');
+  const identifier=v2Required_(data.identifier,'Email / Student ID / IC / Passport');
+  const session=v2Find_('V2_ORIENTATION_SESSIONS','Orientation Session ID',sessionId);
+  if (!session) throw new Error('Orientation session not found.');
+  v2OrientationAttendanceRequireOpen_(session.record);
+
+  const key=v2OrientationNormaliseIdentifier_(identifier);
+  const assigned=v2Rows_('V2_ORIENTATION_TRACKING').filter(function(row){
+    if (String(row['Orientation Session ID'] || '') !== sessionId) return false;
+    const app=v2OrientationFindApplicationByIdentifier_(row['Reference No']);
+    const values=[
+      row['Student Email'],row['Reference No'],
+      app && app['Personal Email'],app && app['ID / Passport No'],app && app['SKY Student ID']
+    ].map(v2OrientationNormaliseIdentifier_);
+    return values.indexOf(key)>=0;
+  })[0];
+
+  if (assigned) {
+    let token=String(assigned['Attendance Token'] || '').trim();
+    if (!token) {
+      token=v2OrientationAttendanceToken_();
+      const found=v2FindComposite_('V2_ORIENTATION_TRACKING',['Orientation Session ID','Reference No'],[sessionId,assigned['Reference No']]);
+      if (found) v2UpdateRow_(found.sheet,found.rowNumber,{'Attendance Token':token,'Last Updated':new Date().toISOString()});
+    }
+    return {ok:true,matchStatus:'ASSIGNED',token:token,student:{referenceNo:assigned['Reference No'],name:assigned['Student Name'],programme:assigned['Programme']}};
+  }
+
+  const app=v2OrientationFindApplicationByIdentifier_(identifier);
+  if (app) {
+    const reference=String(app['Reference No'] || '');
+    const elsewhere=v2Rows_('V2_ORIENTATION_TRACKING').filter(function(row){
+      return String(row['Reference No'] || '')===reference && String(row['Orientation Session ID'] || '')!==sessionId;
+    })[0];
+    if (elsewhere) {
+      return {ok:true,matchStatus:'REVIEW_REQUIRED',message:'Your student record is already linked to another Orientation Session. Registry will verify your attendance.',student:{name:app['Student Name'] || '',programme:app['Programme'] || ''}};
+    }
+    return {ok:true,matchStatus:'WALK_IN',student:{referenceNo:reference,name:app['Student Name'] || '',programme:app['Programme'] || '',email:app['Personal Email'] || ''}};
+  }
+
+  return {ok:true,matchStatus:'UNMATCHED',message:'We could not match your details automatically. Please provide your details for Registry review.'};
+}
+
+function v2SubmitOrientationAttendance_(data) {
+  v2OrientationEnsureHeaders_();
+  const token=String(data.token || '').trim();
+  let sessionId=String(data.sessionId || '').trim();
+  let reference=String(data.referenceNo || '').trim();
+  let tracking=null;
+
+  if (token) {
+    const row=v2Rows_('V2_ORIENTATION_TRACKING').filter(function(x){return String(x['Attendance Token'] || '')===token;})[0];
+    if (!row) throw new Error('Attendance link is invalid.');
+    sessionId=String(row['Orientation Session ID'] || '');
+    reference=String(row['Reference No'] || '');
+  }
+
+  const session=v2Find_('V2_ORIENTATION_SESSIONS','Orientation Session ID',v2Required_(sessionId,'Orientation Session ID'));
+  if (!session) throw new Error('Orientation session not found.');
+  v2OrientationAttendanceRequireOpen_(session.record);
+
+  if (reference) {
+    tracking=v2FindComposite_('V2_ORIENTATION_TRACKING',['Orientation Session ID','Reference No'],[sessionId,reference]);
+    if (!tracking) {
+      const app=v2Find_('V2_APPLICATIONS','Reference No',reference);
+      if (!app) throw new Error('Student record not found.');
+      const other=v2Rows_('V2_ORIENTATION_TRACKING').filter(function(x){
+        return String(x['Reference No'] || '')===reference && String(x['Orientation Session ID'] || '')!==sessionId;
+      })[0];
+      if (other) throw new Error('This student is already linked to another Orientation Session. Registry review is required.');
+      const now=new Date().toISOString();
+      const newToken=v2OrientationAttendanceToken_();
+      v2UpsertComposite_('V2_ORIENTATION_TRACKING',['Orientation Session ID','Reference No'],[sessionId,reference],{
+        'Orientation Session ID':sessionId,'Reference No':reference,
+        'Student Name':app.record['Student Name'] || '','Programme':app.record['Programme'] || '',
+        'Student Email':app.record['Personal Email'] || '',
+        'Assigned At':now,'Assigned By':'WALK_IN_SELF_CHECKIN',
+        'Invitation Status':'NOT_REQUIRED','Reminder Status':'NOT_REQUIRED',
+        'Attendance Token':newToken,'Attendance Status':'NOT_UPDATED',
+        'Feedback Submitted':'NO','Feedback Status':'NOT_SUBMITTED',
+        'Recording Email Status':'NOT_SENT','Community Email Status':'NOT_SENT',
+        'Academic Handover Status':'NOT_READY','Last Updated':now
+      });
+      tracking=v2FindComposite_('V2_ORIENTATION_TRACKING',['Orientation Session ID','Reference No'],[sessionId,reference]);
+    }
+  }
+
+  if (!tracking) {
+    const sheet=v2OrientationEnsureWalkinSheet_();
+    const now=new Date().toISOString();
+    const walkinId='WALKIN-'+Utilities.getUuid().slice(0,8).toUpperCase();
+    const headers=sheet.getRange(1,1,1,sheet.getLastColumn()).getValues()[0];
+    const row={
+      'Walk-in ID':walkinId,'Orientation Session ID':sessionId,
+      'Student Name':String(data.studentName || '').trim(),
+      'Personal Email':String(data.email || '').trim(),
+      'ID / Passport No':String(data.idPassport || '').trim(),
+      'Programme':String(data.programme || '').trim(),
+      'Match Status':'UNMATCHED','Review Status':'PENDING',
+      'Attendance Status':'PENDING_REVIEW','Attendance At':now,
+      'Source':'SESSION_QR_UNMATCHED','Remarks':'Submitted through public Orientation attendance form.',
+      'Created At':now,'Last Updated':now
+    };
+    sheet.appendRow(headers.map(function(h){return row[h] || '';}));
+    return {ok:true,matchStatus:'UNMATCHED',reviewRequired:true,walkinId:walkinId};
+  }
+
+  const now=new Date().toISOString();
+  const prior=String(tracking.record['Attendance Status'] || 'NOT_UPDATED');
+  let currentToken=String(tracking.record['Attendance Token'] || '').trim();
+  if (!currentToken) currentToken=v2OrientationAttendanceToken_();
+  const source=token ? 'PERSONAL_LINK' : (String(tracking.record['Assigned By'] || '')==='WALK_IN_SELF_CHECKIN' ? 'SESSION_QR_WALK_IN' : 'SESSION_QR');
+  v2UpdateRow_(tracking.sheet,tracking.rowNumber,{
+    'Attendance Status':'ATTENDED','Attendance Source':source,
+    'Attendance Submitted At':now,'Attendance Identifier':String(data.identifier || ''),
+    'Attendance Token':currentToken,'Last Updated':now
+  });
+  const workflow=v2Find_('V2_WORKFLOW','Reference No',reference);
+  if (workflow) {
+    v2UpdateRow_(workflow.sheet,workflow.rowNumber,{
+      'Orientation Session ID':sessionId,'Orientation Status':'ATTENDED',
+      'Last Updated':now,'Updated By':'Student Attendance Form'
+    });
+  }
+  v2Audit_(reference,'ORIENTATION','SELF_CHECKIN',{attendanceStatus:prior},{
+    sessionId:sessionId,attendanceStatus:'ATTENDED',source:source
+  },'Student Attendance Form','SUCCESS','');
+  v2OrientationRecountSession_(sessionId);
+  v2InvalidateCache_();
+  return {ok:true,matchStatus:'ATTENDED',referenceNo:reference,token:currentToken,attendanceStatus:'ATTENDED',submittedAt:now};
+}
+
+function v2SubmitOrientationFeedback_(data) {
+  v2OrientationEnsureHeaders_();
+  const token=v2Required_(data.token,'Attendance token');
+  const row=v2Rows_('V2_ORIENTATION_TRACKING').filter(function(x){return String(x['Attendance Token'] || '')===token;})[0];
+  if (!row) throw new Error('Attendance record not found.');
+  const found=v2FindComposite_('V2_ORIENTATION_TRACKING',['Orientation Session ID','Reference No'],[row['Orientation Session ID'],row['Reference No']]);
+  if (!found) throw new Error('Attendance record not found.');
+  const now=new Date().toISOString();
+  const feedback={
+    satisfaction:String(data.satisfaction || ''),
+    clarity:String(data.clarity || ''),
+    useful:String(data.useful || ''),
+    improvement:String(data.improvement || '')
+  };
+  v2UpdateRow_(found.sheet,found.rowNumber,{
+    'Feedback Submitted':'YES','Feedback Status':'SUBMITTED',
+    'Feedback Submitted At':now,'Feedback JSON':JSON.stringify(feedback),'Last Updated':now
+  });
+  v2Audit_(String(row['Reference No'] || ''),'ORIENTATION','SUBMIT_FEEDBACK',{},{
+    sessionId:String(row['Orientation Session ID'] || ''),feedbackStatus:'SUBMITTED'
+  },'Student Attendance Form','SUCCESS','');
+  v2InvalidateCache_();
+  return {ok:true,feedbackStatus:'SUBMITTED',submittedAt:now};
+}
+
+function v2SetOrientationRecording_(data, actor) {
+  v2OrientationEnsureHeaders_();
+  const sessionId=v2Required_(data.sessionId,'Orientation Session ID');
+  const url=v2Required_(data.recordingUrl,'Recording URL');
+  if (!/^https?:\/\//i.test(url)) throw new Error('Enter a valid recording URL.');
+  const session=v2Find_('V2_ORIENTATION_SESSIONS','Orientation Session ID',sessionId);
+  if (!session) throw new Error('Orientation session not found.');
+  const now=new Date().toISOString();
+  v2UpdateRow_(session.sheet,session.rowNumber,{'Recording URL':url,'Updated At':now});
+  v2Audit_('','ORIENTATION','SET_RECORDING',{recordingUrl:session.record['Recording URL'] || ''},{
+    sessionId:sessionId,recordingUrl:url
+  },actor || 'Admin Portal V2','SUCCESS','Recording email is not sent until Registry clicks Send Recording.');
+  v2InvalidateCache_();
+  return {ok:true,sessionId:sessionId,recordingUrl:url};
+}
+
+function v2SendOrientationRecording_(data, actor) {
+  v2OrientationEnsureHeaders_();
+  const sessionId=v2Required_(data.sessionId,'Orientation Session ID');
+  const session=v2Find_('V2_ORIENTATION_SESSIONS','Orientation Session ID',sessionId);
+  if (!session) throw new Error('Orientation session not found.');
+  const url=String(session.record['Recording URL'] || '').trim();
+  if (!url) throw new Error('Add the recording link before sending.');
+  const rows=v2Rows_('V2_ORIENTATION_TRACKING').filter(function(row){
+    return String(row['Orientation Session ID'] || '')===sessionId;
+  });
+  const now=new Date().toISOString();
+  let sentCount=0,failedCount=0,skippedCount=0;
+  rows.forEach(function(row){
+    const email=String(row['Student Email'] || '').trim();
+    const found=v2FindComposite_('V2_ORIENTATION_TRACKING',['Orientation Session ID','Reference No'],[sessionId,row['Reference No']]);
+    if (!found) return;
+    if (!email || email.indexOf('@')<1) {
+      skippedCount++;
+      v2UpdateRow_(found.sheet,found.rowNumber,{'Recording Email Status':'NO_EMAIL','Recording Delivery Detail':'NO_EMAIL','Last Updated':now});
+      return;
+    }
+    const student=String(row['Student Name'] || 'Student');
+    const subject='[IUC IPGS] Orientation Recording - '+String(session.record['Orientation Name'] || 'Postgraduate Orientation');
+    const html='<div style="font-family:Arial,sans-serif;max-width:680px;margin:auto;border:1px solid #e5e7eb;border-radius:16px;overflow:hidden">'+
+      '<div style="background:#2d2363;color:#fff;padding:24px"><h2 style="margin:0">Orientation Recording</h2></div>'+
+      '<div style="padding:24px"><p>Dear <strong>'+v2Html_(student)+'</strong>,</p>'+
+      '<p>The recording for your postgraduate orientation session is now available.</p>'+
+      '<p style="margin:28px 0"><a href="'+v2Html_(url)+'" style="background:#2d2363;color:#fff;text-decoration:none;padding:14px 22px;border-radius:10px;font-weight:bold">Watch Orientation Recording</a></p>'+
+      '<p>Please keep this email for your reference.</p>'+
+      '<p>Regards,<br><strong>IPGS Registry</strong><br>Innovative University College</p></div></div>';
+    const result=v2NotificationSend_('ORIENTATION_RECORDING',[email],subject,'Orientation recording: '+url,html,{});
+    if (result.sent) sentCount++; else failedCount++;
+    v2UpdateRow_(found.sheet,found.rowNumber,{
+      'Recording Email Status':result.sent ? 'SENT' : 'FAILED',
+      'Recording Email Sent At':result.sent ? now : '',
+      'Recording Delivery Detail':String(result.status || ''),
+      'Last Updated':now
+    });
+  });
+  v2UpdateRow_(session.sheet,session.rowNumber,{
+    'Recording Email Count':sentCount,'Recording Sent At':sentCount ? now : (session.record['Recording Sent At'] || ''),'Updated At':now
+  });
+  v2Audit_('','ORIENTATION','SEND_RECORDING',{},{
+    sessionId:sessionId,sentCount:sentCount,failedCount:failedCount,skippedCount:skippedCount
+  },actor || 'Admin Portal V2','SUCCESS','Recording sent to all students assigned to the session.');
+  v2InvalidateCache_();
+  return {ok:true,sessionId:sessionId,sentCount:sentCount,failedCount:failedCount,skippedCount:skippedCount};
 }
 
 function v2SendOrientationReminderNow_(data, actor) {
