@@ -38,6 +38,7 @@ const ALLOWED_ACTIONS = new Set([
   'v2UpdateOrientationAttendance',
   'v2SendOrientationReminderNow',
   'v2EndOrientationSession',
+  'v2EditOrientationSession',
   'v2CreateHandoverSession',
   'v2AddHandoverStudents',
   'v2SendHandoverSession',
