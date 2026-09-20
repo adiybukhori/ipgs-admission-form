@@ -206,14 +206,28 @@
   function populateOrientationTrackingSessionFilter(sessions){
     const el=document.getElementById('orientationTrackingSessionFilter');
     if(!el)return;
+
     const current=el.value;
+    const ordered=[...sessions].sort((a,b)=>{
+      const ad=Date.parse(String(a['Session Date']||''))||0;
+      const bd=Date.parse(String(b['Session Date']||''))||0;
+      if(ad!==bd)return bd-ad;
+      return String(b['Orientation Session ID']||'').localeCompare(String(a['Orientation Session ID']||''));
+    });
+
     el.innerHTML='<option value="">All Orientation Sessions</option>'+
-      sessions.map(s=>{
+      ordered.map(s=>{
         const id=String(s['Orientation Session ID']||'').trim();
         const name=String(s['Orientation Name']||id).trim();
         return id?'<option value="'+esc(id)+'">'+esc(name)+'</option>':'';
       }).join('');
-    if([...el.options].some(o=>o.value===current))el.value=current;
+
+    if(current && [...el.options].some(o=>o.value===current)){
+      el.value=current;
+    }else if(!el.dataset.defaultApplied && ordered.length){
+      el.value=String(ordered[0]['Orientation Session ID']||'');
+      el.dataset.defaultApplied='1';
+    }
   }
 
   window.renderOrientation=function(){
@@ -264,13 +278,6 @@
       const filteredTracking=selectedSessionId
         ? tracking.filter(x=>String(x['Orientation Session ID']||'')===selectedSessionId)
         : tracking;
-
-      const countEl=document.getElementById('orientationTrackingFilterCount');
-      if(countEl){
-        countEl.textContent=selectedSessionId
-          ? filteredTracking.length+' student'+(filteredTracking.length===1?'':'s')+' in selected session'
-          : tracking.length+' student'+(tracking.length===1?'':'s')+' across all sessions';
-      }
 
       trackBody.innerHTML=filteredTracking.map(x=>{
         const session=sessions.find(s=>String(s['Orientation Session ID']||'')===String(x['Orientation Session ID']||''));
