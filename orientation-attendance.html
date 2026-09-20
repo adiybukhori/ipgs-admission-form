@@ -14,7 +14,8 @@
     label{font-size:13px;font-weight:800;display:block;margin:0 0 7px}input,select,textarea{width:100%;border:1px solid #d8d5e2;border-radius:12px;padding:13px 14px;font:inherit;background:#fff;color:var(--ink);outline:none}input:focus,select:focus,textarea:focus{border-color:#7c6ed0;box-shadow:0 0 0 3px rgba(124,110,208,.12)}textarea{min-height:96px;resize:vertical}.field{margin-bottom:15px}
     button{border:0;border-radius:13px;padding:14px 18px;font:inherit;font-weight:850;cursor:pointer}.primary{width:100%;background:var(--purple);color:#fff;box-shadow:0 9px 20px rgba(45,35,99,.18)}.primary:disabled{opacity:.5;cursor:not-allowed}.secondary{width:100%;background:#f2efff;color:var(--purple);margin-top:10px}.notice{border-radius:14px;padding:14px 15px;margin:0 0 18px;line-height:1.5}.infoN{background:#f4f7ff;color:#304a78}.success{background:var(--greenSoft);color:var(--green)}.error{background:var(--redSoft);color:var(--red)}
     .hidden{display:none!important}.loading{display:flex;gap:10px;align-items:center;color:var(--muted)}.dot{width:10px;height:10px;border:2px solid #d5d1e6;border-top-color:var(--purple);border-radius:50%;animation:spin .8s linear infinite}@keyframes spin{to{transform:rotate(360deg)}}.check{width:72px;height:72px;margin:0 auto 14px;border-radius:50%;display:grid;place-items:center;background:var(--greenSoft);color:var(--green);font-size:36px;font-weight:900}.center{text-align:center}.mini{font-size:12px;color:var(--muted);line-height:1.45}.feedback-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px}
-    @media(max-width:560px){.hero{padding:24px 20px}.hero h1{font-size:24px}.body{padding:20px}.session,.feedback-grid{grid-template-columns:1fr}.shell{padding:14px 12px 32px}}
+    .feedback-section{border:1px solid var(--line);border-radius:18px;padding:18px;margin:0 0 18px;background:#fff}.feedback-section h3{margin:0 0 16px;font-size:17px}.rating-list{display:grid;gap:10px}.rating-row{display:grid;grid-template-columns:minmax(0,1fr) 190px;gap:16px;align-items:center;padding:12px 0;border-bottom:1px solid #f0eef5}.rating-row:last-child{border-bottom:0}.rating-row label{margin:0;line-height:1.4}.rating-select{padding:10px 12px}.choice-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px}.choice{display:flex;align-items:flex-start;gap:9px;border:1px solid var(--line);border-radius:12px;padding:11px 12px;background:#faf9ff;cursor:pointer;font-size:13px;font-weight:700}.choice input,.confirmation input{width:auto;margin-top:2px;accent-color:var(--purple)}.confirmation{display:flex;gap:10px;align-items:flex-start;border:1px solid #dcd7f3;background:#f7f5ff;border-radius:12px;padding:13px;font-size:13px;line-height:1.45;cursor:pointer;margin-bottom:18px}
+    @media(max-width:560px){.hero{padding:24px 20px}.hero h1{font-size:24px}.body{padding:20px}.session,.feedback-grid,.choice-grid{grid-template-columns:1fr}.rating-row{grid-template-columns:1fr;gap:7px}.rating-select{width:100%}.feedback-section{padding:15px}.shell{padding:14px 12px 32px}}
   </style>
 </head>
 <body>
@@ -74,13 +75,104 @@
         </section>
 
         <section id="feedbackView" class="hidden">
-          <h2 style="margin:0 0 6px">Quick Feedback</h2><p style="color:var(--muted);margin:0 0 20px">A short response helps us improve future orientation sessions.</p>
-          <div class="feedback-grid">
-            <div class="field"><label>Overall satisfaction</label><select id="fSatisfaction"><option value="">Select</option><option>5 - Excellent</option><option>4 - Good</option><option>3 - Fair</option><option>2 - Needs Improvement</option><option>1 - Poor</option></select></div>
-            <div class="field"><label>Do you understand the next steps?</label><select id="fClarity"><option value="">Select</option><option>Yes, clearly</option><option>Mostly clear</option><option>Partly clear</option><option>I still need guidance</option></select></div>
+          <div style="margin-bottom:20px">
+            <div class="eyebrow" style="color:var(--purple);opacity:1">Orientation Evaluation</div>
+            <h2 style="margin:6px 0 6px">Tell us about your experience</h2>
+            <p style="color:var(--muted);margin:0;line-height:1.55">Your feedback helps IPGS improve future orientation sessions. Required questions are marked with <strong>*</strong>.</p>
           </div>
-          <div class="field"><label>What was most useful?</label><textarea id="fUseful" placeholder="Optional"></textarea></div>
-          <div class="field"><label>Anything we can improve?</label><textarea id="fImprovement" placeholder="Optional"></textarea></div>
+
+          <div class="feedback-section">
+            <h3>1. Overall Experience</h3>
+            <div class="feedback-grid">
+              <div class="field">
+                <label>Overall, how satisfied are you with the orientation session? *</label>
+                <select id="fSatisfaction">
+                  <option value="">Select</option>
+                  <option value="5">5 - Very Satisfied</option>
+                  <option value="4">4 - Satisfied</option>
+                  <option value="3">3 - Neutral</option>
+                  <option value="2">2 - Dissatisfied</option>
+                  <option value="1">1 - Very Dissatisfied</option>
+                </select>
+              </div>
+              <div class="field">
+                <label>After this orientation, do you understand what you need to do next? *</label>
+                <select id="fNextSteps">
+                  <option value="">Select</option>
+                  <option>Yes, clearly</option>
+                  <option>Mostly clear</option>
+                  <option>Partly clear</option>
+                  <option>No, I still need further guidance</option>
+                </select>
+              </div>
+            </div>
+            <div class="field">
+              <label>Was the pace of the session appropriate? *</label>
+              <select id="fPace">
+                <option value="">Select</option>
+                <option>Too slow</option>
+                <option>Appropriate</option>
+                <option>Too fast</option>
+              </select>
+            </div>
+          </div>
+
+          <div class="feedback-section">
+            <h3>2. Please Rate the Following Areas</h3>
+            <p class="mini" style="margin-top:-4px">1 = Strongly Disagree · 5 = Strongly Agree</p>
+            <div class="rating-list">
+              <div class="rating-row"><label>The objectives of the orientation were clearly explained. *</label><select class="rating-select" id="fObjectives"><option value="">Rate</option><option value="5">5 - Strongly Agree</option><option value="4">4 - Agree</option><option value="3">3 - Neutral</option><option value="2">2 - Disagree</option><option value="1">1 - Strongly Disagree</option></select></div>
+              <div class="rating-row"><label>The introduction to IUC and IPGS was clear. *</label><select class="rating-select" id="fIntroduction"><option value="">Rate</option><option value="5">5 - Strongly Agree</option><option value="4">4 - Agree</option><option value="3">3 - Neutral</option><option value="2">2 - Disagree</option><option value="1">1 - Strongly Disagree</option></select></div>
+              <div class="rating-row"><label>The programme structure was explained clearly. *</label><select class="rating-select" id="fProgrammeStructure"><option value="">Rate</option><option value="5">5 - Strongly Agree</option><option value="4">4 - Agree</option><option value="3">3 - Neutral</option><option value="2">2 - Disagree</option><option value="1">1 - Strongly Disagree</option></select></div>
+              <div class="rating-row"><label>The academic journey and key milestones were easy to understand. *</label><select class="rating-select" id="fAcademicJourney"><option value="">Rate</option><option value="5">5 - Strongly Agree</option><option value="4">4 - Agree</option><option value="3">3 - Neutral</option><option value="2">2 - Disagree</option><option value="1">1 - Strongly Disagree</option></select></div>
+              <div class="rating-row"><label>The academic calendar and class information were clearly explained. *</label><select class="rating-select" id="fAcademicCalendar"><option value="">Rate</option><option value="5">5 - Strongly Agree</option><option value="4">4 - Agree</option><option value="3">3 - Neutral</option><option value="2">2 - Disagree</option><option value="1">1 - Strongly Disagree</option></select></div>
+              <div class="rating-row"><label>The student portal and official communication channels were clearly explained. *</label><select class="rating-select" id="fPortalCommunication"><option value="">Rate</option><option value="5">5 - Strongly Agree</option><option value="4">4 - Agree</option><option value="3">3 - Neutral</option><option value="2">2 - Disagree</option><option value="1">1 - Strongly Disagree</option></select></div>
+              <div class="rating-row"><label>The information on fees and payment matters was clear. *</label><select class="rating-select" id="fFees"><option value="">Rate</option><option value="5">5 - Strongly Agree</option><option value="4">4 - Agree</option><option value="3">3 - Neutral</option><option value="2">2 - Disagree</option><option value="1">1 - Strongly Disagree</option></select></div>
+              <div class="rating-row"><label>The presenter communicated clearly and professionally. *</label><select class="rating-select" id="fPresenter"><option value="">Rate</option><option value="5">5 - Strongly Agree</option><option value="4">4 - Agree</option><option value="3">3 - Neutral</option><option value="2">2 - Disagree</option><option value="1">1 - Strongly Disagree</option></select></div>
+              <div class="rating-row"><label>The session was well organised. *</label><select class="rating-select" id="fOrganisation"><option value="">Rate</option><option value="5">5 - Strongly Agree</option><option value="4">4 - Agree</option><option value="3">3 - Neutral</option><option value="2">2 - Disagree</option><option value="1">1 - Strongly Disagree</option></select></div>
+            </div>
+          </div>
+
+          <div class="feedback-section">
+            <h3>3. What Was Most Useful?</h3>
+            <p class="mini" style="margin-top:-4px">Select all that apply. *</p>
+            <div class="choice-grid" id="fUsefulAreas">
+              <label class="choice"><input type="checkbox" value="Introduction to IUC and IPGS"><span>Introduction to IUC & IPGS</span></label>
+              <label class="choice"><input type="checkbox" value="Programme structure"><span>Programme structure</span></label>
+              <label class="choice"><input type="checkbox" value="Academic journey and milestones"><span>Academic journey & milestones</span></label>
+              <label class="choice"><input type="checkbox" value="Academic calendar and class schedule"><span>Academic calendar & class schedule</span></label>
+              <label class="choice"><input type="checkbox" value="Student portal"><span>Student portal</span></label>
+              <label class="choice"><input type="checkbox" value="Fees and payment information"><span>Fees & payment information</span></label>
+              <label class="choice"><input type="checkbox" value="Official communication channels"><span>Official communication channels</span></label>
+              <label class="choice"><input type="checkbox" value="Important links and documents"><span>Important links & documents</span></label>
+              <label class="choice"><input type="checkbox" value="Question and Answer session"><span>Question & Answer session</span></label>
+            </div>
+            <div class="field" style="margin-top:16px">
+              <label>What was the most useful information you received?</label>
+              <textarea id="fMostUsefulInformation" placeholder="Optional"></textarea>
+            </div>
+          </div>
+
+          <div class="feedback-section">
+            <h3>4. Help Us Improve</h3>
+            <div class="field">
+              <label>Is there any information that was unclear or requires further explanation?</label>
+              <textarea id="fUnclear" placeholder="Optional"></textarea>
+            </div>
+            <div class="field">
+              <label>Please provide any suggestions to improve future orientation sessions.</label>
+              <textarea id="fImprovement" placeholder="Optional"></textarea>
+            </div>
+            <div class="field">
+              <label>Would you recommend this orientation session to future students? *</label>
+              <select id="fRecommend"><option value="">Select</option><option>Yes</option><option>Maybe</option><option>No</option></select>
+            </div>
+            <label class="confirmation">
+              <input type="checkbox" id="fConfirmation" />
+              <span>I confirm that the information and feedback provided in this form are accurate. *</span>
+            </label>
+          </div>
+
           <button id="submitFeedbackBtn" class="primary">Submit Feedback</button>
         </section>
 
@@ -132,7 +224,47 @@ $('confirmMatchBtn').onclick=async()=>{if(!matched)return;const b=$('confirmMatc
 $('backBtn').onclick=$('unmatchedBackBtn').onclick=()=>{clearMsg();hideAll();$('lookupView').classList.remove('hidden')};
 $('submitUnmatchedBtn').onclick=async()=>{const data={sessionId,studentName:$('uName').value.trim(),email:$('uEmail').value.trim(),idPassport:$('uId').value.trim(),programme:$('uProgramme').value.trim()};if(!data.studentName||(!data.email&&!data.idPassport))return msg('Enter your full name and at least an email or IC/Passport.','error');const b=$('submitUnmatchedBtn');busy(b,true);try{await call('v2SubmitOrientationAttendance',data);clearMsg();hideAll();$('reviewView').classList.remove('hidden')}catch(e){msg(e.message,'error')}finally{busy(b,false)}};
 $('feedbackBtn').onclick=()=>{hideAll();$('feedbackView').classList.remove('hidden')};
-$('submitFeedbackBtn').onclick=async()=>{if(!feedbackToken)return msg('Feedback link could not be verified. Your attendance is already saved.','error');const b=$('submitFeedbackBtn');busy(b,true);try{await call('v2SubmitOrientationFeedback',{token:feedbackToken,satisfaction:$('fSatisfaction').value,clarity:$('fClarity').value,useful:$('fUseful').value.trim(),improvement:$('fImprovement').value.trim()});clearMsg();hideAll();$('feedbackDone').classList.remove('hidden')}catch(e){msg(e.message,'error')}finally{busy(b,false)}};
+$('submitFeedbackBtn').onclick=async()=>{
+  if(!feedbackToken)return msg('Feedback link could not be verified. Your attendance is already saved.','error');
+  const ratings={
+    objectives:$('fObjectives').value,
+    introduction:$('fIntroduction').value,
+    programmeStructure:$('fProgrammeStructure').value,
+    academicJourney:$('fAcademicJourney').value,
+    academicCalendar:$('fAcademicCalendar').value,
+    portalCommunication:$('fPortalCommunication').value,
+    fees:$('fFees').value,
+    presenter:$('fPresenter').value,
+    organisation:$('fOrganisation').value
+  };
+  const usefulAreas=[...document.querySelectorAll('#fUsefulAreas input:checked')].map(x=>x.value);
+  const required=[
+    $('fSatisfaction').value,$('fNextSteps').value,$('fPace').value,
+    ...Object.values(ratings),$('fRecommend').value
+  ];
+  if(required.some(v=>!String(v||'').trim()))return msg('Please complete all required rating questions before submitting.','error');
+  if(!usefulAreas.length)return msg('Please select at least one area that was useful to you.','error');
+  if(!$('fConfirmation').checked)return msg('Please confirm that the feedback provided is accurate.','error');
+
+  const b=$('submitFeedbackBtn');busy(b,true);clearMsg();
+  try{
+    await call('v2SubmitOrientationFeedback',{
+      token:feedbackToken,
+      overallSatisfaction:Number($('fSatisfaction').value),
+      nextSteps:$('fNextSteps').value,
+      pace:$('fPace').value,
+      ratings,
+      usefulAreas,
+      mostUsefulInformation:$('fMostUsefulInformation').value.trim(),
+      unclearInformation:$('fUnclear').value.trim(),
+      improvement:$('fImprovement').value.trim(),
+      recommend:$('fRecommend').value,
+      confirmation:true,
+      feedbackVersion:'IPGS_ORIENTATION_FEEDBACK_V2_20260920'
+    });
+    clearMsg();hideAll();$('feedbackDone').classList.remove('hidden');
+  }catch(e){msg(e.message,'error')}finally{busy(b,false)}
+};
 init();
 </script>
 </body>
