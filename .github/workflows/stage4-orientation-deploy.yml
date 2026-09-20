@@ -4,6 +4,7 @@ name: Stage 4 Orientation Deploy
 # edit-ended-session-v1
 # feedback-form-v1
 # official-report-v1
+# fee-structure-master-v1
 
 on:
   push:
@@ -42,6 +43,12 @@ jobs:
           grep -F 'viewOrientationReport' orientation-admin.js
           grep -F 'downloadOrientationReport' orientation-admin.js
           grep -F 'v2GetOrientationReportFile' api/admin-action.js
+          test -f fee-structure-admin.js
+          node --check fee-structure-admin.js
+          grep -F 'v2UpsertFeeStructure' api/admin-action.js
+          grep -F 'v2SetFeeStructureStatus' api/admin-action.js
+          grep -F 'openFeeStructureModal' fee-structure-admin.js
+          grep -F 'Agent Preview' fee-structure-admin.js
           grep -F 'ipgs-admission-form.innovative.edu.my/orientation-attendance.html' orientation-admin.js
           grep -F 'v2RemoveOrientationStudent' orientation-admin.js
           grep -F 'v2MoveOrientationStudent' orientation-admin.js
@@ -94,6 +101,16 @@ jobs:
           grep -F "if (daysUntil === 1) return 'D1';" apps-script-v2/OrientationV2.js
           grep -F "return 'H1';" apps-script-v2/OrientationV2.js
           grep -F 'v2CreateOrientationSession' apps-script-v2/WorkflowV2.js
+          test -f apps-script-v2/FeeStructureV2.js
+          node --check apps-script-v2/FeeStructureV2.js
+          node --check apps-script-v2/AgentProspectV2.js
+          grep -F 'function v2UpsertFeeStructure_' apps-script-v2/FeeStructureV2.js
+          grep -F 'function v2SetFeeStructureStatus_' apps-script-v2/FeeStructureV2.js
+          grep -F 'function v2GetFeeGroupOptions_' apps-script-v2/FeeStructureV2.js
+          grep -F "'v2UpsertFeeStructure'" apps-script-v2/WorkflowV2.js
+          grep -F "'v2SetFeeStructureStatus'" apps-script-v2/WorkflowV2.js
+          grep -F 'feeGroupOptions' apps-script-v2/AgentProspectV2.js
+          grep -F 'feeGroupOptions' apps-script-v2/agent-v2.html
 
       - name: Verify clasp credential
         env:
@@ -120,7 +137,7 @@ jobs:
       - name: Redeploy existing V2 web app
         env:
           V2_DEPLOYMENT_ID: AKfycbxasT_HgtRSvTbR_bsa8p17Cm-C2PKn20Ok1kU-AyJmxiKX8kX5EGOtRLwVwNlAL7JB
-        run: clasp create-deployment --deploymentId "$V2_DEPLOYMENT_ID" --description "Stage 4 official Orientation completion report"
+        run: clasp create-deployment --deploymentId "$V2_DEPLOYMENT_ID" --description "Stage 4 Orientation + Fee Structure Master"
 
       - name: Remove clasp credential
         if: always()
