@@ -3,8 +3,8 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
-  <title>IUC AI Agent Office</title>
-  <meta name="theme-color" content="#071020">
+  <title>IUC Campus AI Admissions Office</title>
+  <meta name="theme-color" content="#f4f1e8">
   <link rel="stylesheet" href="/ai-agent-office-standalone.css">
 </head>
 <body>
@@ -13,11 +13,11 @@
       <div class="brand-mark">IUC</div>
       <div>
         <small>INNOVATIVE UNIVERSITY COLLEGE · IPGS</small>
-        <h1>AI Agent Office</h1>
+        <h1>Campus AI Admissions Office</h1>
       </div>
     </div>
     <div class="top-actions">
-      <span class="pill" id="dataMode"><i></i> 35 Dedicated Task Agents · Simulation Ready</span>
+      <span class="pill" id="dataMode"><i></i> Campus Simulation · 5 Applicant Characters</span>
       <a class="ghost-btn" href="/ai-operations-center.html">AI Operations Center</a>
       <a class="ghost-btn" href="/admin.html">Command Center</a>
     </div>
@@ -26,9 +26,9 @@
   <main class="shell">
     <section class="hero">
       <div>
-        <span class="eyebrow">AGENTIC REGISTRAR OFFICE · STANDALONE VISUAL SYSTEM</span>
-        <h2>Every admission task has its own AI agent — and every handoff moves through the office aisles.</h2>
-        <p>The office now separates the workflow into dedicated specialist agents: application receipt, PDF pack, document checks, student folder, agent notification, SkyVialing prospect, fee group, Registry, qualification, SAC, IA, prerequisite, LOA, acceptance, orientation, IT, Library, Moodle, Academic handover, audit and reporting. Avatars route around workstations instead of walking across desks.</p>
+        <span class="eyebrow">IUC · IPGS · CAMPUS OPERATIONS</span>
+        <h2>A living university admissions office where every task has a staff agent and every application becomes a student character.</h2>
+        <p>Five new applications begin at the Admission queue. Staff agents process and escort each applicant through Document Check, Screening, SAC, IA, Prerequisite, Offer, Orientation, IT/Library/Moodle and Academic Handover — using clear campus walkways instead of crossing desks.</p>
       </div>
       <div class="hero-state">
         <div><small>Office State</small><strong id="officeStateLabel">READY</strong></div>
@@ -42,7 +42,7 @@
         <label for="scenarioSelect">Workflow</label>
         <select id="scenarioSelect"></select>
       </div>
-      <button class="primary-btn" id="runBtn">▶ Run Journey</button>
+      <button class="primary-btn" id="runBtn">▶ Process Next Applicant</button>
       <button class="control-btn" id="pauseBtn" disabled>Pause</button>
       <button class="control-btn" id="resumeBtn" disabled>Resume</button>
       <button class="control-btn" id="resetBtn">Reset</button>
@@ -66,18 +66,18 @@
       <div class="office-panel">
         <div class="panel-head">
           <div>
-            <span class="eyebrow">LIVE DIGITAL WORKFORCE FLOOR</span>
-            <h3>Registrar Office</h3>
+            <span class="eyebrow">LIVE CAMPUS OPERATIONS FLOOR</span>
+            <h3>IPGS Admissions Hub</h3>
           </div>
           <div class="legend">
-            <span><i class="dot idle"></i>Idle</span>
+            <span><i class="dot idle"></i>Available</span>
             <span><i class="dot working"></i>Working</span>
             <span><i class="dot receiving"></i>Receiving</span>
             <span><i class="dot waiting"></i>Waiting</span>
           </div>
         </div>
         <div class="office-stage" id="officeStage">
-          <div class="floor-title">IPGS DIGITAL REGISTRAR OFFICE</div>
+          <div class="floor-title">IUC · IPGS CAMPUS ADMISSIONS HUB</div>
           <div class="corridor corridor-v"></div>
           <div class="corridor corridor-h c1"></div>
           <div class="corridor corridor-h c2"></div>

@@ -47,6 +47,38 @@ var AGENTS={
   reporting:{name:'Management Reporting Agent',code:'MR',role:'Operational Intelligence',x:83.6,y:95,authority:'Update operational reporting',tools:['Dashboard','Daily statistics','Bottleneck signals']}
 };
 
+
+var STATIONS={
+  admission:{id:'admission',num:1,title:'Admission',subtitle:'Application Intake',x:20,y:29,w:15.5,h:20,color:'#2f78d6',agents:['application','appPdf','folder','agentNotify']},
+  document:{id:'document',num:2,title:'Document Check',subtitle:'Evidence & Research Intent',x:36,y:29,w:15.5,h:20,color:'#1f9a78',agents:['document','researchIntent']},
+  screening:{id:'screening',num:3,title:'Screening',subtitle:'Prospect · Registry · Qualification',x:52,y:29,w:15.5,h:20,color:'#e87832',agents:['prospect','feeGroup','registryQueue','qualification','detailedReview','compliancePreSac']},
+  sac:{id:'sac',num:4,title:'SAC',subtitle:'Committee Processing',x:68,y:29,w:15.5,h:20,color:'#7054c8',agents:['sacSession','sacPack','sacOutcome']},
+  ia:{id:'ia',num:5,title:'IA',subtitle:'Internal Assessment',x:84,y:29,w:15.5,h:20,color:'#cf4f63',agents:['iaInvite','iaAssessment','iaResult']},
+  prerequisite:{id:'prerequisite',num:6,title:'Prerequisite',subtitle:'4-Week Completion Route',x:20,y:73,w:15.5,h:20,color:'#168fa5',agents:['prereqEnroll','prereqMoodle','prereqClass','prereqAssess','prereqDocs']},
+  offer:{id:'offer',num:7,title:'Offer & Acceptance',subtitle:'LOA & Signed Acceptance',x:36,y:73,w:15.5,h:20,color:'#d59a22',agents:['loa','acceptance']},
+  orientation:{id:'orientation',num:8,title:'Orientation',subtitle:'Invitation · Attendance · Follow-up',x:52,y:73,w:15.5,h:20,color:'#326bc1',agents:['orientationInvite','orientationAttendance','orientationFollowup']},
+  services:{id:'services',num:9,title:'IT / Library / Moodle',subtitle:'Student Access',x:68,y:73,w:15.5,h:20,color:'#148a86',agents:['itAccount','library','moodle']},
+  handover:{id:'handover',num:10,title:'Handover',subtitle:'Academic Transfer & Audit',x:84,y:73,w:15.5,h:20,color:'#7656c5',agents:['handoverPrep','academic','audit','reporting']}
+};
+var AGENT_STATION={};
+Object.keys(STATIONS).forEach(function(s){STATIONS[s].agents.forEach(function(a){AGENT_STATION[a]=s;});});
+AGENT_STATION.human='control';AGENT_STATION.orchestrator='control';
+
+var APPEARANCES=[
+  ['#f1c6a8','#2d201e','#2f78d6'],['#8f5b3e','#171717','#1f9a78'],['#d7a078','#5b342b','#e87832'],
+  ['#f0bd95','#1d1a19','#7054c8'],['#a76c4d','#3d201b','#cf4f63'],['#e8b891','#6a3d22','#168fa5'],
+  ['#70442e','#141414','#d59a22'],['#c98761','#402218','#326bc1'],['#efc7a8','#6b4a2d','#148a86'],['#925b42','#261714','#7656c5']
+];
+var DEMO_APPS=[
+  {id:'APP-260921-01',name:'Alya',route:'prerequisite',look:0,status:'waiting',station:'queue'},
+  {id:'APP-260921-02',name:'Hakim',route:'direct',look:1,status:'waiting',station:'queue'},
+  {id:'APP-260921-03',name:'Sofia',route:'ia',look:2,status:'waiting',station:'queue'},
+  {id:'APP-260921-04',name:'Daniel',route:'direct',look:3,status:'waiting',station:'queue'},
+  {id:'APP-260921-05',name:'Nadia',route:'prerequisite',look:4,status:'waiting',station:'queue'}
+];
+var appState=[];
+var currentApplicant=null;
+
 var BASE_STATE={status:'IDLE',caseId:'—',task:'Waiting for event',event:'WAITING',lastAction:'No action yet',nextAction:'Wait for event',workload:0,waitingSince:'—'};
 var state={};
 Object.keys(AGENTS).forEach(function(k){state[k]=Object.assign({},BASE_STATE);});
@@ -185,15 +217,79 @@ function mount(){
   renderDesks();populateFlows();bind();reset(false);
 }
 
+function personMarkup(seed,type){
+  var p=APPEARANCES[Math.abs(seed)%APPEARANCES.length],student=type==='student';
+  return '<span class="person '+type+'" style="--skin:'+p[0]+';--hair:'+p[1]+';--shirt:'+p[2]+'">'+
+    '<i class="person-hair"></i><i class="person-head"></i><i class="person-body"></i><i class="person-leg l"></i><i class="person-leg r"></i>'+
+    (student?'<i class="person-pack"></i>':'<i class="person-lanyard"></i>')+'</span>';
+}
+function shortAgentName(k){
+  var map={application:'Receive',appPdf:'PDF Pack',folder:'Folder',agentNotify:'Notify',document:'Documents',researchIntent:'Research Intent',
+    prospect:'Prospect',feeGroup:'Fee Group',registryQueue:'Registry',qualification:'Qualification',detailedReview:'Review',compliancePreSac:'Compliance',
+    sacSession:'Session',sacPack:'Case Pack',sacOutcome:'Outcome',iaInvite:'Invite',iaAssessment:'Assessment',iaResult:'Result',
+    prereqEnroll:'Enrol',prereqMoodle:'Moodle',prereqClass:'Class',prereqAssess:'Assessment',prereqDocs:'Docs',
+    loa:'LOA',acceptance:'Acceptance',orientationInvite:'Invite',orientationAttendance:'Attendance',orientationFollowup:'Follow-up',
+    itAccount:'IT',library:'Library',moodle:'Moodle',handoverPrep:'Prep',academic:'Academic',audit:'Audit',reporting:'Report'};
+  return map[k]||AGENTS[k].code;
+}
 function renderDesks(){
-  Object.keys(AGENTS).forEach(function(k){
-    var a=AGENTS[k],el=document.createElement('button');
-    el.type='button';el.className='agent-desk';el.id='desk-'+k;el.dataset.agent=k;
-    el.style.setProperty('--x',a.x+'%');el.style.setProperty('--y',a.y+'%');
-    el.style.setProperty('--accent',k==='human'?'#ffc76a':(k==='orchestrator'?'#a17dff':'#57dcff'));
-    el.innerHTML='<div class="desk-top"><div class="desk-avatar">'+esc(a.code)+'</div><div class="desk-copy"><b>'+esc(a.name)+'</b><small>'+esc(a.role)+'</small></div><span class="state-badge">IDLE</span></div><div class="desk-task">Waiting for structured event</div><div class="desk-case">No active case</div>';
-    el.onclick=function(){openDrawer(k);};refs.stage.appendChild(el);
+  var stage=refs.stage;if(!stage)return;
+  stage.innerHTML=
+    '<div class="campus-window"><div class="campus-building"><i></i><b>IUC CAMPUS</b></div><div class="campus-fountain"></div><div class="campus-tree t1"></div><div class="campus-tree t2"></div><div class="campus-tree t3"></div><div class="campus-tree t4"></div></div>'+
+    '<div class="campus-banner left">INNOVATIVE UNIVERSITY COLLEGE<small>Learn · Belong · Achieve</small></div>'+
+    '<div class="campus-banner right">IPGS ADMISSIONS HUB<small>Every application has a journey</small></div>'+
+    '<div class="applicant-zone"><b>NEW APPLICATIONS</b><span id="queueCount">5 waiting</span><small>Each applicant is a live case character</small></div>'+
+    '<div class="campus-rug"><span>IUC · IPGS</span><b>ADMISSIONS HUB</b><small>FROM APPLICATION TO ACADEMIC HANDOVER</small></div>'+
+    '<div class="student-lounge"><b>STUDENT LOUNGE</b><span>Waiting · Advising · Support</span></div>'+
+    '<div class="control-booth"><button id="desk-orchestrator" class="control-agent" data-agent="orchestrator">'+personMarkup(8,'staff')+'<span><b>AI Orchestrator</b><small>Routes every case</small></span><i class="agent-state-dot"></i></button>'+
+    '<button id="desk-human" class="control-agent" data-agent="human">'+personMarkup(9,'staff')+'<span><b>Human Decision</b><small>Registrar authority</small></span><i class="agent-state-dot"></i></button></div>'+
+    '<div id="stationLayer"></div><div id="studentLayer"></div><div id="escortLayer"></div><div class="handoff-toast" id="handoffToast"></div>';
+
+  var layer=$('stationLayer');
+  Object.keys(STATIONS).forEach(function(k){
+    var s=STATIONS[k],box=document.createElement('section');
+    box.className='campus-station';box.id='station-'+k;
+    box.style.setProperty('--sx',s.x+'%');box.style.setProperty('--sy',s.y+'%');box.style.setProperty('--sw',s.w+'%');box.style.setProperty('--sh',s.h+'%');box.style.setProperty('--station',s.color);
+    box.innerHTML='<header><strong><i>'+s.num+'</i>'+s.title+'</strong><small>'+s.subtitle+'</small></header><div class="counter-back"><div class="staff-grid"></div></div><div class="counter-front"><span>'+s.title+'</span><i></i><i></i><i></i></div><div class="station-entry">WAIT HERE</div>';
+    var grid=box.querySelector('.staff-grid');
+    s.agents.forEach(function(aKey,idx){
+      var a=AGENTS[aKey],unit=document.createElement('button');unit.type='button';unit.className='staff-unit';unit.id='desk-'+aKey;unit.dataset.agent=aKey;
+      unit.innerHTML=personMarkup(idx+s.num*2,'staff')+'<span class="staff-name">'+shortAgentName(aKey)+'</span><span class="agent-state-dot"></span>';
+      unit.title=a.name+' · '+a.role;unit.onclick=function(){openDrawer(aKey);};grid.appendChild(unit);
+    });
+    layer.appendChild(box);
   });
+  ['human','orchestrator'].forEach(function(k){var el=$('desk-'+k);if(el)el.onclick=function(){openDrawer(k);};});
+  resetApplicants();
+}
+function resetApplicants(){
+  appState=DEMO_APPS.map(function(a){return Object.assign({},a);});currentApplicant=null;renderApplicants();updateQueueUi();
+}
+function renderApplicants(){
+  var layer=$('studentLayer');if(!layer)return;layer.innerHTML='';
+  appState.forEach(function(app,idx){
+    var el=document.createElement('button');el.type='button';el.className='student-actor '+app.status;el.id='student-'+app.id;el.dataset.app=app.id;
+    el.innerHTML=personMarkup(app.look,'student')+'<span class="student-label"><b>'+esc(app.name)+'</b><small>'+esc(app.id.replace('APP-260921-','APP-'))+'</small></span>';
+    el.onclick=function(){showApplicant(app.id);};layer.appendChild(el);positionApplicant(app,idx);
+  });
+}
+function positionApplicant(app,idx){
+  var el=$('student-'+app.id);if(!el)return;
+  var p=appPoint(app,idx);el.style.left=p.x+'%';el.style.top=p.y+'%';
+}
+function appPoint(app,idx){
+  if(app.station==='queue')return{x:5.5,y:34+idx*5.6};
+  var s=STATIONS[app.station];if(!s)return{x:50,y:50};
+  var top=s.y<50;return{x:s.x,y:top?(s.y+s.h/2+3.2):(s.y-s.h/2-3.2)};
+}
+function updateQueueUi(){
+  var waiting=appState.filter(function(a){return a.status==='waiting';}).length,q=$('queueCount');if(q)q.textContent=waiting+' waiting';
+  var b=$('runBtn');if(b&&!sim.running)b.textContent=waiting?'▶ Process Next Applicant ('+waiting+' waiting)':'✓ Demo Queue Complete';
+  $('metricApplications').textContent=appState.length;
+}
+function showApplicant(id){
+  var app=appState.find(function(a){return a.id===id;});if(!app)return;
+  toast(app.id,app.name+' · '+app.status.toUpperCase()+' · '+(app.station==='queue'?'Admission Queue':STATIONS[app.station]?.title||app.station));
 }
 
 function populateFlows(){
@@ -208,119 +304,126 @@ function bind(){
   $('drawerClose').onclick=closeDrawer;$('drawerBackdrop').onclick=closeDrawer;
 }
 function reset(logIt){
-  sim.token++;sim.running=false;sim.paused=false;sim.step=-1;sim.pendingHuman=null;
+  sim.token++;sim.running=false;sim.paused=false;sim.step=-1;sim.pendingHuman=null;currentApplicant=null;
   if(sim.currentAnimation){try{sim.currentAnimation.cancel();}catch(e){}sim.currentAnimation=null;}
-  document.querySelectorAll('.avatar-runner').forEach(function(x){x.remove();});
+  document.querySelectorAll('.moving-pair').forEach(function(x){x.remove();});
   Object.keys(state).forEach(function(k){state[k]=Object.assign({},BASE_STATE);renderDesk(k);});
-  updatePipeline(null);$('officeStateLabel').textContent='READY';$('activeCaseLabel').textContent='—';$('currentEventLabel').textContent='WAITING';updateButtons();
-  if(logIt)addLog('SYSTEM','—','RESET','Office reset. No production record was changed.');
+  resetApplicants();updatePipeline(null);$('officeStateLabel').textContent='READY';$('activeCaseLabel').textContent='—';$('currentEventLabel').textContent='WAITING';updateButtons();
+  if(logIt)addLog('SYSTEM','—','RESET','Campus office reset. Five demo applications returned to the Admission queue.');
 }
 function setAgent(k,patch){state[k]=Object.assign({},state[k],patch||{});renderDesk(k);if($('agentDrawer').classList.contains('open')&&$('agentDrawer').dataset.agent===k)renderDrawer(k);}
 function renderDesk(k){
   var el=$('desk-'+k),s=state[k];if(!el)return;
-  el.className='agent-desk '+String(s.status||'idle').toLowerCase();
-  el.querySelector('.state-badge').textContent=s.status||'IDLE';el.querySelector('.desk-task').textContent=s.task||'Waiting for event';
-  el.querySelector('.desk-case').textContent=s.caseId&&s.caseId!=='—'?(s.caseId+' · '+s.event):'No active case';
+  el.classList.remove('idle','working','receiving','handover','waiting','escalation');
+  el.classList.add(String(s.status||'IDLE').toLowerCase());
+  el.title=AGENTS[k].name+' · '+s.status+' · '+(s.task||'Waiting');
 }
+function stationForAgent(k){return AGENT_STATION[k]||'admission';}
+function nextWaitingApplicant(){return appState.find(function(a){return a.status==='waiting';})||null;}
 
 async function run(){
-  if(sim.running)return;reset(false);sim.running=true;sim.token++;
-  var token=sim.token,flow=FLOWS[sim.flow];$('officeStateLabel').textContent='RUNNING';$('activeCaseLabel').textContent=flow.caseId;updateButtons();
-  addLog('AI Orchestrator',flow.caseId,'JOURNEY START','Running '+flow.label+' with dedicated task agents.');
+  if(sim.running)return;
+  var app=nextWaitingApplicant();
+  if(!app){toast('QUEUE COMPLETE','All five demo applications have been processed. Press Reset to replay.');return;}
+  sim.running=true;sim.token++;currentApplicant=app;app.status='active';
+  var token=sim.token,flow=FLOWS[sim.flow],caseId=app.id;
+  $('officeStateLabel').textContent='RUNNING';$('activeCaseLabel').textContent=caseId;updateButtons();updateQueueUi();renderApplicants();
+  addLog('AI Orchestrator',caseId,'APPLICANT CALLED',app.name+' left the Admission queue. Route: '+flow.label+'.');
   for(var i=0;i<flow.steps.length;i++){
-    if(token!==sim.token)return;sim.step=i;while(sim.paused&&token===sim.token){await new Promise(function(r){setTimeout(r,60);});}if(token!==sim.token)return;
-    var step=flow.steps[i];updatePipeline(step);$('currentEventLabel').textContent=step.event;await execute(step,flow.caseId,token);if(token!==sim.token)return;
+    if(token!==sim.token)return;sim.step=i;
+    while(sim.paused&&token===sim.token){await new Promise(function(r){setTimeout(r,60);});}
+    if(token!==sim.token)return;
+    var step=flow.steps[i];updatePipeline(step);$('currentEventLabel').textContent=step.event;
+    await execute(step,caseId,token,app);if(token!==sim.token)return;
     if(step.kind==='human'){
       var decision=await waitHuman(token);if(token!==sim.token)return;
-      if(decision!=='approve'){sim.running=false;sim.paused=false;$('officeStateLabel').textContent='CONTROLLED STOP';addLog('Human Decision Desk',flow.caseId,'WORKFLOW STOPPED',decision==='evidence'?'More evidence requested.':'Case returned for rework.');updateButtons();return;}
+      if(decision!=='approve'){sim.running=false;sim.paused=false;app.status='waiting';$('officeStateLabel').textContent='CONTROLLED STOP';addLog('Human Decision Desk',caseId,'WORKFLOW STOPPED',decision==='evidence'?'More evidence requested.':'Case returned for rework.');updateButtons();renderApplicants();updateQueueUi();return;}
     }
-    await wait(140,token);
+    await wait(110,token);
   }
-  if(token!==sim.token)return;sim.running=false;sim.paused=false;$('officeStateLabel').textContent='COMPLETE';$('currentEventLabel').textContent='JOURNEY_COMPLETE';
-  addLog('Management Reporting Agent',flow.caseId,'JOURNEY COMPLETE','Dedicated-agent workflow simulation completed.');updateButtons();
+  if(token!==sim.token)return;
+  sim.running=false;sim.paused=false;app.status='completed';app.station='handover';positionApplicant(app,appState.indexOf(app));
+  $('officeStateLabel').textContent='COMPLETE';$('currentEventLabel').textContent='JOURNEY_COMPLETE';
+  addLog('Management Reporting Agent',caseId,'JOURNEY COMPLETE',app.name+' reached Academic Handover.');updateButtons();updateQueueUi();
 }
 
-async function execute(step,caseId,token){
+async function execute(step,caseId,token,app){
+  var targetAgent=step.agent||step.to||step.from,targetStation=stationForAgent(targetAgent);
   if(step.kind==='event'){
+    if(targetStation!=='control'&&app.station!==targetStation)await moveApplicant(app,targetStation,step.agent,caseId,token);
     setAgent(step.agent,{status:'WORKING',caseId:caseId,task:step.task,event:step.event,lastAction:step.action,nextAction:step.next,workload:1,waitingSince:'—'});
-    toast(step.event,step.message);addLog(AGENTS[step.agent].name,caseId,step.event,step.message);await wait(step.duration||520,token);return;
+    highlightStation(targetStation,step.agent);toast(step.event,step.message);addLog(AGENTS[step.agent].name,caseId,step.event,step.message);await wait(step.duration||520,token);return;
   }
   if(step.kind==='handoff'){
-    setAgent(step.from,{status:'HANDOVER',caseId:caseId,task:step.task,event:step.event,lastAction:'Handing task to '+AGENTS[step.to].name,nextAction:step.next});
-    setAgent(step.to,{status:'RECEIVING',caseId:caseId,task:'Receiving '+step.task,event:step.event,lastAction:'Awaiting task',nextAction:step.next});
+    setAgent(step.from,{status:'HANDOVER',caseId:caseId,task:step.task,event:step.event,lastAction:'Guiding applicant to '+AGENTS[step.to].name,nextAction:step.next});
+    setAgent(step.to,{status:'RECEIVING',caseId:caseId,task:'Receiving '+step.task,event:step.event,lastAction:'Waiting for applicant',nextAction:step.next});
+    var fromStation=stationForAgent(step.from),toStation=stationForAgent(step.to);
     toast(step.event,step.message);addLog(AGENTS[step.from].name+' → '+AGENTS[step.to].name,caseId,step.event,step.message);
-    await animateHandoff(step.from,step.to,caseId,step.task,token,step.duration);
-    setAgent(step.from,{status:'IDLE',caseId:'—',task:'Waiting for event',event:'WAITING',lastAction:'Task handed off',nextAction:'Wait for event',workload:0});
-    setAgent(step.to,{status:'WORKING',caseId:caseId,task:step.task,event:step.event,lastAction:'Task accepted',nextAction:step.next,workload:1});return;
+    if(toStation!=='control'&&fromStation!==toStation)await moveApplicant(app,toStation,step.from,caseId,token,true);
+    else await animateTaskPass(step.from,step.to,token);
+    setAgent(step.from,{status:'IDLE',caseId:'—',task:'Waiting for event',event:'WAITING',lastAction:'Applicant handed over',nextAction:'Wait for event',workload:0});
+    setAgent(step.to,{status:'WORKING',caseId:caseId,task:step.task,event:step.event,lastAction:'Applicant accepted',nextAction:step.next,workload:1});
+    highlightStation(toStation,step.to);return;
   }
   if(step.kind==='human'){
     setAgent(step.from,{status:'ESCALATION',caseId:caseId,task:step.task,event:step.event,lastAction:'Escalated to human authority',nextAction:'Wait for decision'});
     setAgent('human',{status:'RECEIVING',caseId:caseId,task:'Review recommendation',event:step.event,lastAction:'Case received',nextAction:'Approve / Return / Request Evidence',workload:1});
     toast(step.event,'Human authority required');addLog(AGENTS[step.from].name+' → Human Decision Desk',caseId,step.event,step.message);
-    await animateHandoff(step.from,'human',caseId,'Authority Review',token,step.duration);
-    setAgent(step.from,{status:'WAITING',waitingSince:clock(),nextAction:'Wait for human decision'});
-    setAgent('human',{status:'WORKING',caseId:caseId,task:'Decision: '+step.recommendation,event:step.event,lastAction:step.reason,nextAction:'Record decision'});
+    await animateTaskPass(step.from,'human',token);
+    setAgent(step.from,{status:'WAITING',waitingSince:clock(),nextAction:'Wait for human decision'});setAgent('human',{status:'WORKING',caseId:caseId,task:'Decision: '+step.recommendation,event:step.event,lastAction:step.reason,nextAction:'Record decision'});
     sim.paused=true;showHumanDecision(caseId,step);updateButtons();
   }
 }
 
-/* Obstacle-aware routing: avatar walks around desks, never through / over them. */
-function localRect(el,stageRect,pad){
-  var r=el.getBoundingClientRect();return {l:r.left-stageRect.left-pad,t:r.top-stageRect.top-pad,r:r.right-stageRect.left+pad,b:r.bottom-stageRect.top+pad};
+/* Campus movement: applicant + escort walk only in open aisles between counters. */
+function stationEntrance(id){
+  var s=STATIONS[id];if(!s)return{x:50,y:50};var top=s.y<50;return{x:s.x,y:top?(s.y+s.h/2+3.2):(s.y-s.h/2-3.2)};
 }
-function inside(p,o){return p.x>=o.l&&p.x<=o.r&&p.y>=o.t&&p.y<=o.b;}
-function deskAccess(el,stageRect){
-  var r=el.getBoundingClientRect(),cx=r.left-stageRect.left+r.width/2,cy=r.top-stageRect.top+r.height/2,m=38;
-  return [
-    {x:cx,y:r.top-stageRect.top-m},{x:cx,y:r.bottom-stageRect.top+m},
-    {x:r.left-stageRect.left-m,y:cy},{x:r.right-stageRect.left+m,y:cy}
-  ];
+function pathFor(from,to){
+  var aisle=51,pts=[from];
+  if(Math.abs(from.y-aisle)>1)pts.push({x:from.x,y:aisle});
+  pts.push({x:to.x,y:aisle});
+  if(Math.abs(to.y-aisle)>1)pts.push(to);
+  return pts;
 }
-function shortestPath(stage,src,dst){
-  var br=stage.getBoundingClientRect(),cell=16,w=Math.max(2,Math.floor(br.width/cell)),h=Math.max(2,Math.floor(br.height/cell));
-  var obstacles=[].slice.call(stage.querySelectorAll('.agent-desk')).map(function(el){return localRect(el,br,24);});
-  function validPoint(p){return p.x>8&&p.x<br.width-8&&p.y>8&&p.y<br.height-8&&!obstacles.some(function(o){return inside(p,o);});}
-  var starts=deskAccess(src,br).filter(validPoint),goals=deskAccess(dst,br).filter(validPoint);
-  function key(x,y){return x+','+y;}function toGrid(p){return {x:Math.max(0,Math.min(w-1,Math.round(p.x/cell))),y:Math.max(0,Math.min(h-1,Math.round(p.y/cell)))};}
-  function toPixel(g){return {x:g.x*cell,y:g.y*cell};}
-  var blocked={};for(var y=0;y<h;y++)for(var x=0;x<w;x++){var p=toPixel({x:x,y:y});if(obstacles.some(function(o){return inside(p,o);}))blocked[key(x,y)]=1;}
-  function astar(sp,gp){
-    var s=toGrid(sp),g=toGrid(gp),sk=key(s.x,s.y),gk=key(g.x,g.y);if(blocked[sk]||blocked[gk])return null;
-    var open=[s],came={},gScore={};gScore[sk]=0;var seen={};
-    while(open.length){
-      var best=0,bestF=1e12;
-      for(var i=0;i<open.length;i++){var n=open[i],nk=key(n.x,n.y),f=(gScore[nk]||0)+Math.abs(n.x-g.x)+Math.abs(n.y-g.y);if(f<bestF){bestF=f;best=i;}}
-      var cur=open.splice(best,1)[0],ck=key(cur.x,cur.y);if(ck===gk){
-        var arr=[cur];while(came[ck]){cur=came[ck];ck=key(cur.x,cur.y);arr.push(cur);}arr.reverse();return arr.map(toPixel);
-      }
-      seen[ck]=1;var ns=[[1,0],[-1,0],[0,1],[0,-1]];
-      for(var j=0;j<ns.length;j++){var nx=cur.x+ns[j][0],ny=cur.y+ns[j][1],nk2=key(nx,ny);if(nx<0||ny<0||nx>=w||ny>=h||blocked[nk2]||seen[nk2])continue;var cand=(gScore[ck]||0)+1;if(gScore[nk2]===undefined||cand<gScore[nk2]){gScore[nk2]=cand;came[nk2]=cur;if(!open.some(function(q){return q.x===nx&&q.y===ny;}))open.push({x:nx,y:ny});}}
-    }return null;
-  }
-  var bestPath=null,bestLen=1e12;
-  starts.forEach(function(s){goals.forEach(function(g){var p=astar(s,g);if(p&&p.length<bestLen){bestLen=p.length;bestPath=[s].concat(p,[g]);}});});
-  if(!bestPath){var s0=starts[0]||{x:20,y:20},g0=goals[0]||{x:br.width-20,y:br.height-20};bestPath=[s0,{x:s0.x,y:20},{x:g0.x,y:20},g0];}
-  var simple=[];bestPath.forEach(function(p){if(!simple.length){simple.push(p);return;}if(simple.length<2){simple.push(p);return;}var a=simple[simple.length-2],b=simple[simple.length-1];if((a.x===b.x&&b.x===p.x)||(a.y===b.y&&b.y===p.y))simple[simple.length-1]=p;else simple.push(p);});
-  return simple;
+function highlightStation(station,agent){
+  document.querySelectorAll('.campus-station').forEach(function(x){x.classList.remove('active-station');});
+  if(station&&station!=='control')$('station-'+station)?.classList.add('active-station');
+  document.querySelectorAll('.staff-unit').forEach(function(x){x.classList.remove('active-agent');});
+  $('desk-'+agent)?.classList.add('active-agent');
 }
-function animateHandoff(from,to,caseId,label,token,duration){
+function moveApplicant(app,toStation,escortAgent,caseId,token,showEscort){
   return new Promise(function(resolve){
-    var stage=refs.stage,src=$('desk-'+from),dst=$('desk-'+to);if(!stage||!src||!dst){resolve();return;}
-    var path=shortestPath(stage,src,dst),runner=document.createElement('div');runner.className='avatar-runner';
-    runner.innerHTML='<div class="avatar-bot"><div class="head"></div><div class="body" data-code="'+esc(AGENTS[from].code)+'"></div><div class="leg l"></div><div class="leg r"></div><div class="task-orb">◆</div></div><div class="runner-label">'+esc(AGENTS[from].name)+' · '+esc(label)+'</div>';
-    stage.appendChild(runner);runner.style.left=path[0].x+'px';runner.style.top=path[0].y+'px';
-    var total=0,lens=[];for(var i=1;i<path.length;i++){var d=Math.hypot(path[i].x-path[i-1].x,path[i].y-path[i-1].y);lens.push(d);total+=d;}
-    var acc=0,frames=[{transform:'translate(-50%,-50%) translate(0px,0px)',offset:0}],origin=path[0];
-    for(var j=1;j<path.length;j++){acc+=lens[j-1];frames.push({transform:'translate(-50%,-50%) translate('+(path[j].x-origin.x)+'px,'+(path[j].y-origin.y)+'px)',offset:total?acc/total:1});}
-    if(window.matchMedia('(prefers-reduced-motion: reduce)').matches){runner.remove();resolve();return;}
-    var ms=Math.max(duration||1050,Math.min(2400,total*2.15)),anim=runner.animate(frames,{duration:ms,easing:'linear',fill:'forwards'});
-    sim.currentAnimation=anim;if(sim.paused)anim.pause();anim.onfinish=function(){runner.remove();sim.currentAnimation=null;resolve();};anim.oncancel=function(){runner.remove();sim.currentAnimation=null;resolve();};
+    var el=$('student-'+app.id);if(!el){app.station=toStation;renderApplicants();resolve();return;}
+    var from=appPoint(app,appState.indexOf(app)),to=stationEntrance(toStation),pts=pathFor(from,to),runner=document.createElement('div');
+    runner.className='moving-pair';runner.style.left=from.x+'%';runner.style.top=from.y+'%';
+    var escort=showEscort!==false&&escortAgent&&AGENTS[escortAgent];
+    runner.innerHTML='<div class="moving-student">'+personMarkup(app.look,'student')+'<span>'+esc(app.name)+'</span></div>'+
+      (escort?'<div class="moving-escort">'+personMarkup(Object.keys(AGENTS).indexOf(escortAgent),'staff')+'<span>'+esc(shortAgentName(escortAgent))+'</span></div>':'');
+    $('escortLayer').appendChild(runner);el.style.opacity='0';
+    var frames=[{left:from.x+'%',top:from.y+'%'}],total=0,lens=[];
+    for(var i=1;i<pts.length;i++){var d=Math.hypot(pts[i].x-pts[i-1].x,pts[i].y-pts[i-1].y);lens.push(d);total+=d;}
+    var acc=0;
+    for(var j=1;j<pts.length;j++){acc+=lens[j-1];frames.push({left:pts[j].x+'%',top:pts[j].y+'%',offset:total?acc/total:1});}
+    var anim=runner.animate(frames,{duration:Math.max(900,Math.min(2200,total*42)),easing:'linear',fill:'forwards'});sim.currentAnimation=anim;
+    if(sim.paused)anim.pause();
+    function done(){runner.remove();sim.currentAnimation=null;app.station=toStation;app.status='active';positionApplicant(app,appState.indexOf(app));el.style.opacity='1';resolve();}
+    anim.onfinish=done;anim.oncancel=done;
+  });
+}
+function animateTaskPass(from,to,token){
+  return new Promise(function(resolve){
+    var a=$('desk-'+from),b=$('desk-'+to);if(!a||!b){setTimeout(resolve,220);return;}
+    a.classList.add('handoff-flash');b.classList.add('receive-flash');setTimeout(function(){a.classList.remove('handoff-flash');b.classList.remove('receive-flash');resolve();},430);
   });
 }
 
 function pause(){if(!sim.running||sim.paused)return;sim.paused=true;if(sim.currentAnimation)sim.currentAnimation.pause();$('officeStateLabel').textContent='PAUSED';updateButtons();}
 function resume(){if(!sim.running||!sim.paused||sim.pendingHuman)return;sim.paused=false;if(sim.currentAnimation)sim.currentAnimation.play();$('officeStateLabel').textContent='RUNNING';updateButtons();}
-function updateButtons(){$('runBtn').disabled=sim.running;$('pauseBtn').disabled=!sim.running||sim.paused;$('resumeBtn').disabled=!sim.running||!sim.paused||!!sim.pendingHuman;}
+function updateButtons(){
+  $('runBtn').disabled=sim.running||!nextWaitingApplicant();$('pauseBtn').disabled=!sim.running||sim.paused;$('resumeBtn').disabled=!sim.running||!sim.paused||!!sim.pendingHuman;
+  if(!sim.running)updateQueueUi();
+}
 function waitHuman(token){return new Promise(function(resolve){if(token!==sim.token){resolve('cancelled');return;}sim.pendingHuman=resolve;updateButtons();});}
 function showHumanDecision(caseId,step){
   openDrawer('human');$('drawerGrid').innerHTML='<div class="wide"><small>Case</small><b>'+esc(caseId)+'</b></div><div class="wide"><small>AI Recommendation</small><b>'+esc(step.recommendation)+'</b></div><div class="wide"><small>Reason</small><b>'+esc(step.reason)+'</b></div><div class="wide"><small>Authority Action</small><b><button class="primary-btn" id="hdApprove">Approve</button> <button class="control-btn" id="hdReturn">Return</button> <button class="control-btn" id="hdEvidence">Request Evidence</button></b></div>';
