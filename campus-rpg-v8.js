@@ -91,6 +91,7 @@ class CampusScene extends Phaser.Scene{
  }
  create(){
    sceneRef=this;
+   window.__CAMPUS_RPG_VERSION='V8.1-chibi-hotfix';
    this.createAnimations();
    this.createFurnitureTextures();
    this.cameras.main.setBounds(0,0,WORLD.w,WORLD.h).setZoom(1.05).centerOn(720,770);
@@ -259,7 +260,9 @@ class CampusScene extends Phaser.Scene{
    const eyeL=this.add.circle(-8,-38,3.1,0x26313a,1),eyeR=this.add.circle(8,-38,3.1,0x26313a,1);
    const hiL=this.add.circle(-7,-39,1,0xffffff,1),hiR=this.add.circle(9,-39,1,0xffffff,1);
    const blushL=this.add.ellipse(-14,-31,7,3,0xe99a94,.35),blushR=this.add.ellipse(14,-31,7,3,0xe99a94,.35);
-   const mouth=this.add.arc(0,-29,5,12,168,false,0x8d554c,1).setLineWidth(1.4);
+   const mouth=this.add.graphics();
+   mouth.lineStyle(1.6,0x8d554c,1);
+   mouth.beginPath();mouth.arc(0,-30,5,0.25,Math.PI-0.25,false);mouth.strokePath();
 
    const glasses=this.add.graphics();
    if(p.glasses){
@@ -277,41 +280,44 @@ class CampusScene extends Phaser.Scene{
    actor.add([shadow,backpack,leftLeg,rightLeg,body,leftArm,rightArm,earL,earR,head,hair,eyeL,eyeR,hiL,hiR,blushL,blushR,mouth,glasses,lanyard,badge]);
    actor.parts={shadow,backpack,leftLeg,rightLeg,body,leftArm,rightArm,head,hair,earL,earR,eyeL,eyeR,hiL,hiR,blushL,blushR,mouth,glasses,lanyard,badge};
    actor.profile=p;actor.role=role;actor.isChibi=true;actor.isSitting=false;actor.walkTweens=[];
+   actor.partList=[shadow,backpack,leftLeg,rightLeg,body,leftArm,rightArm,earL,earR,head,hair,eyeL,eyeR,hiL,hiR,blushL,blushR,mouth,glasses,lanyard,badge];
+   actor.basePose=new Map(actor.partList.map(o=>[o,{x:o.x,y:o.y,angle:o.angle,scaleX:o.scaleX,scaleY:o.scaleY,visible:o.visible}]));
    actor.setSize(54,82);
    return actor;
  }
- setChibiMoving(actor,moving,dirX=1){
+ resetChibiPose(actor){
    if(!actor||!actor.isChibi)return;
    actor.walkTweens.forEach(t=>t.stop());actor.walkTweens=[];
+   actor.partList.forEach(o=>{
+     const b=actor.basePose.get(o);if(!b)return;
+     o.x=b.x;o.y=b.y;o.angle=b.angle;o.scaleX=b.scaleX;o.scaleY=b.scaleY;o.setVisible(b.visible);
+   });
+   actor.scaleY=1;
+ }
+ setChibiMoving(actor,moving,dirX=1){
+   if(!actor||!actor.isChibi)return;
+   this.resetChibiPose(actor);
    const P=actor.parts;
-   actor.scaleX=dirX<0?-1:1;actor.scaleY=1;
-   if(!moving){
-     [P.leftLeg,P.rightLeg,P.leftArm,P.rightArm].forEach(o=>{o.angle=0;});
-     P.leftArm.angle=7;P.rightArm.angle=-7;
-     P.body.y=0;P.head.y=0;P.hair.y=0;P.earL.y=0;P.earR.y=0;P.eyeL.y=0;P.eyeR.y=0;P.hiL.y=0;P.hiR.y=0;P.blushL.y=0;P.blushR.y=0;P.mouth.y=0;P.glasses.y=0;
-     return;
-   }
+   actor.scaleX=dirX<0?-1:1;
+   if(!moving){actor.isSitting=false;return;}
    actor.isSitting=false;
-   const t1=this.tweens.add({targets:[P.leftLeg,P.rightArm],angle:13,duration:240,yoyo:true,repeat:-1,ease:'Sine.easeInOut'});
-   const t2=this.tweens.add({targets:[P.rightLeg,P.leftArm],angle:-13,duration:240,yoyo:true,repeat:-1,ease:'Sine.easeInOut'});
-   const headParts=[P.body,P.head,P.hair,P.earL,P.earR,P.eyeL,P.eyeR,P.hiL,P.hiR,P.blushL,P.blushR,P.mouth,P.glasses,P.lanyard,P.badge];
-   const t3=this.tweens.add({targets:headParts,y:'-=2',duration:180,yoyo:true,repeat:-1,ease:'Sine.easeInOut'});
+   const t1=this.tweens.add({targets:[P.leftLeg,P.rightArm],angle:'+=20',duration:300,yoyo:true,repeat:-1,ease:'Sine.easeInOut'});
+   const t2=this.tweens.add({targets:[P.rightLeg,P.leftArm],angle:'-=20',duration:300,yoyo:true,repeat:-1,ease:'Sine.easeInOut'});
+   const upper=[P.body,P.head,P.hair,P.earL,P.earR,P.eyeL,P.eyeR,P.hiL,P.hiR,P.blushL,P.blushR,P.mouth,P.glasses,P.lanyard,P.badge];
+   const t3=this.tweens.add({targets:upper,y:'-=2',duration:220,yoyo:true,repeat:-1,ease:'Sine.easeInOut'});
    actor.walkTweens=[t1,t2,t3];
  }
  setChibiSitting(actor,sit){
    if(!actor||!actor.isChibi)return;
-   this.setChibiMoving(actor,false,1);
-   const P=actor.parts;actor.isSitting=!!sit;
-   P.leftLeg.setVisible(!sit);P.rightLeg.setVisible(!sit);
-   if(sit){
-     P.body.y=8;P.leftArm.y=1;P.rightArm.y=1;
-     [P.head,P.hair,P.earL,P.earR,P.eyeL,P.eyeR,P.hiL,P.hiR,P.blushL,P.blushR,P.mouth,P.glasses].forEach(o=>o.y=8);
-     P.shadow.setScale(.88,.7);
-   }else{
-     P.body.y=0;P.leftArm.y=-8;P.rightArm.y=-8;
-     [P.head,P.hair,P.earL,P.earR,P.eyeL,P.eyeR,P.hiL,P.hiR,P.blushL,P.blushR,P.mouth,P.glasses].forEach(o=>o.y=0);
-     P.shadow.setScale(1,1);
-   }
+   this.resetChibiPose(actor);
+   actor.scaleX=1;actor.isSitting=!!sit;
+   const P=actor.parts;
+   if(!sit)return;
+   P.leftLeg.setVisible(false);P.rightLeg.setVisible(false);
+   const upper=[P.body,P.leftArm,P.rightArm,P.head,P.hair,P.earL,P.earR,P.eyeL,P.eyeR,P.hiL,P.hiR,P.blushL,P.blushR,P.mouth,P.glasses,P.lanyard,P.badge];
+   upper.forEach(o=>{const b=actor.basePose.get(o);if(b)o.y=b.y+7;});
+   P.leftArm.angle=18;P.rightArm.angle=-18;
+   P.shadow.setScale(.86,.68);
  }
  createRoomStaff(id,s,r){
    const layouts={
@@ -338,7 +344,7 @@ class CampusScene extends Phaser.Scene{
      actor.taskName=task;actor.stationId=id;actor.baseName='chibi';actor.home={x:sx,y:sy-24};
      this.setChibiSitting(actor,true);
      actor.setInteractive(new Phaser.Geom.Rectangle(-28,-55,56,88),Phaser.Geom.Rectangle.Contains,{useHandCursor:true});
-     actor.on('pointerover',()=>this.showTip(actor.x,actor.y-64,task));actor.on('pointerout',()=>this.hideTip());
+     actor.on('pointerover',()=>this.showTip(actor.x,actor.y-78,task));actor.on('pointerout',()=>this.hideTip());
      staff.push(actor);this.staffHomes.set(actor,{x:actor.x,y:actor.y});
    });
    this.staffByStation[id]=staff;
@@ -502,7 +508,7 @@ class CampusScene extends Phaser.Scene{
  async callFromQueue(app){
    const s=STATIONS.admission,student=this.students[app.id],staff=this.staffByStation.admission[0],home={...staff.home||this.staffHomes.get(staff)},service=this.servicePoint(s),approach={x:student.x+58,y:student.y};
    await this.walkStaff(staff,[{x:staff.x,y:staff.y},this.staffAisle(s),this.doorInside(s),service,{x:service.x,y:WORLD.corridorY},{x:approach.x,y:WORLD.corridorY},approach]);
-   chime('call');this.bubbleAt(staff.x,staff.y-68,app.name+', next please!',1100);await wait(650);
+   chime('call');this.bubbleAt(staff.x,staff.y-82,app.name+', next please!',1100);await wait(650);
    await Promise.all([
      this.walkStaff(staff,[approach,{x:approach.x,y:WORLD.corridorY},{x:service.x,y:WORLD.corridorY},service,this.doorInside(s),this.staffAisle(s),home]),
      this.walkContainer(student,[{x:student.x,y:student.y},{x:student.x,y:WORLD.corridorY},{x:service.x,y:WORLD.corridorY},service],true)
@@ -512,10 +518,10 @@ class CampusScene extends Phaser.Scene{
  async escort(app,fromId,toId){
    const from=STATIONS[fromId],to=STATIONS[toId],student=this.students[app.id],staff=this.staffByStation[fromId].slice(-1)[0],home={...staff.home||this.staffHomes.get(staff)},start=this.servicePoint(from),dest=this.servicePoint(to);
    await this.walkStaff(staff,[{x:staff.x,y:staff.y},{x:from.x,y:staff.y},this.staffAisle(from),this.doorInside(from),start]);
-   chime('handoff');this.bubbleAt(staff.x,staff.y-68,'This way to '+to.label+' →',1000);await wait(430);
+   chime('handoff');this.bubbleAt(staff.x,staff.y-82,'This way to '+to.label+' →',1000);await wait(430);
    const route=this.corridorRoute(start,dest);
    await Promise.all([this.walkStaff(staff,route),this.walkContainer(student,route,true)]);
-   this.bubbleAt(dest.x,dest.y-68,'Welcome to '+to.label,750);
+   this.bubbleAt(dest.x,dest.y-82,'Welcome to '+to.label,750);
    const back=this.corridorRoute(dest,start).concat([this.doorInside(from),this.staffAisle(from),home]);
    await this.walkStaff(staff,back);staff.setPosition(home.x,home.y);this.sitStaff(staff);app.station=toId;
  }
@@ -524,7 +530,7 @@ class CampusScene extends Phaser.Scene{
    await this.activateTask('orientation',0,app);
    const seat=ORIENTATION_SEATS[Math.min(orientationQueue.length,ORIENTATION_SEATS.length-1)];
    const path=[{x:student.x,y:student.y},this.doorInside(s),{x:s.x,y:1125},seat];
-   this.bubbleAt(student.x,student.y-70,'Waiting for orientation session…',900);
+   this.bubbleAt(student.x,student.y-82,'Waiting for orientation session…',900);
    await this.walkContainer(student,path,true);
    app.status='orientation_waiting';app.station='orientation';app.orientationSeat=seat;orientationQueue.push(app.id);
    if(student.bodySprite)this.setChibiSitting(student.bodySprite,true);
@@ -543,7 +549,7 @@ class CampusScene extends Phaser.Scene{
  async activateBatchTask(stationId,index,participants,eventLabel){
    const s=STATIONS[stationId],staff=this.staffByStation[stationId][index],task=s.tasks[index];if(!staff)return;
    if(this.activeRing)this.activeRing.destroy();this.activeRing=this.add.ellipse(staff.x,staff.y+17,54,24,0x7656c5,.18).setStrokeStyle(3,0x7656c5,1).setDepth(15);
-   this.standStaff(staff);this.bubbleAt(staff.x,staff.y-68,eventLabel||task.replace(' Agent',''),950);
+   this.standStaff(staff);this.bubbleAt(staff.x,staff.y-82,eventLabel||task.replace(' Agent',''),950);
    updateGroupEvent(participants,s.label,'COHORT_PROCESSING',task,task,'Process '+participants.length+' students together',index===s.tasks.length-1?'Ready for next stage':s.tasks[index+1]);
    log(task,'COHORT_PROCESSING',participants.length+' students are being processed together by '+task+'.');
    await wait(850);
@@ -576,7 +582,7 @@ class CampusScene extends Phaser.Scene{
  async escortGroup(participants,fromId,toId){
    const from=STATIONS[fromId],to=STATIONS[toId],staff=this.staffByStation[fromId].slice(-1)[0],home={...staff.home||this.staffHomes.get(staff)},start=this.servicePoint(from),dest=this.servicePoint(to);
    await this.walkStaff(staff,[{x:staff.x,y:staff.y},{x:from.x,y:staff.y},this.staffAisle(from),this.doorInside(from),start]);
-   chime('handoff');this.bubbleAt(staff.x,staff.y-68,'Cohort, this way to '+to.label+' →',1200);
+   chime('handoff');this.bubbleAt(staff.x,staff.y-82,'Cohort, this way to '+to.label+' →',1200);
    const staffRoute=this.corridorRoute(start,dest);
    const walks=participants.map((app,i)=>{
      const c=this.students[app.id],off=GROUP_OFFSETS[i%GROUP_OFFSETS.length];
@@ -605,7 +611,7 @@ class CampusScene extends Phaser.Scene{
    const s=STATIONS[stationId],staff=this.staffByStation[stationId][index],task=s.tasks[index];if(!staff)return;
    if(this.activeRing)this.activeRing.destroy();this.activeRing=this.add.ellipse(staff.x,staff.y+17,50,22,0x2ebd89,.17).setStrokeStyle(3,0x2ebd89,1).setDepth(15);
    this.standStaff(staff);this.tweens.add({targets:staff,y:staff.home.y-7,duration:180,yoyo:true});
-   this.bubbleAt(staff.x,staff.y-68,task.replace(' Agent',''),470);
+   this.bubbleAt(staff.x,staff.y-82,task.replace(' Agent',''),470);
    updateEvent(app,s.label,'TASK_PROCESSING',task,task,'Processing '+task,index===s.tasks.length-1?'Ready for next station':s.tasks[index+1]);
    log(task,'TASK_PROCESSING',app.name+' is being processed by '+task+'.');await wait(410);
    if(this.activeRing){this.activeRing.destroy();this.activeRing=null;}staff.setPosition(staff.home.x,staff.home.y);this.sitStaff(staff);
