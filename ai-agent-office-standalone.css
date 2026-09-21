@@ -94,7 +94,7 @@ select{min-width:220px}
 .dot.receiving{background:var(--purple);box-shadow:0 0 10px rgba(161,125,255,.75)}
 .dot.waiting{background:var(--amber);box-shadow:0 0 10px rgba(255,199,106,.7)}
 .office-stage{
-  position:relative;min-height:840px;overflow:hidden;
+  position:relative;min-height:1500px;overflow:hidden;
   background:
     linear-gradient(rgba(70,110,165,.055) 1px,transparent 1px),
     linear-gradient(90deg,rgba(70,110,165,.055) 1px,transparent 1px),
@@ -110,11 +110,11 @@ select{min-width:220px}
   border-radius:999px;background:rgba(6,15,32,.9);color:#7f93bf;font-size:8px;font-weight:900;letter-spacing:.16em;z-index:4
 }
 .corridor{position:absolute;background:rgba(59,100,160,.05);border:1px dashed rgba(99,146,214,.08);pointer-events:none}
-.corridor-v{width:12%;left:44%;top:7%;bottom:6%}
+.corridor-v{width:8%;left:46%;top:2%;bottom:2%}
 .corridor-h{height:9%;left:6%;right:6%}
-.corridor-h.c1{top:31%}.corridor-h.c2{top:54%}.corridor-h.c3{top:76%}
+.corridor-h.c1{top:34%}.corridor-h.c2{top:62%}.corridor-h.c3{top:89%}
 .agent-desk{
-  position:absolute;left:var(--x);top:var(--y);transform:translate(-50%,-50%);width:170px;min-height:98px;
+  position:absolute;left:var(--x);top:var(--y);transform:translate(-50%,-50%);width:136px;min-height:86px;
   border:1px solid rgba(128,163,226,.18);border-radius:15px;padding:10px;background:linear-gradient(145deg,rgba(14,34,70,.94),rgba(7,18,39,.94));
   color:white;text-align:left;box-shadow:0 12px 34px rgba(0,0,0,.25);z-index:8;transition:.2s transform,.2s border-color,.2s box-shadow
 }
@@ -125,15 +125,15 @@ select{min-width:220px}
 }
 .desk-top{display:flex;align-items:center;gap:8px;position:relative}
 .desk-avatar{
-  width:34px;height:34px;border-radius:10px;display:grid;place-items:center;font-size:10px;font-weight:950;letter-spacing:.03em;
+  width:30px;height:30px;border-radius:10px;display:grid;place-items:center;font-size:10px;font-weight:950;letter-spacing:.03em;
   background:linear-gradient(145deg,rgba(255,255,255,.14),rgba(255,255,255,.04));border:1px solid rgba(255,255,255,.12)
 }
 .desk-copy{min-width:0;flex:1}
-.desk-copy b{font-size:10px;display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.desk-copy b{font-size:9px;display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .desk-copy small{font-size:7px;color:#7f93b8;display:block;margin-top:2px;text-transform:uppercase;letter-spacing:.06em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .state-badge{font-size:7px;font-weight:900;padding:4px 5px;border:1px solid var(--line);border-radius:999px;color:#8da0c6}
-.desk-task{font-size:8px;color:#a8b5d4;margin-top:9px;line-height:1.35;min-height:22px;position:relative}
-.desk-case{font-size:7px;color:#657ca7;margin-top:6px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;position:relative}
+.desk-task{font-size:7.5px;color:#a8b5d4;margin-top:7px;line-height:1.35;min-height:19px;position:relative}
+.desk-case{font-size:6.5px;color:#657ca7;margin-top:5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;position:relative}
 .agent-desk.working{border-color:rgba(68,228,180,.35);box-shadow:0 0 0 1px rgba(68,228,180,.06),0 18px 48px rgba(0,0,0,.28),0 0 28px rgba(68,228,180,.08)}
 .agent-desk.working .state-badge{color:#aaffdf;border-color:rgba(68,228,180,.3)}
 .agent-desk.receiving,.agent-desk.handover{border-color:rgba(161,125,255,.42)}
@@ -214,7 +214,7 @@ select{min-width:220px}
   .live-metrics{grid-template-columns:repeat(4,1fr)}
   .workspace-grid{grid-template-columns:1fr}
   .side-stack{grid-template-columns:1fr 1fr}
-  .office-stage{min-height:820px}
+  .office-stage{min-height:1500px}
 }
 @media(max-width:860px){
   .topbar{align-items:flex-start}.top-actions{display:none}.shell{padding:12px}
@@ -222,14 +222,16 @@ select{min-width:220px}
   .live-connect{width:100%;margin-left:0}.live-connect input{flex:1;width:auto}
   .live-metrics{grid-template-columns:repeat(2,1fr)}
   .side-stack{grid-template-columns:1fr}
-  .office-stage{min-height:1020px;overflow:auto}
-  .agent-desk{width:145px}
+  .office-stage{min-height:1500px;overflow:auto}
+  .agent-desk{width:132px}
 }
 @media(max-width:560px){
   .brand small{display:none}.hero-state{grid-template-columns:1fr}.live-metrics{grid-template-columns:1fr 1fr}
   .control-block,select{width:100%}.primary-btn,.control-btn{flex:1}.live-connect{flex-direction:column;align-items:stretch}
-  .office-stage{min-width:760px}.office-panel{overflow:auto}
+  .office-stage{min-width:1200px}.office-panel{overflow:auto}
 }
 @media(prefers-reduced-motion:reduce){
   *{scroll-behavior:auto!important}.avatar-bot,.task-orb{animation:none!important}
 }
+/* Dedicated-agent floor: wide aisles plus obstacle-aware JS routing keep avatars off desks. */
+.agent-desk{z-index:12}.avatar-runner{z-index:50}.corridor{z-index:1}.floor-title{z-index:60}
