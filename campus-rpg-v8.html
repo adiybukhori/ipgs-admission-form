@@ -1,0 +1,101 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>IUC Campus RPG Admissions V8</title>
+  <meta name="theme-color" content="#efe9dc">
+  <link rel="stylesheet" href="/campus-rpg-v8.css">
+</head>
+<body>
+<header class="topbar">
+  <div class="brand">
+    <div class="brand-mark">IUC</div>
+    <div>
+      <small>INNOVATIVE UNIVERSITY COLLEGE · IPGS</small>
+      <h1>Campus RPG Admissions <span>V8 POLISHED</span></h1>
+    </div>
+  </div>
+  <div class="top-actions">
+    <span class="status-pill"><i></i> High-detail Chibi Campus</span>
+    <a href="/campus-rpg-v7.html">V7</a>
+    <a href="/ai-operations-center.html">AI Operations Center</a>
+  </div>
+</header>
+
+<main class="page">
+  <section class="toolbar">
+    <label>Applicant Route
+      <select id="routeSelect">
+        <option value="prerequisite">IA → Prerequisite · Full Journey</option>
+        <option value="direct">Direct Entry · Full Journey</option>
+        <option value="ia">IA Sufficient · Full Journey</option>
+      </select>
+    </label>
+    <button id="processBtn" class="primary">▶ Call Next Applicant</button>
+    <button id="orientationBtn" class="batch" disabled>▶ Run Orientation Batch (0)</button>
+    <button id="pauseBtn" disabled>Pause</button>
+    <button id="resetBtn">Reset</button>
+    <span class="divider"></span>
+    <button id="followBtn" class="active-toggle">Follow Active</button>
+    <button id="fullMapBtn">Full Map</button>
+    <button id="zoomInBtn">＋</button>
+    <button id="zoomOutBtn">－</button>
+    <button id="hudBtn">Hide HUD</button>
+    <div class="live-connect">
+      <input id="adminPassword" type="password" placeholder="Admin password">
+      <button id="connectBtn">Connect Live ACC</button>
+    </div>
+  </section>
+
+  <section class="game-layout" id="gameLayout">
+    <div class="game-card">
+      <div class="game-head">
+        <div>
+          <span class="eyebrow">IUC · IPGS VIRTUAL CAMPUS</span>
+          <h2>Admissions Centre — High-detail Chibi Simulation</h2>
+        </div>
+        <div class="game-stats">
+          <div><small>Waiting</small><strong id="waitingCount">5</strong></div>
+          <div><small>Active</small><strong id="activeCase">—</strong></div>
+          <div><small>Station</small><strong id="activeStation">Entrance</strong></div>
+          <div><small>Orientation Waiting</small><strong id="orientationCount">0</strong></div>
+        </div>
+      </div>
+      <div id="rpg-stage">
+        <div class="stage-hint">Drag to pan · Wheel to zoom · WASD / arrow keys · Click staff/student for details</div>
+        <div class="scene-badge">OPEN-SOURCE RPG VIEW</div>
+      </div>
+    </div>
+
+    <aside class="hud" id="hud">
+      <section class="hud-card current">
+        <span class="eyebrow">CURRENT EVENT</span>
+        <h3 id="eventName">Waiting for applicant</h3>
+        <div class="row"><small>Applicant</small><b id="eventApplicant">—</b></div>
+        <div class="row"><small>Task Agent</small><b id="eventAgent">—</b></div>
+        <div class="row"><small>Task</small><b id="eventTask">—</b></div>
+        <div class="row"><small>Action</small><b id="eventAction">—</b></div>
+        <div class="row"><small>Next</small><b id="eventNext">—</b></div>
+      </section>
+
+      <section class="hud-card">
+        <div class="hud-title">
+          <div><span class="eyebrow">LIVE JOURNEY</span><h3>Activity Stream</h3></div>
+          <span id="modeBadge">SIMULATION</span>
+        </div>
+        <div id="activityFeed" class="feed"><div class="empty">No activity yet.</div></div>
+      </section>
+
+      <section class="hud-card small-card">
+        <span class="eyebrow">V8 UPGRADE</span>
+        <p>High-detail vector chibi actors replace the tiny pixel characters. Staff and students now have expressive faces, hair, uniforms, backpacks, lanyards, walking limb animation, sitting poses, larger scale, shadows and smooth movement while the V7 room-specific campus and cohort logic remain.</p>
+      </section>
+    </aside>
+  </section>
+</main>
+
+<script src="https://cdn.jsdelivr.net/npm/phaser@3.90.0/dist/phaser.min.js"></script>
+<script src="/campus-rpg-v8.js"></script>
+</body>
+</html>
