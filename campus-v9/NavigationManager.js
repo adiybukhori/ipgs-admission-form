@@ -1,0 +1,9 @@
+// All actors use the same padded, four-connected navigation grid. No corner cutting.
+export class NavigationManager{
+ constructor(w,h,cell=20){this.cell=cell;this.cols=Math.ceil(w/cell);this.rows=Math.ceil(h/cell);this.blocked=new Uint8Array(this.cols*this.rows);this.obstacles=[];}
+ block(x,y,w,h,pad=18){this.obstacles.push({x,y,w,h});for(let row=Math.max(0,Math.floor((y-pad)/this.cell));row<=Math.min(this.rows-1,Math.floor((y+h+pad)/this.cell));row++)for(let col=Math.max(0,Math.floor((x-pad)/this.cell));col<=Math.min(this.cols-1,Math.floor((x+w+pad)/this.cell));col++)this.blocked[row*this.cols+col]=1;}
+ index(p){return Math.max(0,Math.min(this.rows-1,Math.floor(p.y/this.cell)))*this.cols+Math.max(0,Math.min(this.cols-1,Math.floor(p.x/this.cell)));}
+ point(i){return{x:(i%this.cols+.5)*this.cell,y:(Math.floor(i/this.cols)+.5)*this.cell};}
+ nearest(p){let i=this.index(p);if(!this.blocked[i])return i;for(let r=1;r<25;r++)for(let dy=-r;dy<=r;dy++)for(let dx=-r;dx<=r;dx++){const c=i%this.cols+dx,row=Math.floor(i/this.cols)+dy;if(c>=0&&c<this.cols&&row>=0&&row<this.rows&&!this.blocked[row*this.cols+c])return row*this.cols+c;}throw Error('No accessible navigation point');}
+ path(from,to){const start=this.nearest(from),end=this.nearest(to);if(start===end)return[this.point(end)];const queue=[start],prev=new Int32Array(this.blocked.length).fill(-1);prev[start]=start;let head=0;while(head<queue.length){const i=queue[head++];if(i===end)break;const col=i%this.cols;for(const n of [col>0?i-1:-1,col<this.cols-1?i+1:-1,i-this.cols,i+this.cols])if(n>=0&&n<prev.length&&!this.blocked[n]&&prev[n]===-1){prev[n]=i;queue.push(n);}}if(prev[end]===-1)throw Error('No collision-safe path');const path=[];for(let i=end;i!==start;i=prev[i])path.push(this.point(i));path.reverse();return path.filter((p,i,a)=>!i||i===a.length-1||(p.x-a[i-1].x)!==(a[i+1].x-p.x)||(p.y-a[i-1].y)!==(a[i+1].y-p.y));}
+}
