@@ -238,6 +238,13 @@
       originalOperational(r);
       const s=stage(r);
       if(s!=='INTERNAL_ASSESSMENT'&&s!=='PREREQUISITE')return;
+      const panel=document.getElementById('opsPanel');
+      const actions=panel?.querySelector('.ops-actions');
+      const copy=panel?.querySelector('.ops-copy');
+      if(actions)actions.innerHTML=pgAdm01Control(r)+'<span class="badge purple">Use controlled workspace below</span>';
+      if(copy)copy.textContent=s==='INTERNAL_ASSESSMENT'
+        ?'Complete and document the IA evidence, diagnostic assessment and structured panel interview before recording the authorised outcome.'
+        :'Complete the approved prerequisite course, assessment, moderation and result endorsement before releasing progression.';
       const msg=document.getElementById('opsMessage');
       if(!msg)return;
       msg.insertAdjacentHTML('beforebegin',s==='INTERNAL_ASSESSMENT'?iaWorkspace(r):prereqWorkspace(r));
