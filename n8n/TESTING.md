@@ -208,3 +208,34 @@ Expected:
 - SAC_SESSION_REQUIRED appears in V2_HUMAN_TASKS / ACC Decision Desk.
 - Human may select an existing session or create a controlled draft session from Decision Desk.
 - After session confirmation, the agent assigns the candidate, prepares the pack and creates SAC_DECISION_REQUIRED.
+
+
+## Test M — Accepted student to Orientation
+
+Use a controlled student whose acceptance pack is fully signed and workflow status becomes ACCEPTED.
+
+Expected:
+- ACCEPTANCE_COMPLETED is emitted only after final acceptance succeeds.
+- Orchestrator routes to Orientation Management Agent.
+- Agent selects an existing suitable future Orientation Session when available.
+- Student is assigned.
+- Invitation Status becomes SENT.
+- D3/D2/D1/H1 reminder automation reports ACTIVE.
+- No duplicate n8n reminder scheduler is created.
+- Agent event becomes ORIENTATION_ASSIGNED_AND_INVITED.
+
+## Test N — No Orientation session available
+
+Expected:
+- Applicant remains accepted.
+- ORIENTATION_SESSION_REQUIRED appears in V2_HUMAN_TASKS / ACC Decision Desk.
+- Human may select an existing open session or create a new scheduled session in the Decision Desk.
+- After confirmation, the agent resumes automatically, assigns the student, sends the invitation and verifies reminder automation.
+
+## Test O — Orientation invitation failure
+
+Expected:
+- Student remains assigned to the selected Orientation Session.
+- Invitation Status is not treated as success.
+- ORIENTATION_INVITATION_FAILURE is created as a high-priority human task.
+- Agent does not mark the orientation intake task complete.
