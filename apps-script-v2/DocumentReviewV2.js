@@ -277,15 +277,15 @@ function v2RunDocumentReview(referenceNo, reviewer, remarks) {
       if (typeof v2AgenticEnabled_ === 'function' && v2AgenticEnabled_()) {
         agenticHandoff = v2EmitAgentEvent_({
           referenceNo:reference,
-          eventType:'DOCUMENT_REVIEW_COMPLETED',
+          eventType:'DOCUMENT_COMPLETENESS_CONFIRMED',
           agentId:'ORCHESTRATOR',
           agentName:'AI Orchestrator',
-          action:'ROUTE_ADMISSION_INTELLIGENCE',
+          action:'ROUTE_COMPLIANCE',
           status:'QUEUED',
           fromStage:'DOCUMENT_REVIEW',
-          toStage:'QUALIFICATION_SCREENING',
+          toStage:'DOCUMENT_REVIEW',
           source:'ADMISSION_V2',
-          summary:'Document review is complete. Route applicant to Admission Intelligence Agent.',
+          summary:'Deterministic completeness is complete. Route applicant to Compliance & Records Agent for document-quality inspection.',
           data:{
             documentReviewStatus:status,
             missingCount:missingDocuments.length,
@@ -297,7 +297,7 @@ function v2RunDocumentReview(referenceNo, reviewer, remarks) {
       if (agenticHandoff && agenticHandoff.sent) {
         autoAiScreening = {
           ok:true,
-          status:'HANDED_TO_N8N',
+          status:'HANDED_TO_N8N_COMPLIANCE',
           eventId:agenticHandoff.eventId,
           manualScreeningAvailable:true
         };
@@ -333,7 +333,7 @@ function v2RunDocumentReview(referenceNo, reviewer, remarks) {
 
     nextAction:
       status === 'COMPLETE'
-        ? 'QUALIFICATION_SCREENING'
+        ? (agenticHandoff && agenticHandoff.sent ? 'COMPLIANCE_DOCUMENT_QUALITY' : 'QUALIFICATION_SCREENING')
         : 'REQUEST_MISSING_DOCUMENTS',
 
     applicationStage: 'DOCUMENT_REVIEW',
