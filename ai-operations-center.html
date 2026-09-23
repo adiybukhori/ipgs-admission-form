@@ -695,28 +695,58 @@
     const report=ai['Report PDF URL']||'';
     const taskType=String(task['Task Type']||'').toUpperCase();
 
+    const doc=(state.docReview||[]).filter(r=>String(r['Reference No']||'')===ref).slice(-1)[0]||{};
+    let qualityFindings=[];
+    try{qualityFindings=JSON.parse(doc['AI Quality Findings JSON']||'[]')}catch(_){}
+    if(!Array.isArray(qualityFindings))qualityFindings=[];
+    const qualityFindingHtml=qualityFindings.slice(0,8).map(x=>{
+      const issues=Array.isArray(x?.issues)?x.issues.filter(Boolean):[];
+      return '<div><small>'+escapeHtml(x?.label||x?.field||'Document')+'</small><b>'+escapeHtml(x?.status||'REVIEW')+(issues.length?' · '+escapeHtml(issues.join('; ')):'')+'</b></div>';
+    }).join('');
+
     const overlay=document.createElement('div');
     overlay.id='humanTaskOverlay';overlay.className='agent-detail-overlay';
-    const screeningForm=taskType==='ADMISSION_SCREENING_REVIEW'?
-      '<div class="human-task-form">'+
-        '<div class="human-task-evidence">'+
-          '<div><small>AI Field Relationship</small><b>'+escapeHtml(field)+'</b></div>'+
-          '<div><small>AI Relevant Work Experience</small><b>'+escapeHtml(exp)+'</b></div>'+
-          '<div><small>Transcript Result</small><b>'+escapeHtml(grade)+'</b></div>'+
-          '<div><small>AI Report</small><b>'+(report?'<a href="'+escapeHtml(report)+'" target="_blank" rel="noopener" style="color:#8fc8ff">Open PDF</a>':'Not generated')+'</b></div>'+
-        '</div>'+
-        '<label>Authorised Screening Route<select id="humanTaskRoute"><option value="">Select authorised route</option><option value="DIRECT_ENTRY">Direct Entry</option><option value="NORMAL_ADMISSION_SCREENING">Normal Admission</option><option value="INTERNAL_ASSESSMENT">Internal Assessment (IA)</option><option value="NOT_ELIGIBLE_CONVENTIONAL">Not Eligible - Conventional</option></select></label>'+
-        '<label>Grade Equivalency / Academic Confirmation Note<textarea id="humanTaskEquiv" placeholder="Example: First Division confirmed by IUC as meeting the applicable entry threshold. State basis/source where applicable."></textarea></label>'+
-        '<details><summary style="cursor:pointer;color:#8f99bd;font-size:9px;font-weight:900">Override AI answers only if required</summary><div class="human-task-evidence" style="margin-top:9px">'+
-          '<label>Field Relationship<select id="humanTaskField"><option value="">Use AI result</option><option value="RELATED">Related</option><option value="PARTIALLY_RELATED">Partially Related</option><option value="NON_RELATED">Non-Related</option></select></label>'+
-          '<label>Relevant Work Experience<select id="humanTaskExp"><option value="">Use AI result</option><option value="YES">Yes</option><option value="NO">No</option></select></label>'+
-        '</div></details>'+
-        '<label>Resolution Notes<textarea id="humanTaskNotes" placeholder="Optional internal note"></textarea></label>'+
-        '<div class="human-task-actions"><button type="button" onclick="document.getElementById(\'humanTaskOverlay\').remove()">Cancel</button><button id="humanTaskConfirmBtn" class="confirm" type="button" onclick="confirmHumanScreeningTask(\''+escapeHtml(taskId)+'\')">Confirm & Continue to SAC</button></div>'+
-      '</div>':
-      '<div class="human-task-form"><div class="human-task-evidence"><div><small>Task Type</small><b>'+escapeHtml(task['Task Type']||'')+'</b></div><div><small>Priority</small><b>'+escapeHtml(task['Priority']||'NORMAL')+'</b></div></div><p style="font-size:10px;color:#a9b2d2;line-height:1.6">This task is currently read-only in the Decision Desk. Resolve it through the relevant operational module until its authorised handler is connected.</p><div class="human-task-actions"><button type="button" onclick="document.getElementById(\'humanTaskOverlay\').remove()">Close</button></div></div>';
+    let taskForm='';
+    if(taskType==='ADMISSION_SCREENING_REVIEW'){
+      taskForm=
+        '<div class="human-task-form">'+
+          '<div class="human-task-evidence">'+
+            '<div><small>AI Field Relationship</small><b>'+escapeHtml(field)+'</b></div>'+
+            '<div><small>AI Relevant Work Experience</small><b>'+escapeHtml(exp)+'</b></div>'+
+            '<div><small>Transcript Result</small><b>'+escapeHtml(grade)+'</b></div>'+
+            '<div><small>AI Report</small><b>'+(report?'<a href="'+escapeHtml(report)+'" target="_blank" rel="noopener" style="color:#8fc8ff">Open PDF</a>':'Not generated')+'</b></div>'+
+          '</div>'+
+          '<label>Authorised Screening Route<select id="humanTaskRoute"><option value="">Select authorised route</option><option value="DIRECT_ENTRY">Direct Entry</option><option value="NORMAL_ADMISSION_SCREENING">Normal Admission</option><option value="INTERNAL_ASSESSMENT">Internal Assessment (IA)</option><option value="NOT_ELIGIBLE_CONVENTIONAL">Not Eligible - Conventional</option></select></label>'+
+          '<label>Grade Equivalency / Academic Confirmation Note<textarea id="humanTaskEquiv" placeholder="State the approved equivalency / academic confirmation basis where applicable."></textarea></label>'+
+          '<details><summary style="cursor:pointer;color:#8f99bd;font-size:9px;font-weight:900">Override AI answers only if required</summary><div class="human-task-evidence" style="margin-top:9px">'+
+            '<label>Field Relationship<select id="humanTaskField"><option value="">Use AI result</option><option value="RELATED">Related</option><option value="PARTIALLY_RELATED">Partially Related</option><option value="NON_RELATED">Non-Related</option></select></label>'+
+            '<label>Relevant Work Experience<select id="humanTaskExp"><option value="">Use AI result</option><option value="YES">Yes</option><option value="NO">No</option></select></label>'+
+          '</div></details>'+
+          '<label>Resolution Notes<textarea id="humanTaskNotes" placeholder="Optional internal note"></textarea></label>'+
+          '<div class="human-task-actions"><button type="button" onclick="document.getElementById(\'humanTaskOverlay\').remove()">Cancel</button><button id="humanTaskConfirmBtn" class="confirm" type="button" onclick="confirmHumanScreeningTask(\''+escapeHtml(taskId)+'\')">Confirm & Continue to SAC</button></div>'+
+        '</div>';
+    }else if(taskType==='DOCUMENT_QUALITY_REVIEW'){
+      taskForm=
+        '<div class="human-task-form">'+
+          '<div class="human-task-evidence">'+
+            '<div><small>AI Quality Status</small><b>'+escapeHtml(doc['AI Quality Status']||'HUMAN REVIEW REQUIRED')+'</b></div>'+
+            '<div><small>AI Confidence</small><b>'+escapeHtml(doc['AI Quality Confidence']?Math.round(Number(doc['AI Quality Confidence'])*100)+'%':'—')+'</b></div>'+
+            (qualityFindingHtml||'<div><small>AI Finding</small><b>Review the source document and recorded reason above.</b></div>')+
+          '</div>'+
+          '<label>Human Review Note<textarea id="humanQualityNotes" placeholder="Record what you verified. Do not make an academic admission decision here."></textarea></label>'+
+          '<label>Replacement Instruction (only if replacement is required)<textarea id="humanQualityReplacement" placeholder="Example: Please upload the full transcript again; the bottom section of page 2 is cut off."></textarea></label>'+
+          '<div class="human-task-actions">'+
+            '<button type="button" onclick="document.getElementById(\'humanTaskOverlay\').remove()">Cancel</button>'+
+            '<button id="humanQualityReplaceBtn" type="button" onclick="resolveHumanQualityTask(\''+escapeHtml(taskId)+'\',\'FOLLOW_UP_REQUIRED\')">Require Replacement</button>'+
+            '<button id="humanQualityPassBtn" class="confirm" type="button" onclick="resolveHumanQualityTask(\''+escapeHtml(taskId)+'\',\'PASS\')">Confirm Quality PASS</button>'+
+          '</div>'+
+        '</div>';
+    }else{
+      taskForm=
+        '<div class="human-task-form"><div class="human-task-evidence"><div><small>Task Type</small><b>'+escapeHtml(task['Task Type']||'')+'</b></div><div><small>Priority</small><b>'+escapeHtml(task['Priority']||'NORMAL')+'</b></div></div><p style="font-size:10px;color:#a9b2d2;line-height:1.6">This task is currently read-only in the Decision Desk. Resolve it through the relevant operational module until its authorised handler is connected.</p><div class="human-task-actions"><button type="button" onclick="document.getElementById(\'humanTaskOverlay\').remove()">Close</button></div></div>';
+    }
 
-    overlay.innerHTML='<div class="agent-detail-card"><div class="agent-detail-head"><div class="agent-detail-title"><div class="avatar">⚖</div><div><h3>'+escapeHtml(task['Title']||'Human Decision')+'</h3><p>'+escapeHtml(task['Student Name']||ref)+' · '+escapeHtml(ref)+'</p></div></div><button type="button" onclick="document.getElementById(\'humanTaskOverlay\').remove()">Close</button></div><div class="agent-detail-body"><p>'+escapeHtml(task['Reason']||'Human authority is required.')+'</p>'+screeningForm+'</div></div>';
+    overlay.innerHTML='<div class="agent-detail-card"><div class="agent-detail-head"><div class="agent-detail-title"><div class="avatar">⚖</div><div><h3>'+escapeHtml(task['Title']||'Human Decision')+'</h3><p>'+escapeHtml(task['Student Name']||ref)+' · '+escapeHtml(ref)+'</p></div></div><button type="button" onclick="document.getElementById(\'humanTaskOverlay\').remove()">Close</button></div><div class="agent-detail-body"><p>'+escapeHtml(task['Reason']||'Human authority is required.')+'</p>'+taskForm+'</div></div>';
     document.body.appendChild(overlay);
     overlay.onclick=e=>{if(e.target===overlay)overlay.remove();};
   }
@@ -754,6 +784,52 @@
       if(btn){btn.disabled=false;btn.textContent='Confirm & Continue to SAC';}
     }
   }
+
+  async function resolveHumanQualityTask(taskId,qualityDecision){
+    const pass=String(qualityDecision||'').toUpperCase()==='PASS';
+    const notes=(document.getElementById('humanQualityNotes')?.value||'').trim();
+    const replacement=(document.getElementById('humanQualityReplacement')?.value||'').trim();
+    if(!pass&&!replacement){
+      alert('Please provide a clear replacement instruction for the student.');
+      return;
+    }
+    const passBtn=document.getElementById('humanQualityPassBtn');
+    const replaceBtn=document.getElementById('humanQualityReplaceBtn');
+    if(passBtn)passBtn.disabled=true;
+    if(replaceBtn)replaceBtn.disabled=true;
+    try{
+      const res=await fetch('/api/admin-action',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({
+        password,
+        action:'v2ResolveHumanTask',
+        updatedBy:'ACC Human Decision Desk',
+        data:{
+          taskId,
+          decision:pass?'CONFIRM':'REQUEST_EVIDENCE',
+          notes,
+          resolution:{
+            documentQualityDecision:pass?'PASS':'FOLLOW_UP_REQUIRED',
+            qualityNotes:notes,
+            replacementInstruction:replacement
+          }
+        }
+      })});
+      const out=await res.json();
+      if(!res.ok||!out.ok)throw new Error(out.message||'Unable to record document quality resolution.');
+      document.getElementById('humanTaskOverlay')?.remove();
+      await loadOps();
+      await loadAgentRuntime();
+      const resolvedRef=out.result?.referenceNo||'';
+      if(resolvedRef){
+        const sel=document.getElementById('journeySelect');
+        if(sel){sel.value=resolvedRef;renderStudentJourney(resolvedRef);}
+      }
+    }catch(e){
+      alert(e.message||'Unable to record document quality resolution.');
+      if(passBtn)passBtn.disabled=false;
+      if(replaceBtn)replaceBtn.disabled=false;
+    }
+  }
+
 
   function renderJourneyOptions(){
     const sel=document.getElementById('journeySelect'); if(!sel)return;
@@ -907,6 +983,7 @@
 
   window.openHumanTaskResolution=openHumanTaskResolution;
   window.confirmHumanScreeningTask=confirmHumanScreeningTask;
+  window.resolveHumanQualityTask=resolveHumanQualityTask;
   window.renderStudentJourney=renderStudentJourney;
   loadOps();
   startAgentRuntimePolling();
