@@ -191,3 +191,210 @@ function v2OrientationAgentFindUpcomingSession_(workflow,application){
   });
   return candidates[0]||null;
 }
+
+
+function v2RunOrientationSessionSupervisor_(data,actor){
+  assertDevIdentity_();
+  v2OrientationEnsureHeaders_();
+  const input=data||{};
+  const owner=String(actor||'Orientation Management Agent').trim();
+  const now=new Date();
+  const graceMinutes=Math.max(0,Number(input.closeGraceMinutes||30));
+  const targetSessionId=String(input.sessionId||'').trim();
+
+  const sessions=v2Rows_('V2_ORIENTATION_SESSIONS').filter(function(row){
+    if(targetSessionId && String(row['Orientation Session ID']||'')!==targetSessionId)return false;
+    const status=String(row['Status']||'SCHEDULED').toUpperCase();
+    return ['CANCELLED','COMPLETED','CLOSED'].indexOf(status)<0;
+  });
+
+  const results=[];
+  sessions.forEach(function(row){
+    const sessionId=String(row['Orientation Session ID']||'').trim();
+    if(!sessionId)return;
+    const start=typeof v2OrientationSessionStart_==='function'?v2OrientationSessionStart_(row):null;
+    const end=typeof v2OrientationSessionEnd_==='function'?v2OrientationSessionEnd_(row):null;
+    if(!start||!end){
+      results.push({sessionId:sessionId,status:'SKIPPED_INVALID_SCHEDULE'});
+      return;
+    }
+
+    const assigned=v2Rows_('V2_ORIENTATION_TRACKING').filter(function(x){
+      return String(x['Orientation Session ID']||'')===sessionId &&
+        (typeof v2OrientationAssignmentActive_!=='function'||v2OrientationAssignmentActive_(x));
+    });
+    if(!assigned.length){
+      results.push({sessionId:sessionId,status:'WAITING_STUDENTS'});
+      return;
+    }
+
+    let current=v2Find_('V2_ORIENTATION_SESSIONS','Orientation Session ID',sessionId);
+    let attendanceStatus=String(current.record['Attendance Status']||'NOT_OPEN').toUpperCase();
+
+    if(now.getTime()>=start.getTime() && now.getTime()<end.getTime()+graceMinutes*60000 &&
+       ['OPEN','CLOSED'].indexOf(attendanceStatus)<0){
+      try{
+        v2OpenOrientationAttendance_({sessionId:sessionId},owner);
+        current=v2Find_('V2_ORIENTATION_SESSIONS','Orientation Session ID',sessionId);
+        attendanceStatus=String(current.record['Attendance Status']||'').toUpperCase();
+      }catch(openError){
+        results.push({sessionId:sessionId,status:'OPEN_ATTENDANCE_FAILED',error:String(openError&&openError.message||openError)});
+        return;
+      }
+    }
+
+    if(now.getTime()<end.getTime()+graceMinutes*60000){
+      results.push({
+        sessionId:sessionId,
+        status:attendanceStatus==='OPEN'?'ATTENDANCE_OPEN':'WAITING_SESSION_END',
+        attendanceStatus:attendanceStatus
+      });
+      return;
+    }
+
+    if(attendanceStatus!=='CLOSED'){
+      try{
+        v2CloseOrientationAttendance_({sessionId:sessionId},owner);
+      }catch(closeError){
+        results.push({sessionId:sessionId,status:'CLOSE_ATTENDANCE_FAILED',error:String(closeError&&closeError.message||closeError)});
+        return;
+      }
+    }
+
+    current=v2Find_('V2_ORIENTATION_SESSIONS','Orientation Session ID',sessionId);
+    const currentStatus=String(current.record['Status']||'').toUpperCase();
+    if(currentStatus!=='ENDED'){
+      try{
+        v2EndOrientationSession_({sessionId:sessionId},owner);
+      }catch(endError){
+        results.push({sessionId:sessionId,status:'END_SESSION_FAILED',error:String(endError&&endError.message||endError)});
+        return;
+      }
+    }
+
+    const activeRows=v2Rows_('V2_ORIENTATION_TRACKING').filter(function(x){
+      return String(x['Orientation Session ID']||'')===sessionId &&
+        (typeof v2OrientationAssignmentActive_!=='function'||v2OrientationAssignmentActive_(x));
+    });
+    const pending=activeRows.filter(function(x){
+      return ['ATTENDED','ABSENT','EXCUSED'].indexOf(String(x['Attendance Status']||'NOT_UPDATED').toUpperCase())<0;
+    });
+
+    if(pending.length){
+      pending.forEach(function(x){
+        const reference=String(x['Reference No']||'').trim();
+        if(!reference||typeof v2CreateHumanTask_!=='function')return;
+        v2CreateHumanTask_({
+          referenceNo:reference,
+          taskType:'ORIENTATION_ATTENDANCE_REVIEW_REQUIRED',
+          title:'Orientation attendance requires review',
+          reason:'Orientation Session '+sessionId+' has ended, but attendance for this student is still unresolved. Record ATTENDED, ABSENT or EXCUSED.',
+          raisedByAgent:'Orientation Management Agent',
+          agentId:'ORIENTATION',
+          relatedExecutionId:'ORI_ATTENDANCE:'+sessionId+':'+reference,
+          priority:'NORMAL',
+          assignedTo:'Registry / Orientation Coordinator',
+          resumeEvent:'HUMAN_TASK_COMPLETED',
+          source:'N8N'
+        },owner);
+      });
+      results.push({sessionId:sessionId,status:'WAITING_HUMAN_ATTENDANCE',pendingAttendance:pending.length});
+      return;
+    }
+
+    current=v2Find_('V2_ORIENTATION_SESSIONS','Orientation Session ID',sessionId);
+    const recordingUrl=String(current.record['Recording URL']||'').trim();
+    if(!recordingUrl){
+      const reference=String((activeRows[0]&&activeRows[0]['Reference No'])||'').trim();
+      if(reference&&typeof v2CreateHumanTask_==='function'){
+        v2CreateHumanTask_({
+          referenceNo:reference,
+          taskType:'ORIENTATION_RECORDING_URL_REQUIRED',
+          title:'Orientation recording URL required',
+          reason:'Attendance is fully resolved for Orientation Session '+sessionId+'. Add the recording URL so the agent can distribute it and complete the official report.',
+          raisedByAgent:'Orientation Management Agent',
+          agentId:'ORIENTATION',
+          relatedExecutionId:'ORI_RECORDING:'+sessionId,
+          priority:'NORMAL',
+          assignedTo:'Registry / Orientation Coordinator',
+          resumeEvent:'HUMAN_TASK_COMPLETED',
+          source:'N8N'
+        },owner);
+      }
+      results.push({sessionId:sessionId,status:'WAITING_HUMAN_RECORDING'});
+      return;
+    }
+
+    const unsent=activeRows.filter(function(x){
+      const email=String(x['Student Email']||'').trim();
+      const status=String(x['Recording Email Status']||'NOT_SENT').toUpperCase();
+      return email.indexOf('@')>0&&status!=='SENT';
+    });
+    if(unsent.length){
+      const send=v2SendOrientationRecording_({sessionId:sessionId},owner);
+      if(Number(send.failedCount||0)>0){
+        const reference=String((activeRows[0]&&activeRows[0]['Reference No'])||'').trim();
+        if(reference&&typeof v2CreateHumanTask_==='function'){
+          v2CreateHumanTask_({
+            referenceNo:reference,
+            taskType:'ORIENTATION_RECORDING_DELIVERY_FAILURE',
+            title:'Orientation recording delivery requires attention',
+            reason:String(send.failedCount||0)+' recording email(s) failed for Orientation Session '+sessionId+'.',
+            raisedByAgent:'Orientation Management Agent',
+            agentId:'ORIENTATION',
+            relatedExecutionId:'ORI_RECORDING_DELIVERY:'+sessionId,
+            priority:'HIGH',
+            assignedTo:'Registry / Orientation Coordinator',
+            resumeEvent:'HUMAN_TASK_COMPLETED',
+            source:'N8N'
+          },owner);
+        }
+        results.push({sessionId:sessionId,status:'WAITING_HUMAN_RECORDING_DELIVERY',delivery:send});
+        return;
+      }
+    }
+
+    const assessment=v2OrientationCompletionAssessment_(sessionId);
+    if(!assessment.canComplete){
+      const reference=String((activeRows[0]&&activeRows[0]['Reference No'])||'').trim();
+      if(reference&&typeof v2CreateHumanTask_==='function'){
+        v2CreateHumanTask_({
+          referenceNo:reference,
+          taskType:'ORIENTATION_COMPLETION_REVIEW',
+          title:'Orientation completion requires review',
+          reason:assessment.blockers.join(' '),
+          raisedByAgent:'Orientation Management Agent',
+          agentId:'ORIENTATION',
+          relatedExecutionId:'ORI_COMPLETE:'+sessionId,
+          priority:'HIGH',
+          assignedTo:'Registry / Orientation Coordinator',
+          resumeEvent:'HUMAN_TASK_COMPLETED',
+          source:'N8N'
+        },owner);
+      }
+      results.push({sessionId:sessionId,status:'WAITING_HUMAN_COMPLETION',blockers:assessment.blockers,warnings:assessment.warnings});
+      return;
+    }
+
+    const completed=v2CompleteOrientationAndGenerateReport_({
+      sessionId:sessionId,
+      completionRemarks:'Completed automatically by Orientation Management Agent after verified attendance and recording distribution.'
+    },owner);
+
+    results.push({
+      sessionId:sessionId,
+      status:'COMPLETED',
+      reportPdfUrl:String(completed.reportPdfUrl||''),
+      studentReadiness:completed.studentReadiness||{},
+      warnings:completed.warnings||[]
+    });
+  });
+
+  return {
+    ok:true,
+    checked:sessions.length,
+    results:results,
+    waitingHuman:results.filter(function(x){return /^WAITING_HUMAN/.test(String(x.status||''));}).length,
+    completed:results.filter(function(x){return String(x.status||'')==='COMPLETED';}).length
+  };
+}
