@@ -20,6 +20,7 @@ const ALLOWED_ACTIONS = new Set([
   'v2ConfirmAiScreening',
   'v2GenerateAiScreeningReport',
   'v2RunComplianceDocumentQuality',
+  'v2SendDocumentReplacementRequest',
   'v2AgenticStatus',
   'v2GetAgentCaseState',
   'v2AgentActionGateway',
