@@ -77,6 +77,28 @@
               },
               "renameOutput": true,
               "outputKey": "resolve"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict"
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.operation }}",
+                    "rightValue": "create",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "create"
             }
           ]
         },
@@ -143,6 +165,25 @@
         460,
         0
       ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://script.google.com/macros/s/AKfycbxasT_HgtRSvTbR_bsa8p17Cm-C2PKn20Ok1kU-AyJmxiKX8kX5EGOtRLwVwNlAL7JB/exec",
+        "sendBody": true,
+        "contentType": "raw",
+        "rawContentType": "application/json",
+        "body": "={{ JSON.stringify({action:'v2CreateHumanTask',token:'REPLACE_WITH_V2_ADMIN_API_PASSWORD',updatedBy:$json.raisedByAgent||'n8n | Human Task Gateway',data:$json}) }}",
+        "options": {}
+      },
+      "id": "create-human",
+      "name": "Create Human Task",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        180,
+        260
+      ]
     }
   ],
   "connections": {
@@ -183,6 +224,13 @@
             "type": "main",
             "index": 0
           }
+        ],
+        [
+          {
+            "node": "Create Human Task",
+            "type": "main",
+            "index": 0
+          }
         ]
       ]
     },
@@ -198,6 +246,17 @@
       ]
     },
     "Resolve Human Task": {
+      "main": [
+        [
+          {
+            "node": "Return Human Task Result",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Create Human Task": {
       "main": [
         [
           {
