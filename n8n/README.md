@@ -9,6 +9,7 @@ This folder contains the first isolated n8n workflows for the Campus Simulation 
 - CS-ADM-V2 | 00 ORCHESTRATOR
 - CS-ADM-V2 | 01 COMPLIANCE
 - CS-ADM-V2 | 02 ADMISSION INTELLIGENCE
+- CS-ADM-V2 | 03 SAC-IA
 - CS-ADM-V2 | 04 STUDENT CONCIERGE
 - CS-ADM-V2 | 92 HUMAN TASK GATEWAY
 - CS-ADM-V2 | 93 ERROR & RETRY
@@ -29,7 +30,7 @@ ACC / Campus Simulation reads V2_AGENT_EVENTS and V2_AGENT_EXECUTIONS.
 
 ## Required configuration before activation
 
-1. Import all eight JSON files into the dedicated n8n project:
+1. Import all nine JSON files into the dedicated n8n project:
    IUC | Campus Simulation | Admission V2
 2. Replace REPLACE_WITH_N8N_EVENT_SHARED_SECRET in all workflows with one strong shared secret.
 3. Replace REPLACE_WITH_V2_ADMIN_API_PASSWORD in the Action Gateway workflow with the protected V2 backend token, preferably via n8n credentials rather than plain text.
@@ -40,6 +41,7 @@ ACC / Campus Simulation reads V2_AGENT_EVENTS and V2_AGENT_EXECUTIONS.
    - 01 COMPLIANCE
    - 04 STUDENT CONCIERGE
    - 02 ADMISSION INTELLIGENCE
+   - 03 SAC-IA
    - 00 ORCHESTRATOR
    - 90 EVENT INGRESS
 5. In Apps Script properties set:
@@ -139,3 +141,38 @@ DOCUMENT_REPLACEMENT_REQUIRED
 -> Compliance & Records Agent re-runs quality inspection
 
 The replacement portal reuses the same hashed-token approach used by the existing Research Intent upload flow.
+
+
+## SAC / IA Coordination contract
+
+The SAC / IA Agent is administrative. It never chooses an academic outcome.
+
+READY_FOR_SAC
+-> find nearest suitable open future SAC session
+-> if none: durable SAC_SESSION_REQUIRED human task
+-> assign candidate
+-> prepare PG-ADM-01 + SAC pack
+-> verify pack completeness
+-> durable SAC_DECISION_REQUIRED human task
+
+Authorised SAC outcomes:
+- DIRECT_ENTRY -> ELIGIBLE_FOR_OFFER
+- INTERNAL_ASSESSMENT -> IA coordination
+- REJECTED -> REJECTED
+
+INTERNAL_ASSESSMENT
+-> create / verify IA progress
+-> durable IA_OUTCOME_REQUIRED task
+-> authorised panel outcome only:
+   - QUALIFIED -> ELIGIBLE_FOR_OFFER
+   - PREREQUISITE_REQUIRED -> PREREQUISITE
+   - NOT_QUALIFIED -> REJECTED
+
+PREREQUISITE
+-> create / verify prerequisite progress
+-> durable PREREQUISITE_OUTCOME_REQUIRED task
+-> authorised result:
+   - QUALIFIED -> ELIGIBLE_FOR_OFFER
+   - NOT_QUALIFIED -> REJECTED
+
+Direct SAC -> prerequisite remains prohibited.
