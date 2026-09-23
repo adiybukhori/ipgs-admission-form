@@ -78,6 +78,20 @@ for(const file of expected){
   }
 }
 
+const orientation=JSON.parse(fs.readFileSync(path.join(root,'CS-ADM-V2-06-ORIENTATION.json'),'utf8'));
+if(orientation.settings?.timezone!=='Asia/Kuala_Lumpur'){
+  throw new Error('Orientation workflow timezone must be Asia/Kuala_Lumpur');
+}
+const orientationSchedule=orientation.nodes.find(n=>n.name==='Orientation Lifecycle Schedule');
+const orientationScheduleText=JSON.stringify(orientationSchedule||{});
+if(!orientationSchedule || !orientationScheduleText.includes('"minutesInterval":15')){
+  throw new Error('Orientation workflow must run the lifecycle supervisor every 15 minutes');
+}
+const orientationSupervisor=orientation.nodes.find(n=>n.name==='Run Orientation Supervisor');
+if(!orientationSupervisor || !JSON.stringify(orientationSupervisor).includes('cs-adm-v2-action-gateway')){
+  throw new Error('Orientation lifecycle supervisor must execute through the controlled Action Gateway');
+}
+
 const management=JSON.parse(fs.readFileSync(path.join(root,'CS-ADM-V2-08-MANAGEMENT-INTELLIGENCE.json'),'utf8'));
 if(management.settings?.timezone!=='Asia/Kuala_Lumpur'){
   throw new Error('Management Intelligence workflow timezone must be Asia/Kuala_Lumpur');
