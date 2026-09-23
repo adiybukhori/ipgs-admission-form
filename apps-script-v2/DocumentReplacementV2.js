@@ -352,9 +352,7 @@ function v2SubmitDocumentReplacementUpload(rawToken,filesInput) {
   const allowed=[
     'application/pdf',
     'image/jpeg',
-    'image/png',
-    'application/msword',
-    'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
+    'image/png'
   ];
 
   let totalBytes=0;
