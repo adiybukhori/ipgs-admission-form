@@ -137,5 +137,8 @@
     "C",
     "D"
   ],
-  "definitionOfDone": "REQUESTED -> EXECUTED -> VERIFIED -> COMPLETED; otherwise RETRY / WAITING_HUMAN / NEEDS_INVESTIGATION."
+  "definitionOfDone": "REQUESTED -> EXECUTED -> VERIFIED -> COMPLETED; otherwise RETRY / WAITING_HUMAN / NEEDS_INVESTIGATION.",
+  "workflowCount": 13,
+  "validationStatus": "CURRENT_SET_EXPECTED_TO_PASS_CI",
+  "lastArchitectureUpdate": "Offer automation + post-acceptance SKY gate + Management Intelligence"
 }
