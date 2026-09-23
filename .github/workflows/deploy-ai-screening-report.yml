@@ -1,5 +1,5 @@
 name: Deploy Official AI Screening Report
-# source-sync: apps-script-v2-dev@013011176ee2b654270c167bfc0709c7afd46119
+# source-sync: apps-script-v2-dev@73c7e5ff1faf5c81986ecc938209fff149b6b015
 
 on:
   push:
@@ -66,6 +66,10 @@ jobs:
           grep -F "ORIENTATION_ATTENDANCE_REVIEW_REQUIRED" apps-script-v2/HumanTaskV2.js
           grep -F "ORIENTATION_RECORDING_URL_REQUIRED" apps-script-v2/HumanTaskV2.js
           grep -F "v2PrepareSkyActivation_" apps-script-v2/SystemsOperatorAgentV2.js
+          grep -F "Student Acceptance is not complete" apps-script-v2/ActivationV2.js
+          grep -F "eventType:'SKY_ACTIVATED'" apps-script-v2/ActivationV2.js
+          grep -F "WAITING_SKY_ACTIVATION" apps-script-v2/OrientationAgentV2.js
+          grep -F "action:'ROUTE_SYSTEMS_OPERATOR'" apps-script-v2/AcceptancePackV2.js
           grep -F "SKY_PROSPECT_VERIFIED" apps-script-v2/SystemsOperatorAgentV2.js
           grep -F "SKY_ACTIVATION_READY" apps-script-v2/AcceptancePackV2.js
           grep -F "v2PrepareAcademicHandover_" apps-script-v2/AcademicHandoverAgentV2.js
