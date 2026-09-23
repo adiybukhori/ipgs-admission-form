@@ -418,7 +418,7 @@
   const DATA_API='/api/admin-data';
   const AGENT_RUNTIME_API='/api/agent-runtime-state';
   const password=sessionStorage.getItem('ipgsAdminPassword')||'';
-  let state={apps:[],workflow:[],docReview:[],aiScreening:[],qualification:[],sacCandidates:[],assessment:[],orientation:[],handover:[],activation:[],audit:[],agentEvents:[],agentExecutions:[],humanTasks:[],agentRuntime:null,decisions:0,exceptions:0};
+  let state={apps:[],workflow:[],docReview:[],aiScreening:[],qualification:[],sacSessions:[],sacCandidates:[],assessment:[],orientation:[],handover:[],activation:[],audit:[],agentEvents:[],agentExecutions:[],humanTasks:[],agentRuntime:null,decisions:0,exceptions:0};
   window.AI_OPS_STATE=state;
 
   if(!password){ location.href='/admin.html'; }
@@ -442,6 +442,7 @@
       state.docReview=rows(d,'V2_DOCUMENT_REVIEW');
       state.aiScreening=rows(d,'V2_AI_SCREENING');
       state.qualification=rows(d,'V2_QUALIFICATION_SCREENING');
+      state.sacSessions=rows(d,'V2_SAC_SESSIONS');
       state.sacCandidates=rows(d,'V2_SAC_CANDIDATES');
       state.assessment=rows(d,'V2_ASSESSMENT_PROGRESS');
       state.orientation=rows(d,'V2_ORIENTATION_TRACKING');
@@ -694,6 +695,10 @@
     const grade=ai['CGPA / Grade']||'—';
     const report=ai['Report PDF URL']||'';
     const taskType=String(task['Task Type']||'').toUpperCase();
+    const wf=(state.workflow||[]).filter(r=>String(r['Reference No']||'')===ref).slice(-1)[0]||{};
+    const sac=(state.sacCandidates||[]).filter(r=>String(r['Reference No']||'')===ref).slice(-1)[0]||{};
+    const assessment=(state.assessment||[]).filter(r=>String(r['Reference No']||'')===ref).slice(-1)[0]||{};
+    const openSacSessions=(state.sacSessions||[]).filter(r=>!/(FINAL|CLOSED|CANCEL)/.test(String(r['Status']||'DRAFT').toUpperCase())).sort((a,b)=>String(a['Meeting Date']||'').localeCompare(String(b['Meeting Date']||'')));
 
     const doc=(state.docReview||[]).filter(r=>String(r['Reference No']||'')===ref).slice(-1)[0]||{};
     let qualityFindings=[];
@@ -740,6 +745,55 @@
             '<button id="humanQualityReplaceBtn" type="button" onclick="resolveHumanQualityTask(\''+escapeHtml(taskId)+'\',\'FOLLOW_UP_REQUIRED\')">Require Replacement</button>'+
             '<button id="humanQualityPassBtn" class="confirm" type="button" onclick="resolveHumanQualityTask(\''+escapeHtml(taskId)+'\',\'PASS\')">Confirm Quality PASS</button>'+
           '</div>'+
+        '</div>';
+    }else if(taskType==='SAC_SESSION_REQUIRED'){
+      const sessionOptions=openSacSessions.map(x=>{
+        const id=String(x['SAC Session ID']||'');
+        const name=String(x['SAC Name']||id);
+        const date=String(x['Meeting Date']||'');
+        const time=String(x['Meeting Time']||'');
+        return '<option value="'+escapeHtml(id)+'">'+escapeHtml(name+' · '+date+' '+time)+'</option>';
+      }).join('');
+      taskForm=
+        '<div class="human-task-form">'+
+          '<label>Select Existing Open SAC Session<select id="humanSacSession"><option value="">Select session</option>'+sessionOptions+'</select></label>'+
+          '<div class="human-task-actions"><button type="button" onclick="document.getElementById(\'humanTaskOverlay\').remove()">Cancel</button><button class="confirm" type="button" onclick="resolveSacSessionTask(\''+escapeHtml(taskId)+'\')">Use Selected Session</button></div>'+
+          '<div style="height:1px;background:var(--line);margin:4px 0 2px"></div>'+
+          '<div class="human-task-evidence"><div><small>No suitable session?</small><b>Create a controlled draft session here. Calendar invitation is not sent automatically.</b></div></div>'+
+          '<label>SAC Name<input id="newSacName" style="width:100%;border:1px solid var(--line);border-radius:11px;background:#0a1025;color:#eef1ff;padding:10px;font:inherit;font-size:11px" placeholder="e.g. SAC October 2026"></label>'+
+          '<div class="human-task-evidence"><label>Meeting Date<input id="newSacDate" type="date" style="width:100%;border:1px solid var(--line);border-radius:11px;background:#0a1025;color:#eef1ff;padding:10px"></label><label>Meeting Time<input id="newSacTime" type="time" value="10:00" style="width:100%;border:1px solid var(--line);border-radius:11px;background:#0a1025;color:#eef1ff;padding:10px"></label></div>'+
+          '<label>Chairperson<input id="newSacChair" style="width:100%;border:1px solid var(--line);border-radius:11px;background:#0a1025;color:#eef1ff;padding:10px;font:inherit;font-size:11px" placeholder="Optional"></label>'+
+          '<label>Venue / Meeting Link<input id="newSacVenue" style="width:100%;border:1px solid var(--line);border-radius:11px;background:#0a1025;color:#eef1ff;padding:10px;font:inherit;font-size:11px" placeholder="Optional"></label>'+
+          '<div class="human-task-actions"><button id="createSacBtn" class="confirm" type="button" onclick="createSacSessionAndResolve(\''+escapeHtml(taskId)+'\')">Create Session & Continue</button></div>'+
+        '</div>';
+    }else if(taskType==='SAC_DECISION_REQUIRED'){
+      taskForm=
+        '<div class="human-task-form">'+
+          '<div class="human-task-evidence">'+
+            '<div><small>SAC Session</small><b>'+escapeHtml(wf['SAC Session ID']||sac['SAC Session ID']||'—')+'</b></div>'+
+            '<div><small>Screening Recommendation · reference only</small><b>'+escapeHtml(wf['Screening Recommendation']||q['Recommended Route']||'—')+'</b></div>'+
+            '<div><small>PG-ADM-01</small><b>'+(sac['Form 01 URL']?'<a href="'+escapeHtml(sac['Form 01 URL'])+'" target="_blank" rel="noopener" style="color:#8fc8ff">Open Form</a>':'Prepared in SAC pack')+'</b></div>'+
+            '<div><small>AI Screening Report</small><b>'+(report?'<a href="'+escapeHtml(report)+'" target="_blank" rel="noopener" style="color:#8fc8ff">Open Report</a>':'—')+'</b></div>'+
+          '</div>'+
+          '<label>Authorised SAC Decision<select id="humanSacDecision"><option value="">Select decision</option><option value="DIRECT_ENTRY">Direct Entry</option><option value="INTERNAL_ASSESSMENT">Internal Assessment (IA)</option><option value="REJECTED">Rejected / Not Qualified</option></select></label>'+
+          '<label>SAC Remarks<textarea id="humanSacNotes" placeholder="Record the authorised committee decision / relevant remarks."></textarea></label>'+
+          '<div class="human-task-actions"><button type="button" onclick="document.getElementById(\'humanTaskOverlay\').remove()">Cancel</button><button id="humanSacDecisionBtn" class="confirm" type="button" onclick="resolveSacDecisionTask(\''+escapeHtml(taskId)+'\')">Record Authorised SAC Decision</button></div>'+
+        '</div>';
+    }else if(taskType==='IA_OUTCOME_REQUIRED'){
+      taskForm=
+        '<div class="human-task-form">'+
+          '<div class="human-task-evidence"><div><small>Route</small><b>Internal Assessment</b></div><div><small>Current Status</small><b>'+escapeHtml(wf['Assessment Status']||assessment['Status']||'IN PROGRESS')+'</b></div></div>'+
+          '<label>Authorised IA Panel Outcome<select id="humanIaOutcome"><option value="">Select outcome</option><option value="QUALIFIED">Qualified</option><option value="PREREQUISITE_REQUIRED">Prerequisite Required</option><option value="NOT_QUALIFIED">Not Qualified</option></select></label>'+
+          '<label>Panel Remarks<textarea id="humanIaNotes" placeholder="Record the authorised panel result / remarks."></textarea></label>'+
+          '<div class="human-task-actions"><button type="button" onclick="document.getElementById(\'humanTaskOverlay\').remove()">Cancel</button><button id="humanIaBtn" class="confirm" type="button" onclick="resolveIaOutcomeTask(\''+escapeHtml(taskId)+'\')">Record IA Outcome</button></div>'+
+        '</div>';
+    }else if(taskType==='PREREQUISITE_OUTCOME_REQUIRED'){
+      taskForm=
+        '<div class="human-task-form">'+
+          '<div class="human-task-evidence"><div><small>Route</small><b>Prerequisite Course</b></div><div><small>Current Status</small><b>'+escapeHtml(wf['Prerequisite Status']||assessment['Status']||'IN PROGRESS')+'</b></div></div>'+
+          '<label>Authorised Prerequisite Result<select id="humanPrereqOutcome"><option value="">Select result</option><option value="QUALIFIED">Qualified / Completed</option><option value="NOT_QUALIFIED">Not Qualified</option></select></label>'+
+          '<label>Result Remarks<textarea id="humanPrereqNotes" placeholder="Record the authorised prerequisite result / remarks."></textarea></label>'+
+          '<div class="human-task-actions"><button type="button" onclick="document.getElementById(\'humanTaskOverlay\').remove()">Cancel</button><button id="humanPrereqBtn" class="confirm" type="button" onclick="resolvePrerequisiteOutcomeTask(\''+escapeHtml(taskId)+'\')">Record Prerequisite Outcome</button></div>'+
         '</div>';
     }else{
       taskForm=
@@ -828,6 +882,88 @@
       if(passBtn)passBtn.disabled=false;
       if(replaceBtn)replaceBtn.disabled=false;
     }
+  }
+
+
+  async function resolveHumanTaskGeneric(taskId,resolution,notes,buttonId,label){
+    const btn=document.getElementById(buttonId);
+    if(btn){btn.disabled=true;btn.textContent='Recording…';}
+    try{
+      const res=await fetch('/api/admin-action',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({
+        password,action:'v2ResolveHumanTask',updatedBy:'ACC Human Decision Desk',
+        data:{taskId,decision:'CONFIRM',notes:notes||'',resolution:resolution||{}}
+      })});
+      const out=await res.json();
+      if(!res.ok||!out.ok)throw new Error(out.message||'Unable to record authorised outcome.');
+      document.getElementById('humanTaskOverlay')?.remove();
+      await loadOps();
+      await loadAgentRuntime();
+      const resolvedRef=out.result?.referenceNo||'';
+      if(resolvedRef){
+        const sel=document.getElementById('journeySelect');
+        if(sel){sel.value=resolvedRef;renderStudentJourney(resolvedRef);}
+      }
+      return out;
+    }catch(e){
+      alert(e.message||'Unable to record authorised outcome.');
+      if(btn){btn.disabled=false;btn.textContent=label||'Confirm';}
+      return null;
+    }
+  }
+
+  async function resolveSacSessionTask(taskId){
+    const sessionId=document.getElementById('humanSacSession')?.value||'';
+    if(!sessionId){alert('Please select an open SAC session.');return;}
+    await resolveHumanTaskGeneric(taskId,{sessionId},'','', 'Use Selected Session');
+  }
+
+  async function createSacSessionAndResolve(taskId){
+    const name=(document.getElementById('newSacName')?.value||'').trim();
+    const meetingDate=document.getElementById('newSacDate')?.value||'';
+    const meetingTime=document.getElementById('newSacTime')?.value||'10:00';
+    if(!name||!meetingDate){alert('SAC Name and Meeting Date are required.');return;}
+    const btn=document.getElementById('createSacBtn');
+    if(btn){btn.disabled=true;btn.textContent='Creating session…';}
+    try{
+      const res=await fetch('/api/admin-action',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({
+        password,action:'v2CreateSacSessionManual',updatedBy:'ACC Human Decision Desk',
+        data:{
+          name,meetingDate,meetingTime,
+          chairperson:(document.getElementById('newSacChair')?.value||'').trim(),
+          venueLink:(document.getElementById('newSacVenue')?.value||'').trim(),
+          sendInvitation:false
+        }
+      })});
+      const out=await res.json();
+      if(!res.ok||!out.ok)throw new Error(out.message||'Unable to create SAC session.');
+      const sessionId=out.result?.session?.['SAC Session ID']||out.result?.sessionId||'';
+      if(!sessionId)throw new Error('SAC session was created but no Session ID was returned.');
+      await resolveHumanTaskGeneric(taskId,{sessionId},'Created SAC session '+sessionId,'','Create Session & Continue');
+    }catch(e){
+      alert(e.message||'Unable to create SAC session.');
+      if(btn){btn.disabled=false;btn.textContent='Create Session & Continue';}
+    }
+  }
+
+  async function resolveSacDecisionTask(taskId){
+    const sacDecision=document.getElementById('humanSacDecision')?.value||'';
+    if(!sacDecision){alert('Please select the authorised SAC decision.');return;}
+    const notes=(document.getElementById('humanSacNotes')?.value||'').trim();
+    await resolveHumanTaskGeneric(taskId,{sacDecision},notes,'humanSacDecisionBtn','Record Authorised SAC Decision');
+  }
+
+  async function resolveIaOutcomeTask(taskId){
+    const panelResult=document.getElementById('humanIaOutcome')?.value||'';
+    if(!panelResult){alert('Please select the authorised IA outcome.');return;}
+    const notes=(document.getElementById('humanIaNotes')?.value||'').trim();
+    await resolveHumanTaskGeneric(taskId,{panelResult},notes,'humanIaBtn','Record IA Outcome');
+  }
+
+  async function resolvePrerequisiteOutcomeTask(taskId){
+    const panelResult=document.getElementById('humanPrereqOutcome')?.value||'';
+    if(!panelResult){alert('Please select the authorised prerequisite result.');return;}
+    const notes=(document.getElementById('humanPrereqNotes')?.value||'').trim();
+    await resolveHumanTaskGeneric(taskId,{panelResult},notes,'humanPrereqBtn','Record Prerequisite Outcome');
   }
 
 
@@ -985,6 +1121,11 @@
   window.openHumanTaskResolution=openHumanTaskResolution;
   window.confirmHumanScreeningTask=confirmHumanScreeningTask;
   window.resolveHumanQualityTask=resolveHumanQualityTask;
+  window.resolveSacSessionTask=resolveSacSessionTask;
+  window.createSacSessionAndResolve=createSacSessionAndResolve;
+  window.resolveSacDecisionTask=resolveSacDecisionTask;
+  window.resolveIaOutcomeTask=resolveIaOutcomeTask;
+  window.resolvePrerequisiteOutcomeTask=resolvePrerequisiteOutcomeTask;
   window.renderStudentJourney=renderStudentJourney;
   loadOps();
   startAgentRuntimePolling();
