@@ -32,6 +32,11 @@ function v2PrepareAcademicHandover_(data,actor){
 
   const currentHandover=String(wf.record['Academic Handover Status']||'NOT_READY').toUpperCase();
   const orientationStatus=String(wf.record['Orientation Status']||'').toUpperCase();
+  const acceptanceStatus=String(wf.record['Acceptance Status']||'').toUpperCase();
+  const skyActivationStatus=String(wf.record['SKY Activation Status']||'NOT_ACTIVATED').toUpperCase();
+  const applicationStage=String(wf.record['Application Stage']||'').toUpperCase();
+  const accepted=acceptanceStatus==='ACCEPTED' ||
+    ['ACCEPTED','ORIENTATION','ACADEMIC_HANDOVER','ACTIVE_STUDENT'].indexOf(applicationStage)>=0;
   const sessionId=String(wf.record['Orientation Session ID']||input.orientationSessionId||'').trim();
 
   if(['HANDED_OVER','COMPLETED'].indexOf(currentHandover)>=0){
@@ -41,11 +46,14 @@ function v2PrepareAcademicHandover_(data,actor){
     };
   }
 
-  if(currentHandover!=='READY' || orientationStatus!=='COMPLETED'){
+  if(currentHandover!=='READY' || orientationStatus!=='COMPLETED' || !accepted || skyActivationStatus!=='ACTIVATED'){
     return {
       ok:true,skipped:true,referenceNo:reference,
-      academicHandoverStatus:currentHandover,orientationStatus:orientationStatus,
-      message:'Agentic handover gate is not ready.'
+      academicHandoverStatus:currentHandover,
+      orientationStatus:orientationStatus,
+      acceptanceStatus:acceptanceStatus,
+      skyActivationStatus:skyActivationStatus,
+      message:'Agentic handover gate is not ready. Requires Acceptance, verified SKY activation, completed Orientation and Academic Handover READY.'
     };
   }
   if(!sessionId)throw new Error('Orientation Session ID is required for cohort handover.');
@@ -57,7 +65,13 @@ function v2PrepareAcademicHandover_(data,actor){
   });
 
   const cohort=v2Rows_('V2_WORKFLOW').filter(function(row){
+    const stage=String(row['Application Stage']||'').toUpperCase();
+    const acceptance=String(row['Acceptance Status']||'').toUpperCase();
+    const rowAccepted=acceptance==='ACCEPTED' ||
+      ['ACCEPTED','ORIENTATION','ACADEMIC_HANDOVER','ACTIVE_STUDENT'].indexOf(stage)>=0;
     return String(row['Orientation Session ID']||'')===sessionId &&
+      rowAccepted &&
+      String(row['SKY Activation Status']||'').toUpperCase()==='ACTIVATED' &&
       String(row['Orientation Status']||'').toUpperCase()==='COMPLETED' &&
       String(row['Academic Handover Status']||'').toUpperCase()==='READY' &&
       !used[String(row['Reference No']||'').trim()];
@@ -226,10 +240,21 @@ function v2PrepareStudentAccessDelivery_(data,actor){
   if(!provisioning||!wf)throw new Error('Provisioning/workflow record not found.');
 
   const row=provisioning.record;
+  const handoverStatus=String(wf.record['Academic Handover Status']||'').toUpperCase();
+  const provisioningStatus=String(wf.record['Provisioning Status']||'').toUpperCase();
   const complete=
     String(row['IT Email Status']||'').toUpperCase()==='COMPLETED' &&
     String(row['Moodle Status']||'').toUpperCase()==='COMPLETED' &&
     String(row['E-Library Status']||'').toUpperCase()==='COMPLETED';
+
+  if(handoverStatus!=='HANDED_OVER' || provisioningStatus!=='READY_TO_NOTIFY'){
+    return {
+      ok:true,skipped:true,referenceNo:reference,
+      academicHandoverStatus:handoverStatus,
+      provisioningStatus:provisioningStatus,
+      message:'Agentic access delivery is blocked until Academic Handover is HANDED_OVER and Provisioning is READY_TO_NOTIFY.'
+    };
+  }
 
   if(!complete){
     return {
