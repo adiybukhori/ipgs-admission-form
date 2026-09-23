@@ -94,6 +94,7 @@ function v2GetAgentCaseState_(data) {
     sacCandidate:findRecord('V2_SAC_CANDIDATES'),
     orientation:findRecord('V2_ORIENTATION_TRACKING'),
     provisioning:findRecord('V2_PROVISIONING'),
+    handoverStudent:findRecord('V2_HANDOVER_STUDENTS'),
     agentEvents:recentEvents
   };
 }
@@ -380,6 +381,27 @@ function v2AgentActionGateway_(data, actor) {
         referenceNo:reference,
         executionId:executionId
       }, 'Systems Operator Agent via n8n');
+    } else if (requestedAction === 'PREPARE_ACADEMIC_HANDOVER') {
+      if (agentId !== 'ACADEMIC_HANDOVER') {
+        throw new Error('PREPARE_ACADEMIC_HANDOVER is restricted to ACADEMIC_HANDOVER.');
+      }
+      result = v2PrepareAcademicHandover_({
+        referenceNo:reference,
+        executionId:executionId,
+        batchId:String(input.batchId||''),
+        academicEmail:String(input.academicEmail||''),
+        itEmail:String(input.itEmail||''),
+        moodleEmail:String(input.moodleEmail||''),
+        libraryEmail:String(input.libraryEmail||'')
+      }, 'Academic Handover Agent via n8n');
+    } else if (requestedAction === 'PREPARE_STUDENT_ACCESS_DELIVERY') {
+      if (agentId !== 'ACADEMIC_HANDOVER') {
+        throw new Error('PREPARE_STUDENT_ACCESS_DELIVERY is restricted to ACADEMIC_HANDOVER.');
+      }
+      result = v2PrepareStudentAccessDelivery_({
+        referenceNo:reference,
+        executionId:executionId
+      }, 'Academic Handover Agent via n8n');
     } else {
       throw new Error('Unsupported agent gateway action: ' + requestedAction);
     }
