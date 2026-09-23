@@ -504,14 +504,14 @@
     const brain=document.getElementById('brainNote');
     const summary=runtime.summary||{};
     if(n8n){
-      n8n.textContent=runtime.n8nLive?'LIVE':runtime.bridgeReady?'BRIDGE READY':'AWAITING SETUP';
-      n8n.className=runtime.n8nLive?'on':runtime.bridgeReady?'on':'off';
+      n8n.textContent=runtime.recentN8nActivity?'ACTIVE NOW':runtime.agenticEnabled?'ENABLED':runtime.bridgeReady?'BRIDGE READY':'AWAITING SETUP';
+      n8n.className=(runtime.agenticEnabled||runtime.bridgeReady)?'on':'off';
     }
     if(badge){
-      badge.textContent=runtime.n8nLive?'● N8N AGENT RUNTIME LIVE':runtime.bridgeReady?'● AGENTIC BRIDGE READY · N8N NOT ACTIVE':'● N8N AGENT RUNTIME NOT ACTIVE YET';
-      badge.className='mode '+(runtime.n8nLive?'ready':'demo');
+      badge.textContent=runtime.recentN8nActivity?'● N8N AGENT RUNTIME ACTIVE NOW':runtime.agenticEnabled?'● N8N AGENTIC MODE ENABLED · IDLE':runtime.bridgeReady?'● AGENTIC BRIDGE READY · N8N NOT ACTIVE':'● N8N AGENT RUNTIME NOT ACTIVE YET';
+      badge.className='mode '+(runtime.agenticEnabled?'ready':'demo');
     }
-    if(brain)brain.textContent=runtime.n8nLive?'Live n8n events are driving agent state':runtime.bridgeReady?'Backend agent bridge ready · awaiting n8n activation':'ACC context loaded · preparing agentic bridge';
+    if(brain)brain.textContent=runtime.recentN8nActivity?'Live n8n events are driving agent state':runtime.agenticEnabled?'Agentic mode enabled · waiting for next event':runtime.bridgeReady?'Backend agent bridge ready · awaiting n8n activation':'ACC context loaded · preparing agentic bridge';
     const latestByAgent={};
     (state.agentEvents||[]).forEach(r=>{const id=String(r['Agent ID']||'').toUpperCase();if(id)latestByAgent[id]=r;});
     const cardMap={
@@ -531,7 +531,7 @@
     const actionKpi=document.getElementById('kAgentActions');
     const actionMeta=document.getElementById('kAgentActionsMeta');
     if(actionKpi)actionKpi.textContent=Number(summary.totalExecutions||0);
-    if(actionMeta)actionMeta.textContent=runtime.n8nLive?((summary.running||0)+' running · '+(summary.completed||0)+' completed'):'Bridge ready · no live n8n run yet';
+    if(actionMeta)actionMeta.textContent=runtime.recentN8nActivity?((summary.running||0)+' running · '+(summary.completed||0)+' completed'):runtime.agenticEnabled?'Agentic enabled · currently idle':'Bridge ready · no live n8n run yet';
 
     const openTasks=(state.humanTasks||[]).filter(r=>['OPEN','WAITING_HUMAN','IN_REVIEW'].includes(String(r['Status']||'').toUpperCase()));
     if(openTasks.length || runtime.bridgeReady){
