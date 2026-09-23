@@ -812,6 +812,7 @@
     const assessment=(state.assessment||[]).filter(r=>String(r['Reference No']||'')===ref).slice(-1)[0]||{};
     const provisioning=(state.provisioning||[]).filter(r=>String(r['Reference No']||'')===ref).slice(-1)[0]||{};
     const handoverStudent=(state.handover||[]).filter(r=>String(r['Reference No']||'')===ref).slice(-1)[0]||{};
+    const orientationCurrent=(state.orientation||[]).filter(r=>String(r['Reference No']||'')===ref).slice(-1)[0]||{};
     const openSacSessions=(state.sacSessions||[]).filter(r=>!/(FINAL|CLOSED|CANCEL)/.test(String(r['Status']||'DRAFT').toUpperCase())).sort((a,b)=>String(a['Meeting Date']||'').localeCompare(String(b['Meeting Date']||'')));
     const openOrientationSessions=(state.orientationSessions||[]).filter(r=>['SCHEDULED','OPEN','ACTIVE'].includes(String(r['Status']||'SCHEDULED').toUpperCase())).sort((a,b)=>{
       const av=String(a['Session Date']||'')+' '+String(a['Start Time']||'');
@@ -912,6 +913,27 @@
           '<label>SKY Student / Registration ID<input id="humanSkyStudentId" style="width:100%;border:1px solid var(--line);border-radius:11px;background:#0a1025;color:#eef1ff;padding:10px;font:inherit;font-size:11px" placeholder="Enter ID returned by SKY"></label>'+
           '<label>Registry Remarks<textarea id="humanSkyNotes" placeholder="Optional activation note"></textarea></label>'+
           '<div class="human-task-actions"><button type="button" onclick="document.getElementById(\'humanTaskOverlay\').remove()">Cancel</button><button id="humanSkyBtn" class="confirm" type="button" onclick="resolveSkyActivationTask(\''+escapeHtml(taskId)+'\')">Confirm SKY Activation</button></div>'+
+        '</div>';
+    }else if(taskType==='ORIENTATION_ATTENDANCE_REVIEW_REQUIRED'){
+      const sessionId=String(orientationCurrent['Orientation Session ID']||wf['Orientation Session ID']||'');
+      taskForm=
+        '<div class="human-task-form">'+
+          '<div class="human-task-evidence">'+
+            '<div><small>Orientation Session</small><b>'+escapeHtml(sessionId||'—')+'</b></div>'+
+            '<div><small>Current Attendance</small><b>'+escapeHtml(orientationCurrent['Attendance Status']||'NOT UPDATED')+'</b></div>'+
+          '</div>'+
+          '<label>Attendance Decision<select id="humanOrientationAttendance"><option value="">Select attendance status</option><option value="ATTENDED">Attended</option><option value="ABSENT">Absent</option><option value="EXCUSED">Excused</option></select></label>'+
+          '<label>Review Note<textarea id="humanOrientationAttendanceNotes" placeholder="Optional Registry note"></textarea></label>'+
+          '<div class="human-task-actions"><button type="button" onclick="document.getElementById(\'humanTaskOverlay\').remove()">Cancel</button><button id="humanOrientationAttendanceBtn" class="confirm" type="button" onclick="resolveOrientationAttendanceTask(\''+escapeHtml(taskId)+'\',\''+escapeHtml(sessionId)+'\')">Record Attendance</button></div>'+
+        '</div>';
+    }else if(taskType==='ORIENTATION_RECORDING_URL_REQUIRED'){
+      const sessionId=String(orientationCurrent['Orientation Session ID']||wf['Orientation Session ID']||'');
+      taskForm=
+        '<div class="human-task-form">'+
+          '<div class="human-task-evidence"><div><small>Orientation Session</small><b>'+escapeHtml(sessionId||'—')+'</b></div><div><small>Next Agent Action</small><b>Send recording → verify → generate official report</b></div></div>'+
+          '<label>Recording URL<input id="humanOrientationRecordingUrl" type="url" style="width:100%;border:1px solid var(--line);border-radius:11px;background:#0a1025;color:#eef1ff;padding:10px;font:inherit;font-size:11px" placeholder="https://..."></label>'+
+          '<label>Note<textarea id="humanOrientationRecordingNotes" placeholder="Optional Registry note"></textarea></label>'+
+          '<div class="human-task-actions"><button type="button" onclick="document.getElementById(\'humanTaskOverlay\').remove()">Cancel</button><button id="humanOrientationRecordingBtn" class="confirm" type="button" onclick="resolveOrientationRecordingTask(\''+escapeHtml(taskId)+'\',\''+escapeHtml(sessionId)+'\')">Save Recording & Continue</button></div>'+
         '</div>';
     }else if(taskType==='ORIENTATION_SESSION_REQUIRED'){
       const orientationOptions=openOrientationSessions.map(x=>{
@@ -1185,6 +1207,35 @@
     await resolveHumanTaskGeneric(taskId,{skyStudentId},notes,'humanSkyBtn','Confirm SKY Activation');
   }
 
+  async function resolveOrientationAttendanceTask(taskId,sessionId){
+    const attendanceStatus=document.getElementById('humanOrientationAttendance')?.value||'';
+    if(!attendanceStatus){alert('Please select attendance status.');return;}
+    const notes=(document.getElementById('humanOrientationAttendanceNotes')?.value||'').trim();
+    await resolveHumanTaskGeneric(
+      taskId,
+      {sessionId,attendanceStatus},
+      notes,
+      'humanOrientationAttendanceBtn',
+      'Record Attendance'
+    );
+  }
+
+  async function resolveOrientationRecordingTask(taskId,sessionId){
+    const recordingUrl=(document.getElementById('humanOrientationRecordingUrl')?.value||'').trim();
+    if(!/^https?:\/\//i.test(recordingUrl)){
+      alert('Please enter a valid http/https recording URL.');
+      return;
+    }
+    const notes=(document.getElementById('humanOrientationRecordingNotes')?.value||'').trim();
+    await resolveHumanTaskGeneric(
+      taskId,
+      {sessionId,recordingUrl},
+      notes,
+      'humanOrientationRecordingBtn',
+      'Save Recording & Continue'
+    );
+  }
+
   async function resolveOrientationSessionTask(taskId){
     const sessionId=document.getElementById('humanOrientationSession')?.value||'';
     if(!sessionId){alert('Please select an Orientation Session.');return;}
@@ -1439,6 +1490,8 @@
   window.resolveHandoverConfigurationTask=resolveHandoverConfigurationTask;
   window.sendStudentAccessAndResolve=sendStudentAccessAndResolve;
   window.resolveSkyActivationTask=resolveSkyActivationTask;
+  window.resolveOrientationAttendanceTask=resolveOrientationAttendanceTask;
+  window.resolveOrientationRecordingTask=resolveOrientationRecordingTask;
   window.resolveOrientationSessionTask=resolveOrientationSessionTask;
   window.createOrientationSessionAndResolve=createOrientationSessionAndResolve;
   window.resolveSacSessionTask=resolveSacSessionTask;
