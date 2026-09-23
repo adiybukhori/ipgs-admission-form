@@ -380,6 +380,10 @@ function handleV2Post_(payload) {
   if (action === 'v2RecordAiScreeningResult') return v2RecordAiScreeningResult_(payload.data || {}, payload.updatedBy);
   if (action === 'v2ConfirmAiScreening') return v2ConfirmAiScreening_(payload.data || {}, payload.updatedBy);
   if (action === 'v2GenerateAiScreeningReport') return v2GenerateAiScreeningReport_(payload.data || {}, payload.updatedBy || 'IUC Admission Intelligence Agent');
+  if (action === 'v2AgenticStatus') return v2AgenticStatus_();
+  if (action === 'v2GetAgentCaseState') return v2GetAgentCaseState_(payload.data || {});
+  if (action === 'v2AgentActionGateway') return v2AgentActionGateway_(payload.data || {}, payload.updatedBy || 'n8n Agentic Gateway');
+  if (action === 'v2RecordAgentActivity') return v2RecordAgentActivity_(payload.data || {}, payload.updatedBy || 'n8n');
   if (action === 'v2CreateSacSession') return v2CreateSacSession_(payload.data || {}, payload.updatedBy);
   if (action === 'v2AssignSacCandidate') return v2AssignSacCandidate_(payload.data || {}, payload.updatedBy);
   if (action === 'v2PrepareSacPack') return v2PrepareSacPack_(payload.data || {}, payload.updatedBy);
