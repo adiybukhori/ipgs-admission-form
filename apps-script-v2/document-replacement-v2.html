@@ -31,7 +31,7 @@
       <div id="requestIntro" class="sub">Please upload every document listed below.</div>
       <div class="notice"><strong>Before uploading:</strong> make sure the full page/document is visible, text is readable, there is no material crop, blur or glare, and the correct document is selected.</div>
       <div id="requests"></div>
-      <div class="hint">Accepted: PDF, JPG, PNG, DOC, DOCX. Maximum 7MB per file and 18MB total.</div>
+      <div class="hint">Accepted: PDF, JPG or PNG. Maximum 7MB per file and 18MB total.</div>
       <button id="submitBtn" class="primary" type="button" onclick="submitReplacement()">Upload Document(s)</button>
       <div id="message" class="msg"></div>
     </section>
@@ -63,7 +63,7 @@
       return '<div class="request"><h4>'+esc(r.label||r.field||'Document')+'</h4>'+
         (issues.length?'<div class="issue"><strong>'+(requestType==='MISSING_REQUIRED_DOCUMENT'?'Reason':'Quality issue')+':</strong> '+esc(issues.join('; '))+'</div>':'')+
         '<div class="instruction">'+esc(r.instruction||'Please upload a clear and complete replacement document.')+'</div>'+
-        '<input class="file replacement-file" data-field="'+esc(r.field||'')+'" data-index="'+i+'" type="file" accept=".pdf,.jpg,.jpeg,.png,.doc,.docx,application/pdf,image/jpeg,image/png,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document"></div>';
+        '<input class="file replacement-file" data-field="'+esc(r.field||'')+'" data-index="'+i+'" type="file" accept=".pdf,.jpg,.jpeg,.png,application/pdf,image/jpeg,image/png"></div>';
     }).join('');
   }
   function load(){
