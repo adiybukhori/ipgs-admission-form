@@ -239,3 +239,33 @@ Expected:
 - Invitation Status is not treated as success.
 - ORIENTATION_INVITATION_FAILURE is created as a high-priority human task.
 - Agent does not mark the orientation intake task complete.
+
+
+## Test P — Marketing Prospect to Systems Operator
+
+Use the secure Marketing / Academic Consultant action page.
+
+Expected:
+- Prospect cannot be submitted without SKY Prospect ID.
+- Prospect cannot be submitted without an approved Fee Group.
+- Successful submission persists Prospect Status = PROSPECT_COMPLETED, SKY Prospect ID and Fee Group.
+- PROSPECT_COMPLETED event is emitted.
+- Orchestrator routes to Systems Operator.
+- Systems Operator creates SKY_ACTIVATION_REQUIRED for Registry.
+
+## Test Q — Registry SKY activation
+
+Expected:
+- Human Decision Desk shows SKY Prospect ID + Fee Group as evidence.
+- Registry performs the actual SKY activation outside Admission V2.
+- Registry enters SKY Student / Registration ID.
+- v2ActivateStudentInSky records SKY Activation Status = ACTIVATED.
+- SKY_ACTIVATED event is emitted.
+- Task closes only after activation status is verified.
+
+## Test R — Missing SKY Prospect evidence
+
+Expected:
+- Systems Operator does not assume activation readiness.
+- Missing Prospect ID / Fee Group / Prospect completion produces a review/escalation state.
+- No SKY_ACTIVATED record is created.
