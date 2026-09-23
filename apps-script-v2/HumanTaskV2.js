@@ -129,6 +129,7 @@ function v2ResolveHumanTask_(data,actor){
   let sacDecisionResolution=null;
   let iaOutcomeResolution=null;
   let prerequisiteOutcomeResolution=null;
+  let orientationSessionResolution=null;
   if (taskType==='DOCUMENT_QUALITY_REVIEW' && ['APPROVE','CONFIRM','RESOLVED','REQUEST_EVIDENCE','RETURN'].indexOf(decision)>-1) {
     const doc=v2Find_('V2_DOCUMENT_REVIEW','Reference No',reference);
     const wf=v2Find_('V2_WORKFLOW','Reference No',reference);
@@ -258,6 +259,26 @@ function v2ResolveHumanTask_(data,actor){
         source:'HUMAN_DECISION_DESK',
         summary:'Authorised screening exception resolved. Applicant is ready for SAC coordination.'
       });
+    }
+  }
+
+  if (taskType==='ORIENTATION_SESSION_REQUIRED' && ['APPROVE','CONFIRM','RESOLVED'].indexOf(decision)>-1) {
+    const sessionId=String(resolution.sessionId||'').trim();
+    if(!sessionId)throw new Error('Select or create an Orientation Session before resolving this task.');
+
+    orientationSessionResolution=v2PrepareOrientationForAccepted_({
+      referenceNo:reference,
+      sessionId:sessionId,
+      executionId:'HUMAN_ORIENTATION_SESSION:'+taskId
+    },resolvedBy);
+
+    if(!orientationSessionResolution || orientationSessionResolution.ok!==true){
+      throw new Error('Orientation session assignment could not be completed.');
+    }
+    if(orientationSessionResolution.requiresHuman===true){
+      // A new specialist task may have been created for invitation/reminder failure.
+      // The session-selection task itself may still close because the requested
+      // authority action (select/create session) was completed.
     }
   }
 
@@ -407,7 +428,7 @@ function v2ResolveHumanTask_(data,actor){
       executionId:String(found.record['Related Execution ID']||''),
       source:'HUMAN_DECISION_DESK',
       summary:'Human task '+taskId+' resolved: '+decision+'.',
-      data:{taskId:taskId,decision:decision,resolution:resolution,resolvedBy:resolvedBy,screeningResolution:screeningResolution,documentQualityResolution:documentQualityResolution,sacSessionResolution:sacSessionResolution,sacDecisionResolution:sacDecisionResolution,iaOutcomeResolution:iaOutcomeResolution,prerequisiteOutcomeResolution:prerequisiteOutcomeResolution}
+      data:{taskId:taskId,decision:decision,resolution:resolution,resolvedBy:resolvedBy,screeningResolution:screeningResolution,documentQualityResolution:documentQualityResolution,sacSessionResolution:sacSessionResolution,sacDecisionResolution:sacDecisionResolution,iaOutcomeResolution:iaOutcomeResolution,prerequisiteOutcomeResolution:prerequisiteOutcomeResolution,orientationSessionResolution:orientationSessionResolution}
     });
   }
 
@@ -429,7 +450,8 @@ function v2ResolveHumanTask_(data,actor){
     sacSessionResolution:sacSessionResolution,
     sacDecisionResolution:sacDecisionResolution,
     iaOutcomeResolution:iaOutcomeResolution,
-    prerequisiteOutcomeResolution:prerequisiteOutcomeResolution
+    prerequisiteOutcomeResolution:prerequisiteOutcomeResolution,
+    orientationSessionResolution:orientationSessionResolution
   };
 }
 
