@@ -194,20 +194,20 @@
       <h1>AI command center for the IPGS Registrar Office.</h1>
       <p>One control room for the digital workforce supporting admission, SKY operations, assessment, orientation, academic handover and management intelligence. Human staff retain authority for governance, judgement and controlled approvals.</p>
       <div class="mode-row">
-        <span class="mode demo">● AI REASONING NOT CONNECTED YET</span>
+        <span class="mode demo" id="runtimeModeBadge">● N8N AGENT RUNTIME NOT ACTIVE YET</span>
         <span class="mode ready">✓ ACC DATA LAYER READY</span>
         <span class="mode ready">✓ AGENTIC ORG CHART READY</span>
       </div>
     </div>
     <div class="status-card">
       <div class="status-top">
-        <div class="brain-state">CORE INTELLIGENCE<b>Orchestrator Brain</b><span id="brainNote">Simulation mode · awaiting OpenAI API</span></div>
+        <div class="brain-state">CORE INTELLIGENCE<b>AI Orchestrator</b><span id="brainNote">ACC connected · agentic bridge checking</span></div>
         <div class="brain-orb" aria-hidden="true"></div>
       </div>
       <div class="connector-list">
         <div class="connector"><span>ACC Operational Data</span><em id="accConnector" class="off">CHECKING</em></div>
         <div class="connector"><span>OpenAI Reasoning</span><em class="off">NOT CONNECTED</em></div>
-        <div class="connector"><span>n8n Event Orchestration</span><em class="off">NOT CONNECTED</em></div>
+        <div class="connector"><span>n8n Event Orchestration</span><em id="n8nConnector" class="off">CHECKING</em></div>
         <div class="connector"><span>Hermes Computer Operator</span><em class="off">NOT CONNECTED</em></div>
       </div>
     </div>
@@ -218,7 +218,7 @@
     <div class="kpi"><div class="label">Digital Workforce</div><div class="value">9</div><div class="meta">1 supervisor + 8 operational agents</div></div>
     <div class="kpi"><div class="label">Human Decisions</div><div id="kDecisions" class="value">—</div><div class="meta">Estimated from workflow state</div></div>
     <div class="kpi"><div class="label">Exceptions Detected</div><div id="kExceptions" class="value">—</div><div class="meta">Operational flags</div></div>
-    <div class="kpi"><div class="label">AI Autonomous Actions</div><div class="value">0</div><div class="meta">Locked until brain is connected</div></div>
+    <div class="kpi"><div class="label">Agent Executions</div><div id="kAgentActions" class="value">0</div><div id="kAgentActionsMeta" class="meta">Waiting for agent runtime</div></div>
   </section>
 
   <div class="layout">
@@ -302,15 +302,15 @@
     <div class="ai-office-shell">
       <div class="tab-shell">
         <div class="tab-shell-head">
-          <div><div class="eyebrow">LIVE VISUAL LAYER · SIMULATION MODE</div><h2>AI Agent Office</h2><p>A digital IPGS Registrar Office visualising structured events, task ownership, handovers, waiting states and human authority gates. This prototype performs no production write actions.</p></div>
+          <div><div class="eyebrow">LIVE VISUAL LAYER · BACKEND EVENT DRIVEN</div><h2>AI Agent Office</h2><p>A digital IPGS Registrar Office driven by V2 agent events and executions. When n8n is not active, the same visual can run controlled simulation scenarios without production writes.</p></div>
           <div class="office-legend" aria-label="Agent state legend"><span><i class="lg-idle"></i>IDLE</span><span><i class="lg-working"></i>WORKING</span><span><i class="lg-handover"></i>HANDOVER</span><span><i class="lg-waiting"></i>WAITING</span><span><i class="lg-escalation"></i>ESCALATION</span></div>
         </div>
         <div class="tab-shell-body">
           <div class="office-toolbar">
             <div class="office-toolbar-left">
-              <label for="officeScenario">Scenario</label>
+              <label for="officeScenario">Simulation fallback</label>
               <select id="officeScenario" aria-label="Simulation scenario"></select>
-              <button id="officeRun" class="office-control primary" type="button">▶ Run Simulation</button>
+              <button id="officeRun" class="office-control primary" type="button">▶ Run Simulation Fallback</button>
               <button id="officePause" class="office-control" type="button">Pause</button>
               <button id="officeResume" class="office-control" type="button">Resume</button>
               <button id="officeReset" class="office-control" type="button">Reset</button>
@@ -340,12 +340,12 @@
         <section class="office-stream">
           <div class="office-mini-head"><b>Live Handover Stream</b><span>Visual movement + auditable structured event log</span></div>
           <div id="officeActivityFeed" class="office-feed">
-            <div class="office-feed-item"><time>SYSTEM</time><b>Simulation Engine</b><p>AI Office ready. Choose a scenario and run the frontend simulation.</p></div>
+            <div class="office-feed-item"><time>SYSTEM</time><b>Agentic Bridge</b><p>AI Office ready. Waiting for live backend agent events; simulation remains available as fallback.</p></div>
           </div>
         </section>
         <section class="office-decision">
           <div class="office-mini-head"><b>Registrar / Human Decision Desk</b><span>Workflow pauses when human authority is required</span></div>
-          <div id="officeHumanCase" class="human-case empty">No case is waiting for human authority. In simulation mode, a controlled escalation will appear here and the event chain will pause until a decision is recorded.</div>
+          <div id="officeHumanCase" class="human-case empty">No live case is currently waiting for human authority. Controlled simulation escalations remain available in fallback mode.</div>
         </section>
       </div>
     </div>
@@ -360,7 +360,7 @@
   </section>
 
   <section class="ops-view" data-view="activity" id="opsActivityView">
-    <div class="tab-shell"><div class="tab-shell-head"><div><div class="eyebrow">AUDITABLE OPERATIONS</div><h2>Agent Activity & Handover Stream</h2><p>ACC audit activity and Simulation Mode events in one operational view.</p></div><span class="tag green">AUDITABLE</span></div><div id="activityTabFeed" class="tab-shell-body feed"></div></div>
+    <div class="tab-shell"><div class="tab-shell-head"><div><div class="eyebrow">AUDITABLE OPERATIONS</div><h2>Agent Activity & Handover Stream</h2><p>Live agent events, handoffs and ACC audit activity in one operational view.</p></div><span class="tag green">AUDITABLE</span></div><div id="activityTabFeed" class="tab-shell-body feed"></div></div>
   </section>
 
   <section class="ops-view" data-view="performance" id="opsPerformanceView">
@@ -372,9 +372,9 @@
       <div class="tab-shell-head"><div><h2>Future Runtime Contract</h2><p>The visual office subscribes to structured agent-state events; it does not depend on free-form agent chat.</p></div></div>
       <div class="readiness">
         <div class="ready-card"><div class="r-top"><span>ACC Backend</span><span class="tag green">SOURCE</span></div><p>Operational student records and controlled case context.</p></div>
-        <div class="ready-card"><div class="r-top"><span>Event Bus / n8n</span><span class="tag amber">NEXT</span></div><p>Emits task and status events without changing the AI Office visual architecture.</p></div>
+        <div class="ready-card"><div class="r-top"><span>Event Bus / n8n</span><span class="tag green">BRIDGE READY</span></div><p>Workflow definitions and backend event/action contracts are ready; live activation awaits n8n import and credentials.</p></div>
         <div class="ready-card"><div class="r-top"><span>Agent Runtime / OpenAI</span><span class="tag amber">NEXT</span></div><p>Reasons about a case within encoded authority and tool limits.</p></div>
-        <div class="ready-card"><div class="r-top"><span>Agent State API</span><span class="tag amber">PLANNED</span></div><p>Publishes agent_status_changed, task_assigned, handover_started, handover_completed and human_decision_required.</p></div>
+        <div class="ready-card"><div class="r-top"><span>Agent State API</span><span class="tag green">READY</span></div><p>Reads V2_AGENT_EVENTS and V2_AGENT_EXECUTIONS for live status, task ownership, handoff and human-gate visibility.</p></div>
       </div>
     </div>
   </section>
@@ -384,13 +384,14 @@
     <div id="officeDrawerBody" class="drawer-body"></div>
   </aside>
 
-  <div class="footer-note">IPGS AI Operations Center · Prototype shell connected to the existing ACC architecture · No OpenAI tokens are used in this version.</div>
+  <div class="footer-note">IPGS AI Operations Center · ACC live data + agentic event bridge · n8n activation pending controlled deployment.</div>
 </div>
 
 <script>
   const DATA_API='/api/admin-data';
+  const AGENT_RUNTIME_API='/api/agent-runtime-state';
   const password=sessionStorage.getItem('ipgsAdminPassword')||'';
-  let state={apps:[],workflow:[],assessment:[],orientation:[],handover:[],activation:[],audit:[],decisions:0,exceptions:0};
+  let state={apps:[],workflow:[],assessment:[],orientation:[],handover:[],activation:[],audit:[],agentEvents:[],agentExecutions:[],agentRuntime:null,decisions:0,exceptions:0};
   window.AI_OPS_STATE=state;
 
   if(!password){ location.href='/admin.html'; }
@@ -416,17 +417,99 @@
       state.handover=rows(d,'V2_HANDOVER_STUDENTS');
       state.activation=[...rows(d,'V2_AGENT_PROSPECT_LOG'),...rows(d,'V2_ACTIVATION_TRACKING'),...rows(d,'V2_ACTIVATION')];
       state.audit=rows(d,'V2_AUDIT_LOG');
+      state.agentEvents=rows(d,'V2_AGENT_EVENTS');
+      state.agentExecutions=rows(d,'V2_AGENT_EXECUTIONS');
       derive();
       document.getElementById('dataChip').innerHTML='<i class="dot"></i> Live ACC data connected';
       document.getElementById('accConnector').textContent='CONNECTED';
       document.getElementById('accConnector').className='on';
-      document.getElementById('brainNote').textContent='ACC context loaded · OpenAI reasoning pending';
+      document.getElementById('brainNote').textContent='ACC context loaded · agentic bridge checking';
     }catch(e){
       document.getElementById('dataChip').textContent='ACC data unavailable';
       document.getElementById('accConnector').textContent='UNAVAILABLE';
       document.getElementById('accConnector').className='off';
       renderFallback(e.message||'Unable to load operational data.');
     }
+  }
+
+  let agentRuntimeTimer=null;
+  let agentRuntimeBusy=false;
+
+  async function loadAgentRuntime(){
+    if(agentRuntimeBusy||document.hidden)return;
+    agentRuntimeBusy=true;
+    try{
+      const res=await fetch(AGENT_RUNTIME_API,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({password})});
+      const out=await res.json();
+      if(res.status===401){sessionStorage.removeItem('ipgsAdminPassword');location.href='/admin.html';return;}
+      if(!res.ok||!out.ok)throw new Error(out.message||'Unable to load agent runtime');
+      state.agentRuntime=out;
+      state.agentEvents=Array.isArray(out.events)?out.events:[];
+      state.agentExecutions=Array.isArray(out.executions)?out.executions:[];
+      renderAgentRuntime(out);
+      if(window.AI_AGENT_OFFICE?.applyLiveRuntime)window.AI_AGENT_OFFICE.applyLiveRuntime(out);
+      else window.PENDING_AI_AGENT_RUNTIME=out;
+    }catch(e){
+      const n8n=document.getElementById('n8nConnector');
+      if(n8n){n8n.textContent='BRIDGE CHECK';n8n.className='off';}
+    }finally{agentRuntimeBusy=false;}
+  }
+
+  function startAgentRuntimePolling(){
+    if(agentRuntimeTimer)return;
+    loadAgentRuntime();
+    agentRuntimeTimer=setInterval(loadAgentRuntime,5000);
+    document.addEventListener('visibilitychange',()=>{if(!document.hidden)loadAgentRuntime();});
+  }
+
+  function renderAgentRuntime(runtime){
+    const n8n=document.getElementById('n8nConnector');
+    const badge=document.getElementById('runtimeModeBadge');
+    const brain=document.getElementById('brainNote');
+    const summary=runtime.summary||{};
+    if(n8n){
+      n8n.textContent=runtime.n8nLive?'LIVE':runtime.bridgeReady?'BRIDGE READY':'AWAITING SETUP';
+      n8n.className=runtime.n8nLive?'on':runtime.bridgeReady?'on':'off';
+    }
+    if(badge){
+      badge.textContent=runtime.n8nLive?'● N8N AGENT RUNTIME LIVE':runtime.bridgeReady?'● AGENTIC BRIDGE READY · N8N NOT ACTIVE':'● N8N AGENT RUNTIME NOT ACTIVE YET';
+      badge.className='mode '+(runtime.n8nLive?'ready':'demo');
+    }
+    if(brain)brain.textContent=runtime.n8nLive?'Live n8n events are driving agent state':runtime.bridgeReady?'Backend agent bridge ready · awaiting n8n activation':'ACC context loaded · preparing agentic bridge';
+    const actionKpi=document.getElementById('kAgentActions');
+    const actionMeta=document.getElementById('kAgentActionsMeta');
+    if(actionKpi)actionKpi.textContent=Number(summary.totalExecutions||0);
+    if(actionMeta)actionMeta.textContent=runtime.n8nLive?((summary.running||0)+' running · '+(summary.completed||0)+' completed'):'Bridge ready · no live n8n run yet';
+
+    const waiting=latestHumanAgentEvents(state.agentEvents);
+    if(waiting.length){
+      state.decisions=waiting.length;
+      document.getElementById('kDecisions').textContent=waiting.length;
+      renderLiveDecisions(waiting);
+    }
+    if(state.agentEvents.length)renderActivity();
+  }
+
+  function latestHumanAgentEvents(events){
+    const latest={};
+    (events||[]).forEach(r=>{const ref=String(r['Reference No']||'');if(ref)latest[ref]=r;});
+    return Object.values(latest).filter(r=>
+      String(r['Status']||'').toUpperCase()==='WAITING_HUMAN' ||
+      (String(r['Requires Human']||'').toUpperCase()==='YES' && !/COMPLETED|RESOLVED/.test(String(r['Status']||'').toUpperCase()))
+    );
+  }
+
+  function renderLiveDecisions(list){
+    const host=document.getElementById('decisionList');
+    const tag=document.getElementById('decisionTag');
+    if(!host||!tag)return;
+    tag.textContent=list.length?list.length+' LIVE':'CLEAR';
+    tag.className='tag '+(list.length?'amber':'green');
+    host.innerHTML=list.slice().reverse().slice(0,6).map(r=>
+      '<div class="decision"><b>'+escapeHtml(r['Student Name']||r['Reference No']||'Student case')+'</b><p>'+
+      escapeHtml(r['Reference No']||'')+' · '+escapeHtml(r['Agent Name']||r['Agent ID']||'AI Agent')+' · '+escapeHtml(r['Summary']||r['Action']||'Human authority required')+'</p></div>'
+    ).join('')||'<div class="decision" style="border-left-color:var(--green)"><b>No live human task</b><p>Agent event stream has no unresolved human-authority case.</p></div>';
+    if(window.AI_AGENT_OFFICE?.switchOpsView)window.AI_AGENT_OFFICE.switchOpsView;
   }
 
   function derive(){
@@ -497,6 +580,18 @@
 
   function renderActivity(){
     const host=document.getElementById('activityFeed');
+    const agentEvents=(state.agentEvents||[]).slice(-12).reverse();
+    if(agentEvents.length){
+      host.innerHTML=agentEvents.map(r=>{
+        const at=r['Timestamp']||'Recent';
+        const actor=r['Agent Name']||r['Agent ID']||'Agentic Bridge';
+        const event=r['Event Type']||r['Status']||'AGENT EVENT';
+        const ref=r['Reference No']||'—';
+        const summary=r['Summary']||r['Action']||'Backend agent event recorded';
+        return '<div class="feed-item"><div class="time">'+escapeHtml(shortTime(at))+'</div><div class="feed-copy"><b>'+escapeHtml(actor)+'</b> · '+escapeHtml(event)+' · '+escapeHtml(ref)+' · '+escapeHtml(summary)+'</div></div>';
+      }).join('');
+      return;
+    }
     const audit=state.audit.slice(-5).reverse();
     if(audit.length){
       host.innerHTML=audit.map(r=>{
@@ -507,9 +602,9 @@
       }).join('');
     } else {
       host.innerHTML=[
-        feed('NOW','Registrar Office Agent','ACC dataset scanned and workload map refreshed.'),
-        feed('READY','Management Intelligence Agent','Operational signals are available from the current ACC dataset.'),
-        feed('LOCKED','Registrar Office Agent','Autonomous write actions remain disabled until governance and tool connections are ready.')
+        feed('NOW','AI Orchestrator','ACC dataset scanned and workload map refreshed.'),
+        feed('READY','Agentic Bridge','Waiting for first V2_AGENT_EVENT / n8n event.'),
+        feed('SAFE','Admission V2','Existing local automation remains active until n8n agentic mode is enabled.')
       ].join('');
     }
   }
@@ -592,6 +687,7 @@
   });
 
   loadOps();
+  startAgentRuntimePolling();
 </script>
 <script src="/ai-agent-office.js"></script>
 </body>
