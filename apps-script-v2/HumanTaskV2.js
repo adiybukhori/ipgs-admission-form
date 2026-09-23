@@ -125,6 +125,7 @@ function v2ResolveHumanTask_(data,actor){
   // the authorised reviewer explicitly overrides them.
   let screeningResolution=null;
   let documentQualityResolution=null;
+  let sacSessionResolution=null;
   let sacDecisionResolution=null;
   let iaOutcomeResolution=null;
   let prerequisiteOutcomeResolution=null;
@@ -257,6 +258,19 @@ function v2ResolveHumanTask_(data,actor){
         source:'HUMAN_DECISION_DESK',
         summary:'Authorised screening exception resolved. Applicant is ready for SAC coordination.'
       });
+    }
+  }
+
+  if (taskType==='SAC_SESSION_REQUIRED' && ['APPROVE','CONFIRM','RESOLVED'].indexOf(decision)>-1) {
+    const sessionId=String(resolution.sessionId||'').trim();
+    if(!sessionId)throw new Error('Select or create a SAC session before resolving this task.');
+    sacSessionResolution=v2PrepareSacCoordination_({
+      referenceNo:reference,
+      sessionId:sessionId,
+      executionId:'HUMAN_SAC_SESSION:'+taskId
+    },resolvedBy);
+    if(!sacSessionResolution || String(sacSessionResolution.status||'').toUpperCase()!=='WAITING_HUMAN'){
+      throw new Error('SAC session assignment did not reach the expected human-decision state.');
     }
   }
 
@@ -393,7 +407,7 @@ function v2ResolveHumanTask_(data,actor){
       executionId:String(found.record['Related Execution ID']||''),
       source:'HUMAN_DECISION_DESK',
       summary:'Human task '+taskId+' resolved: '+decision+'.',
-      data:{taskId:taskId,decision:decision,resolution:resolution,resolvedBy:resolvedBy,screeningResolution:screeningResolution,documentQualityResolution:documentQualityResolution,sacDecisionResolution:sacDecisionResolution,iaOutcomeResolution:iaOutcomeResolution,prerequisiteOutcomeResolution:prerequisiteOutcomeResolution}
+      data:{taskId:taskId,decision:decision,resolution:resolution,resolvedBy:resolvedBy,screeningResolution:screeningResolution,documentQualityResolution:documentQualityResolution,sacSessionResolution:sacSessionResolution,sacDecisionResolution:sacDecisionResolution,iaOutcomeResolution:iaOutcomeResolution,prerequisiteOutcomeResolution:prerequisiteOutcomeResolution}
     });
   }
 
@@ -412,6 +426,7 @@ function v2ResolveHumanTask_(data,actor){
     resolution:resolution,
     screeningResolution:screeningResolution,
     documentQualityResolution:documentQualityResolution,
+    sacSessionResolution:sacSessionResolution,
     sacDecisionResolution:sacDecisionResolution,
     iaOutcomeResolution:iaOutcomeResolution,
     prerequisiteOutcomeResolution:prerequisiteOutcomeResolution
