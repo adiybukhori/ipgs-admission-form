@@ -754,41 +754,25 @@ function v2AcceptancePackSubmitSigned(rawToken, data) {
           eventType:'ACCEPTANCE_COMPLETED',
           agentId:'ORCHESTRATOR',
           agentName:'AI Orchestrator',
-          action:'ROUTE_ORIENTATION',
-          status:'QUEUED',
-          fromStage:'ACCEPTANCE_PENDING',
-          toStage:'ACCEPTED',
-          requiresHuman:false,
-          source:'ADMISSION_V2',
-          summary:'Electronic acceptance pack is complete and verified. Route accepted student to Orientation Management Agent.',
-          data:{
-            signedDocumentCount:4,
-            acceptanceEmailStatus:String(confirmationEmail.status || ''),
-            acceptanceEmailSent:!!confirmationEmail.sent
-          }
-        });
-
-        v2EmitAgentEvent_({
-          referenceNo:ctx.referenceNo,
-          eventType:'SKY_ACTIVATION_READY',
-          agentId:'ORCHESTRATOR',
-          agentName:'AI Orchestrator',
           action:'ROUTE_SYSTEMS_OPERATOR',
           status:'QUEUED',
           fromStage:'ACCEPTANCE_PENDING',
           toStage:'ACCEPTED',
           requiresHuman:false,
           source:'ADMISSION_V2',
-          summary:'Acceptance is complete. SKY Prospect may now proceed to Registry activation coordination.',
+          summary:'Electronic acceptance pack is complete and verified. Route to Systems Operator for the SKY activation gate before Orientation.',
           data:{
-            acceptanceStatus:'ACCEPTED'
+            signedDocumentCount:4,
+            acceptanceStatus:'ACCEPTED',
+            acceptanceEmailStatus:String(confirmationEmail.status || ''),
+            acceptanceEmailSent:!!confirmationEmail.sent
           }
         });
       }
     } catch (agenticError) {
       v2Audit_(ctx.referenceNo,'AGENTIC_BRIDGE','ACCEPTANCE_EVENT_FAILED',{},{
         message:String(agenticError && agenticError.message || agenticError)
-      },'Acceptance Pack','FAILED','Acceptance remains valid; agentic orientation handoff requires attention.');
+      },'Acceptance Pack','FAILED','Acceptance remains valid; agentic SKY activation handoff requires attention.');
     }
 
     v2InvalidateCache_();
