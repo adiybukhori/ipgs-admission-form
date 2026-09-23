@@ -130,6 +130,7 @@ function v2ResolveHumanTask_(data,actor){
   let iaOutcomeResolution=null;
   let prerequisiteOutcomeResolution=null;
   let orientationSessionResolution=null;
+  let skyActivationResolution=null;
   if (taskType==='DOCUMENT_QUALITY_REVIEW' && ['APPROVE','CONFIRM','RESOLVED','REQUEST_EVIDENCE','RETURN'].indexOf(decision)>-1) {
     const doc=v2Find_('V2_DOCUMENT_REVIEW','Reference No',reference);
     const wf=v2Find_('V2_WORKFLOW','Reference No',reference);
@@ -258,6 +259,37 @@ function v2ResolveHumanTask_(data,actor){
         executionId:String(found.record['Related Execution ID']||''),
         source:'HUMAN_DECISION_DESK',
         summary:'Authorised screening exception resolved. Applicant is ready for SAC coordination.'
+      });
+    }
+  }
+
+  if (taskType==='SKY_ACTIVATION_REQUIRED' && ['APPROVE','CONFIRM','RESOLVED'].indexOf(decision)>-1) {
+    const skyStudentId=String(resolution.skyStudentId||resolution.registrationId||'').trim();
+    if(!skyStudentId)throw new Error('SKY Student / Registration ID is required after the real SKY activation is completed.');
+
+    skyActivationResolution=v2ActivateStudentInSky_({
+      referenceNo:reference,
+      skyStudentId:skyStudentId,
+      remarks:String(input.notes||input.resolutionNotes||resolution.remarks||'')
+    },resolvedBy);
+
+    if(!skyActivationResolution || String(skyActivationResolution.skyActivationStatus||'').toUpperCase()!=='ACTIVATED'){
+      throw new Error('SKY activation record was not verified as ACTIVATED.');
+    }
+
+    if(typeof v2EmitAgentEvent_==='function'){
+      v2EmitAgentEvent_({
+        referenceNo:reference,
+        eventType:'SKY_ACTIVATED',
+        agentId:'SYSTEMS_OPERATOR',
+        agentName:'Systems Operator Agent',
+        action:'VERIFY_SKY_ACTIVATION',
+        status:'COMPLETED',
+        requiresHuman:false,
+        executionId:String(found.record['Related Execution ID']||''),
+        source:'HUMAN_DECISION_DESK',
+        summary:'Registry confirmed real SKY activation and the V2 activation record was verified.',
+        data:{skyStudentId:skyStudentId}
       });
     }
   }
@@ -428,7 +460,7 @@ function v2ResolveHumanTask_(data,actor){
       executionId:String(found.record['Related Execution ID']||''),
       source:'HUMAN_DECISION_DESK',
       summary:'Human task '+taskId+' resolved: '+decision+'.',
-      data:{taskId:taskId,decision:decision,resolution:resolution,resolvedBy:resolvedBy,screeningResolution:screeningResolution,documentQualityResolution:documentQualityResolution,sacSessionResolution:sacSessionResolution,sacDecisionResolution:sacDecisionResolution,iaOutcomeResolution:iaOutcomeResolution,prerequisiteOutcomeResolution:prerequisiteOutcomeResolution,orientationSessionResolution:orientationSessionResolution}
+      data:{taskId:taskId,decision:decision,resolution:resolution,resolvedBy:resolvedBy,screeningResolution:screeningResolution,documentQualityResolution:documentQualityResolution,sacSessionResolution:sacSessionResolution,sacDecisionResolution:sacDecisionResolution,iaOutcomeResolution:iaOutcomeResolution,prerequisiteOutcomeResolution:prerequisiteOutcomeResolution,orientationSessionResolution:orientationSessionResolution,skyActivationResolution:skyActivationResolution}
     });
   }
 
@@ -451,7 +483,8 @@ function v2ResolveHumanTask_(data,actor){
     sacDecisionResolution:sacDecisionResolution,
     iaOutcomeResolution:iaOutcomeResolution,
     prerequisiteOutcomeResolution:prerequisiteOutcomeResolution,
-    orientationSessionResolution:orientationSessionResolution
+    orientationSessionResolution:orientationSessionResolution,
+    skyActivationResolution:skyActivationResolution
   };
 }
 
