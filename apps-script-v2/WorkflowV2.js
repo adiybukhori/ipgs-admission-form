@@ -386,6 +386,7 @@ function handleV2Post_(payload) {
   if (action === 'v2PrepareIaCoordination') return v2PrepareIaCoordination_(payload.data || {}, payload.updatedBy || 'SAC / IA Coordination Agent');
   if (action === 'v2PreparePrerequisiteCoordination') return v2PreparePrerequisiteCoordination_(payload.data || {}, payload.updatedBy || 'SAC / IA Coordination Agent');
   if (action === 'v2PrepareOrientationForAccepted') return v2PrepareOrientationForAccepted_(payload.data || {}, payload.updatedBy || 'Orientation Management Agent');
+  if (action === 'v2RunOrientationSessionSupervisor') return v2RunOrientationSessionSupervisor_(payload.data || {}, payload.updatedBy || 'Orientation Management Agent');
   if (action === 'v2PrepareSkyActivation') return v2PrepareSkyActivation_(payload.data || {}, payload.updatedBy || 'Systems Operator Agent');
   if (action === 'v2PrepareAcademicHandover') return v2PrepareAcademicHandover_(payload.data || {}, payload.updatedBy || 'Academic Handover Agent');
   if (action === 'v2PrepareStudentAccessDelivery') return v2PrepareStudentAccessDelivery_(payload.data || {}, payload.updatedBy || 'Academic Handover Agent');
