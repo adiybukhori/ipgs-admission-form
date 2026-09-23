@@ -1,0 +1,243 @@
+{
+  "name": "CS-ADM-V2 | 02 ADMISSION INTELLIGENCE",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "cs-adm-v2-admission-intelligence",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "ai-webhook",
+      "name": "Admission Intelligence Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        -720,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const req=$input.first().json; const h=req.headers||{}; const supplied=h['x-iuc-agent-secret']||h['X-IUC-Agent-Secret']||''; const expected='REPLACE_WITH_N8N_EVENT_SHARED_SECRET'; if(supplied!==expected) throw new Error('Invalid Admission Intelligence secret'); const e=req.body||req; if(!e.referenceNo) throw new Error('referenceNo required'); return [{json:{...e,agentId:'ADMISSION_INTELLIGENCE',executionId:'AI-'+e.referenceNo+'-'+(e.eventId||Date.now())}}];"
+      },
+      "id": "prepare",
+      "name": "Prepare Agent Task",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -500,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://anasbukhori.app.n8n.cloud/webhook/cs-adm-v2-action-gateway",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "X-IUC-Agent-Secret",
+              "value": "REPLACE_WITH_N8N_EVENT_SHARED_SECRET"
+            }
+          ]
+        },
+        "sendBody": true,
+        "contentType": "raw",
+        "rawContentType": "application/json",
+        "body": "={{ JSON.stringify({operation:'state',referenceNo:$json.referenceNo}) }}",
+        "options": {}
+      },
+      "id": "state-before",
+      "name": "Read State Before",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        -270,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const s=$input.first().json; const w=s.workflow||{}; const d=s.documentReview||{}; if(String(d['Review Status']||'')!=='COMPLETE') throw new Error('Document review is not COMPLETE'); const stage=String(w['Application Stage']||''); if(!['DOCUMENT_REVIEW','QUALIFICATION_SCREENING'].includes(stage)) throw new Error('Unexpected stage: '+stage); return [{json:{referenceNo:s.referenceNo,stage,verifiedBefore:true}}];"
+      },
+      "id": "verify-before",
+      "name": "Verify Preconditions",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -40,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://anasbukhori.app.n8n.cloud/webhook/cs-adm-v2-action-gateway",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "X-IUC-Agent-Secret",
+              "value": "REPLACE_WITH_N8N_EVENT_SHARED_SECRET"
+            }
+          ]
+        },
+        "sendBody": true,
+        "contentType": "raw",
+        "rawContentType": "application/json",
+        "body": "={{ JSON.stringify({operation:'execute',executionId:$('Prepare Agent Task').item.json.executionId,referenceNo:$('Prepare Agent Task').item.json.referenceNo,agentId:'ADMISSION_INTELLIGENCE',requestedAction:'RUN_ADMISSION_INTELLIGENCE'}) }}",
+        "options": {}
+      },
+      "id": "do-screening",
+      "name": "Execute AI Screening",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        190,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://anasbukhori.app.n8n.cloud/webhook/cs-adm-v2-action-gateway",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "X-IUC-Agent-Secret",
+              "value": "REPLACE_WITH_N8N_EVENT_SHARED_SECRET"
+            }
+          ]
+        },
+        "sendBody": true,
+        "contentType": "raw",
+        "rawContentType": "application/json",
+        "body": "={{ JSON.stringify({operation:'state',referenceNo:$('Prepare Agent Task').item.json.referenceNo}) }}",
+        "options": {}
+      },
+      "id": "state-after",
+      "name": "Read State After",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        420,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const s=$input.first().json; const ai=s.aiScreening||{}; const q=s.qualificationScreening||{}; const w=s.workflow||{}; const report=String(ai['Report Status']||''); const stage=String(w['Application Stage']||''); const human=/REVIEW_REQUIRED|PENDING_HUMAN/.test(String(ai['Status']||'')+' '+report) || String(w['Manual Review Required']||'').toUpperCase()==='YES'; const completed=human || ['READY_FOR_SAC','QUALIFICATION_SCREENING'].includes(stage); if(!completed) throw new Error('Post-action verification failed'); return [{json:{ok:true,referenceNo:s.referenceNo,verified:true,requiresHuman:human,applicationStage:stage,aiStatus:ai['Status']||'',reportStatus:report,recommendedRoute:q['Recommended Route']||w['Screening Recommendation']||''}}];"
+      },
+      "id": "verify-after",
+      "name": "Verify Result",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        650,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ $json }}",
+        "options": {}
+      },
+      "id": "ai-response",
+      "name": "Return Agent Result",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.4,
+      "position": [
+        880,
+        0
+      ]
+    }
+  ],
+  "connections": {
+    "Admission Intelligence Webhook": {
+      "main": [
+        [
+          {
+            "node": "Prepare Agent Task",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Prepare Agent Task": {
+      "main": [
+        [
+          {
+            "node": "Read State Before",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Read State Before": {
+      "main": [
+        [
+          {
+            "node": "Verify Preconditions",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Verify Preconditions": {
+      "main": [
+        [
+          {
+            "node": "Execute AI Screening",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Execute AI Screening": {
+      "main": [
+        [
+          {
+            "node": "Read State After",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Read State After": {
+      "main": [
+        [
+          {
+            "node": "Verify Result",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Verify Result": {
+      "main": [
+        [
+          {
+            "node": "Return Agent Result",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "tags": []
+}
