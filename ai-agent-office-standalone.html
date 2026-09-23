@@ -1,0 +1,127 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>IUC Campus AI Admissions Office</title>
+  <meta name="theme-color" content="#f4f1e8">
+  <link rel="stylesheet" href="/ai-agent-office-campus-v2.css">
+</head>
+<body>
+  <header class="topbar">
+    <div class="brand">
+      <div class="brand-mark">IUC</div>
+      <div>
+        <small>INNOVATIVE UNIVERSITY COLLEGE · IPGS</small>
+        <h1>Campus AI Admissions Office</h1>
+      </div>
+    </div>
+    <div class="top-actions">
+      <span class="pill" id="dataMode"><i></i> Campus Office V2 · 5 Applicant Characters</span>
+      <a class="ghost-btn" href="/ai-operations-center.html">AI Operations Center</a>
+      <a class="ghost-btn" href="/admin.html">Command Center</a>
+    </div>
+  </header>
+
+  <main class="shell">
+    <section class="hero">
+      <div>
+        <span class="eyebrow">IUC · IPGS · CAMPUS OPERATIONS</span>
+        <h2>A living university admissions hub: staff agents stay at their counters while each application becomes a student character moving through the real process.</h2>
+        <p>The campus scene mirrors the admission workflow. Applicants queue at Admission, sit at counters while specialist agents work, and are escorted through Document Check, Screening, SAC, IA, Prerequisite, Offer & Acceptance, Orientation, IT/Library/Moodle and Academic Handover.</p>
+      </div>
+      <div class="hero-state">
+        <div><small>Office State</small><strong id="officeStateLabel">READY</strong></div>
+        <div><small>Active Case</small><strong id="activeCaseLabel">—</strong></div>
+        <div><small>Current Event</small><strong id="currentEventLabel">WAITING</strong></div>
+      </div>
+    </section>
+
+    <section class="control-strip">
+      <div class="control-block">
+        <label for="scenarioSelect">Workflow</label>
+        <select id="scenarioSelect"></select>
+      </div>
+      <button class="primary-btn" id="runBtn">▶ Process Next Applicant</button>
+      <button class="control-btn" id="pauseBtn" disabled>Pause</button>
+      <button class="control-btn" id="resumeBtn" disabled>Resume</button>
+      <button class="control-btn" id="resetBtn">Reset</button>
+      <div class="live-connect">
+        <input id="adminPassword" type="password" placeholder="Admin password for live admission data">
+        <button class="control-btn" id="connectBtn">Connect Live Data</button>
+      </div>
+    </section>
+
+    <section class="live-metrics" id="liveMetrics">
+      <article><small>Applications</small><strong id="metricApplications">—</strong></article>
+      <article><small>Workflow Records</small><strong id="metricWorkflow">—</strong></article>
+      <article><small>SAC Candidates</small><strong id="metricSac">—</strong></article>
+      <article><small>IA / Assessment</small><strong id="metricIa">—</strong></article>
+      <article><small>Orientation</small><strong id="metricOrientation">—</strong></article>
+      <article><small>Provisioning</small><strong id="metricProvisioning">—</strong></article>
+      <article><small>Academic Handover</small><strong id="metricHandover">—</strong></article>
+    </section>
+
+    <section class="workspace-grid">
+      <div class="office-panel">
+        <div class="panel-head">
+          <div>
+            <span class="eyebrow">LIVE CAMPUS OPERATIONS FLOOR</span>
+            <h3>IPGS Admissions Hub</h3>
+          </div>
+          <div class="legend">
+            <span><i class="dot idle"></i>Available</span>
+            <span><i class="dot working"></i>Working</span>
+            <span><i class="dot receiving"></i>Receiving</span>
+            <span><i class="dot waiting"></i>Waiting</span>
+          </div>
+        </div>
+        <div class="office-stage" id="officeStage">
+          <div class="floor-title">IUC · IPGS CAMPUS ADMISSIONS HUB</div>
+          <div class="corridor corridor-v"></div>
+          <div class="corridor corridor-h c1"></div>
+          <div class="corridor corridor-h c2"></div>
+          <div class="corridor corridor-h c3"></div>
+          <div class="handoff-toast" id="handoffToast"></div>
+        </div>
+      </div>
+
+      <aside class="side-stack">
+        <section class="side-card">
+          <div class="side-head">
+            <div><span class="eyebrow">EVENT PIPELINE</span><h3>Current Task</h3></div>
+          </div>
+          <div class="pipeline">
+            <div><small>Event</small><b data-pipe="event">Waiting</b></div>
+            <div><small>Task</small><b data-pipe="task">—</b></div>
+            <div><small>Agent</small><b data-pipe="agent">—</b></div>
+            <div><small>Action</small><b data-pipe="action">—</b></div>
+            <div><small>Verification</small><b data-pipe="verification">—</b></div>
+            <div><small>Next Event</small><b data-pipe="next">—</b></div>
+          </div>
+        </section>
+
+        <section class="side-card">
+          <div class="side-head"><div><span class="eyebrow">AUDITABLE HANDOFFS</span><h3>Activity Stream</h3></div></div>
+          <div class="activity-feed" id="activityFeed">
+            <div class="empty-feed">No workflow event yet.</div>
+          </div>
+        </section>
+      </aside>
+    </section>
+  </main>
+
+  <div class="drawer-backdrop" id="drawerBackdrop"></div>
+  <aside class="agent-drawer" id="agentDrawer" aria-hidden="true">
+    <button class="drawer-close" id="drawerClose">×</button>
+    <div class="drawer-title">
+      <div class="drawer-avatar" id="drawerAvatar">AI</div>
+      <div><small id="drawerRole">Agent</small><h3 id="drawerName">Agent</h3></div>
+    </div>
+    <div class="drawer-status" id="drawerStatus">IDLE</div>
+    <div class="drawer-grid" id="drawerGrid"></div>
+  </aside>
+
+  <script src="/ai-agent-office-campus-v2.js"></script>
+</body>
+</html>
