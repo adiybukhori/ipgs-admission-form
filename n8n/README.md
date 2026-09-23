@@ -11,6 +11,7 @@ This folder contains the first isolated n8n workflows for the Campus Simulation 
 - CS-ADM-V2 | 02 ADMISSION INTELLIGENCE
 - CS-ADM-V2 | 03 SAC-IA
 - CS-ADM-V2 | 04 STUDENT CONCIERGE
+- CS-ADM-V2 | 05 SYSTEMS OPERATOR
 - CS-ADM-V2 | 06 ORIENTATION
 - CS-ADM-V2 | 92 HUMAN TASK GATEWAY
 - CS-ADM-V2 | 93 ERROR & RETRY
@@ -31,7 +32,7 @@ ACC / Campus Simulation reads V2_AGENT_EVENTS and V2_AGENT_EXECUTIONS.
 
 ## Required configuration before activation
 
-1. Import all ten JSON files into the dedicated n8n project:
+1. Import all eleven JSON files into the dedicated n8n project:
    IUC | Campus Simulation | Admission V2
 2. Replace REPLACE_WITH_N8N_EVENT_SHARED_SECRET in all workflows with one strong shared secret.
 3. Replace REPLACE_WITH_V2_ADMIN_API_PASSWORD in the Action Gateway workflow with the protected V2 backend token, preferably via n8n credentials rather than plain text.
@@ -41,6 +42,7 @@ ACC / Campus Simulation reads V2_AGENT_EVENTS and V2_AGENT_EXECUTIONS.
    - 93 ERROR & RETRY
    - 01 COMPLIANCE
    - 04 STUDENT CONCIERGE
+   - 05 SYSTEMS OPERATOR
    - 02 ADMISSION INTELLIGENCE
    - 03 SAC-IA
    - 06 ORIENTATION
@@ -199,3 +201,26 @@ Reminder scheduling is NOT duplicated in n8n. Existing OrientationV2 reminder au
 - reminders only for students whose invitation status is SENT
 
 If invitation or reminder-trigger verification fails, the Orientation Agent creates a durable Human Task rather than silently continuing.
+
+
+## Systems Operator — SKY contract
+
+Marketing / Academic Consultant remains responsible for:
+- creating the applicant in SKYVIALING -> Marketing -> Prospect
+- copying the SKY Prospect ID
+- selecting the approved Fee Group
+- confirming Prospect completion through the secure agent page
+
+The Marketing action page now requires SKY Prospect ID before submission.
+
+PROSPECT_COMPLETED
+-> AI Orchestrator
+-> Systems Operator Agent
+-> verify Prospect Status + SKY Prospect ID + Fee Group
+-> durable SKY_ACTIVATION_REQUIRED task for Registry
+-> Registry performs the real activation / registration in SKY
+-> Registry records SKY Student / Registration ID in ACC Human Decision Desk
+-> Admission V2 records SKY Activation Status = ACTIVATED
+-> Systems Operator emits SKY_ACTIVATED
+
+Important: v2ActivateStudentInSky records/validates the completed external action. It is not treated as an API call into SKY itself.
