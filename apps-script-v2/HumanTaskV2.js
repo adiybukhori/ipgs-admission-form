@@ -124,6 +124,71 @@ function v2ResolveHumanTask_(data,actor){
   // AI-extracted Field Relationship + Relevant Work Experience are reused unless
   // the authorised reviewer explicitly overrides them.
   let screeningResolution=null;
+  let documentQualityResolution=null;
+  if (taskType==='DOCUMENT_QUALITY_REVIEW' && ['APPROVE','CONFIRM','RESOLVED','REQUEST_EVIDENCE','RETURN'].indexOf(decision)>-1) {
+    const doc=v2Find_('V2_DOCUMENT_REVIEW','Reference No',reference);
+    const wf=v2Find_('V2_WORKFLOW','Reference No',reference);
+    if (!doc || !wf) throw new Error('Document review/workflow record not found for human quality resolution.');
+
+    const qualityDecision=String(
+      resolution.documentQualityDecision ||
+      (['APPROVE','CONFIRM','RESOLVED'].indexOf(decision)>-1 ? 'PASS' : 'FOLLOW_UP_REQUIRED')
+    ).toUpperCase();
+
+    if (['PASS','FOLLOW_UP_REQUIRED'].indexOf(qualityDecision)<0) {
+      throw new Error('Document quality resolution must be PASS or FOLLOW_UP_REQUIRED.');
+    }
+
+    const qualityNotes=String(
+      resolution.replacementInstruction ||
+      resolution.qualityNotes ||
+      input.notes ||
+      input.resolutionNotes || ''
+    ).trim();
+
+    v2UpdateRow_(doc.sheet,doc.rowNumber,{
+      'AI Quality Status':qualityDecision,
+      'Human Quality Decision':qualityDecision,
+      'Human Quality Notes':qualityNotes,
+      'Human Quality Reviewed At':now,
+      'Human Quality Reviewed By':resolvedBy,
+      'Last Updated':now
+    });
+    v2UpdateRow_(wf.sheet,wf.rowNumber,{
+      'Document Quality Status':qualityDecision,
+      'Document Quality Reviewed At':now,
+      'Document Quality Reviewed By':resolvedBy,
+      'Last Updated':now,
+      'Updated By':resolvedBy
+    });
+
+    documentQualityResolution={
+      status:qualityDecision,
+      notes:qualityNotes,
+      nextAction:qualityDecision==='PASS' ? 'ADMISSION_INTELLIGENCE' : 'STUDENT_DOCUMENT_REPLACEMENT'
+    };
+
+    if (typeof v2EmitAgentEvent_==='function') {
+      v2EmitAgentEvent_({
+        referenceNo:reference,
+        eventType:qualityDecision==='PASS' ? 'DOCUMENT_QUALITY_PASSED' : 'DOCUMENT_REPLACEMENT_REQUIRED',
+        agentId:'COMPLIANCE',
+        agentName:'Compliance & Records Agent',
+        action:qualityDecision==='PASS' ? 'ROUTE_ADMISSION_INTELLIGENCE' : 'STUDENT_DOCUMENT_REPLACEMENT',
+        status:qualityDecision==='PASS' ? 'COMPLETED' : 'WAITING',
+        fromStage:'DOCUMENT_REVIEW',
+        toStage:qualityDecision==='PASS' ? 'QUALIFICATION_SCREENING' : 'DOCUMENT_REVIEW',
+        requiresHuman:false,
+        executionId:String(found.record['Related Execution ID']||''),
+        source:'HUMAN_DECISION_DESK',
+        summary:qualityDecision==='PASS'
+          ? 'Authorised human review confirmed document quality. Route to Admission Intelligence.'
+          : 'Authorised human review requires replacement document(s) before academic screening.',
+        data:{taskId:taskId,decision:decision,qualityDecision:qualityDecision,notes:qualityNotes}
+      });
+    }
+  }
+
   if (taskType==='ADMISSION_SCREENING_REVIEW' && ['APPROVE','CONFIRM','RESOLVED'].indexOf(decision)>-1) {
     const ai=v2Find_('V2_AI_SCREENING','Reference No',reference);
     const qs=v2Find_('V2_QUALIFICATION_SCREENING','Reference No',reference);
@@ -198,7 +263,7 @@ function v2ResolveHumanTask_(data,actor){
       executionId:String(found.record['Related Execution ID']||''),
       source:'HUMAN_DECISION_DESK',
       summary:'Human task '+taskId+' resolved: '+decision+'.',
-      data:{taskId:taskId,decision:decision,resolution:resolution,resolvedBy:resolvedBy,screeningResolution:screeningResolution}
+      data:{taskId:taskId,decision:decision,resolution:resolution,resolvedBy:resolvedBy,screeningResolution:screeningResolution,documentQualityResolution:documentQualityResolution}
     });
   }
 
@@ -215,7 +280,8 @@ function v2ResolveHumanTask_(data,actor){
     resolvedBy:resolvedBy,
     resolvedAt:now,
     resolution:resolution,
-    screeningResolution:screeningResolution
+    screeningResolution:screeningResolution,
+    documentQualityResolution:documentQualityResolution
   };
 }
 
