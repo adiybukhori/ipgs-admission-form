@@ -1,0 +1,302 @@
+{
+  "name": "CS-ADM-V2 | 07 ACADEMIC HANDOVER",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "cs-adm-v2-academic-handover",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "handover-webhook",
+      "name": "Academic Handover Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        -760,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const req=$input.first().json;\nconst h=req.headers||{};\nconst supplied=h['x-iuc-agent-secret']||h['X-IUC-Agent-Secret']||'';\nconst expected='REPLACE_WITH_N8N_EVENT_SHARED_SECRET';\nif(supplied!==expected) throw new Error('Invalid Academic Handover Agent secret');\nconst e=req.body||req;\nif(!e.referenceNo) throw new Error('referenceNo required');\nreturn [{json:{...e,agentId:'ACADEMIC_HANDOVER',executionId:'HND-'+e.referenceNo+'-'+(e.eventId||Date.now())}}];"
+      },
+      "id": "prepare",
+      "name": "Prepare Handover Task",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -540,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://anasbukhori.app.n8n.cloud/webhook/cs-adm-v2-action-gateway",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "X-IUC-Agent-Secret",
+              "value": "REPLACE_WITH_N8N_EVENT_SHARED_SECRET"
+            }
+          ]
+        },
+        "sendBody": true,
+        "contentType": "raw",
+        "rawContentType": "application/json",
+        "body": "={{ JSON.stringify({operation:'state',referenceNo:$json.referenceNo}) }}",
+        "options": {}
+      },
+      "id": "state-before",
+      "name": "Read Handover State",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        -310,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const s=$input.first().json;\nconst w=s.workflow||{};\nconst provisioning=s.provisioning||{};\nconst handover=String(w['Academic Handover Status']||'NOT_READY').toUpperCase();\nconst orientation=String(w['Orientation Status']||'').toUpperCase();\nconst provision=String(w['Provisioning Status']||'').toUpperCase();\nlet action='NO_ACTION';\nif(handover==='READY' && orientation==='COMPLETED') action='PREPARE_ACADEMIC_HANDOVER';\nelse if(provision==='READY_TO_NOTIFY' || (\n  String(provisioning['IT Email Status']||'').toUpperCase()==='COMPLETED' &&\n  String(provisioning['Moodle Status']||'').toUpperCase()==='COMPLETED' &&\n  String(provisioning['E-Library Status']||'').toUpperCase()==='COMPLETED' &&\n  String(provisioning['Student Notification Status']||'').toUpperCase()!=='SENT'\n)) action='PREPARE_STUDENT_ACCESS_DELIVERY';\nreturn [{json:{referenceNo:s.referenceNo,requestedAction:action,academicHandoverStatus:handover,orientationStatus:orientation,provisioningStatus:provision,verifiedBefore:true}}];"
+      },
+      "id": "decide",
+      "name": "Decide Handover Action",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -80,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "rules": {
+          "values": [
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict"
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.requestedAction }}",
+                    "rightValue": "NO_ACTION",
+                    "operator": {
+                      "type": "string",
+                      "operation": "notEquals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "execute"
+            }
+          ]
+        },
+        "options": {
+          "fallbackOutput": "extra"
+        }
+      },
+      "id": "switch",
+      "name": "Handover Action Required?",
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3.2,
+      "position": [
+        150,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://anasbukhori.app.n8n.cloud/webhook/cs-adm-v2-action-gateway",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "X-IUC-Agent-Secret",
+              "value": "REPLACE_WITH_N8N_EVENT_SHARED_SECRET"
+            }
+          ]
+        },
+        "sendBody": true,
+        "contentType": "raw",
+        "rawContentType": "application/json",
+        "body": "={{ JSON.stringify({operation:'execute',executionId:$('Prepare Handover Task').item.json.executionId,referenceNo:$('Prepare Handover Task').item.json.referenceNo,agentId:'ACADEMIC_HANDOVER',requestedAction:$json.requestedAction}) }}",
+        "options": {}
+      },
+      "id": "execute",
+      "name": "Execute Handover Coordination",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        380,
+        -100
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://anasbukhori.app.n8n.cloud/webhook/cs-adm-v2-action-gateway",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "X-IUC-Agent-Secret",
+              "value": "REPLACE_WITH_N8N_EVENT_SHARED_SECRET"
+            }
+          ]
+        },
+        "sendBody": true,
+        "contentType": "raw",
+        "rawContentType": "application/json",
+        "body": "={{ JSON.stringify({operation:'state',referenceNo:$('Prepare Handover Task').item.json.referenceNo}) }}",
+        "options": {}
+      },
+      "id": "state-after",
+      "name": "Read Handover State After",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        610,
+        -100
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const s=$input.first().json;\nconst w=s.workflow||{};\nconst exec=$('Execute Handover Coordination').item.json||{};\nconst action=String($('Decide Handover Action').item.json.requestedAction||'');\nconst handover=String(w['Academic Handover Status']||'').toUpperCase();\nconst provision=String(w['Provisioning Status']||'').toUpperCase();\nconst waitingHuman=exec.requiresHuman===true || String(exec.status||'').toUpperCase()==='WAITING_HUMAN';\nif(!waitingHuman){\n  if(action==='PREPARE_ACADEMIC_HANDOVER' && !['HANDED_OVER','COMPLETED'].includes(handover)){\n    throw new Error('Handover verification failed: '+handover);\n  }\n  if(action==='PREPARE_STUDENT_ACCESS_DELIVERY' && !['READY_TO_NOTIFY','COMPLETED'].includes(provision)){\n    throw new Error('Student access preparation verification failed: '+provision);\n  }\n}\nreturn [{json:{ok:true,referenceNo:s.referenceNo,requestedAction:action,academicHandoverStatus:handover,provisioningStatus:provision,requiresHuman:waitingHuman,verified:true}}];"
+      },
+      "id": "verify",
+      "name": "Verify Handover Result",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        840,
+        -100
+      ]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ $json }}",
+        "options": {}
+      },
+      "id": "response",
+      "name": "Return Handover Result",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.4,
+      "position": [
+        1070,
+        0
+      ]
+    }
+  ],
+  "connections": {
+    "Academic Handover Webhook": {
+      "main": [
+        [
+          {
+            "node": "Prepare Handover Task",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Prepare Handover Task": {
+      "main": [
+        [
+          {
+            "node": "Read Handover State",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Read Handover State": {
+      "main": [
+        [
+          {
+            "node": "Decide Handover Action",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Decide Handover Action": {
+      "main": [
+        [
+          {
+            "node": "Handover Action Required?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Handover Action Required?": {
+      "main": [
+        [
+          {
+            "node": "Execute Handover Coordination",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Return Handover Result",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Execute Handover Coordination": {
+      "main": [
+        [
+          {
+            "node": "Read Handover State After",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Read Handover State After": {
+      "main": [
+        [
+          {
+            "node": "Verify Handover Result",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Verify Handover Result": {
+      "main": [
+        [
+          {
+            "node": "Return Handover Result",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "tags": []
+}
