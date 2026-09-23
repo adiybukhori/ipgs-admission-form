@@ -1,0 +1,65 @@
+name: Deploy Official AI Screening Report
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/deploy-ai-screening-report.yml'
+  workflow_dispatch:
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout main
+        uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+
+      - name: Checkout Apps Script V2 source
+        run: |
+          git fetch origin apps-script-v2-dev
+          git checkout -B apps-script-v2-dev origin/apps-script-v2-dev
+
+      - name: Validate AI screening backend
+        run: |
+          node --check apps-script-v2/AIScreeningV2.js
+          node --check apps-script-v2/AiScreeningReportV2.js
+          node --check apps-script-v2/SacPackV2.js
+          node --check apps-script-v2/WorkflowV2.js
+          grep -F "AI_SCREENING_REPORT_V2" apps-script-v2/AiScreeningReportV2.js
+          grep -F "v2GenerateAiScreeningReport_" apps-script-v2/AiScreeningReportV2.js
+          grep -F "Official AI Admission Screening Report" apps-script-v2/SacPackV2.js
+          grep -F "v2GenerateAiScreeningReport" apps-script-v2/WorkflowV2.js
+
+      - name: Verify clasp credential
+        env:
+          CLASPRC_JSON: ${{ secrets.CLASPRC_JSON }}
+        run: |
+          test -n "$CLASPRC_JSON" || (echo 'CLASPRC_JSON secret is not configured.' && exit 1)
+
+      - name: Install clasp
+        run: npm install --global @google/clasp@3.4.1
+
+      - name: Restore clasp credential
+        env:
+          CLASPRC_JSON: ${{ secrets.CLASPRC_JSON }}
+        run: |
+          printf '%s' "$CLASPRC_JSON" > "$HOME/.clasprc.json"
+          chmod 600 "$HOME/.clasprc.json"
+
+      - name: Verify locked V2 target
+        run: node tools/verify-clasp-target.mjs
+
+      - name: Push Apps Script source
+        run: clasp push -f
+
+      - name: Redeploy existing V2 web app
+        env:
+          V2_DEPLOYMENT_ID: AKfycbxasT_HgtRSvTbR_bsa8p17Cm-C2PKn20Ok1kU-AyJmxiKX8kX5EGOtRLwVwNlAL7JB
+        run: clasp create-deployment --deploymentId "$V2_DEPLOYMENT_ID" --description "Official AI screening report V2"
+
+      - name: Remove clasp credential
+        if: always()
+        run: rm -f "$HOME/.clasprc.json"
