@@ -381,6 +381,21 @@ function v2AgentActionGateway_(data, actor) {
         referenceNo:reference,
         finalize:input.finalize === true
       }, v2AgentDisplayName_(agentId) + ' via n8n');
+    } else if (requestedAction === 'SEND_MISSING_DOCUMENT_REQUEST') {
+      if (agentId !== 'STUDENT_CONCIERGE') {
+        throw new Error('SEND_MISSING_DOCUMENT_REQUEST is restricted to STUDENT_CONCIERGE.');
+      }
+      const reviewStatus=String(
+        doc && doc.record['Review Status'] ||
+        workflow.record['Document Review Status'] || ''
+      ).toUpperCase();
+      if (reviewStatus !== 'INCOMPLETE') {
+        throw new Error('Missing-document request blocked: Document Review Status is not INCOMPLETE.');
+      }
+      result=v2SendMissingDocumentRequest_({
+        referenceNo:reference,
+        executionId:executionId
+      },'Student Concierge Agent via n8n');
     } else if (requestedAction === 'SEND_DOCUMENT_REPLACEMENT_REQUEST') {
       if (agentId !== 'STUDENT_CONCIERGE') {
         throw new Error('SEND_DOCUMENT_REPLACEMENT_REQUEST is restricted to STUDENT_CONCIERGE.');
