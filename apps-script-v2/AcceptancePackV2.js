@@ -742,6 +742,38 @@ function v2AcceptancePackSubmitSigned(rawToken, data) {
       confirmationEmail = {sent:false,status:'FAILED',mode:v2NotificationMode_(),error:String(emailError && emailError.message || emailError)};
     }
 
+    let agenticHandoff = null;
+    try {
+      if (
+        typeof v2EmitAgentEvent_ === 'function' &&
+        String(accepted.acceptanceStatus || '').toUpperCase() === 'ACCEPTED' &&
+        String(accepted.applicationStage || '').toUpperCase() === 'ACCEPTED'
+      ) {
+        agenticHandoff = v2EmitAgentEvent_({
+          referenceNo:ctx.referenceNo,
+          eventType:'ACCEPTANCE_COMPLETED',
+          agentId:'ORCHESTRATOR',
+          agentName:'AI Orchestrator',
+          action:'ROUTE_ORIENTATION',
+          status:'QUEUED',
+          fromStage:'ACCEPTANCE_PENDING',
+          toStage:'ACCEPTED',
+          requiresHuman:false,
+          source:'ADMISSION_V2',
+          summary:'Electronic acceptance pack is complete and verified. Route accepted student to Orientation Management Agent.',
+          data:{
+            signedDocumentCount:4,
+            acceptanceEmailStatus:String(confirmationEmail.status || ''),
+            acceptanceEmailSent:!!confirmationEmail.sent
+          }
+        });
+      }
+    } catch (agenticError) {
+      v2Audit_(ctx.referenceNo,'AGENTIC_BRIDGE','ACCEPTANCE_EVENT_FAILED',{},{
+        message:String(agenticError && agenticError.message || agenticError)
+      },'Acceptance Pack','FAILED','Acceptance remains valid; agentic orientation handoff requires attention.');
+    }
+
     v2InvalidateCache_();
 
     return {
@@ -760,6 +792,7 @@ function v2AcceptancePackSubmitSigned(rawToken, data) {
       tokenConsumed: accepted.tokenConsumed,
       acceptanceEmailSent: !!confirmationEmail.sent,
       acceptanceEmailStatus: confirmationEmail.status || '',
+      agenticHandoff: agenticHandoff,
       v1Touched: false
     };
   } finally {
