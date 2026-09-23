@@ -186,11 +186,17 @@ PREREQUISITE
 Direct SAC -> prerequisite remains prohibited.
 
 
-## Orientation Management Agent — accepted student intake
+## Orientation Management Agent — accepted + SKY-activated student intake
 
 ACCEPTANCE_COMPLETED
 -> AI Orchestrator
+-> Systems Operator Agent
+-> Registry SKY activation
+-> SKY_ACTIVATED
+-> AI Orchestrator
 -> Orientation Management Agent
+-> verify Acceptance = ACCEPTED
+-> verify SKY Activation Status = ACTIVATED
 -> find existing assignment or nearest suitable future session
 -> if no suitable session: ORIENTATION_SESSION_REQUIRED Human Task
 -> assign student
@@ -224,7 +230,7 @@ PROSPECT_COMPLETED
 -> WAIT_FOR_ACCEPTANCE
 
 ACCEPTANCE_COMPLETED
--> SKY_ACTIVATION_READY
+-> AI Orchestrator
 -> Systems Operator Agent
 -> verify Acceptance is complete
 -> durable SKY_ACTIVATION_REQUIRED task for Registry
@@ -233,7 +239,7 @@ ACCEPTANCE_COMPLETED
 -> Admission V2 records SKY Activation Status = ACTIVATED
 -> Systems Operator emits SKY_ACTIVATED
 
-Important: v2ActivateStudentInSky records/validates the completed external action. It is not treated as an API call into SKY itself.
+Important: v2ActivateStudentInSky records/validates the completed external action. It is not treated as an API call into SKY itself.\n\nDirect ACCEPTANCE_COMPLETED -> Orientation is prohibited. Orientation may only start after SKY_ACTIVATED.
 
 
 ## Academic Handover Agent
