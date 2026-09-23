@@ -232,6 +232,7 @@ function v2AgentGetAction(token, actionId) {
     programme: programme,
     intake: admission.record['Intake'] || '',
     partnerCode: admission.record['Agent Code'] || match.record['Partner Code'] || '',
+    skyProspectId: match.record['SKY Prospect ID'] || admission.record['SKY Prospect ID'] || '',
     feeGroup: match.record['Fee Group'] || admission.record['Fee Group'] || '',
     remarks: match.record['Remarks'] || '',
     feeGroups: feeGroupOptions.map(function(x){ return x.code; }),
@@ -266,6 +267,7 @@ function v2AgentSubmitAction(token, actionId, formData) {
   const data = formData || {};
   const prospectCompleted = data.prospectCompleted === true ||
     String(data.prospectCompleted || '').trim().toUpperCase() === 'YES';
+  const skyProspectId = String(data.skyProspectId || '').trim();
   const feeGroup = String(data.feeGroup || '').trim();
   const remarks = String(data.remarks || '').trim();
 
@@ -273,6 +275,8 @@ function v2AgentSubmitAction(token, actionId, formData) {
   if (!prospectCompleted) {
     throw new Error('Please confirm that the applicant has already been entered in SKYVIALING Marketing > Prospect.');
   }
+  if (!skyProspectId) throw new Error('SKY Prospect ID is required.');
+  if (skyProspectId.length > 120) throw new Error('SKY Prospect ID is too long.');
   if (!feeGroup) throw new Error('Fee Group is required.');
   if (remarks.length > 1000) throw new Error('Remarks must be 1000 characters or fewer.');
 
@@ -334,6 +338,7 @@ function v2AgentSubmitAction(token, actionId, formData) {
 
     const patch = {
       'Prospect Status': 'PROSPECT_COMPLETED',
+      'SKY Prospect ID': skyProspectId,
       'Fee Group': feeGroup,
       'Prospect Updated At': now,
       'Prospect Remarks': remarks,
@@ -349,6 +354,7 @@ function v2AgentSubmitAction(token, actionId, formData) {
       'Action Status': 'SUBMITTED',
       'Prospect Details Status': 'COMPLETED_IN_SKY',
       'Prospect Details JSON': '',
+      'SKY Prospect ID': skyProspectId,
       'Fee Group': feeGroup,
       'Remarks': remarks,
       'Submitted At': now,
@@ -363,6 +369,7 @@ function v2AgentSubmitAction(token, actionId, formData) {
       {},
       {
         'Prospect Status': 'PROSPECT_COMPLETED',
+        'SKY Prospect ID': skyProspectId,
         'Fee Group': feeGroup
       },
       'Marketing / Academic Consultant',
@@ -387,15 +394,44 @@ function v2AgentSubmitAction(token, actionId, formData) {
     Logger.log(JSON.stringify({
       event: 'V2_MARKETING_PROSPECT_COMPLETED',
       referenceNo: referenceNo,
+      skyProspectId: skyProspectId,
       feeGroup: feeGroup,
       registryNotificationStatus: registryNotification.status || 'NOT_SENT'
     }));
 
+    let agenticHandoff = null;
+    try {
+      if (typeof v2EmitAgentEvent_ === 'function') {
+        agenticHandoff = v2EmitAgentEvent_({
+          referenceNo:referenceNo,
+          eventType:'PROSPECT_COMPLETED',
+          agentId:'ORCHESTRATOR',
+          agentName:'AI Orchestrator',
+          action:'ROUTE_SYSTEMS_OPERATOR',
+          status:'QUEUED',
+          requiresHuman:false,
+          source:'ADMISSION_V2',
+          summary:'Marketing / Academic Consultant completed SKY Prospect setup and Fee Group. Route to Systems Operator for Registry activation coordination.',
+          data:{
+            skyProspectId:skyProspectId,
+            feeGroup:feeGroup,
+            registryNotificationStatus:String(registryNotification.status||'')
+          }
+        });
+      }
+    } catch (agenticError) {
+      v2Audit_(referenceNo,'AGENTIC_BRIDGE','PROSPECT_EVENT_FAILED',{},{
+        message:String(agenticError && agenticError.message || agenticError)
+      },'Agent Prospect','FAILED','Prospect completion remains valid; agentic activation coordination requires attention.');
+    }
+
     return {
       ok: true,
       referenceNo: referenceNo,
+      skyProspectId: skyProspectId,
       feeGroup: feeGroup,
       prospectStatus: 'PROSPECT_COMPLETED',
+      agenticHandoff: agenticHandoff,
       registryNotificationStatus: registryNotification.status || 'NOT_SENT',
       message: 'Prospect completion and Fee Group have been recorded. Registry has been notified to continue processing the application.'
     };
