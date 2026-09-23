@@ -4,7 +4,7 @@
  * Property explicitly enables TEST or LIVE mode.
  */
 
-const V2_ADMISSION_BUILD = 'ADMISSION_V2_AUTO_PGADM_20260918';
+const V2_ADMISSION_BUILD = 'ADMISSION_V2_SUBMISSION_COL_20260923';
 const V2_MAX_DOCUMENT_BYTES = 7 * 1024 * 1024;
 let V2_BRANDED_RENDER_CONTEXT = false;
 const V2_ALLOWED_MIME_TYPES = Object.freeze([
@@ -31,7 +31,13 @@ function v2SubmitAdmission_(payload) {
     const studentFolder = v2CreateStudentFolder_(root, payload, intake);
     const uploadedFiles = v2SaveAdmissionDocuments_(studentFolder, payload);
     const pdf = v2GenerateAdmissionPdf_(studentFolder, payload, reference, intake, submittedAt, uploadedFiles);
-    const row = v2SaveApplicationRecord_(payload, reference, intake, submittedAt, studentFolder, uploadedFiles, pdf, agent, 'PENDING');
+
+    // BOD-approved SOP: every valid Admission Form submission receives one
+    // Conditional Offer Letter immediately. IA / Prerequisite do not create
+    // additional COLs later in the workflow.
+    const col = v2GenerateSubmissionCol_(studentFolder, payload, reference, intake, submittedAt);
+
+    const row = v2SaveApplicationRecord_(payload, reference, intake, submittedAt, studentFolder, uploadedFiles, pdf, col, agent, 'PENDING');
     v2StartWorkflowForApplication_(row);
 
     // PhD Research Intent is required for admission processing, but it must not
@@ -46,7 +52,7 @@ function v2SubmitAdmission_(payload) {
 
     let emailStatus = 'DISABLED';
     try {
-      emailStatus = v2SendSubmissionAcknowledgements_(payload, reference, intake, pdf, agent);
+      emailStatus = v2SendSubmissionAcknowledgements_(payload, reference, intake, pdf, col, agent);
     } catch (emailError) {
       emailStatus = 'FAILED: ' + String(emailError && emailError.message || emailError);
       Logger.log('V2 acknowledgement email failed: ' + emailStatus);
@@ -77,9 +83,11 @@ function v2SubmitAdmission_(payload) {
       agentActionCreated:!!agentActionUrl,
       agentNotificationStatus:agentNotificationStatus,
       pgAdm01Generated:!!(pgAdm01 && pgAdm01.url),
+      colGenerated:!!(col && col.url),
+      colReference:col && col.reference ? col.reference : '',
       researchIntentStatus:researchIntentRequirement.status,
       researchIntentOutstanding:researchIntentRequirement.status === 'PENDING'
-    }, 'Applicant', 'SUCCESS', 'Admission PDF + PG-ADM-01 generated. No COL or Offer Letter generated.');
+    }, 'Applicant', 'SUCCESS', 'Admission PDF + submission COL + PG-ADM-01 generated. Official Offer Letter remains subject to the approved admission process.');
     v2InvalidateCache_();
 
     let agenticHandoff = null;
@@ -140,15 +148,17 @@ function v2SubmitAdmission_(payload) {
       intakeId:intake.id,
       folderUrl:studentFolder.getUrl(),
       admissionFormPdfUrl:pdf.url,
+      colPdfUrl:col && col.url ? col.url : '',
+      colReference:col && col.reference ? col.reference : '',
       pgAdm01PdfUrl:pgAdm01 && pgAdm01.url ? pgAdm01.url : '',
       researchIntentStatus:researchIntentRequirement.status,
       researchIntentOutstanding:researchIntentRequirement.status === 'PENDING',
       emailStatus:emailStatus,
       agenticHandoff:agenticHandoff,
       agenticFallback:agenticFallback,
-      colGenerated:false,
+      colGenerated:!!(col && col.url),
       offerLetterGenerated:false,
-      message:'Application submitted successfully and is pending review.'
+      message:'Application submitted successfully. Your Conditional Offer Letter has been issued while the formal admission review continues.'
     };
   } finally {
     lock.releaseLock();
@@ -337,7 +347,7 @@ return {fileId:brandedFile.getId(),fileName:brandedFile.getName(),url:brandedFil
   return {fileId:file.getId(),fileName:file.getName(),url:file.getUrl(),blob:blob};
 }
 
-function v2SaveApplicationRecord_(payload, reference, intake, submittedAt, folder, uploadedFiles, pdf, agent, emailStatus) {
+function v2SaveApplicationRecord_(payload, reference, intake, submittedAt, folder, uploadedFiles, pdf, col, agent, emailStatus) {
   const now = submittedAt.toISOString();
   const cleanPayload = JSON.parse(JSON.stringify(payload));
   cleanPayload.documents = Object.keys(payload.documents || {}).reduce(function(result,key) {
@@ -356,6 +366,10 @@ function v2SaveApplicationRecord_(payload, reference, intake, submittedAt, folde
     'Transfer Applicant':payload.isTransferApplicant ? 'YES':'NO','Agent Code':agent ? agent.code : '',
     'Agent Name':agent ? agent.name : '','Agent Email':agent ? agent.email : '',
     'Student Folder URL':folder.getUrl(),'Admission Form PDF URL':pdf.url,
+    'COL Status':col && col.status ? col.status : 'NOT_ISSUED',
+    'COL Reference':col && col.reference ? col.reference : '',
+    'COL PDF URL':col && col.url ? col.url : '',
+    'COL Issued At':col && col.issuedAt ? col.issuedAt : '',
     'Uploaded Files JSON':JSON.stringify(uploadedFiles),'Raw Application JSON':JSON.stringify(cleanPayload),
     'Application Status':'RECEIVED','Email Status':emailStatus,'Last Updated':now,'Version':V2_ADMISSION_BUILD
   };
@@ -395,7 +409,12 @@ function v2StartWorkflowForApplication_(application) {
     'Missing Document Count':0,
     'Screening Recommendation':'PENDING_QUALIFICATION_SCREENING',
     'SAC Session ID':'','SAC Decision':'','SAC Endorsed At':'','Assessment Status':'NOT_DETERMINED',
-    'Prerequisite Status':'NOT_DETERMINED','Offer Letter Status':'NOT_ISSUED','Offer Letter Issued At':'',
+    'Prerequisite Status':'NOT_DETERMINED',
+    'COL Status':application['COL Status'] || 'NOT_ISSUED',
+    'COL Reference':application['COL Reference'] || '',
+    'COL PDF URL':application['COL PDF URL'] || '',
+    'COL Issued At':application['COL Issued At'] || '',
+    'Offer Letter Status':'NOT_ISSUED','Offer Letter Issued At':'',
     'Acceptance Status':'NOT_OPEN','Orientation Session ID':'','Orientation Status':'NOT_ASSIGNED',
     'Provisioning Status':'NOT_STARTED','Academic Handover Status':'NOT_READY',
     'Student Folder URL':source['Student Folder URL'],'Last Updated':now,'Updated By':'Admission V2','Version':V2_BUILD
@@ -428,8 +447,8 @@ function v2ResolveAgent_(code) {
   return null;
 }
 
-function v2SendSubmissionAcknowledgements_(payload, reference, intake, pdf, agent) {
-  const result = v2SendApplicationNotifications_(payload, reference, intake, pdf);
+function v2SendSubmissionAcknowledgements_(payload, reference, intake, pdf, col, agent) {
+  const result = v2SendApplicationNotifications_(payload, reference, intake, pdf, col);
   return result.status;
 }
 
@@ -451,7 +470,7 @@ function v2Html_(value) {
  * - creates a fresh dummy V2 application only;
  * - forces email routing to the approved test inbox only;
  * - restores the previous Script Property values after the run;
- * - does not create a COL or Offer Letter and does not touch V1 records.
+ * - creates the submission COL but never creates the final Official Offer Letter / LOA and never touches V1 records.
  */
 function v2RunControlledSmokeTest() {
   const properties = PropertiesService.getScriptProperties();
@@ -490,8 +509,8 @@ function v2RunControlledSmokeTest() {
     if (String(result.emailStatus || '').indexOf('STUDENT=TEST_SENT_1') < 0 || String(result.emailStatus || '').indexOf('ADMIN=TEST_SENT_1') < 0) {
       throw new Error('Smoke test email routing failed: ' + result.emailStatus);
     }
-    if (result.colGenerated !== false || result.offerLetterGenerated !== false) {
-      throw new Error('Smoke test safety failure: a prohibited letter was generated.');
+    if (result.colGenerated !== true || result.offerLetterGenerated !== false) {
+      throw new Error('Smoke test safety failure: submission COL / official-offer boundary is incorrect.');
     }
     Logger.log(JSON.stringify({
       ok: true,
