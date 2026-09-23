@@ -1493,7 +1493,10 @@ function v2OrientationFinalizeStudentReadiness_(sessionId, actor) {
   });
   const now=new Date().toISOString();
   const summary={attended:0,notReady:0,routed:0,rows:[]};
+  const routeRefs=[];
 
+  // First commit readiness for the entire cohort. This keeps downstream
+  // Academic Handover batching deterministic even when n8n reacts immediately.
   rows.forEach(function(row){
     const reference=String(row['Reference No']||'').trim();
     if(!reference)return;
@@ -1527,29 +1530,8 @@ function v2OrientationFinalizeStudentReadiness_(sessionId, actor) {
         'Updated By':actor||'Orientation Completion'
       });
 
-      if(['READY','HANDED_OVER','COMPLETED'].indexOf(previousHandover)<0 && typeof v2EmitAgentEvent_==='function'){
-        try{
-          v2EmitAgentEvent_({
-            referenceNo:reference,
-            eventType:'ORIENTATION_COMPLETED',
-            agentId:'ORCHESTRATOR',
-            agentName:'AI Orchestrator',
-            action:'ROUTE_ACADEMIC_HANDOVER',
-            status:'QUEUED',
-            fromStage:'ORIENTATION',
-            toStage:'ACADEMIC_HANDOVER',
-            requiresHuman:false,
-            source:'ADMISSION_V2',
-            summary:'Official orientation completion is recorded for an attended student. Route to Academic Handover Agent.',
-            data:{sessionId:String(sessionId||''),attendanceStatus:attendance}
-          });
-          summary.routed+=1;
-        }catch(eventError){
-          v2Audit_(reference,'AGENTIC_BRIDGE','ORIENTATION_COMPLETION_EVENT_FAILED',{},{
-            sessionId:String(sessionId||''),
-            message:String(eventError&&eventError.message||eventError)
-          },actor||'Orientation Completion','FAILED','Orientation completion remains valid; handover routing requires reconciliation.');
-        }
+      if(['READY','HANDED_OVER','COMPLETED'].indexOf(previousHandover)<0){
+        routeRefs.push(reference);
       }
       summary.rows.push({referenceNo:reference,attendanceStatus:attendance,academicHandoverStatus:'READY'});
     }else{
@@ -1569,6 +1551,34 @@ function v2OrientationFinalizeStudentReadiness_(sessionId, actor) {
       summary.rows.push({referenceNo:reference,attendanceStatus:attendance,academicHandoverStatus:previousHandover});
     }
   });
+
+  // Only after every student row is committed do we publish route events.
+  routeRefs.forEach(function(reference){
+    if(typeof v2EmitAgentEvent_!=='function')return;
+    try{
+      v2EmitAgentEvent_({
+        referenceNo:reference,
+        eventType:'ORIENTATION_COMPLETED',
+        agentId:'ORCHESTRATOR',
+        agentName:'AI Orchestrator',
+        action:'ROUTE_ACADEMIC_HANDOVER',
+        status:'QUEUED',
+        fromStage:'ORIENTATION',
+        toStage:'ACADEMIC_HANDOVER',
+        requiresHuman:false,
+        source:'ADMISSION_V2',
+        summary:'Official orientation completion is recorded for an attended student. Route to Academic Handover Agent.',
+        data:{sessionId:String(sessionId||''),attendanceStatus:'ATTENDED'}
+      });
+      summary.routed+=1;
+    }catch(eventError){
+      v2Audit_(reference,'AGENTIC_BRIDGE','ORIENTATION_COMPLETION_EVENT_FAILED',{},{
+        sessionId:String(sessionId||''),
+        message:String(eventError&&eventError.message||eventError)
+      },actor||'Orientation Completion','FAILED','Orientation completion remains valid; handover routing requires reconciliation.');
+    }
+  });
+
   return summary;
 }
 
