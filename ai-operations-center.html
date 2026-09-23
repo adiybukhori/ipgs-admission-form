@@ -237,14 +237,14 @@
           </div>
           <div class="network-label">Operational Agent Network</div>
           <div class="agents-grid">
-            <article class="agent-card" tabindex="0" role="button" data-agent="Admission Intake Agent"><div class="agent-top"><div class="avatar">📥</div><div><div class="agent-name">Admission Intake Agent</div><div class="agent-role">New application intake</div></div><span class="tag amber" style="margin-left:auto">NOT ACTIVATED</span></div><div class="agent-task">Monitors new applications, submission completeness and intake readiness before Registry processing.</div><div class="agent-load"><span>Workload</span><b id="loadIntake">— cases</b></div></article>
-            <article class="agent-card" tabindex="0" role="button" data-agent="Admission Evaluation Agent"><div class="agent-top"><div class="avatar">🔎</div><div><div class="agent-name">Admission Evaluation Agent</div><div class="agent-role">Document & qualification review</div></div><span class="tag amber" style="margin-left:auto">NOT ACTIVATED</span></div><div class="agent-task">Tracks document review, qualification screening and cases moving toward SAC or offer readiness.</div><div class="agent-load"><span>Workload</span><b id="loadEvaluation">— cases</b></div></article>
-            <article class="agent-card" tabindex="0" role="button" data-agent="IA Agent"><div class="agent-top"><div class="avatar">🎯</div><div><div class="agent-name">IA Agent</div><div class="agent-role">Internal Assessment operations</div></div><span class="tag amber" style="margin-left:auto">NOT ACTIVATED</span></div><div class="agent-task">Monitors IA scheduling, assessment progress, evidence and authorised outcomes.</div><div class="agent-load"><span>Workload</span><b id="loadIA">— cases</b></div></article>
-            <article class="agent-card" tabindex="0" role="button" data-agent="Prerequisite Agent"><div class="agent-top"><div class="avatar">📘</div><div><div class="agent-name">Prerequisite Agent</div><div class="agent-role">Prerequisite operations</div></div><span class="tag amber" style="margin-left:auto">NOT ACTIVATED</span></div><div class="agent-task">Tracks prerequisite enrolment, learning progress, completion evidence and readiness to return to the admission route.</div><div class="agent-load"><span>Workload</span><b id="loadPrereq">— cases</b></div></article>
-            <article class="agent-card" tabindex="0" role="button" data-agent="Prospect / Activation Agent"><div class="agent-top"><div class="avatar">⚙</div><div><div class="agent-name">Prospect / Activation Agent</div><div class="agent-role">SKY operational control</div></div><span class="tag amber" style="margin-left:auto">NOT ACTIVATED</span></div><div class="agent-task">Monitors consultant Prospect completion, Fee Group selection and Registry SKY activation records.</div><div class="agent-load"><span>Workload</span><b id="loadActivation">— cases</b></div></article>
-            <article class="agent-card" tabindex="0" role="button" data-agent="Orientation Agent"><div class="agent-top"><div class="avatar">🎓</div><div><div class="agent-name">Orientation Agent</div><div class="agent-role">Orientation operations</div></div><span class="tag amber" style="margin-left:auto">NOT ACTIVATED</span></div><div class="agent-task">Tracks session readiness, invitation, reminders, attendance, feedback, recording and completion report.</div><div class="agent-load"><span>Workload</span><b id="loadOrientation">— students</b></div></article>
-            <article class="agent-card" tabindex="0" role="button" data-agent="Academic Handover Agent"><div class="agent-top"><div class="avatar">⇄</div><div><div class="agent-name">Academic Handover Agent</div><div class="agent-role">Provisioning & student access</div></div><span class="tag amber" style="margin-left:auto">NOT ACTIVATED</span></div><div class="agent-task">Tracks handover communication, IT / Moodle / e-Library provisioning and final Student Access.</div><div class="agent-load"><span>Workload</span><b id="loadHandover">— cases</b></div></article>
-            <article class="agent-card" tabindex="0" role="button" data-agent="Management Intelligence Agent"><div class="agent-top"><div class="avatar">▥</div><div><div class="agent-name">Management Intelligence Agent</div><div class="agent-role">Operational insight</div></div><span class="tag amber" style="margin-left:auto">NOT ACTIVATED</span></div><div class="agent-task">Surfaces throughput, exceptions, bottlenecks and management signals across the Registrar operation.</div><div class="agent-load"><span>Signals</span><b id="loadManagement">Live dashboard</b></div></article>
+            <article class="agent-card" tabindex="0" role="button" data-agent="Compliance & Records Agent"><div class="agent-top"><div class="avatar">✓</div><div><div class="agent-name">Compliance & Records Agent</div><div class="agent-role">Document quality & records</div></div><span id="statusCompliance" class="tag green" style="margin-left:auto">BRIDGE READY</span></div><div class="agent-task">Inspects document quality, completeness, consistency and evidence before academic screening.</div><div class="agent-load"><span>Workload</span><b id="loadCompliance">— cases</b></div></article>
+            <article class="agent-card" tabindex="0" role="button" data-agent="Admission Intelligence Agent"><div class="agent-top"><div class="avatar">🔎</div><div><div class="agent-name">Admission Intelligence Agent</div><div class="agent-role">Academic + CV screening</div></div><span id="statusAdmission" class="tag green" style="margin-left:auto">BRIDGE READY</span></div><div class="agent-task">Reads certificate, transcript and CV/resume, supplies screening inputs and verifies the official AI screening report.</div><div class="agent-load"><span>Workload</span><b id="loadAdmission">— cases</b></div></article>
+            <article class="agent-card" tabindex="0" role="button" data-agent="SAC / IA Coordination Agent"><div class="agent-top"><div class="avatar">🎯</div><div><div class="agent-name">SAC / IA Coordination Agent</div><div class="agent-role">SAC & assessment coordination</div></div><span id="statusSac" class="tag green" style="margin-left:auto">BRIDGE READY</span></div><div class="agent-task">Coordinates SAC-ready cases, print packs, authorised decisions, IA and prerequisite routing without replacing academic authority.</div><div class="agent-load"><span>Workload</span><b id="loadSac">— cases</b></div></article>
+            <article class="agent-card" tabindex="0" role="button" data-agent="Student Concierge Agent"><div class="agent-top"><div class="avatar">💬</div><div><div class="agent-name">Student Concierge Agent</div><div class="agent-role">Conditional communication</div></div><span id="statusConcierge" class="tag green" style="margin-left:auto">BRIDGE READY</span></div><div class="agent-task">Handles contextual student follow-up such as replacement documents, IA instructions and pending acceptance.</div><div class="agent-load"><span>Workload</span><b id="loadConcierge">— cases</b></div></article>
+            <article class="agent-card" tabindex="0" role="button" data-agent="Systems Operator Agent"><div class="agent-top"><div class="avatar">⚙</div><div><div class="agent-name">Systems Operator Agent</div><div class="agent-role">SKY & controlled systems</div></div><span id="statusSystems" class="tag green" style="margin-left:auto">BRIDGE READY</span></div><div class="agent-task">Coordinates approved system actions, SKY operational tasks and external-system exceptions.</div><div class="agent-load"><span>Workload</span><b id="loadSystems">— cases</b></div></article>
+            <article class="agent-card" tabindex="0" role="button" data-agent="Orientation Management Agent"><div class="agent-top"><div class="avatar">🎓</div><div><div class="agent-name">Orientation Management Agent</div><div class="agent-role">Session lifecycle</div></div><span id="statusOrientation" class="tag green" style="margin-left:auto">BRIDGE READY</span></div><div class="agent-task">Owns orientation assignment, invitation, reminders, attendance, feedback, recording and completion verification.</div><div class="agent-load"><span>Workload</span><b id="loadOrientation">— students</b></div></article>
+            <article class="agent-card" tabindex="0" role="button" data-agent="Academic Handover Agent"><div class="agent-top"><div class="avatar">⇄</div><div><div class="agent-name">Academic Handover Agent</div><div class="agent-role">Provisioning & access</div></div><span id="statusHandover" class="tag green" style="margin-left:auto">BRIDGE READY</span></div><div class="agent-task">Coordinates academic handover, IT/Moodle/e-Library provisioning and student-access completion.</div><div class="agent-load"><span>Workload</span><b id="loadHandover">— cases</b></div></article>
+            <article class="agent-card" tabindex="0" role="button" data-agent="Management Intelligence Agent"><div class="agent-top"><div class="avatar">▥</div><div><div class="agent-name">Management Intelligence Agent</div><div class="agent-role">Operational intelligence</div></div><span id="statusManagement" class="tag green" style="margin-left:auto">BRIDGE READY</span></div><div class="agent-task">Surfaces queues, stuck cases, failures, human decisions and operational performance across the full journey.</div><div class="agent-load"><span>Signals</span><b id="loadManagement">— signals</b></div></article>
           </div>
         </div>
       </div>
@@ -365,7 +365,7 @@
 
   <section class="ops-view" data-view="performance" id="opsPerformanceView">
     <div class="tab-shell">
-      <div class="tab-shell-head"><div><div class="eyebrow">WORKFORCE TODAY</div><h2>Performance & Agentic Readiness</h2><p>Simulation metrics today and the technical readiness path toward a real event-driven agent runtime.</p></div><span class="tag green">SIMULATION METRICS</span></div>
+      <div class="tab-shell-head"><div><div class="eyebrow">WORKFORCE TODAY</div><h2>Performance & Agentic Readiness</h2><p>Live execution metrics when the agentic bridge is active; controlled simulation remains available as fallback.</p></div><span class="tag green">RUNTIME METRICS</span></div>
       <div class="tab-shell-body"><div id="performanceGrid" class="performance-grid"></div></div>
     </div>
     <div class="tab-shell" style="margin-top:16px">
@@ -391,7 +391,7 @@
   const DATA_API='/api/admin-data';
   const AGENT_RUNTIME_API='/api/agent-runtime-state';
   const password=sessionStorage.getItem('ipgsAdminPassword')||'';
-  let state={apps:[],workflow:[],assessment:[],orientation:[],handover:[],activation:[],audit:[],agentEvents:[],agentExecutions:[],agentRuntime:null,decisions:0,exceptions:0};
+  let state={apps:[],workflow:[],docReview:[],aiScreening:[],qualification:[],sacCandidates:[],assessment:[],orientation:[],handover:[],activation:[],audit:[],agentEvents:[],agentExecutions:[],agentRuntime:null,decisions:0,exceptions:0};
   window.AI_OPS_STATE=state;
 
   if(!password){ location.href='/admin.html'; }
@@ -412,6 +412,10 @@
       const d=out.data||{};
       state.apps=rows(d,'V2_APPLICATIONS');
       state.workflow=rows(d,'V2_WORKFLOW');
+      state.docReview=rows(d,'V2_DOCUMENT_REVIEW');
+      state.aiScreening=rows(d,'V2_AI_SCREENING');
+      state.qualification=rows(d,'V2_QUALIFICATION_SCREENING');
+      state.sacCandidates=rows(d,'V2_SAC_CANDIDATES');
       state.assessment=rows(d,'V2_ASSESSMENT_PROGRESS');
       state.orientation=rows(d,'V2_ORIENTATION_TRACKING');
       state.handover=rows(d,'V2_HANDOVER_STUDENTS');
@@ -476,6 +480,22 @@
       badge.className='mode '+(runtime.n8nLive?'ready':'demo');
     }
     if(brain)brain.textContent=runtime.n8nLive?'Live n8n events are driving agent state':runtime.bridgeReady?'Backend agent bridge ready · awaiting n8n activation':'ACC context loaded · preparing agentic bridge';
+    const latestByAgent={};
+    (state.agentEvents||[]).forEach(r=>{const id=String(r['Agent ID']||'').toUpperCase();if(id)latestByAgent[id]=r;});
+    const cardMap={
+      COMPLIANCE:'statusCompliance',ADMISSION_INTELLIGENCE:'statusAdmission',SAC_IA:'statusSac',
+      STUDENT_CONCIERGE:'statusConcierge',SYSTEMS_OPERATOR:'statusSystems',ORIENTATION:'statusOrientation',
+      ACADEMIC_HANDOVER:'statusHandover',MANAGEMENT_INTELLIGENCE:'statusManagement'
+    };
+    Object.entries(cardMap).forEach(([agentId,id])=>{
+      const el=document.getElementById(id);if(!el)return;
+      const row=latestByAgent[agentId];
+      const status=String(row?.['Status']||'').toUpperCase();
+      const label=runtime.n8nLive?(status||'IDLE'):(runtime.bridgeReady?'BRIDGE READY':'NOT ACTIVE');
+      el.textContent=label;
+      el.className='tag '+(/FAILED|ERROR|ESCALATION/.test(status)?'red':/WAITING/.test(status)?'amber':'green');
+      el.style.marginLeft='auto';
+    });
     const actionKpi=document.getElementById('kAgentActions');
     const actionMeta=document.getElementById('kAgentActionsMeta');
     if(actionKpi)actionKpi.textContent=Number(summary.totalExecutions||0);
@@ -534,20 +554,24 @@
     document.getElementById('kDecisions').textContent=state.decisions;
     document.getElementById('kExceptions').textContent=state.exceptions;
 
-    const intakeLoad=workflowText.filter(x=>containsAny(x.t,['application_received','application received','new application'])).length;
-    const evaluationLoad=workflowText.filter(x=>containsAny(x.t,['document_review','document review','qualification_screening','qualification screening','sac'])&&!containsAny(x.t,['completed','closed'])).length;
-    const iaLoad=assessmentText.filter(x=>containsAny(x.t,['internal assessment',' ia ','assessment'])&&!containsAny(x.t,['prereq','completed','passed','closed','final'])).length;
-    const prereqLoad=assessmentText.filter(x=>containsAny(x.t,['prereq','prerequisite'])&&!containsAny(x.t,['completed','passed','closed','final'])).length;
+    const docReviewText=state.docReview.map(r=>({row:r,t:text(r)}));
+    const aiText=state.aiScreening.map(r=>({row:r,t:text(r)}));
+    const sacText=state.sacCandidates.map(r=>({row:r,t:text(r)}));
+    const complianceLoad=docReviewText.filter(x=>!containsAny(x.t,['complete','completed'])).length;
+    const admissionLoad=workflowText.filter(x=>containsAny(x.t,['document_review','qualification_screening'])&&!containsAny(x.t,['ready_for_sac','closed'])).length;
+    const sacLoad=sacText.filter(x=>!containsAny(x.t,['finalised','finalized','completed','closed'])).length+
+      assessmentText.filter(x=>containsAny(x.t,['internal assessment','prereq','prerequisite'])&&!containsAny(x.t,['completed','passed','closed','final'])).length;
+    const conciergeLoad=workflowText.filter(x=>containsAny(x.t,['missing','not received','acceptance_pending','waiting student','outstanding'])&&!containsAny(x.t,['completed','resolved'])).length;
     const activationText=state.activation.map(r=>({row:r,t:text(r)}));
-    const activationLoad=activationText.filter(x=>!containsAny(x.t,['active in sky done','completed','closed'])).length;
+    const systemsLoad=activationText.filter(x=>!containsAny(x.t,['active in sky done','completed','closed'])).length;
     const orientationLoad=orientationText.filter(x=>!containsAny(x.t,['completed'])).length;
     const handoverLoad=handoverText.filter(x=>!containsAny(x.t,['completed'])).length;
 
-    document.getElementById('loadIntake').textContent=(intakeLoad||Math.min(total,workflowText.length||total))+' cases';
-    document.getElementById('loadEvaluation').textContent=evaluationLoad+' cases';
-    document.getElementById('loadIA').textContent=iaLoad+' cases';
-    document.getElementById('loadPrereq').textContent=prereqLoad+' cases';
-    document.getElementById('loadActivation').textContent=activationLoad+' cases';
+    document.getElementById('loadCompliance').textContent=complianceLoad+' cases';
+    document.getElementById('loadAdmission').textContent=admissionLoad+' cases';
+    document.getElementById('loadSac').textContent=sacLoad+' cases';
+    document.getElementById('loadConcierge').textContent=conciergeLoad+' cases';
+    document.getElementById('loadSystems').textContent=systemsLoad+' cases';
     document.getElementById('loadOrientation').textContent=orientationLoad+' students';
     document.getElementById('loadHandover').textContent=handoverLoad+' cases';
     document.getElementById('loadManagement').textContent=(state.decisions+state.exceptions)+' signals';
@@ -649,7 +673,16 @@
   }
 
 
-  const AGENT_DIRECTORY={"Admission Intake Agent":{"icon":"📥","role":"New application intake","description":"Monitors new applications, submission completeness and intake readiness before Registry processing.","module":"Applications / Workflow","workload":"New application queue","escalation":"Registrar Office Agent","status":"NOT ACTIVATED"},"Admission Evaluation Agent":{"icon":"🔎","role":"Document & qualification review","description":"Tracks document review, qualification screening and cases moving toward SAC or offer readiness.","module":"Applications / SAC","workload":"Evaluation queue","escalation":"Registrar Office Agent","status":"NOT ACTIVATED"},"IA Agent":{"icon":"🎯","role":"Internal Assessment operations","description":"Monitors IA scheduling, assessment progress, evidence and authorised outcomes.","module":"IA / PREREQ","workload":"IA cases","escalation":"Registrar Office Agent","status":"NOT ACTIVATED"},"Prerequisite Agent":{"icon":"📘","role":"Prerequisite operations","description":"Tracks prerequisite enrolment, learning progress, completion evidence and readiness to return to the admission route.","module":"IA / PREREQ","workload":"Prerequisite cases","escalation":"Registrar Office Agent","status":"NOT ACTIVATED"},"Prospect / Activation Agent":{"icon":"⚙","role":"SKY operational control","description":"Monitors consultant Prospect completion, Fee Group selection and Registry SKY activation records.","module":"Prospect / Activation","workload":"Prospect + activation cases","escalation":"Registrar Office Agent","status":"NOT ACTIVATED"},"Orientation Agent":{"icon":"🎓","role":"Orientation operations","description":"Tracks session readiness, invitation, reminders, attendance, feedback, recording and completion report.","module":"Orientation","workload":"Orientation records","escalation":"Registrar Office Agent","status":"NOT ACTIVATED"},"Academic Handover Agent":{"icon":"⇄","role":"Provisioning & student access","description":"Tracks handover communication, IT / Moodle / e-Library provisioning and final Student Access.","module":"Academic Handover","workload":"Handover / provisioning","escalation":"Registrar Office Agent","status":"NOT ACTIVATED"},"Management Intelligence Agent":{"icon":"▥","role":"Operational insight","description":"Surfaces throughput, exceptions, bottlenecks and management signals across the Registrar operation.","module":"Cross-module ACC","workload":"Management signals","escalation":"Registrar / Management","status":"NOT ACTIVATED"}};
+  const AGENT_DIRECTORY={
+    "Compliance & Records Agent":{"icon":"✓","role":"Document quality & records","description":"Inspects submitted document quality, completeness and cross-document consistency before academic screening.","module":"Document Review / Records","workload":"Document review queue","escalation":"AI Orchestrator / Human Review","status":"BRIDGE READY"},
+    "Admission Intelligence Agent":{"icon":"🔎","role":"Academic + CV screening","description":"Reads certificate, transcript and CV/resume, supplies Field Relationship and Relevant Work Experience, and verifies the official AI screening report.","module":"AI Screening / Qualification Rules","workload":"Qualification screening queue","escalation":"Human authority for ambiguity, equivalency or exception","status":"BRIDGE READY"},
+    "SAC / IA Coordination Agent":{"icon":"🎯","role":"SAC & assessment coordination","description":"Coordinates SAC-ready cases, print packs, authorised outcomes, Internal Assessment and prerequisite routing.","module":"SAC / IA / Prerequisite","workload":"SAC and assessment cases","escalation":"Authorised SAC / academic decision","status":"BRIDGE READY"},
+    "Student Concierge Agent":{"icon":"💬","role":"Conditional student communication","description":"Handles contextual follow-up for missing or unsuitable documents, IA instructions, acceptance and other non-standard student communication.","module":"Student Communication","workload":"Student follow-up queue","escalation":"AI Orchestrator / Human for sensitive exceptions","status":"BRIDGE READY"},
+    "Systems Operator Agent":{"icon":"⚙","role":"Controlled system execution","description":"Coordinates SKY and other approved external-system tasks while respecting API and human-control boundaries.","module":"SKY / System Operations","workload":"System action queue","escalation":"Human task when no safe API or controlled automation exists","status":"BRIDGE READY"},
+    "Orientation Management Agent":{"icon":"🎓","role":"Orientation lifecycle","description":"Owns session assignment, invitation, reminders, attendance, feedback, recording and completion verification.","module":"Orientation","workload":"Orientation records","escalation":"AI Orchestrator / Human exception","status":"BRIDGE READY"},
+    "Academic Handover Agent":{"icon":"⇄","role":"Provisioning & student access","description":"Coordinates handover communication, IT/Moodle/e-Library provisioning and final student access.","module":"Academic Handover","workload":"Handover / provisioning","escalation":"AI Orchestrator / Human exception","status":"BRIDGE READY"},
+    "Management Intelligence Agent":{"icon":"▥","role":"Operational intelligence","description":"Surfaces throughput, queues, stuck cases, failures and human-decision signals across Registrar operations.","module":"Cross-module ACC","workload":"Management signals","escalation":"Registrar / Management","status":"BRIDGE READY"}
+  };
 
   function openAgentDetail(name){
     const agent=AGENT_DIRECTORY[name]; if(!agent) return;
