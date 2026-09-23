@@ -347,3 +347,35 @@ Verification:
 - production Offer email is sent by the existing notification engine
 - email delivery failure is escalated instead of treating the action as fully resolved
 - acceptance remains a student action; successful acceptance emits Orientation + SKY activation-ready events
+
+
+## New application automatic start
+
+When N8N_AGENTIC_ENABLED is TRUE:
+
+APPLICATION_SUBMITTED
+-> AI Orchestrator
+-> RUN_DOCUMENT_COMPLETENESS
+-> existing deterministic Document Review
+
+If completeness = COMPLETE:
+-> DOCUMENT_COMPLETENESS_CONFIRMED
+-> Compliance & Records Agent
+
+If completeness = INCOMPLETE:
+-> DOCUMENT_MISSING_REQUIRED
+-> Student Concierge
+-> secure missing-document request
+-> applicant uploads all requested documents
+-> deterministic completeness re-runs
+-> only when COMPLETE does the case proceed to Compliance.
+
+The secure document portal supports two explicit request types:
+- MISSING_REQUIRED_DOCUMENT
+- QUALITY_REPLACEMENT
+
+Missing-document upload does not jump directly to Compliance. It must pass deterministic completeness again.
+Quality replacement upload routes back to Compliance for a new AI quality inspection.
+
+If agentic mode is enabled but n8n event delivery fails, the local fallback preserves the same safety order:
+Completeness -> Compliance -> Admission Intelligence.
