@@ -767,6 +767,23 @@ function v2AcceptancePackSubmitSigned(rawToken, data) {
             acceptanceEmailSent:!!confirmationEmail.sent
           }
         });
+
+        v2EmitAgentEvent_({
+          referenceNo:ctx.referenceNo,
+          eventType:'SKY_ACTIVATION_READY',
+          agentId:'ORCHESTRATOR',
+          agentName:'AI Orchestrator',
+          action:'ROUTE_SYSTEMS_OPERATOR',
+          status:'QUEUED',
+          fromStage:'ACCEPTANCE_PENDING',
+          toStage:'ACCEPTED',
+          requiresHuman:false,
+          source:'ADMISSION_V2',
+          summary:'Acceptance is complete. SKY Prospect may now proceed to Registry activation coordination.',
+          data:{
+            acceptanceStatus:'ACCEPTED'
+          }
+        });
       }
     } catch (agenticError) {
       v2Audit_(ctx.referenceNo,'AGENTIC_BRIDGE','ACCEPTANCE_EVENT_FAILED',{},{
