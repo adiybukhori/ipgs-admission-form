@@ -540,3 +540,25 @@ Regression rule:
 `ACCEPTANCE_COMPLETED → SYSTEMS_OPERATOR → SKY_ACTIVATED → ORIENTATION`
 must never become
 `ACCEPTANCE_COMPLETED → ORIENTATION`.
+
+
+## Test AD — Academic Handover agentic gates
+
+Expected for the agentic path:
+- Academic Handover Agent must not prepare a batch unless Acceptance is complete.
+- SKY Activation Status must be ACTIVATED.
+- Orientation Status must be COMPLETED.
+- Academic Handover Status must be READY.
+- Cohort batching includes only students that satisfy all four gates.
+
+Provisioning / access delivery:
+- Access-delivery task is not created merely because IT/Moodle/e-Library rows say COMPLETED.
+- Workflow Academic Handover Status must be HANDED_OVER.
+- Workflow Provisioning Status must be READY_TO_NOTIFY.
+- Only then may STUDENT_ACCESS_CREDENTIALS_REQUIRED be created.
+- After secure access delivery succeeds, workflow becomes:
+  Provisioning Status = COMPLETED,
+  Academic Handover Status = COMPLETED,
+  Application Stage = ACTIVE_STUDENT.
+
+Manual standalone handover remains available as an authorised human exception path; these restrictions apply to the AI agentic route.
