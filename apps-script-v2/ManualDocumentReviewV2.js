@@ -157,10 +157,31 @@ function v2CompleteManualDocumentReview_(data, reviewer) {
           manualScreeningAvailable:true
         };
       } else {
-        autoAiScreening = v2TryAutoAiScreening_(
-          reference,
-          agenticHandoff ? 'Manual Review Local Fallback after n8n handoff failure' : 'Manual Document Review Auto Trigger'
-        );
+        const agenticMode = typeof v2AgenticEnabled_ === 'function' && v2AgenticEnabled_();
+        if (agenticMode) {
+          const compliance = v2RunComplianceDocumentQuality_(
+            {referenceNo:reference},
+            'Manual Review Local Compliance Fallback'
+          );
+          autoAiScreening = {
+            ok:true,
+            status:String(compliance && compliance.status || 'UNKNOWN'),
+            compliance:compliance,
+            admissionIntelligence:null,
+            manualScreeningAvailable:true
+          };
+          if (compliance && String(compliance.status || '').toUpperCase() === 'PASS') {
+            autoAiScreening.admissionIntelligence = v2TryAutoAiScreening_(
+              reference,
+              'Manual Review Local Admission Intelligence Fallback'
+            );
+          }
+        } else {
+          autoAiScreening = v2TryAutoAiScreening_(
+            reference,
+            'Manual Document Review Auto Trigger'
+          );
+        }
       }
     } catch (error) {
       autoAiScreening = {
