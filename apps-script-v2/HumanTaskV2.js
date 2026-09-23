@@ -131,6 +131,8 @@ function v2ResolveHumanTask_(data,actor){
   let prerequisiteOutcomeResolution=null;
   let orientationSessionResolution=null;
   let skyActivationResolution=null;
+  let handoverConfigurationResolution=null;
+  let studentAccessResolution=null;
   if (taskType==='DOCUMENT_QUALITY_REVIEW' && ['APPROVE','CONFIRM','RESOLVED','REQUEST_EVIDENCE','RETURN'].indexOf(decision)>-1) {
     const doc=v2Find_('V2_DOCUMENT_REVIEW','Reference No',reference);
     const wf=v2Find_('V2_WORKFLOW','Reference No',reference);
@@ -261,6 +263,51 @@ function v2ResolveHumanTask_(data,actor){
         summary:'Authorised screening exception resolved. Applicant is ready for SAC coordination.'
       });
     }
+  }
+
+  if (taskType==='HANDOVER_CONFIGURATION_REQUIRED' && ['APPROVE','CONFIRM','RESOLVED'].indexOf(decision)>-1) {
+    const academicEmail=String(resolution.academicEmail||'').trim();
+    const itEmail=String(resolution.itEmail||'').trim();
+    const moodleEmail=String(resolution.moodleEmail||'').trim();
+    const libraryEmail=String(resolution.libraryEmail||'').trim();
+    if(!academicEmail||!itEmail||!moodleEmail||!libraryEmail){
+      throw new Error('Academic, IT, Moodle and e-Library PIC email addresses are required.');
+    }
+
+    handoverConfigurationResolution=v2PrepareAcademicHandover_({
+      referenceNo:reference,
+      academicEmail:academicEmail,
+      itEmail:itEmail,
+      moodleEmail:moodleEmail,
+      libraryEmail:libraryEmail,
+      name:String(resolution.name||''),
+      executionId:'HUMAN_HANDOVER_CONFIG:'+taskId
+    },resolvedBy);
+
+    if(!handoverConfigurationResolution || handoverConfigurationResolution.ok!==true){
+      throw new Error('Academic Handover could not continue after PIC configuration.');
+    }
+  }
+
+  if (taskType==='STUDENT_ACCESS_CREDENTIALS_REQUIRED' && ['APPROVE','CONFIRM','RESOLVED'].indexOf(decision)>-1) {
+    // Passwords are deliberately NOT accepted through HumanTask resolution.
+    // The Decision Desk must call v2SendStudentProvisioningAccess directly,
+    // then resolve this task with non-secret confirmation only.
+    const provisioning=v2Find_('V2_PROVISIONING','Reference No',reference);
+    const workflow=v2Find_('V2_WORKFLOW','Reference No',reference);
+    if(!provisioning||!workflow)throw new Error('Provisioning/workflow record not found.');
+    const notification=String(provisioning.record['Student Notification Status']||'').toUpperCase();
+    const handover=String(workflow.record['Academic Handover Status']||'').toUpperCase();
+    const stage=String(workflow.record['Application Stage']||'').toUpperCase();
+    if(notification!=='SENT' || handover!=='COMPLETED' || stage!=='ACTIVE_STUDENT'){
+      throw new Error('Student access credentials have not been successfully delivered yet. Send access first, then close this task.');
+    }
+    studentAccessResolution={
+      studentNotificationStatus:notification,
+      academicHandoverStatus:handover,
+      applicationStage:stage,
+      verified:true
+    };
   }
 
   if (taskType==='SKY_ACTIVATION_REQUIRED' && ['APPROVE','CONFIRM','RESOLVED'].indexOf(decision)>-1) {
@@ -460,7 +507,7 @@ function v2ResolveHumanTask_(data,actor){
       executionId:String(found.record['Related Execution ID']||''),
       source:'HUMAN_DECISION_DESK',
       summary:'Human task '+taskId+' resolved: '+decision+'.',
-      data:{taskId:taskId,decision:decision,resolution:resolution,resolvedBy:resolvedBy,screeningResolution:screeningResolution,documentQualityResolution:documentQualityResolution,sacSessionResolution:sacSessionResolution,sacDecisionResolution:sacDecisionResolution,iaOutcomeResolution:iaOutcomeResolution,prerequisiteOutcomeResolution:prerequisiteOutcomeResolution,orientationSessionResolution:orientationSessionResolution,skyActivationResolution:skyActivationResolution}
+      data:{taskId:taskId,decision:decision,resolution:resolution,resolvedBy:resolvedBy,screeningResolution:screeningResolution,documentQualityResolution:documentQualityResolution,sacSessionResolution:sacSessionResolution,sacDecisionResolution:sacDecisionResolution,iaOutcomeResolution:iaOutcomeResolution,prerequisiteOutcomeResolution:prerequisiteOutcomeResolution,orientationSessionResolution:orientationSessionResolution,skyActivationResolution:skyActivationResolution,handoverConfigurationResolution:handoverConfigurationResolution,studentAccessResolution:studentAccessResolution}
     });
   }
 
@@ -484,7 +531,9 @@ function v2ResolveHumanTask_(data,actor){
     iaOutcomeResolution:iaOutcomeResolution,
     prerequisiteOutcomeResolution:prerequisiteOutcomeResolution,
     orientationSessionResolution:orientationSessionResolution,
-    skyActivationResolution:skyActivationResolution
+    skyActivationResolution:skyActivationResolution,
+    handoverConfigurationResolution:handoverConfigurationResolution,
+    studentAccessResolution:studentAccessResolution
   };
 }
 
