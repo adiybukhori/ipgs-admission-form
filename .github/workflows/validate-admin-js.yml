@@ -14,6 +14,8 @@ on:
       - 'ai-agent-office.js'
       - 'ai-agent-office.css'
       - 'api/admin-data.js'
+      - 'api/agent-runtime-state.js'
+      - 'n8n/*.json'
       - '.github/workflows/validate-admin-js.yml'
   workflow_dispatch:
 
@@ -22,8 +24,20 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - name: Check admin-data API syntax
-        run: node --check api/admin-data.js
+      - name: Check admin APIs syntax
+        run: |
+          node --check api/admin-data.js
+          node --check api/agent-runtime-state.js
+      - name: Validate n8n workflow JSON
+        run: |
+          node - <<'NODE'
+          const fs=require('fs');
+          for (const file of fs.readdirSync('n8n').filter(x=>x.endsWith('.json'))) {
+            const data=JSON.parse(fs.readFileSync('n8n/'+file,'utf8'));
+            if (!data.name || !Array.isArray(data.nodes) || !data.nodes.length) throw new Error(file+' is not a valid workflow export');
+            console.log(file+' OK');
+          }
+          NODE
       - name: Check module JavaScript
         run: |
           node --check orientation-admin.js
