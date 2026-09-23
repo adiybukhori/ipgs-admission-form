@@ -326,21 +326,6 @@ function v2ResolveHumanTask_(data,actor){
       throw new Error('SKY activation record was not verified as ACTIVATED.');
     }
 
-    if(typeof v2EmitAgentEvent_==='function'){
-      v2EmitAgentEvent_({
-        referenceNo:reference,
-        eventType:'SKY_ACTIVATED',
-        agentId:'SYSTEMS_OPERATOR',
-        agentName:'Systems Operator Agent',
-        action:'VERIFY_SKY_ACTIVATION',
-        status:'COMPLETED',
-        requiresHuman:false,
-        executionId:String(found.record['Related Execution ID']||''),
-        source:'HUMAN_DECISION_DESK',
-        summary:'Registry confirmed real SKY activation and the V2 activation record was verified.',
-        data:{skyStudentId:skyStudentId}
-      });
-    }
   }
 
   if (taskType==='ORIENTATION_ATTENDANCE_REVIEW_REQUIRED' && ['APPROVE','CONFIRM','RESOLVED'].indexOf(decision)>-1) {
