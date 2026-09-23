@@ -1054,6 +1054,8 @@
       const status=String(r.doc?.['AI Quality Status']||r.workflow?.['Document Quality Status']||'NOT_RUN').toUpperCase();
       const confidenceRaw=Number(r.doc?.['AI Quality Confidence']||r.workflow?.['Document Quality Confidence']||0);
       const confidence=Number.isFinite(confidenceRaw)&&confidenceRaw>0?Math.round((confidenceRaw<=1?confidenceRaw*100:confidenceRaw))+'%':'—';
+      const replacementStatus=String(r.doc?.['Replacement Request Status']||'').toUpperCase();
+      const notificationStatus=String(r.doc?.['Replacement Notification Status']||'').toUpperCase();
       let findings=[],followUp=[],flags=[];
       try{findings=JSON.parse(r.doc?.['AI Quality Findings JSON']||'[]')}catch(_){}
       try{followUp=JSON.parse(r.doc?.['AI Quality Follow-up JSON']||'[]')}catch(_){}
@@ -1088,6 +1090,8 @@
         '<div style="display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;margin-top:10px">'+
           '<div class="offer-mini"><span>AI Quality Status</span><b>'+esc(pretty(status))+'</b></div>'+
           '<div class="offer-mini"><span>Confidence</span><b>'+esc(confidence)+'</b></div>'+
+          (replacementStatus?'<div class="offer-mini"><span>Replacement Request</span><b>'+esc(pretty(replacementStatus))+'</b></div>':'')+
+          (notificationStatus?'<div class="offer-mini"><span>Student Notification</span><b>'+esc(pretty(notificationStatus))+'</b></div>':'')+
         '</div>'+
         (flags.length?'<div class="screening-help" style="margin-top:9px"><b>Flags:</b> '+esc(flags.join('; '))+'</div>':'')+
         issueRows+followRows+
