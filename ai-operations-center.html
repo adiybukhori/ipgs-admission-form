@@ -525,9 +525,15 @@
       const el=document.getElementById(id);if(!el)return;
       const row=latestByAgent[agentId];
       const status=String(row?.['Status']||'').toUpperCase();
-      const label=runtime.n8nLive?(status||'IDLE'):(runtime.bridgeReady?'BRIDGE READY':'NOT ACTIVE');
+      const label=runtime.agenticEnabled
+        ? (status||'IDLE')
+        : (runtime.bridgeReady?'BRIDGE READY':'NOT ACTIVE');
       el.textContent=label;
-      el.className='tag '+(/FAILED|ERROR|ESCALATION/.test(status)?'red':/WAITING/.test(status)?'amber':'green');
+      el.className='tag '+(
+        /FAILED|ERROR|ESCALATION/.test(status)?'red':
+        /WAITING/.test(status)?'amber':
+        runtime.agenticEnabled?'green':'blue'
+      );
       el.style.marginLeft='auto';
     });
     const actionKpi=document.getElementById('kAgentActions');
