@@ -8,6 +8,15 @@
  */
 const V2_COL_BUILD = 'SUBMISSION_COL_V2_20260923';
 
+function v2EnsureSubmissionColHeaders_() {
+  const ss = SpreadsheetApp.openById(CONFIG.spreadsheetId);
+  const applicationSheet = ss.getSheetByName('V2_APPLICATIONS');
+  const workflowSheet = ss.getSheetByName('V2_WORKFLOW');
+  const headers = ['COL Status','COL Reference','COL PDF URL','COL Issued At'];
+  if (applicationSheet) v2EnsureHeaders_(applicationSheet, headers);
+  if (workflowSheet) v2EnsureHeaders_(workflowSheet, headers);
+}
+
 function v2GenerateSubmissionCol_(studentFolder, payload, reference, intake, submittedAt) {
   if (!studentFolder) throw new Error('Student folder is required for COL generation.');
 
