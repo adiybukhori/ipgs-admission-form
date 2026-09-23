@@ -199,6 +199,19 @@ function v2BuildSacCandidateManifest_(sessionId, referenceNo, generateForm) {
   if (formId) documents.push(v2SacPackManifestDoc_('form01', 'PG-ADM-01 Eligibility Form', formId));
   else missing.unshift({key:'form01', label:'PG-ADM-01 Eligibility Form'});
 
+  // Official AI screening report is printed immediately after PG-ADM-01.
+  // For AI-screened cases, only the FINAL report is accepted for the SAC pack.
+  const aiScreening = v2Find_('V2_AI_SCREENING', 'Reference No', reference);
+  if (aiScreening) {
+    const reportStatus = String(aiScreening.record['Report Status'] || '').toUpperCase();
+    const reportId = String(aiScreening.record['Report File ID'] || v2SacPackExtractDriveId_(aiScreening.record['Report PDF URL'] || '') || '').trim();
+    if (reportId && reportStatus === 'FINAL') {
+      documents.push(v2SacPackManifestDoc_('aiScreeningReport', 'Official AI Admission Screening Report', reportId));
+    } else {
+      missing.push({key:'aiScreeningReport', label:'Final AI Admission Screening Report'});
+    }
+  }
+
   const admissionFormId = v2SacPackExtractDriveId_(application.record['Admission Form PDF URL'] || '');
   if (admissionFormId) documents.push(v2SacPackManifestDoc_('admissionForm', 'Admission Form', admissionFormId));
   else missing.push({key:'admissionForm', label:'Admission Form PDF'});
