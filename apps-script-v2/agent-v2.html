@@ -25,8 +25,8 @@
     .confirm input { width:auto; margin-top:3px; transform:scale(1.15); }
     .confirm strong { display:block; margin-bottom:4px; color:var(--primary); }
     label { display:block; font-weight:700; font-size:13px; margin:18px 0 7px; }
-    select, textarea { width:100%; border:1px solid #cfd6df; border-radius:9px; padding:11px 12px; font:inherit; background:#fff; }
-    select:focus, textarea:focus { outline:2px solid rgba(75,61,134,.18); border-color:var(--primary2); }
+    input[type=text], select, textarea { width:100%; border:1px solid #cfd6df; border-radius:9px; padding:11px 12px; font:inherit; background:#fff; }
+    input[type=text]:focus, select:focus, textarea:focus { outline:2px solid rgba(75,61,134,.18); border-color:var(--primary2); }
     textarea { min-height:90px; resize:vertical; }
     .hint { color:var(--muted); font-size:12px; margin-top:6px; line-height:1.45; }
     button { width:100%; margin-top:24px; padding:13px 16px; border:0; border-radius:10px; background:var(--primary); color:#fff; font-weight:800; font-size:14px; cursor:pointer; }
@@ -65,7 +65,7 @@
             <strong>Before submitting:</strong><br>
             1. Enter the applicant into <strong>SKYVIALING → Marketing → Prospect</strong> using the details provided in your notification email.<br>
             2. Return to this page.<br>
-            3. Confirm the Prospect is completed and select the correct Fee Group.
+            3. Copy the SKY Prospect ID, confirm the Prospect is completed and select the correct Fee Group.
           </div>
 
           <div class="confirm">
@@ -76,6 +76,10 @@
             </label>
           </div>
 
+          <label for="skyProspectId">SKY Prospect ID</label>
+          <input id="skyProspectId" type="text" maxlength="120" placeholder="Enter the Prospect ID shown in SKYVIALING">
+          <div class="hint">Copy the Prospect ID from SKYVIALING after the Prospect has been saved successfully.</div>
+
           <label for="feeGroup">Fee Group</label>
           <select id="feeGroup">
             <option value="">Select Fee Group</option>
@@ -85,7 +89,7 @@
           <label for="remarks">Remarks <span style="font-weight:400;color:#667085">(optional)</span></label>
           <textarea id="remarks" maxlength="1000" placeholder="Optional note for Registry"></textarea>
 
-          <button id="submitBtn" type="button" onclick="submitUpdate()">Confirm Prospect Done & Submit Fee Group</button>
+          <button id="submitBtn" type="button" onclick="submitUpdate()">Confirm Prospect Done & Submit Details</button>
           <div id="message" class="msg"></div>
         </div>
       </div>
@@ -142,6 +146,7 @@
       document.getElementById('studentName').textContent = res.studentName || '-';
       document.getElementById('programmeIntake').textContent =
         [res.programme || '', res.intake || ''].filter(Boolean).join(' · ') || '-';
+      document.getElementById('skyProspectId').value = res.skyProspectId || '';
       document.getElementById('remarks').value = res.remarks || '';
 
       feeGroups = Array.isArray(res.feeGroups) ? res.feeGroups : [];
@@ -158,6 +163,7 @@
       if (res.submitted) {
         document.getElementById('prospectCompleted').checked = true;
         document.getElementById('prospectCompleted').disabled = true;
+        document.getElementById('skyProspectId').disabled = true;
         document.getElementById('feeGroup').disabled = true;
         document.getElementById('remarks').disabled = true;
         document.getElementById('submitBtn').disabled = true;
@@ -167,12 +173,16 @@
 
     function submitUpdate() {
       const prospectCompleted = document.getElementById('prospectCompleted').checked;
+      const skyProspectId = document.getElementById('skyProspectId').value.trim();
       const feeGroup = document.getElementById('feeGroup').value.trim();
       const remarks = document.getElementById('remarks').value.trim();
       const btn = document.getElementById('submitBtn');
 
       if (!prospectCompleted) {
         return setMessage('Please confirm that the Prospect has been created in SKYVIALING.', 'err');
+      }
+      if (!skyProspectId) {
+        return setMessage('Please enter the SKY Prospect ID.', 'err');
       }
       if (!feeGroup) {
         return setMessage('Please select the Fee Group.', 'err');
@@ -204,6 +214,7 @@
           }
 
           document.getElementById('prospectCompleted').disabled = true;
+          document.getElementById('skyProspectId').disabled = true;
           document.getElementById('feeGroup').disabled = true;
           document.getElementById('remarks').disabled = true;
           setMessage(res.message || 'Submitted successfully. Registry has been notified.', 'ok');
@@ -218,6 +229,7 @@
           ACTION_ID,
           JSON.stringify({
             prospectCompleted: prospectCompleted,
+            skyProspectId: skyProspectId,
             feeGroup: feeGroup,
             remarks: remarks
           })
