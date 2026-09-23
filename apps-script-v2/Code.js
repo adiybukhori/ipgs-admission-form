@@ -203,6 +203,10 @@ function doGet(e) {
     return v2RenderResearchIntentPage_(params);
   }
 
+  if (params.page === 'document-replacement-v2') {
+    return v2RenderDocumentReplacementPage_(params);
+  }
+
   if (params.page === 'academic-handover-v2') {
     return v2RenderAcademicHandoverPage_(params);
   }
