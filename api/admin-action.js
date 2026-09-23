@@ -25,6 +25,7 @@ const ALLOWED_ACTIONS = new Set([
   'v2PrepareIaCoordination',
   'v2PreparePrerequisiteCoordination',
   'v2PrepareOrientationForAccepted',
+  'v2PrepareSkyActivation',
   'v2AgenticStatus',
   'v2GetAgentCaseState',
   'v2AgentActionGateway',
