@@ -12,8 +12,8 @@
 
 const V2_AI_SCREENING_SHEET = 'V2_AI_SCREENING';
 const V2_AI_SCREENING_CONFIG_SHEET = 'V2_AI_SCREENING_CONFIG';
-const V2_AI_SCHEMA_VERSION = '1.0';
-const V2_AI_PROMPT_VERSION = 'AI_SCREENING_V1';
+const V2_AI_SCHEMA_VERSION = '1.1';
+const V2_AI_PROMPT_VERSION = 'AI_SCREENING_V2_OFFICIAL_REPORT';
 
 const V2_AI_SCREENING_HEADERS = [
   'Reference No',
@@ -45,6 +45,13 @@ const V2_AI_SCREENING_HEADERS = [
   'Human Relevant Work Experience',
   'Human Remarks',
   'Confirmed For Rule Engine',
+  'Rule Engine Input Source',
+  'Report Status',
+  'Report Version',
+  'Report PDF URL',
+  'Report File ID',
+  'Report Generated At',
+  'Report Finalized At',
   'Last Updated'
 ];
 
@@ -316,7 +323,13 @@ function v2AiNormalizeResult_(raw, provider) {
     graduationYear: String(input.graduationYear || input.graduation_year || ''),
     relevantWorkExperience: v2AiNormalizeExperience_(input.relevantWorkExperience || input.relevant_work_experience) || 'UNKNOWN',
     workExperienceSummary: String(input.workExperienceSummary || input.work_experience_summary || ''),
+    workExperienceRationale: String(input.workExperienceRationale || input.work_experience_rationale || ''),
     fieldClassification: v2AiNormalizeField_(input.fieldClassification || input.field_classification) || 'UNKNOWN',
+    fieldClassificationRationale: String(input.fieldClassificationRationale || input.field_classification_rationale || ''),
+    transcriptAssessment: String(input.transcriptAssessment || input.transcript_assessment || ''),
+    academicResultType: String(input.academicResultType || input.academic_result_type || 'UNKNOWN').toUpperCase(),
+    gradeEquivalencyStatus: String(input.gradeEquivalencyStatus || input.grade_equivalency_status || 'UNKNOWN').toUpperCase(),
+    gradeEquivalencyNote: String(input.gradeEquivalencyNote || input.grade_equivalency_note || ''),
     confidence: confidence,
     evidence: evidence,
     flags: flags
@@ -518,11 +531,21 @@ function v2TryAutoAiScreening_(referenceNo, actor) {
     const row = v2Find_(V2_AI_SCREENING_SHEET, 'Reference No', reference);
     if (row) v2UpdateRow_(row.sheet, row.rowNumber, {
       'Status':'REVIEW_REQUIRED',
+      'Rule Engine Input Source':'AI_AGENT',
       'Last Updated':new Date().toISOString()
     });
+    let report = null;
+    try {
+      report = v2GenerateAiScreeningReport_({referenceNo:reference,finalize:false}, actor || 'Admission Intelligence Agent');
+    } catch (reportError) {
+      v2Audit_(reference,'AI_SCREENING','AI_SCREENING_REPORT_FAILED',{},{
+        message:String(reportError && reportError.message || reportError)
+      },actor || 'Admission Intelligence Agent','FAILED','AI screening result was saved; report generation requires attention.');
+    }
     return {
       ok:true, status:'REVIEW_REQUIRED', aiRecorded:true,
       confidence:Number(normalized.confidence || 0),
+      report:report,
       manualScreeningAvailable:true
     };
   }
@@ -547,21 +570,36 @@ function v2TryAutoAiScreening_(referenceNo, actor) {
     const screening = v2RunQualificationScreening(reference, {
       fieldClassification: normalized.fieldClassification,
       relevantWorkExperience: normalized.relevantWorkExperience,
-      screenedBy: actor || 'AI Auto + Rule Engine',
-      remarks: 'Auto AI document classification accepted at confidence ' + normalized.confidence + '; deterministic V2 qualification rule engine executed.'
+      screenedBy: actor || 'IUC Admission Intelligence Agent',
+      remarks: 'AI document screening accepted at confidence ' + normalized.confidence + '; approved deterministic V2 qualification rule engine executed.'
     });
 
     const aiRow = v2Find_(V2_AI_SCREENING_SHEET, 'Reference No', reference);
     if (aiRow) v2UpdateRow_(aiRow.sheet, aiRow.rowNumber, {
       'Status': screening.manualReviewRequired ? 'REVIEW_REQUIRED' : 'AUTO_COMPLETED',
+      'Confirmed For Rule Engine':'YES',
+      'Rule Engine Input Source':'AI_AGENT',
       'Last Updated':new Date().toISOString()
     });
+
+    let report = null;
+    try {
+      report = v2GenerateAiScreeningReport_({
+        referenceNo:reference,
+        finalize:!screening.manualReviewRequired
+      }, actor || 'IUC Admission Intelligence Agent');
+    } catch (reportError) {
+      v2Audit_(reference,'AI_SCREENING','AI_SCREENING_REPORT_FAILED',{},{
+        message:String(reportError && reportError.message || reportError)
+      },actor || 'IUC Admission Intelligence Agent','FAILED','Qualification screening completed; official report generation requires attention.');
+    }
 
     return {
       ok:true,
       status:screening.manualReviewRequired ? 'REVIEW_REQUIRED' : 'AUTO_COMPLETED',
       winner:screening.manualReviewRequired ? '' : 'AI_AUTO',
       screening:screening,
+      report:report,
       manualScreeningAvailable:!!screening.manualReviewRequired
     };
   } finally {
@@ -662,12 +700,25 @@ function v2CompleteManualQualificationScreening_(data, actor) {
       recommendedRoute:recommendation,
       winner:'MANUAL'
     }, reviewer, 'SUCCESS', String(input.remarks || ''));
+
+    let report = null;
+    if (aiRow) {
+      try {
+        report = v2GenerateAiScreeningReport_({referenceNo:reference,finalize:true}, reviewer);
+      } catch (reportError) {
+        v2Audit_(reference,'AI_SCREENING','AI_SCREENING_REPORT_FAILED',{},{
+          message:String(reportError && reportError.message || reportError)
+        },reviewer,'FAILED','Manual screening completed; report regeneration requires attention.');
+      }
+    }
+
     v2InvalidateCache_();
 
     return {
       ok:true, referenceNo:reference, winner:'MANUAL',
       screeningStatus:'COMPLETED_MANUAL', recommendedRoute:recommendation,
-      applicationStage:'READY_FOR_SAC', nextAction:'SAC_PREPARATION'
+      applicationStage:'READY_FOR_SAC', nextAction:'SAC_PREPARATION',
+      report:report
     };
   } finally {
     lock.releaseLock();
@@ -685,6 +736,7 @@ function v2AiSetAutoStatus_(reference, status, flags) {
     'Evidence JSON':'[]','Flags JSON':JSON.stringify(flags || []),'Raw Result JSON':'{}','Normalized Result JSON':'{}',
     'AI Screened At':'','AI Run ID':'','Human Review Status':'PENDING','Human Reviewed At':'','Human Reviewed By':'',
     'Human Field Classification':'','Human Relevant Work Experience':'','Human Remarks':'','Confirmed For Rule Engine':'NO',
+    'Rule Engine Input Source':'','Report Status':'','Report Version':'','Report PDF URL':'','Report File ID':'','Report Generated At':'','Report Finalized At':'',
     'Last Updated':now
   };
   if (existing) {
@@ -709,9 +761,14 @@ function v2CallOpenAiScreening_(application, apiKey) {
       'Declared institution: ' + String(application['Institution / Awarding Body'] || ''),
       'Declared field: ' + String(application['Field of Study'] || ''),
       'Declared academic result: ' + String(application['Academic Result / CGPA / Grade'] || ''),
-      'Field Classification means relationship of the qualification to the target programme.',
-      'Relevant Work Experience means evidence of work experience relevant to the target programme.',
-      'If evidence is insufficient, use UNKNOWN and add a flag.'
+      'Field Classification means relationship of the qualification to the target programme. Base it primarily on certificate/transcript evidence and explain the rationale.',
+      'Relevant Work Experience means evidence in the CV/resume of work experience relevant to the target programme. Explain exactly what evidence supports YES or NO.',
+      'Review the transcript precisely: identify the reported CGPA, percentage, grade or classification exactly as shown.',
+      'Never convert a foreign percentage, division, grade or classification into an IUC CGPA unless the supplied evidence explicitly contains an approved equivalency.',
+      'Use gradeEquivalencyStatus=PENDING_IUC_CONFIRMATION when the result uses a foreign/non-CGPA grading format and no approved equivalency is supplied.',
+      'Use gradeEquivalencyStatus=NOT_REQUIRED only when the academic result is already expressed in a directly usable CGPA/GPA format or equivalency is explicitly documented.',
+      'Evidence entries must name the source document and the fact found, e.g. "Transcript: 71.20% First Division".',
+      'If evidence is insufficient, use UNKNOWN and add a clear flag.'
     ].join('\n')
   }];
   uploaded.items.forEach(function(item) { content.push(item); });
@@ -720,16 +777,22 @@ function v2CallOpenAiScreening_(application, apiKey) {
     properties:{
       qualification:{type:'string'}, institution:{type:'string'}, fieldOfStudy:{type:'string'},
       cgpaGrade:{type:'string'}, graduationYear:{type:'string'},
+      transcriptAssessment:{type:'string'},
+      academicResultType:{type:'string',enum:['CGPA','GPA','PERCENTAGE','GRADE','CLASSIFICATION','UNKNOWN']},
+      gradeEquivalencyStatus:{type:'string',enum:['NOT_REQUIRED','PENDING_IUC_CONFIRMATION','CONFIRMED','UNKNOWN']},
+      gradeEquivalencyNote:{type:'string'},
       relevantWorkExperience:{type:'string',enum:['YES','NO','UNKNOWN']},
       workExperienceSummary:{type:'string'},
+      workExperienceRationale:{type:'string'},
       fieldClassification:{type:'string',enum:['RELATED','PARTIALLY_RELATED','NON_RELATED','UNKNOWN']},
+      fieldClassificationRationale:{type:'string'},
       confidence:{type:'number',minimum:0,maximum:1},evidence:{type:'array',items:{type:'string'}},flags:{type:'array',items:{type:'string'}}
     },
-    required:['qualification','institution','fieldOfStudy','cgpaGrade','graduationYear','relevantWorkExperience','workExperienceSummary','fieldClassification','confidence','evidence','flags']
+    required:['qualification','institution','fieldOfStudy','cgpaGrade','graduationYear','transcriptAssessment','academicResultType','gradeEquivalencyStatus','gradeEquivalencyNote','relevantWorkExperience','workExperienceSummary','workExperienceRationale','fieldClassification','fieldClassificationRationale','confidence','evidence','flags']
   };
   const request = {
     model:model,store:false,reasoning:{effort:'low'},
-    instructions:'You are the IUC IPGS admission document screening assistant. Be conservative. Never invent qualification, CGPA, field relationship or work experience. Return only the required structured output.',
+    instructions:'You are the IUC IPGS Admission Intelligence Agent preparing an official internal screening record for Registry and SAC. Review the certificate, academic transcript and CV/resume carefully. Be conservative and evidence-led. Never invent qualification, CGPA, grade equivalency, field relationship or work experience. You may classify Field Relationship and Relevant Work Experience, but you do not make the authorised SAC decision. Return only the required structured output.',
     input:[{role:'user',content:content}],
     text:{format:{type:'json_schema',name:'iuc_admission_screening',description:'Normalized admission document screening output',strict:true,schema:schema}}
   };
