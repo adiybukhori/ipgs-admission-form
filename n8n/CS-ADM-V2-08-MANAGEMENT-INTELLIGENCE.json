@@ -1,0 +1,201 @@
+{
+  "name": "CS-ADM-V2 | 08 MANAGEMENT INTELLIGENCE",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "cronExpression",
+              "expression": "30 8 * * *"
+            }
+          ]
+        }
+      },
+      "id": "daily-schedule",
+      "name": "Daily 8:30 AM MYT",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [
+        -640,
+        -140
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "return [{json:{\n  operation:'execute',\n  executionId:'MI-DAILY-'+new Date().toISOString().slice(0,10),\n  agentId:'MANAGEMENT_INTELLIGENCE',\n  requestedAction:'RUN_MANAGEMENT_INTELLIGENCE',\n  window:'DAILY_0830'\n}}];"
+      },
+      "id": "prepare-daily",
+      "name": "Prepare Daily Scan",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -400,
+        -140
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://anasbukhori.app.n8n.cloud/webhook/cs-adm-v2-action-gateway",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "X-IUC-Agent-Secret",
+              "value": "REPLACE_WITH_N8N_EVENT_SHARED_SECRET"
+            }
+          ]
+        },
+        "sendBody": true,
+        "contentType": "raw",
+        "rawContentType": "application/json",
+        "body": "={{ JSON.stringify($json) }}",
+        "options": {}
+      },
+      "id": "run-daily",
+      "name": "Run Daily Management Scan",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        -140,
+        -140
+      ]
+    },
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "cs-adm-v2-management-intelligence",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "manual-webhook",
+      "name": "Management Intelligence Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        -640,
+        120
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const req=$input.first().json;\nconst h=req.headers||{};\nconst supplied=h['x-iuc-agent-secret']||h['X-IUC-Agent-Secret']||'';\nconst expected='REPLACE_WITH_N8N_EVENT_SHARED_SECRET';\nif(supplied!==expected) throw new Error('Invalid Management Intelligence secret');\nconst body=req.body||req;\nreturn [{json:{\n  operation:'execute',\n  executionId:String(body.executionId||('MI-MANUAL-'+Date.now())),\n  agentId:'MANAGEMENT_INTELLIGENCE',\n  requestedAction:'RUN_MANAGEMENT_INTELLIGENCE',\n  window:String(body.window||'MANUAL')\n}}];"
+      },
+      "id": "prepare-manual",
+      "name": "Prepare Manual Scan",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -400,
+        120
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://anasbukhori.app.n8n.cloud/webhook/cs-adm-v2-action-gateway",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "X-IUC-Agent-Secret",
+              "value": "REPLACE_WITH_N8N_EVENT_SHARED_SECRET"
+            }
+          ]
+        },
+        "sendBody": true,
+        "contentType": "raw",
+        "rawContentType": "application/json",
+        "body": "={{ JSON.stringify($json) }}",
+        "options": {}
+      },
+      "id": "run-manual",
+      "name": "Run Manual Management Scan",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        -140,
+        120
+      ]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ $json }}",
+        "options": {}
+      },
+      "id": "manual-response",
+      "name": "Return Management Result",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.4,
+      "position": [
+        120,
+        120
+      ]
+    }
+  ],
+  "connections": {
+    "Daily 8:30 AM MYT": {
+      "main": [
+        [
+          {
+            "node": "Prepare Daily Scan",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Prepare Daily Scan": {
+      "main": [
+        [
+          {
+            "node": "Run Daily Management Scan",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Management Intelligence Webhook": {
+      "main": [
+        [
+          {
+            "node": "Prepare Manual Scan",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Prepare Manual Scan": {
+      "main": [
+        [
+          {
+            "node": "Run Manual Management Scan",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Run Manual Management Scan": {
+      "main": [
+        [
+          {
+            "node": "Return Management Result",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1",
+    "timezone": "Asia/Kuala_Lumpur"
+  },
+  "tags": []
+}
