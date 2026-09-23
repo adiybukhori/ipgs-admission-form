@@ -129,7 +129,7 @@
     },
     {
       "parameters": {
-        "jsCode": "const s=$input.first().json; const ai=s.aiScreening||{}; const q=s.qualificationScreening||{}; const w=s.workflow||{}; const report=String(ai['Report Status']||''); const stage=String(w['Application Stage']||''); const human=/REVIEW_REQUIRED|PENDING_HUMAN/.test(String(ai['Status']||'')+' '+report) || String(w['Manual Review Required']||'').toUpperCase()==='YES'; const completed=human || ['READY_FOR_SAC','QUALIFICATION_SCREENING'].includes(stage); if(!completed) throw new Error('Post-action verification failed'); return [{json:{ok:true,referenceNo:s.referenceNo,verified:true,requiresHuman:human,applicationStage:stage,aiStatus:ai['Status']||'',reportStatus:report,recommendedRoute:q['Recommended Route']||w['Screening Recommendation']||''}}];"
+        "jsCode": "const s=$input.first().json;\nconst ai=s.aiScreening||{};\nconst q=s.qualificationScreening||{};\nconst w=s.workflow||{};\nconst report=String(ai['Report Status']||'');\nconst stage=String(w['Application Stage']||'').toUpperCase();\nconst human=/REVIEW_REQUIRED|PENDING_HUMAN/.test(String(ai['Status']||'')+' '+report) || String(w['Manual Review Required']||'').toUpperCase()==='YES';\nconst completed=human || ['READY_FOR_SAC','QUALIFICATION_SCREENING'].includes(stage);\nif(!completed) throw new Error('Post-action verification failed');\nreturn [{json:{\n  ok:true,\n  referenceNo:s.referenceNo,\n  verified:true,\n  requiresHuman:human,\n  applicationStage:stage,\n  aiStatus:ai['Status']||'',\n  reportStatus:report,\n  recommendedRoute:q['Recommended Route']||w['Screening Recommendation']||'',\n  routeToSac:!human&&stage==='READY_FOR_SAC'\n}}];"
       },
       "id": "verify-after",
       "name": "Verify Result",
@@ -153,6 +153,75 @@
       "position": [
         880,
         0
+      ]
+    },
+    {
+      "parameters": {
+        "rules": {
+          "values": [
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict"
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.routeToSac }}",
+                    "rightValue": true,
+                    "operator": {
+                      "type": "boolean",
+                      "operation": "true"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "ready_for_sac"
+            }
+          ]
+        },
+        "options": {
+          "fallbackOutput": "extra"
+        }
+      },
+      "id": "route-ready",
+      "name": "Route Ready Case?",
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3.2,
+      "position": [
+        860,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://anasbukhori.app.n8n.cloud/webhook/cs-adm-v2-orchestrator",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "X-IUC-Agent-Secret",
+              "value": "REPLACE_WITH_N8N_EVENT_SHARED_SECRET"
+            }
+          ]
+        },
+        "sendBody": true,
+        "contentType": "raw",
+        "rawContentType": "application/json",
+        "body": "={{ JSON.stringify({eventId:'AI-SAC-'+Date.now(),timestamp:new Date().toISOString(),referenceNo:$json.referenceNo,eventType:'SCREENING_READY_FOR_SAC',agentId:'ADMISSION_INTELLIGENCE',agentName:'Admission Intelligence Agent',action:'ROUTE_SAC_IA',status:'COMPLETED',fromStage:'QUALIFICATION_SCREENING',toStage:'READY_FOR_SAC',summary:'Admission screening completed and verified. Route to SAC / IA Coordination Agent.',requiresHuman:false,source:'N8N'}) }}",
+        "options": {}
+      },
+      "id": "route-sac",
+      "name": "Route to SAC IA",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1080,
+        -100
       ]
     }
   ],
@@ -224,6 +293,35 @@
       ]
     },
     "Verify Result": {
+      "main": [
+        [
+          {
+            "node": "Route Ready Case?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Route Ready Case": {
+      "main": [
+        [
+          {
+            "node": "Route to SAC IA",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Return Agent Result",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Route to SAC IA": {
       "main": [
         [
           {
