@@ -442,6 +442,9 @@ function v2SubmitDocumentReplacementUpload(rawToken,filesInput) {
       'Student Concierge Upload Recheck',
       'Automatic deterministic completeness re-check after missing document upload.'
     );
+    handoff=completenessResult&&completenessResult.agenticHandoff
+      ? completenessResult.agenticHandoff
+      : null;
 
     if(String(completenessResult.status||'').toUpperCase()==='INCOMPLETE' &&
        typeof v2AgenticEnabled_==='function'&&v2AgenticEnabled_()&&typeof v2EmitAgentEvent_==='function'){
@@ -513,11 +516,23 @@ function v2SubmitDocumentReplacementUpload(rawToken,filesInput) {
   try{
     if(typeof v2NotificationSend_==='function'){
       const recipient=String(app.record['Personal Email']||'').trim();
-      const html='<div style="font-family:Arial,sans-serif;max-width:640px;margin:auto"><h2 style="color:#2d2363">Replacement Document Received</h2><p>Dear <strong>'+v2Html_(app.record['Student Name']||'Applicant')+'</strong>,</p><p>Your requested replacement document(s) have been received successfully and added to your admission record.</p><p><strong>Reference:</strong> '+v2Html_(reference)+'</p><p>Your document review will continue automatically.</p></div>';
-      v2NotificationSend_('DOCUMENT_REPLACEMENT_RECEIVED',[recipient],'[IUC IPGS] Replacement Document Received - '+reference,'Your replacement document(s) have been received. Reference: '+reference,html,{});
+      const missingMode=requestType==='MISSING_REQUIRED_DOCUMENT';
+      const title=missingMode?'Required Admission Document Received':'Replacement Document Received';
+      const bodyText=missingMode
+        ? 'Your required admission document(s) have been received successfully. Document completeness will now be checked automatically.'
+        : 'Your requested replacement document(s) have been received successfully. Document quality review will now continue automatically.';
+      const html='<div style="font-family:Arial,sans-serif;max-width:640px;margin:auto"><h2 style="color:#2d2363">'+v2Html_(title)+'</h2><p>Dear <strong>'+v2Html_(app.record['Student Name']||'Applicant')+'</strong>,</p><p>'+v2Html_(bodyText)+'</p><p><strong>Reference:</strong> '+v2Html_(reference)+'</p></div>';
+      v2NotificationSend_(
+        missingMode?'MISSING_DOCUMENT_RECEIVED':'DOCUMENT_REPLACEMENT_RECEIVED',
+        [recipient],
+        '[IUC IPGS] '+title+' - '+reference,
+        bodyText+' Reference: '+reference,
+        html,
+        {}
+      );
     }
   }catch(emailError){
-    Logger.log('Replacement confirmation email failed non-blocking: '+String(emailError&&emailError.message||emailError));
+    Logger.log('Document upload confirmation email failed non-blocking: '+String(emailError&&emailError.message||emailError));
   }
 
   v2InvalidateCache_();
