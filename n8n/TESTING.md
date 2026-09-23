@@ -167,6 +167,16 @@ Expected:
 
 
 ## Test I — SAC Direct Entry
+## Test H2 — Screening report hard gate
+
+Use a controlled case that reaches `READY_FOR_SAC`, then simulate a missing/non-FINAL AI Screening Report.
+
+Expected:
+- Admission Intelligence requests report generation through Action Gateway.
+- `Report Status` must be `FINAL` and `Report PDF URL` must be present before `routeToSac=true`.
+- If the final PDF cannot be verified, the workflow fails verification and does not call SAC / IA routing.
+- A human-review case may stay pending and must not be treated as a failed academic decision.
+
 
 Use a controlled READY_FOR_SAC applicant with a complete SAC pack.
 
