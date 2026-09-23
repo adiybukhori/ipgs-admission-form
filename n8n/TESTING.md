@@ -21,8 +21,11 @@ Use these tests only after the four n8n workflows are imported, configured and a
 
 Expected path:
 
-`DOCUMENT_REVIEW_COMPLETED`
+`DOCUMENT_COMPLETENESS_CONFIRMED`
 → Orchestrator
+→ Compliance & Records Agent
+→ document quality PASS
+→ `DOCUMENT_QUALITY_PASSED`
 → Admission Intelligence
 → Read State Before
 → verify document review COMPLETE
@@ -110,3 +113,35 @@ Production definition:
 If verification fails:
 
 `NEEDS_INVESTIGATION / WAITING_HUMAN → retry or authorised resolution → verify again`.
+
+
+## Test E — Poor / cropped document
+
+Use a controlled application where deterministic completeness is COMPLETE but one required file is clearly unusable, e.g. materially cropped transcript, unreadable scan or wrong document.
+
+Expected:
+- Compliance Agent runs before Admission Intelligence.
+- AI Quality Status = FOLLOW_UP_REQUIRED.
+- AI Quality Follow-up JSON identifies the affected document and reason.
+- DOCUMENT_REPLACEMENT_REQUIRED is written to V2_AGENT_EVENTS.
+- Admission Intelligence does NOT run.
+- Student remains before qualification screening until replacement is supplied.
+
+## Test F — Ambiguous document / identity inconsistency
+
+Use a controlled case where a visible name/detail conflict or ambiguous document-quality concern exists.
+
+Expected:
+- AI Quality Status = HUMAN_REVIEW_REQUIRED.
+- Durable V2_HUMAN_TASKS item with Task Type = DOCUMENT_QUALITY_REVIEW.
+- Human Decision Desk displays the task.
+- Admission Intelligence does NOT run until authorised resolution and PASS state are recorded.
+
+## Test G — Compliance gate enforcement
+
+Attempt to call RUN_ADMISSION_INTELLIGENCE for a case with deterministic Review Status COMPLETE but Document Quality Status not PASS.
+
+Expected:
+- Action Gateway rejects the action.
+- No academic screening result is written.
+- Failure is auditable.
