@@ -104,3 +104,37 @@ if(!schedule||!scheduleText.includes('30 8 * * *')){
 
 console.log('Agentic workflow set OK:',expected.length,'workflows');
 console.log('Unique webhook paths:',webhookPaths.size);
+
+
+const orchestrator=JSON.parse(fs.readFileSync(path.join(root,'CS-ADM-V2-00-ORCHESTRATOR.json'),'utf8'));
+const orchestratorRoute=orchestrator.nodes.find(n=>n.name==='Decide Next Agent');
+const orchestratorCode=String(orchestratorRoute?.parameters?.jsCode||'');
+if(!orchestratorCode.includes("DOCUMENT_MISSING_REQUIRED:'STUDENT_CONCIERGE'")){
+  throw new Error('Orchestrator must route missing required documents to Student Concierge');
+}
+if(!orchestratorCode.includes("ACCEPTANCE_COMPLETED:'SYSTEMS_OPERATOR'")){
+  throw new Error('Acceptance must route through Systems Operator before Orientation');
+}
+if(orchestratorCode.includes("ACCEPTANCE_COMPLETED:'ORIENTATION'")){
+  throw new Error('Direct Acceptance -> Orientation bypass is prohibited');
+}
+if(!orchestratorCode.includes("SKY_ACTIVATED:'ORIENTATION'")){
+  throw new Error('Verified SKY activation must route to Orientation');
+}
+
+const systems=JSON.parse(fs.readFileSync(path.join(root,'CS-ADM-V2-05-SYSTEMS-OPERATOR.json'),'utf8'));
+const systemsVerify=systems.nodes.find(n=>n.name==='Verify Systems Result');
+if(!String(systemsVerify?.parameters?.jsCode||'').includes("acceptanceStatus")){
+  throw new Error('Systems Operator must preserve the Acceptance gate');
+}
+if(!systems.nodes.some(n=>n.name==='Route Activated Student to Orientation')){
+  throw new Error('Systems Operator must support verified activated-state handoff to Orientation');
+}
+
+const orientationVerify=orientation.nodes.find(n=>n.name==='Verify Accepted Student');
+const orientationVerifyCode=String(orientationVerify?.parameters?.jsCode||'');
+if(!orientationVerifyCode.includes("SKY Activation Status") && !orientationVerifyCode.includes("skyActivationStatus")){
+  throw new Error('Orientation workflow must verify SKY activation before assignment/invitation');
+}
+
+console.log('Admission sequence barrier OK: Acceptance -> SKY -> Orientation');
