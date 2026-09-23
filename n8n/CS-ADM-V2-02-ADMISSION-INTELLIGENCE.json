@@ -303,15 +303,8 @@
         ]
       ]
     },
-    "Route Ready Case": {
+    "Route to SAC IA": {
       "main": [
-        [
-          {
-            "node": "Route to SAC IA",
-            "type": "main",
-            "index": 0
-          }
-        ],
         [
           {
             "node": "Return Agent Result",
@@ -321,8 +314,15 @@
         ]
       ]
     },
-    "Route to SAC IA": {
+    "Route Ready Case?": {
       "main": [
+        [
+          {
+            "node": "Route to SAC IA",
+            "type": "main",
+            "index": 0
+          }
+        ],
         [
           {
             "node": "Return Agent Result",
