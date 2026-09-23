@@ -204,7 +204,23 @@ function v2CompleteManualDocumentReview_(data, reviewer) {
     outstandingDocuments: outstandingDocuments,
     outstandingCount: outstandingDocuments.length,
     nextAction: status === 'COMPLETE'
-      ? (agenticHandoff && agenticHandoff.sent ? 'COMPLIANCE_DOCUMENT_QUALITY' : 'QUALIFICATION_SCREENING')
+      ? (
+          agenticHandoff && agenticHandoff.sent
+            ? 'COMPLIANCE_DOCUMENT_QUALITY'
+            : (
+                autoAiScreening && autoAiScreening.compliance
+                  ? (
+                      String(autoAiScreening.compliance.status||'').toUpperCase()==='PASS'
+                        ? 'QUALIFICATION_SCREENING'
+                        : (
+                            String(autoAiScreening.compliance.status||'').toUpperCase()==='FOLLOW_UP_REQUIRED'
+                              ? 'REQUEST_REPLACEMENT_DOCUMENTS'
+                              : 'HUMAN_DOCUMENT_REVIEW'
+                          )
+                    )
+                  : 'QUALIFICATION_SCREENING'
+              )
+        )
       : 'REVIEW_DOCUMENTS',
     autoAiScreening: autoAiScreening,
     agenticHandoff: agenticHandoff,
