@@ -389,6 +389,7 @@ function handleV2Post_(payload) {
   if (action === 'v2PrepareSkyActivation') return v2PrepareSkyActivation_(payload.data || {}, payload.updatedBy || 'Systems Operator Agent');
   if (action === 'v2PrepareAcademicHandover') return v2PrepareAcademicHandover_(payload.data || {}, payload.updatedBy || 'Academic Handover Agent');
   if (action === 'v2PrepareStudentAccessDelivery') return v2PrepareStudentAccessDelivery_(payload.data || {}, payload.updatedBy || 'Academic Handover Agent');
+  if (action === 'v2RunManagementIntelligence') return v2RunManagementIntelligence_(payload.data || {}, payload.updatedBy || 'Management Intelligence Agent');
   if (action === 'v2AgenticStatus') return v2AgenticStatus_();
   if (action === 'v2GetAgentCaseState') return v2GetAgentCaseState_(payload.data || {});
   if (action === 'v2AgentActionGateway') return v2AgentActionGateway_(payload.data || {}, payload.updatedBy || 'n8n Agentic Gateway');
