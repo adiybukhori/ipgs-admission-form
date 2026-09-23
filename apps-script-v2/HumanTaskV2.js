@@ -125,6 +125,9 @@ function v2ResolveHumanTask_(data,actor){
   // the authorised reviewer explicitly overrides them.
   let screeningResolution=null;
   let documentQualityResolution=null;
+  let sacDecisionResolution=null;
+  let iaOutcomeResolution=null;
+  let prerequisiteOutcomeResolution=null;
   if (taskType==='DOCUMENT_QUALITY_REVIEW' && ['APPROVE','CONFIRM','RESOLVED','REQUEST_EVIDENCE','RETURN'].indexOf(decision)>-1) {
     const doc=v2Find_('V2_DOCUMENT_REVIEW','Reference No',reference);
     const wf=v2Find_('V2_WORKFLOW','Reference No',reference);
@@ -238,6 +241,133 @@ function v2ResolveHumanTask_(data,actor){
       recommendedRoute:recommendation,
       remarks:reviewRemarks || ('Human task '+taskId+' confirmed the AI-assisted screening exception.')
     },resolvedBy);
+
+    if (screeningResolution && String(screeningResolution.applicationStage||'').toUpperCase()==='READY_FOR_SAC' && typeof v2EmitAgentEvent_==='function') {
+      v2EmitAgentEvent_({
+        referenceNo:reference,
+        eventType:'SCREENING_READY_FOR_SAC',
+        agentId:'ADMISSION_INTELLIGENCE',
+        agentName:'Admission Intelligence Agent',
+        action:'ROUTE_SAC_IA',
+        status:'COMPLETED',
+        fromStage:'QUALIFICATION_SCREENING',
+        toStage:'READY_FOR_SAC',
+        requiresHuman:false,
+        executionId:String(found.record['Related Execution ID']||''),
+        source:'HUMAN_DECISION_DESK',
+        summary:'Authorised screening exception resolved. Applicant is ready for SAC coordination.'
+      });
+    }
+  }
+
+  if (taskType==='SAC_DECISION_REQUIRED' && ['APPROVE','CONFIRM','RESOLVED'].indexOf(decision)>-1) {
+    const wf=v2Find_('V2_WORKFLOW','Reference No',reference);
+    if(!wf)throw new Error('Workflow record not found for SAC decision.');
+    const sessionId=String(resolution.sessionId||wf.record['SAC Session ID']||'').trim();
+    const sacDecision=String(resolution.sacDecision||'').trim().toUpperCase();
+    if(!sessionId)throw new Error('SAC Session ID is required.');
+    if(['DIRECT_ENTRY','INTERNAL_ASSESSMENT','REJECTED'].indexOf(sacDecision)<0){
+      throw new Error('SAC decision must be DIRECT_ENTRY, INTERNAL_ASSESSMENT or REJECTED.');
+    }
+
+    sacDecisionResolution=v2RecordSacDecisionManual_({
+      sessionId:sessionId,
+      referenceNo:reference,
+      decision:sacDecision,
+      remarks:String(input.notes||input.resolutionNotes||resolution.remarks||''),
+      priority:String(resolution.priority||'NORMAL'),
+      confirmed:true
+    },resolvedBy);
+
+    if(typeof v2EmitAgentEvent_==='function'){
+      v2EmitAgentEvent_({
+        referenceNo:reference,
+        eventType:'SAC_DECISION_RECORDED',
+        agentId:'SAC_IA',
+        agentName:'SAC / IA Coordination Agent',
+        action:sacDecision==='INTERNAL_ASSESSMENT'?'ROUTE_IA':'SAC_OUTCOME_RECORDED',
+        status:'COMPLETED',
+        fromStage:'SAC_REVIEW',
+        toStage:String(sacDecisionResolution.nextStage||''),
+        requiresHuman:false,
+        executionId:String(found.record['Related Execution ID']||''),
+        source:'HUMAN_DECISION_DESK',
+        summary:'Authorised SAC decision recorded: '+sacDecision+'.',
+        data:{sessionId:sessionId,sacDecision:sacDecision,nextStage:sacDecisionResolution.nextStage||''}
+      });
+    }
+  }
+
+  if (taskType==='IA_OUTCOME_REQUIRED' && ['APPROVE','CONFIRM','RESOLVED'].indexOf(decision)>-1) {
+    const panelResult=String(resolution.panelResult||resolution.iaOutcome||'').trim().toUpperCase();
+    if(['QUALIFIED','PREREQUISITE_REQUIRED','NOT_QUALIFIED'].indexOf(panelResult)<0){
+      throw new Error('IA outcome must be QUALIFIED, PREREQUISITE_REQUIRED or NOT_QUALIFIED.');
+    }
+    iaOutcomeResolution=v2UpdateAssessment_({
+      referenceNo:reference,
+      assessmentType:'INTERNAL_ASSESSMENT',
+      sequence:1,
+      component:'OVERALL',
+      status:'COMPLETED',
+      panelResult:panelResult,
+      panelRemarks:String(input.notes||input.resolutionNotes||resolution.remarks||''),
+      nextAction:panelResult==='PREREQUISITE_REQUIRED'?'PREPARE_PREREQUISITE_COORDINATION':(panelResult==='QUALIFIED'?'OFFER_READY':'CLOSE_ADMISSION')
+    },resolvedBy);
+
+    const toStage=String(iaOutcomeResolution.workflowUpdates&&iaOutcomeResolution.workflowUpdates['Application Stage']||'');
+    if(typeof v2EmitAgentEvent_==='function'){
+      v2EmitAgentEvent_({
+        referenceNo:reference,
+        eventType:'IA_OUTCOME_RECORDED',
+        agentId:'SAC_IA',
+        agentName:'SAC / IA Coordination Agent',
+        action:panelResult==='PREREQUISITE_REQUIRED'?'ROUTE_PREREQUISITE':'IA_OUTCOME_RECORDED',
+        status:'COMPLETED',
+        fromStage:'INTERNAL_ASSESSMENT',
+        toStage:toStage,
+        requiresHuman:false,
+        executionId:String(found.record['Related Execution ID']||''),
+        source:'HUMAN_DECISION_DESK',
+        summary:'Authorised Internal Assessment outcome recorded: '+panelResult+'.',
+        data:{panelResult:panelResult,nextStage:toStage}
+      });
+    }
+  }
+
+  if (taskType==='PREREQUISITE_OUTCOME_REQUIRED' && ['APPROVE','CONFIRM','RESOLVED'].indexOf(decision)>-1) {
+    const panelResult=String(resolution.panelResult||resolution.prerequisiteOutcome||'').trim().toUpperCase();
+    if(['QUALIFIED','NOT_QUALIFIED'].indexOf(panelResult)<0){
+      throw new Error('Prerequisite outcome must be QUALIFIED or NOT_QUALIFIED.');
+    }
+    prerequisiteOutcomeResolution=v2UpdateAssessment_({
+      referenceNo:reference,
+      assessmentType:'PREREQUISITE',
+      sequence:1,
+      component:'OVERALL',
+      status:'COMPLETED',
+      panelResult:panelResult,
+      panelRemarks:String(input.notes||input.resolutionNotes||resolution.remarks||''),
+      nextAction:panelResult==='QUALIFIED'?'OFFER_READY':'CLOSE_ADMISSION'
+    },resolvedBy);
+
+    const toStage=String(prerequisiteOutcomeResolution.workflowUpdates&&prerequisiteOutcomeResolution.workflowUpdates['Application Stage']||'');
+    if(typeof v2EmitAgentEvent_==='function'){
+      v2EmitAgentEvent_({
+        referenceNo:reference,
+        eventType:'PREREQUISITE_OUTCOME_RECORDED',
+        agentId:'SAC_IA',
+        agentName:'SAC / IA Coordination Agent',
+        action:'PREREQUISITE_OUTCOME_RECORDED',
+        status:'COMPLETED',
+        fromStage:'PREREQUISITE',
+        toStage:toStage,
+        requiresHuman:false,
+        executionId:String(found.record['Related Execution ID']||''),
+        source:'HUMAN_DECISION_DESK',
+        summary:'Authorised prerequisite outcome recorded: '+panelResult+'.',
+        data:{panelResult:panelResult,nextStage:toStage}
+      });
+    }
   }
 
   const updates={
@@ -263,7 +393,7 @@ function v2ResolveHumanTask_(data,actor){
       executionId:String(found.record['Related Execution ID']||''),
       source:'HUMAN_DECISION_DESK',
       summary:'Human task '+taskId+' resolved: '+decision+'.',
-      data:{taskId:taskId,decision:decision,resolution:resolution,resolvedBy:resolvedBy,screeningResolution:screeningResolution,documentQualityResolution:documentQualityResolution}
+      data:{taskId:taskId,decision:decision,resolution:resolution,resolvedBy:resolvedBy,screeningResolution:screeningResolution,documentQualityResolution:documentQualityResolution,sacDecisionResolution:sacDecisionResolution,iaOutcomeResolution:iaOutcomeResolution,prerequisiteOutcomeResolution:prerequisiteOutcomeResolution}
     });
   }
 
@@ -281,7 +411,10 @@ function v2ResolveHumanTask_(data,actor){
     resolvedAt:now,
     resolution:resolution,
     screeningResolution:screeningResolution,
-    documentQualityResolution:documentQualityResolution
+    documentQualityResolution:documentQualityResolution,
+    sacDecisionResolution:sacDecisionResolution,
+    iaOutcomeResolution:iaOutcomeResolution,
+    prerequisiteOutcomeResolution:prerequisiteOutcomeResolution
   };
 }
 
