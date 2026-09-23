@@ -118,6 +118,28 @@ const simulation={
   metrics:{events:0,handovers:0,humanDecisions:0,completed:0}
 };
 
+const LIVE_AGENT_MAP=Object.freeze({
+  ORCHESTRATOR:'orchestrator',
+  COMPLIANCE:'compliance',
+  ADMISSION_INTELLIGENCE:'admission',
+  SAC_IA:'sac',
+  STUDENT_CONCIERGE:'concierge',
+  SYSTEMS_OPERATOR:'systems',
+  ORIENTATION:'orientation',
+  ACADEMIC_HANDOVER:'handover',
+  MANAGEMENT_INTELLIGENCE:'management'
+});
+
+const liveRuntime={
+  mode:'SIMULATION_FALLBACK',
+  bridgeReady:false,
+  n8nLive:false,
+  lastEventId:'',
+  events:[],
+  executions:[],
+  summary:{running:0,failed:0,completed:0,humanWaiting:0,totalEvents:0,totalExecutions:0}
+};
+
 function nowIso(){return new Date().toISOString();}
 function nowClock(){return new Date().toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'});}
 function prefersReduced(){return window.matchMedia&&window.matchMedia('(prefers-reduced-motion: reduce)').matches;}
@@ -465,6 +487,18 @@ function renderPerformance(){
   const host=document.getElementById('performanceGrid');if(!host)return;
   const working=Object.values(officeState).filter(x=>x.status==='WORKING').length;
   const waiting=Object.values(officeState).filter(x=>['WAITING','ESCALATION'].includes(x.status)).length;
+  if(liveRuntime.bridgeReady){
+    host.innerHTML=
+      perf('Backend Events',liveRuntime.summary.totalEvents||0,'V2_AGENT_EVENTS received')+
+      perf('Agent Executions',liveRuntime.summary.totalExecutions||0,'Idempotent execution records')+
+      perf('Running Now',liveRuntime.summary.running||0,'Actions currently RUNNING')+
+      perf('Human Waiting',liveRuntime.summary.humanWaiting||0,'Cases requiring authority')+
+      perf('Completed',liveRuntime.summary.completed||0,'Verified completed executions')+
+      perf('Failed',liveRuntime.summary.failed||0,'Requires retry / investigation')+
+      perf('Agents Working',working,'Current live visual state')+
+      perf('Runtime',liveRuntime.n8nLive?'n8n LIVE':'BRIDGE READY',liveRuntime.n8nLive?'Recent n8n event detected':'Awaiting n8n activation / event');
+    return;
+  }
   host.innerHTML=
     perf('Simulation Events',simulation.metrics.events,'Structured events processed')+
     perf('Handovers',simulation.metrics.handovers,'Visual + auditable transfers')+
@@ -472,13 +506,164 @@ function renderPerformance(){
     perf('Scenarios Completed',simulation.metrics.completed,'Frontend-only simulations')+
     perf('Agents Working',working,'Current visual state')+
     perf('Waiting / Escalated',waiting,'Requires input or authority')+
-    perf('Autonomous Writes',0,'Locked in Simulation Mode')+
+    perf('Production Writes',0,'n8n is not active yet')+
     perf('Architecture','Event → Task','Agent → Action → Verification → Next Event');
 }
 function perf(label,value,meta){return '<div class="perf-card"><small>'+escapeOffice(label)+'</small><b>'+escapeOffice(value)+'</b><span>'+escapeOffice(meta)+'</span></div>';}
 
+
+function liveEventTime(row){
+  const raw=String(row?.['Timestamp']||row?.['Last Updated']||'');
+  const d=new Date(raw);
+  return isNaN(d)?0:d.getTime();
+}
+function liveEventStatus(row){
+  const raw=String(row?.['Status']||'IDLE').toUpperCase();
+  if(raw==='WORKING'||raw==='RUNNING')return 'WORKING';
+  if(raw==='WAITING_HUMAN'||raw==='WAITING')return 'WAITING';
+  if(raw==='FAILED'||raw==='ERROR'||raw==='NEEDS_INVESTIGATION')return 'ESCALATION';
+  if(raw==='QUEUED'||raw==='REQUESTED')return 'RECEIVING';
+  if(raw==='HANDOVER')return 'HANDOVER';
+  return 'IDLE';
+}
+function liveEventAgentKey(row){
+  return LIVE_AGENT_MAP[String(row?.['Agent ID']||'').toUpperCase()]||'';
+}
+function applyLiveRuntime(snapshot){
+  const data=snapshot||{};
+  liveRuntime.bridgeReady=!!data.bridgeReady;
+  liveRuntime.n8nLive=!!data.n8nLive;
+  liveRuntime.events=Array.isArray(data.events)?data.events.slice():[];
+  liveRuntime.executions=Array.isArray(data.executions)?data.executions.slice():[];
+  liveRuntime.summary={...liveRuntime.summary,...(data.summary||{})};
+  liveRuntime.mode=liveRuntime.n8nLive?'LIVE_N8N':(liveRuntime.bridgeReady?'BRIDGE_READY':'SIMULATION_FALLBACK');
+
+  if(!liveRuntime.bridgeReady){
+    renderPerformance();
+    return;
+  }
+
+  const latestByAgent={};
+  liveRuntime.events.slice().sort((a,b)=>liveEventTime(a)-liveEventTime(b)).forEach(row=>{
+    const key=liveEventAgentKey(row);
+    if(key)latestByAgent[key]=row;
+  });
+
+  Object.entries(LIVE_AGENT_MAP).forEach(([agentId,key])=>{
+    const row=latestByAgent[key];
+    const running=liveRuntime.executions.filter(x=>
+      String(x['Agent ID']||'').toUpperCase()===agentId &&
+      String(x['Status']||'').toUpperCase()==='RUNNING'
+    ).length;
+    if(!row){
+      setAgent(key,{status:'IDLE',current_case:'—',current_task:'Waiting for backend event',event:'—',last_action:'No live action yet',next_action:'Wait for event',waiting_since:'—',workload:running});
+      return;
+    }
+    const status=liveEventStatus(row);
+    setAgent(key,{
+      status,
+      current_case:String(row['Reference No']||'—'),
+      current_task:String(row['Action']||row['Event Type']||'Backend event'),
+      event:String(row['Event Type']||status),
+      last_action:String(row['Summary']||row['Action']||'Event recorded'),
+      next_action:status==='WAITING'?'Await human authority':status==='ESCALATION'?'Investigate / retry':'Wait for next verified event',
+      waiting_since:status==='WAITING'?shortLiveClock(row['Timestamp']):'—',
+      workload:running
+    });
+  });
+
+  const events=liveRuntime.events.slice().sort((a,b)=>liveEventTime(a)-liveEventTime(b));
+  const latest=events[events.length-1];
+  if(latest){
+    updatePipelineFromLive(latest);
+    const newestId=String(latest['Event ID']||'');
+    if(liveRuntime.lastEventId && newestId && newestId!==liveRuntime.lastEventId){
+      const sameCase=events.filter(x=>String(x['Reference No']||'')===String(latest['Reference No']||''));
+      const prev=sameCase.length>1?sameCase[sameCase.length-2]:null;
+      const fromKey=prev?liveEventAgentKey(prev):'';
+      const toKey=liveEventAgentKey(latest);
+      if(fromKey&&toKey&&fromKey!==toKey&&!simulation.running){
+        animateHandover(fromKey,toKey,String(latest['Reference No']||'CASE'),String(latest['Event Type']||'HANDOFF'),simulation.token,1200);
+      }
+      showToast(String(latest['Event Type']||'AGENT EVENT'),String(latest['Summary']||latest['Action']||'Backend event recorded.'));
+    }
+    liveRuntime.lastEventId=newestId||liveRuntime.lastEventId;
+  }
+
+  renderLiveFeed(events);
+  renderLiveHumanDesk(events);
+  setLiveToolbar();
+  renderPerformance();
+}
+
+function shortLiveClock(value){
+  const d=new Date(String(value||''));
+  return isNaN(d)?'—':d.toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'});
+}
+function updatePipelineFromLive(row){
+  const key=liveEventAgentKey(row);
+  const agent=key?OFFICE_AGENTS[key]?.name:String(row['Agent Name']||'—');
+  const status=String(row['Status']||'—');
+  const values={
+    event:String(row['Event Type']||'—'),
+    task:String(row['Action']||'—'),
+    agent:agent||'—',
+    action:String(row['Summary']||row['Action']||'—'),
+    verification:status==='COMPLETED'?'Verified complete':status==='WAITING_HUMAN'?'Human authority required':status,
+    next:String(row['To Stage']||'Await next event')
+  };
+  ['event','task','agent','action','verification','next'].forEach(k=>{
+    const el=document.querySelector('[data-pipeline="'+k+'"]');
+    if(el){el.textContent=values[k];el.parentElement.classList.toggle('active',k==='event');}
+  });
+}
+function renderLiveFeed(events){
+  const host=document.getElementById('officeActivityFeed');if(!host)return;
+  const recent=events.slice(-30).reverse();
+  if(!recent.length){
+    host.innerHTML='<div class="office-feed-item"><time>SYSTEM</time><b>Agentic Bridge</b><p>Bridge ready. Waiting for the first backend / n8n agent event.</p></div>';
+    return;
+  }
+  host.innerHTML=recent.map(row=>{
+    const key=liveEventAgentKey(row);
+    const actor=key?OFFICE_AGENTS[key].name:String(row['Agent Name']||row['Agent ID']||'Agentic Bridge');
+    return '<div class="office-feed-item"><time>'+escapeOffice(shortLiveClock(row['Timestamp']))+'</time><b>'+escapeOffice(actor)+'</b><p><span class="flow-arrow">'+escapeOffice(row['Event Type']||row['Status']||'EVENT')+'</span><br>'+escapeOffice(row['Reference No']||'—')+' · '+escapeOffice(row['Summary']||row['Action']||'Backend event recorded')+'</p></div>';
+  }).join('');
+}
+function renderLiveHumanDesk(events){
+  const host=document.getElementById('officeHumanCase');if(!host)return;
+  const latestByRef={};
+  events.forEach(row=>{const ref=String(row['Reference No']||'');if(ref)latestByRef[ref]=row;});
+  const waiting=Object.values(latestByRef).filter(row=>
+    String(row['Status']||'').toUpperCase()==='WAITING_HUMAN' ||
+    (String(row['Requires Human']||'').toUpperCase()==='YES' && String(row['Status']||'').toUpperCase()!=='COMPLETED')
+  );
+  if(!waiting.length){
+    setAgent('human',{status:'IDLE',current_case:'—',current_task:'Waiting for escalation',workload:0,event:'—',last_action:'No live human task',next_action:'Wait for escalation'});
+    host.className='human-case empty';
+    host.innerHTML='No live case is currently waiting for human authority.';
+    return;
+  }
+  const row=waiting[waiting.length-1];
+  setAgent('human',{status:'ESCALATION',current_case:String(row['Reference No']||'—'),current_task:String(row['Action']||row['Event Type']||'Human review'),workload:waiting.length,event:String(row['Event Type']||'HUMAN_TASK_CREATED'),last_action:String(row['Summary']||'Human authority required'),next_action:'Authorised human resolution required',waiting_since:shortLiveClock(row['Timestamp'])});
+  host.className='human-case';
+  host.innerHTML='<div class="hc-alert">LIVE HUMAN DECISION REQUIRED</div><h4>'+escapeOffice(row['Student Name']||row['Reference No']||'Case')+'</h4>'+
+    '<div class="hc-meta"><div><small>Reference</small><b>'+escapeOffice(row['Reference No']||'—')+'</b></div><div><small>Raised By</small><b>'+escapeOffice(row['Agent Name']||row['Agent ID']||'AI Agent')+'</b></div></div>'+
+    '<div class="recommendation"><b>Reason / Task</b><br>'+escapeOffice(row['Summary']||row['Action']||'Human confirmation required.')+'</div>'+
+    '<div style="margin-top:9px;font-size:9px;color:#8792ba">Read-only live queue. Human resolution action will be connected through the controlled Human Task Gateway.</div>';
+}
+function setLiveToolbar(){
+  const stateEl=document.getElementById('officeSimState');
+  if(stateEl){
+    stateEl.className='sim-state '+(liveRuntime.n8nLive?'running':'');
+    stateEl.innerHTML='<i></i>'+(liveRuntime.n8nLive?'LIVE n8n':'Bridge Ready');
+  }
+  const run=document.getElementById('officeRun');
+  if(run)run.textContent=liveRuntime.n8nLive?'Simulation Disabled While Live':'▶ Run Simulation Fallback';
+}
+
 function escapeOffice(v){return String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[c]));}
 
-window.AI_AGENT_OFFICE={officeState,simulation,SCENARIOS,runSimulation,pauseSimulation,resumeSimulation,resetSimulation,setAgent,recordHumanDecision,switchOpsView};
+window.AI_AGENT_OFFICE={officeState,simulation,liveRuntime,SCENARIOS,runSimulation,pauseSimulation,resumeSimulation,resetSimulation,setAgent,recordHumanDecision,switchOpsView,applyLiveRuntime};
 if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',mount);else mount();
 })();
