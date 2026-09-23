@@ -125,9 +125,43 @@ function v2CompleteManualDocumentReview_(data, reviewer) {
   v2InvalidateCache_();
 
   let autoAiScreening = null;
+  let agenticHandoff = null;
   if (status === 'COMPLETE') {
     try {
-      autoAiScreening = v2TryAutoAiScreening_(reference, 'Manual Document Review Auto Trigger');
+      if (typeof v2AgenticEnabled_ === 'function' && v2AgenticEnabled_()) {
+        agenticHandoff = v2EmitAgentEvent_({
+          referenceNo:reference,
+          eventType:'DOCUMENT_COMPLETENESS_CONFIRMED',
+          agentId:'ORCHESTRATOR',
+          agentName:'AI Orchestrator',
+          action:'ROUTE_COMPLIANCE',
+          status:'QUEUED',
+          fromStage:'DOCUMENT_REVIEW',
+          toStage:'DOCUMENT_REVIEW',
+          source:'ADMISSION_V2',
+          summary:'Manual document completeness review is complete. Route applicant to Compliance & Records Agent for document-quality inspection.',
+          data:{
+            reviewMode:'MANUAL',
+            documentReviewStatus:status,
+            problemCount:problemDocuments.length,
+            outstandingCount:outstandingDocuments.length
+          }
+        });
+      }
+
+      if (agenticHandoff && agenticHandoff.sent) {
+        autoAiScreening = {
+          ok:true,
+          status:'HANDED_TO_N8N_COMPLIANCE',
+          eventId:agenticHandoff.eventId,
+          manualScreeningAvailable:true
+        };
+      } else {
+        autoAiScreening = v2TryAutoAiScreening_(
+          reference,
+          agenticHandoff ? 'Manual Review Local Fallback after n8n handoff failure' : 'Manual Document Review Auto Trigger'
+        );
+      }
     } catch (error) {
       autoAiScreening = {
         ok: false,
@@ -148,8 +182,11 @@ function v2CompleteManualDocumentReview_(data, reviewer) {
     problemCount: problemDocuments.length,
     outstandingDocuments: outstandingDocuments,
     outstandingCount: outstandingDocuments.length,
-    nextAction: status === 'COMPLETE' ? 'QUALIFICATION_SCREENING' : 'REVIEW_DOCUMENTS',
+    nextAction: status === 'COMPLETE'
+      ? (agenticHandoff && agenticHandoff.sent ? 'COMPLIANCE_DOCUMENT_QUALITY' : 'QUALIFICATION_SCREENING')
+      : 'REVIEW_DOCUMENTS',
     autoAiScreening: autoAiScreening,
+    agenticHandoff: agenticHandoff,
     manualScreeningAvailable: status === 'COMPLETE',
     emailSent: false,
     v1Touched: false
