@@ -76,6 +76,11 @@ DOCUMENT_COMPLETENESS_CONFIRMED
 -> verify result/report
 -> READY_FOR_SAC or WAITING_HUMAN
 
+Screening report hard gate:
+- `02 ADMISSION INTELLIGENCE` requests report generation through `91 ACTION GATEWAY` using the dedicated `screening_report` operation.
+- `READY_FOR_SAC` is not enough by itself: routing to SAC requires `Report Status = FINAL` and a non-empty `Report PDF URL`.
+- Human-exception cases may remain pending; after authorised resolution the backend regenerates/finalises the report before SAC routing.
+
 ## Safety
 
 - Workflows are imported inactive.
