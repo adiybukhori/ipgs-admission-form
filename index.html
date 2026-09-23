@@ -1205,22 +1205,24 @@
       const visible = visibleDocumentFields();
       return `
         <div class="section-gap">
-          <div class="info-box"><strong>Upload Instruction</strong><br>Accepted file types: PDF, JPG, JPEG, PNG. Maximum size: 7MB per document and 2MB for passport size photo. Please compress your file before upload if your file size exceeds the allowed limit.${isInternational() ? ' For passport copy upload, maximum recommended size is 7MB.' : ''}</div>
-          ${fileRow('identityDocument', isInternational() ? 'Identity Document (National ID, if available)' : 'Identity Document (IC/Passport)', !isInternational(), 'Accepted file types: PDF, JPG, JPEG, PNG. Maximum size: 5MB.')}
-          ${fileRow('passportPhoto', 'Passport Size Photo', true, 'This photo will be used for Student ID Card and Student Portal profile. Maximum size 2MB.')}
-          ${visible.showPassportCopyInternational ? fileRow('passportCopyInternational', 'Passport Copy', true, 'Upload full passport bio-data page in clear and readable format. Maximum recommended size 7MB.') : ''}
-          ${visible.showApelCertificate ? fileRow('apelCertificate', 'APEL Certificate', true, 'Required for applicants applying through APEL pathway.') : ''}
-          ${visible.showTranscript ? fileRow('transcript', 'Highest Academic Transcript', true, 'Required for academic qualification pathway.') : ''}
-          ${visible.showAcademicCertificate ? fileRow('certificate', formState.entryQualificationType === 'SKM / TVET / Skills Qualification' ? 'Relevant Skills Certificate' : 'Highest Academic Certificate', true, 'Upload the relevant supporting academic or skills certificate.') : ''}
-          ${visible.showOtherSupportingDocument ? fileRow('otherSupportingDocument', 'Other Supporting Document', formState.entryQualificationType === 'Professional / Other Qualification', 'Upload any supporting document relevant to your admission pathway.') : ''}
-          ${visible.showEnglishCertificate ? fileRow('englishCertificate', 'English Language Proficiency Certificate', false, 'International applicants may be required to provide this document.') : ''}
-          ${visible.showCvResume ? fileRow('cvResume', 'Curriculum Vitae (CV) / Resume', true, 'Required for all applicants. Please include academic background and work experience.') : ''}
-          ${visible.showCompletedAdmissionForm ? fileRow('completedAdmissionForm', 'Completed Admission Form', true, 'Upload the completed international admission form downloaded earlier.') : ''}
-          ${visible.showCompletedHealthDeclaration ? fileRow('completedHealthDeclaration', 'Completed Health Declaration Form', true, 'Upload the completed and signed health declaration form.') : ''}
-          ${visible.showEmgsPaymentReceipt ? fileRow('emgsPaymentReceipt', 'EMGS / Visa Related Payment Receipt', true, 'Upload the payment receipt for international fee processing.') : ''}
+          <div class="info-box"><strong>Required documents</strong><br>Only four documents are compulsory for initial submission: <strong>IC / Passport, Academic Transcript, Academic Certificate, and CV / Resume</strong>. Other documents below are optional at this stage and may be requested later if relevant.<br><br>Accepted file types: PDF, JPG, JPEG, PNG. Maximum size: 7MB per document.</div>
+          ${!isInternational()
+            ? fileRow('identityDocument', 'Identity Document (IC / MyKad)', true, 'Required. Upload a clear copy of your identification document.')
+            : fileRow('passportCopyInternational', 'Passport / Identity Document', true, 'Required. Upload a clear passport bio-data page or equivalent identification document.')}
+          ${fileRow('transcript', 'Highest Academic Transcript', true, 'Required for all applicants.')}
+          ${fileRow('certificate', 'Highest Academic Certificate', true, 'Required for all applicants.')}
+          ${fileRow('cvResume', 'Curriculum Vitae (CV) / Resume', true, 'Required for all applicants. Please include academic background and work experience.')}
+
+          ${fileRow('passportPhoto', 'Passport Size Photo', false, 'Optional at initial submission. May be requested later for Student ID / portal profile. Maximum size 2MB.')}
+          ${visible.showApelCertificate ? fileRow('apelCertificate', 'APEL Certificate', false, 'Optional at initial submission. Upload now if available.') : ''}
+          ${visible.showOtherSupportingDocument ? fileRow('otherSupportingDocument', 'Other Supporting Document', false, 'Optional. Upload any additional supporting document relevant to your admission pathway.') : ''}
+          ${visible.showEnglishCertificate ? fileRow('englishCertificate', 'English Language Proficiency Certificate', false, 'Optional at initial submission. International applicants may be requested to provide this later.') : ''}
+          ${visible.showCompletedAdmissionForm ? fileRow('completedAdmissionForm', 'Completed International Admission Form', false, 'Optional at initial submission. Upload now if already completed.') : ''}
+          ${visible.showCompletedHealthDeclaration ? fileRow('completedHealthDeclaration', 'Completed Health Declaration Form', false, 'Optional at initial submission. Upload now if already completed.') : ''}
+          ${visible.showEmgsPaymentReceipt ? fileRow('emgsPaymentReceipt', 'EMGS / Visa Related Payment Receipt', false, 'Optional at initial submission. Upload now if payment has already been made.') : ''}
           ${visible.showPreliminaryResearchIntent ? `
-            <div class="info-box" style="background:#fff7df;border-color:#f0d995;color:#785816"><strong>PhD document</strong><br>You may upload your preliminary Research Intent now, or submit the application first and provide it later through the secure upload link sent to your email. It remains required before your document review can be completed for SAC.</div>
-            ${fileRow('preliminaryResearchIntent', 'Preliminary Research Intent (2–3 pages)', false, 'Optional at initial submission. Required before SAC. Upload PDF, JPG, JPEG or PNG now; if pending, a secure follow-up upload link will be emailed after submission.')}
+            <div class="info-box" style="background:#fff7df;border-color:#f0d995;color:#785816"><strong>PhD Preliminary Research Intent</strong><br>You may upload your preliminary Research Intent now or provide it later through the secure follow-up link. It does not block initial application submission.</div>
+            ${fileRow('preliminaryResearchIntent', 'Preliminary Research Intent (2–3 pages)', false, 'Optional at initial submission. It may be requested before the later academic review / SAC process.')}
           ` : ''}
         </div>
       `;
@@ -1800,53 +1802,24 @@
   }
 
   if (stepIndex === 3) {
-    const visible = visibleDocumentFields();
-
-    if (!isInternational() && !formState.documents.identityDocument) {
-      return 'Please upload the Identity Document.';
+    if (isInternational()) {
+      if (!formState.documents.passportCopyInternational && !formState.documents.identityDocument) {
+        return 'Please upload your Passport / Identity Document.';
+      }
+    } else if (!formState.documents.identityDocument) {
+      return 'Please upload your IC / MyKad.';
     }
 
-    if (!formState.documents.passportPhoto) {
-      return 'Please upload the Passport Size Photo.';
-    }
-
-    if (visible.showPassportCopyInternational && !formState.documents.passportCopyInternational) {
-      return 'Please upload the Passport Copy.';
-    }
-
-    if (visible.showApelCertificate && !formState.documents.apelCertificate) {
-      return 'Please upload the APEL Certificate.';
-    }
-
-    if (visible.showTranscript && !formState.documents.transcript) {
+    if (!formState.documents.transcript) {
       return 'Please upload the Highest Academic Transcript.';
     }
 
-    if (visible.showAcademicCertificate && !formState.documents.certificate) {
-      return 'Please upload the required Certificate.';
-    }
-
-    if (
-      formState.entryQualificationType === 'Professional / Other Qualification' &&
-      !formState.documents.otherSupportingDocument
-    ) {
-      return 'Please upload the Other Supporting Document.';
+    if (!formState.documents.certificate) {
+      return 'Please upload the Highest Academic Certificate.';
     }
 
     if (!formState.documents.cvResume) {
-  return 'Please upload the CV / Resume.';
-    }
-
-    if (visible.showCompletedAdmissionForm && !formState.documents.completedAdmissionForm) {
-      return 'Please upload the Completed Admission Form.';
-    }
-
-    if (visible.showCompletedHealthDeclaration && !formState.documents.completedHealthDeclaration) {
-      return 'Please upload the Completed Health Declaration Form.';
-    }
-
-    if (visible.showEmgsPaymentReceipt && !formState.documents.emgsPaymentReceipt) {
-      return 'Please upload the EMGS / Visa Related Payment Receipt.';
+      return 'Please upload the CV / Resume.';
     }
   }
 
