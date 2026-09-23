@@ -1,0 +1,302 @@
+{
+  "name": "CS-ADM-V2 | 03 SAC-IA",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "cs-adm-v2-sac-ia",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "sac-webhook",
+      "name": "SAC IA Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        -760,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const req=$input.first().json;\nconst h=req.headers||{};\nconst supplied=h['x-iuc-agent-secret']||h['X-IUC-Agent-Secret']||'';\nconst expected='REPLACE_WITH_N8N_EVENT_SHARED_SECRET';\nif(supplied!==expected) throw new Error('Invalid SAC / IA Agent secret');\nconst e=req.body||req;\nif(!e.referenceNo) throw new Error('referenceNo required');\nreturn [{json:{...e,agentId:'SAC_IA',executionId:'SACIA-'+e.referenceNo+'-'+(e.eventId||Date.now())}}];"
+      },
+      "id": "prepare",
+      "name": "Prepare SAC IA Task",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -540,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://anasbukhori.app.n8n.cloud/webhook/cs-adm-v2-action-gateway",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "X-IUC-Agent-Secret",
+              "value": "REPLACE_WITH_N8N_EVENT_SHARED_SECRET"
+            }
+          ]
+        },
+        "sendBody": true,
+        "contentType": "raw",
+        "rawContentType": "application/json",
+        "body": "={{ JSON.stringify({operation:'state',referenceNo:$json.referenceNo}) }}",
+        "options": {}
+      },
+      "id": "state-before",
+      "name": "Read SAC IA State",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        -320,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const s=$input.first().json;\nconst w=s.workflow||{};\nconst stage=String(w['Application Stage']||'').toUpperCase();\nlet action='';\nif(['READY_FOR_SAC','SAC_REVIEW'].includes(stage)) action='PREPARE_SAC_COORDINATION';\nelse if(stage==='INTERNAL_ASSESSMENT') action='PREPARE_IA_COORDINATION';\nelse if(stage==='PREREQUISITE') action='PREPARE_PREREQUISITE_COORDINATION';\nelse action='NO_ACTION';\nreturn [{json:{referenceNo:s.referenceNo,stage,requestedAction:action,verifiedBefore:true}}];"
+      },
+      "id": "decide",
+      "name": "Decide SAC IA Action",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -90,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "rules": {
+          "values": [
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict"
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.requestedAction }}",
+                    "rightValue": "NO_ACTION",
+                    "operator": {
+                      "type": "string",
+                      "operation": "notEquals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "execute"
+            }
+          ]
+        },
+        "options": {
+          "fallbackOutput": "extra"
+        }
+      },
+      "id": "action-switch",
+      "name": "Action Required?",
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3.2,
+      "position": [
+        140,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://anasbukhori.app.n8n.cloud/webhook/cs-adm-v2-action-gateway",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "X-IUC-Agent-Secret",
+              "value": "REPLACE_WITH_N8N_EVENT_SHARED_SECRET"
+            }
+          ]
+        },
+        "sendBody": true,
+        "contentType": "raw",
+        "rawContentType": "application/json",
+        "body": "={{ JSON.stringify({operation:'execute',executionId:$('Prepare SAC IA Task').item.json.executionId,referenceNo:$('Prepare SAC IA Task').item.json.referenceNo,agentId:'SAC_IA',requestedAction:$json.requestedAction}) }}",
+        "options": {}
+      },
+      "id": "execute",
+      "name": "Execute SAC IA Coordination",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        370,
+        -100
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://anasbukhori.app.n8n.cloud/webhook/cs-adm-v2-action-gateway",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "X-IUC-Agent-Secret",
+              "value": "REPLACE_WITH_N8N_EVENT_SHARED_SECRET"
+            }
+          ]
+        },
+        "sendBody": true,
+        "contentType": "raw",
+        "rawContentType": "application/json",
+        "body": "={{ JSON.stringify({operation:'state',referenceNo:$('Prepare SAC IA Task').item.json.referenceNo}) }}",
+        "options": {}
+      },
+      "id": "state-after",
+      "name": "Read SAC IA State After",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        600,
+        -100
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const s=$input.first().json;\nconst w=s.workflow||{};\nconst before=$('Decide SAC IA Action').item.json;\nconst stage=String(w['Application Stage']||'').toUpperCase();\nconst action=String(before.requestedAction||'');\nlet verified=false;\nif(action==='PREPARE_SAC_COORDINATION') verified=['READY_FOR_SAC','SAC_REVIEW'].includes(stage);\nif(action==='PREPARE_IA_COORDINATION') verified=stage==='INTERNAL_ASSESSMENT';\nif(action==='PREPARE_PREREQUISITE_COORDINATION') verified=stage==='PREREQUISITE';\nif(!verified) throw new Error('SAC / IA post-action verification failed for '+action+' at '+stage);\nreturn [{json:{ok:true,referenceNo:s.referenceNo,requestedAction:action,applicationStage:stage,verified:true}}];"
+      },
+      "id": "verify-after",
+      "name": "Verify SAC IA Result",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        830,
+        -100
+      ]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ $json }}",
+        "options": {}
+      },
+      "id": "response",
+      "name": "Return SAC IA Result",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.4,
+      "position": [
+        1060,
+        0
+      ]
+    }
+  ],
+  "connections": {
+    "SAC IA Webhook": {
+      "main": [
+        [
+          {
+            "node": "Prepare SAC IA Task",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Prepare SAC IA Task": {
+      "main": [
+        [
+          {
+            "node": "Read SAC IA State",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Read SAC IA State": {
+      "main": [
+        [
+          {
+            "node": "Decide SAC IA Action",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Decide SAC IA Action": {
+      "main": [
+        [
+          {
+            "node": "Action Required?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Action Required?": {
+      "main": [
+        [
+          {
+            "node": "Execute SAC IA Coordination",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Return SAC IA Result",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Execute SAC IA Coordination": {
+      "main": [
+        [
+          {
+            "node": "Read SAC IA State After",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Read SAC IA State After": {
+      "main": [
+        [
+          {
+            "node": "Verify SAC IA Result",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Verify SAC IA Result": {
+      "main": [
+        [
+          {
+            "node": "Return SAC IA Result",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "tags": []
+}
