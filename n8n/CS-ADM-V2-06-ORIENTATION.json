@@ -1,0 +1,243 @@
+{
+  "name": "CS-ADM-V2 | 06 ORIENTATION",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "cs-adm-v2-orientation",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "orientation-webhook",
+      "name": "Orientation Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        -700,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const req=$input.first().json;\nconst h=req.headers||{};\nconst supplied=h['x-iuc-agent-secret']||h['X-IUC-Agent-Secret']||'';\nconst expected='REPLACE_WITH_N8N_EVENT_SHARED_SECRET';\nif(supplied!==expected) throw new Error('Invalid Orientation Agent secret');\nconst e=req.body||req;\nif(!e.referenceNo) throw new Error('referenceNo required');\nreturn [{json:{...e,agentId:'ORIENTATION',executionId:'ORI-'+e.referenceNo+'-'+(e.eventId||Date.now())}}];"
+      },
+      "id": "prepare",
+      "name": "Prepare Orientation Task",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -480,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://anasbukhori.app.n8n.cloud/webhook/cs-adm-v2-action-gateway",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "X-IUC-Agent-Secret",
+              "value": "REPLACE_WITH_N8N_EVENT_SHARED_SECRET"
+            }
+          ]
+        },
+        "sendBody": true,
+        "contentType": "raw",
+        "rawContentType": "application/json",
+        "body": "={{ JSON.stringify({operation:'state',referenceNo:$json.referenceNo}) }}",
+        "options": {}
+      },
+      "id": "state-before",
+      "name": "Read Orientation State",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        -250,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const s=$input.first().json;\nconst w=s.workflow||{};\nconst stage=String(w['Application Stage']||'').toUpperCase();\nconst acceptance=String(w['Acceptance Status']||'').toUpperCase();\nif(stage!=='ACCEPTED' && acceptance!=='ACCEPTED') throw new Error('Orientation Agent blocked: applicant is not ACCEPTED');\nreturn [{json:{referenceNo:s.referenceNo,stage,acceptanceStatus:acceptance,verifiedBefore:true}}];"
+      },
+      "id": "verify-before",
+      "name": "Verify Accepted Student",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -20,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://anasbukhori.app.n8n.cloud/webhook/cs-adm-v2-action-gateway",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "X-IUC-Agent-Secret",
+              "value": "REPLACE_WITH_N8N_EVENT_SHARED_SECRET"
+            }
+          ]
+        },
+        "sendBody": true,
+        "contentType": "raw",
+        "rawContentType": "application/json",
+        "body": "={{ JSON.stringify({operation:'execute',executionId:$('Prepare Orientation Task').item.json.executionId,referenceNo:$('Prepare Orientation Task').item.json.referenceNo,agentId:'ORIENTATION',requestedAction:'PREPARE_ORIENTATION_FOR_ACCEPTED'}) }}",
+        "options": {}
+      },
+      "id": "execute",
+      "name": "Assign Invite Verify Orientation",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        220,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://anasbukhori.app.n8n.cloud/webhook/cs-adm-v2-action-gateway",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "X-IUC-Agent-Secret",
+              "value": "REPLACE_WITH_N8N_EVENT_SHARED_SECRET"
+            }
+          ]
+        },
+        "sendBody": true,
+        "contentType": "raw",
+        "rawContentType": "application/json",
+        "body": "={{ JSON.stringify({operation:'state',referenceNo:$('Prepare Orientation Task').item.json.referenceNo}) }}",
+        "options": {}
+      },
+      "id": "state-after",
+      "name": "Read Orientation State After",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        450,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const s=$input.first().json;\nconst w=s.workflow||{};\nconst o=s.orientation||{};\nconst exec=$('Assign Invite Verify Orientation').item.json||{};\nconst stage=String(w['Application Stage']||'').toUpperCase();\nconst sessionId=String(w['Orientation Session ID']||o['Orientation Session ID']||'');\nconst invitation=String(o['Invitation Status']||'').toUpperCase();\nconst waitingHuman=exec.requiresHuman===true || String(exec.status||'').toUpperCase()==='WAITING_HUMAN';\nif(!waitingHuman){\n  if(!sessionId) throw new Error('Orientation verification failed: Session ID not recorded');\n  if(invitation!=='SENT') throw new Error('Orientation verification failed: invitation is '+(invitation||'NOT_SET'));\n}\nreturn [{json:{\n  ok:true,\n  referenceNo:s.referenceNo,\n  applicationStage:stage,\n  orientationSessionId:sessionId,\n  invitationStatus:invitation,\n  requiresHuman:waitingHuman,\n  resultStatus:exec.status||'',\n  verified:true\n}}];"
+      },
+      "id": "verify-after",
+      "name": "Verify Orientation Result",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        680,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ $json }}",
+        "options": {}
+      },
+      "id": "response",
+      "name": "Return Orientation Result",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.4,
+      "position": [
+        910,
+        0
+      ]
+    }
+  ],
+  "connections": {
+    "Orientation Webhook": {
+      "main": [
+        [
+          {
+            "node": "Prepare Orientation Task",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Prepare Orientation Task": {
+      "main": [
+        [
+          {
+            "node": "Read Orientation State",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Read Orientation State": {
+      "main": [
+        [
+          {
+            "node": "Verify Accepted Student",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Verify Accepted Student": {
+      "main": [
+        [
+          {
+            "node": "Assign Invite Verify Orientation",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Assign Invite Verify Orientation": {
+      "main": [
+        [
+          {
+            "node": "Read Orientation State After",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Read Orientation State After": {
+      "main": [
+        [
+          {
+            "node": "Verify Orientation Result",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Verify Orientation Result": {
+      "main": [
+        [
+          {
+            "node": "Return Orientation Result",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "tags": []
+}
