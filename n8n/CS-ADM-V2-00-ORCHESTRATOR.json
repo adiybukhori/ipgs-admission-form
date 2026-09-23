@@ -19,7 +19,7 @@
     },
     {
       "parameters": {
-        "jsCode": "const req=$input.first().json;\nconst h=req.headers||{};\nconst supplied=h['x-iuc-agent-secret']||h['X-IUC-Agent-Secret']||'';\nconst expected='REPLACE_WITH_N8N_EVENT_SHARED_SECRET';\nif(supplied!==expected) throw new Error('Invalid orchestrator secret');\nconst e=req.body||req;\nconst routes={\n  DOCUMENT_COMPLETENESS_CONFIRMED:'COMPLIANCE',\n  DOCUMENT_REVIEW_COMPLETED:'COMPLIANCE',\n  DOCUMENT_REPLACEMENT_RECEIVED:'COMPLIANCE',\n  DOCUMENT_QUALITY_PASSED:'ADMISSION_INTELLIGENCE',\n  DOCUMENT_REPLACEMENT_REQUIRED:'STUDENT_CONCIERGE',\n  SCREENING_READY_FOR_SAC:'SAC_IA',\n  SAC_DECISION_RECORDED:'SAC_IA',\n  IA_OUTCOME_RECORDED:'SAC_IA',\n  ACCEPTANCE_COMPLETED:'ORIENTATION',\n  PROSPECT_COMPLETED:'SYSTEMS_OPERATOR',\n  SKY_ACTIVATION_READY:'SYSTEMS_OPERATOR',\n  ORIENTATION_COMPLETED:'ACADEMIC_HANDOVER',\n  PROVISIONING_READY_TO_NOTIFY:'ACADEMIC_HANDOVER'\n};\nconst target=routes[String(e.eventType||'').toUpperCase()]||'NO_ROUTE';\nreturn [{json:{...e,targetAgent:target}}];"
+        "jsCode": "const req=$input.first().json;\nconst h=req.headers||{};\nconst supplied=h['x-iuc-agent-secret']||h['X-IUC-Agent-Secret']||'';\nconst expected='REPLACE_WITH_N8N_EVENT_SHARED_SECRET';\nif(supplied!==expected) throw new Error('Invalid orchestrator secret');\nconst e=req.body||req;\nconst eventType=String(e.eventType||'').toUpperCase();\nconst toStage=String(e.toStage||e.data?.nextStage||'').toUpperCase();\nlet target='NO_ROUTE';\n\nconst routes={\n  DOCUMENT_COMPLETENESS_CONFIRMED:'COMPLIANCE',\n  DOCUMENT_REVIEW_COMPLETED:'COMPLIANCE',\n  DOCUMENT_REPLACEMENT_RECEIVED:'COMPLIANCE',\n  DOCUMENT_QUALITY_PASSED:'ADMISSION_INTELLIGENCE',\n  DOCUMENT_REPLACEMENT_REQUIRED:'STUDENT_CONCIERGE',\n  SCREENING_READY_FOR_SAC:'SAC_IA',\n  ACCEPTANCE_COMPLETED:'ORIENTATION',\n  PROSPECT_COMPLETED:'SYSTEMS_OPERATOR',\n  SKY_ACTIVATION_READY:'SYSTEMS_OPERATOR',\n  ORIENTATION_COMPLETED:'ACADEMIC_HANDOVER',\n  PROVISIONING_READY_TO_NOTIFY:'ACADEMIC_HANDOVER'\n};\n\ntarget=routes[eventType]||'NO_ROUTE';\n\nif(['SAC_DECISION_RECORDED','IA_OUTCOME_RECORDED','PREREQUISITE_OUTCOME_RECORDED'].includes(eventType)){\n  target=toStage==='ELIGIBLE_FOR_OFFER'?'OFFER_AUTOMATION':'SAC_IA';\n}\n\nreturn [{json:{...e,targetAgent:target,resolvedToStage:toStage}}];"
       },
       "id": "route",
       "name": "Decide Next Agent",
@@ -187,6 +187,28 @@
               },
               "renameOutput": true,
               "outputKey": "academic_handover"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict"
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.targetAgent }}",
+                    "rightValue": "OFFER_AUTOMATION",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "offer_automation"
             }
           ]
         },
@@ -413,6 +435,34 @@
         180,
         690
       ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://anasbukhori.app.n8n.cloud/webhook/cs-adm-v2-action-gateway",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "X-IUC-Agent-Secret",
+              "value": "REPLACE_WITH_N8N_EVENT_SHARED_SECRET"
+            }
+          ]
+        },
+        "sendBody": true,
+        "contentType": "raw",
+        "rawContentType": "application/json",
+        "body": "={{ JSON.stringify({operation:'execute',executionId:'OFFER-'+$json.referenceNo+'-'+($json.eventId||Date.now()),referenceNo:$json.referenceNo,agentId:'ORCHESTRATOR',requestedAction:'ISSUE_OFFER'}) }}",
+        "options": {}
+      },
+      "id": "issue-offer",
+      "name": "Issue Eligible Offer",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        180,
+        690
+      ]
     }
   ],
   "connections": {
@@ -485,6 +535,13 @@
         [
           {
             "node": "Assign Academic Handover",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Issue Eligible Offer",
             "type": "main",
             "index": 0
           }
@@ -565,6 +622,17 @@
       ]
     },
     "Assign Academic Handover": {
+      "main": [
+        [
+          {
+            "node": "Orchestrator Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Issue Eligible Offer": {
       "main": [
         [
           {
