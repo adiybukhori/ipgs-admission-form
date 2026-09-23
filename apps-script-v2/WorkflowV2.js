@@ -382,6 +382,9 @@ function handleV2Post_(payload) {
   if (action === 'v2GenerateAiScreeningReport') return v2GenerateAiScreeningReport_(payload.data || {}, payload.updatedBy || 'IUC Admission Intelligence Agent');
   if (action === 'v2RunComplianceDocumentQuality') return v2RunComplianceDocumentQuality_(payload.data || {}, payload.updatedBy || 'Compliance & Records Agent');
   if (action === 'v2SendDocumentReplacementRequest') return v2SendDocumentReplacementRequest_(payload.data || {}, payload.updatedBy || 'Student Concierge Agent');
+  if (action === 'v2PrepareSacCoordination') return v2PrepareSacCoordination_(payload.data || {}, payload.updatedBy || 'SAC / IA Coordination Agent');
+  if (action === 'v2PrepareIaCoordination') return v2PrepareIaCoordination_(payload.data || {}, payload.updatedBy || 'SAC / IA Coordination Agent');
+  if (action === 'v2PreparePrerequisiteCoordination') return v2PreparePrerequisiteCoordination_(payload.data || {}, payload.updatedBy || 'SAC / IA Coordination Agent');
   if (action === 'v2AgenticStatus') return v2AgenticStatus_();
   if (action === 'v2GetAgentCaseState') return v2GetAgentCaseState_(payload.data || {});
   if (action === 'v2AgentActionGateway') return v2AgentActionGateway_(payload.data || {}, payload.updatedBy || 'n8n Agentic Gateway');
