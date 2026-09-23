@@ -25,6 +25,7 @@ const ALLOWED_ACTIONS = new Set([
   'v2PrepareIaCoordination',
   'v2PreparePrerequisiteCoordination',
   'v2PrepareOrientationForAccepted',
+  'v2RunOrientationSessionSupervisor',
   'v2PrepareSkyActivation',
   'v2PrepareAcademicHandover',
   'v2PrepareStudentAccessDelivery',
