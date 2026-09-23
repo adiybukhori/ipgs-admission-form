@@ -23,7 +23,7 @@ function v2DocumentReplacementEnsureHeaders_() {
   const ss=SpreadsheetApp.openById(CONFIG.spreadsheetId);
   const sheet=ss.getSheetByName(V2_DOCUMENT_REVIEW_SHEET);
   if(!sheet)throw new Error('V2_DOCUMENT_REVIEW sheet is missing.');
-  v2EnsureHeaders_(sheet,V2_DOCUMENT_REVIEW_HEADERS.concat(V2_COMPLIANCE_REVIEW_HEADERS||[]).concat(V2_DOC_REPLACEMENT_HEADERS));
+  v2EnsureHeaders_(sheet,V2_DOCUMENT_REVIEW_HEADERS.concat(typeof V2_COMPLIANCE_REVIEW_HEADERS !== 'undefined' ? V2_COMPLIANCE_REVIEW_HEADERS : []).concat(V2_DOC_REPLACEMENT_HEADERS));
   return sheet;
 }
 
