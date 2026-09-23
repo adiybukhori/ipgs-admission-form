@@ -1369,6 +1369,7 @@
       ['SAC',!!String(wf['SAC Decision']||'').trim()],
       ['Offer',/ISSUED|SENT/.test(String(wf['Offer Letter Status']||'').toUpperCase())],
       ['Acceptance',/ACCEPTED|RECEIVED|SIGNED/.test(String(wf['Acceptance Status']||'').toUpperCase())],
+      ['SKY Activation',String(wf['SKY Activation Status']||'').toUpperCase()==='ACTIVATED'],
       ['Orientation',/COMPLET|ATTENDED/.test(String(wf['Orientation Status']||'').toUpperCase())],
       ['Provisioning',/COMPLET|DONE/.test(String(wf['Provisioning Status']||'').toUpperCase())],
       ['Academic Handover',/COMPLET|HANDED/.test(String(wf['Academic Handover Status']||'').toUpperCase())]
