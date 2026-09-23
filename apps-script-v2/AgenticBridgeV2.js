@@ -330,9 +330,30 @@ function v2AgentActionGateway_(data, actor) {
       )
     );
 
+    let humanTask = null;
+    if (requiresHuman && typeof v2CreateHumanTask_ === 'function') {
+      humanTask = v2CreateHumanTask_({
+        referenceNo:reference,
+        taskType:requestedAction === 'RUN_ADMISSION_INTELLIGENCE'
+          ? 'ADMISSION_SCREENING_REVIEW'
+          : 'AGENT_REVIEW_REQUIRED',
+        title:requestedAction === 'RUN_ADMISSION_INTELLIGENCE'
+          ? 'Admission screening requires human confirmation'
+          : 'Agent action requires human confirmation',
+        reason:'Agent completed the automated step but the case cannot be finalised without authorised human confirmation.',
+        raisedByAgent:v2AgentDisplayName_(agentId),
+        agentId:agentId,
+        executionId:executionId,
+        priority:'NORMAL',
+        assignedTo:'Registrar / Authorised Decision Maker',
+        resumeEvent:'HUMAN_TASK_COMPLETED',
+        source:'N8N'
+      }, v2AgentDisplayName_(agentId));
+    }
+
     v2EmitAgentEvent_({
       referenceNo:reference,
-      eventType:requiresHuman ? 'HUMAN_TASK_CREATED' : 'AGENT_TASK_COMPLETED',
+      eventType:'AGENT_TASK_COMPLETED',
       agentId:agentId,
       agentName:v2AgentDisplayName_(agentId),
       action:requestedAction,
@@ -343,9 +364,9 @@ function v2AgentActionGateway_(data, actor) {
       executionId:executionId,
       source:'N8N',
       summary:requiresHuman
-        ? 'Agent completed automated review and requires human confirmation.'
+        ? 'Automated work completed; durable human task created before the case may continue.'
         : 'Agent completed and verified the requested action.',
-      data:{result:result || {}}
+      data:{result:result || {}, humanTask:humanTask && humanTask.task ? humanTask.task : null}
     });
 
     return {
@@ -355,6 +376,7 @@ function v2AgentActionGateway_(data, actor) {
       requestedAction:requestedAction,
       currentStage:toStage,
       requiresHuman:requiresHuman,
+      humanTask:humanTask,
       result:result
     };
   } catch (error) {
@@ -367,6 +389,26 @@ function v2AgentActionGateway_(data, actor) {
       'Last Updated':failedAt
     });
 
+    const errorMessage=String(error && error.message || error);
+    let failureTask=null;
+    if (typeof v2CreateHumanTask_ === 'function') {
+      try {
+        failureTask=v2CreateHumanTask_({
+          referenceNo:reference,
+          taskType:'AGENT_EXECUTION_FAILURE',
+          title:v2AgentDisplayName_(agentId)+' execution needs investigation',
+          reason:errorMessage,
+          raisedByAgent:v2AgentDisplayName_(agentId),
+          agentId:agentId,
+          executionId:executionId,
+          priority:'HIGH',
+          assignedTo:'Registrar / System Administrator',
+          resumeEvent:'HUMAN_TASK_COMPLETED',
+          source:'N8N'
+        }, v2AgentDisplayName_(agentId));
+      } catch (_) {}
+    }
+
     v2EmitAgentEvent_({
       referenceNo:reference,
       eventType:'AGENT_TASK_FAILED',
@@ -378,7 +420,8 @@ function v2AgentActionGateway_(data, actor) {
       requiresHuman:true,
       executionId:executionId,
       source:'N8N',
-      summary:String(error && error.message || error)
+      summary:errorMessage,
+      data:{humanTask:failureTask && failureTask.task ? failureTask.task : null}
     });
     throw error;
   }
