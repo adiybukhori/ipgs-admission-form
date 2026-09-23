@@ -291,3 +291,31 @@ Snapshot includes:
 - ranked critical operational signals
 
 Snapshots are written to V2_MANAGEMENT_INTELLIGENCE and surfaced in ACC.
+
+
+## Management Intelligence daily brief
+
+Workflow:
+- `CS-ADM-V2 | 08 MANAGEMENT INTELLIGENCE`
+
+Schedule:
+- Daily at **8:30 AM Asia/Kuala_Lumpur**
+
+Apps Script property required for email delivery:
+- `V2_MANAGEMENT_REPORT_EMAILS`
+- Use one or more recipient emails separated by comma or semicolon.
+
+The daily run uses a date-based idempotency key, so the same 8:30 daily brief is not duplicated by an accidental replay.
+
+Snapshot includes:
+- applications yesterday / last 7 days / current calendar month
+- open and high-priority human tasks
+- failed / running agent executions
+- document quality follow-up
+- screening, SAC, IA and prerequisite queues
+- SKY activation pending
+- upcoming / waiting orientation
+- academic handover and provisioning queues
+- cases unchanged for more than 24 hours
+
+The AI brief is narrative only; all counts are calculated deterministically from Admission V2.
