@@ -1,0 +1,243 @@
+{
+  "name": "CS-ADM-V2 | 05 SYSTEMS OPERATOR",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "cs-adm-v2-systems-operator",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "systems-webhook",
+      "name": "Systems Operator Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        -700,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const req=$input.first().json;\nconst h=req.headers||{};\nconst supplied=h['x-iuc-agent-secret']||h['X-IUC-Agent-Secret']||'';\nconst expected='REPLACE_WITH_N8N_EVENT_SHARED_SECRET';\nif(supplied!==expected) throw new Error('Invalid Systems Operator secret');\nconst e=req.body||req;\nif(!e.referenceNo) throw new Error('referenceNo required');\nreturn [{json:{...e,agentId:'SYSTEMS_OPERATOR',executionId:'SYS-'+e.referenceNo+'-'+(e.eventId||Date.now())}}];"
+      },
+      "id": "prepare",
+      "name": "Prepare Systems Task",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -480,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://anasbukhori.app.n8n.cloud/webhook/cs-adm-v2-action-gateway",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "X-IUC-Agent-Secret",
+              "value": "REPLACE_WITH_N8N_EVENT_SHARED_SECRET"
+            }
+          ]
+        },
+        "sendBody": true,
+        "contentType": "raw",
+        "rawContentType": "application/json",
+        "body": "={{ JSON.stringify({operation:'state',referenceNo:$json.referenceNo}) }}",
+        "options": {}
+      },
+      "id": "state-before",
+      "name": "Read SKY State",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        -250,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const s=$input.first().json;\nconst w=s.workflow||{};\nconst prospect=String(w['Prospect Status']||'').toUpperCase();\nconst fee=String(w['Fee Group']||'').trim();\nconst prospectId=String(w['SKY Prospect ID']||'').trim();\nconst activated=String(w['SKY Activation Status']||'').toUpperCase()==='ACTIVATED';\nif(!activated){\n  if(!['PROSPECT_COMPLETED','PROSPECT_UPDATED'].includes(prospect)) throw new Error('Marketing Prospect completion is not confirmed');\n  if(!prospectId) throw new Error('SKY Prospect ID missing');\n  if(!fee) throw new Error('Fee Group missing');\n}\nreturn [{json:{referenceNo:s.referenceNo,prospectStatus:prospect,skyProspectId:prospectId,feeGroup:fee,alreadyActivated:activated,verifiedBefore:true}}];"
+      },
+      "id": "verify-before",
+      "name": "Verify SKY Readiness",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -20,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://anasbukhori.app.n8n.cloud/webhook/cs-adm-v2-action-gateway",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "X-IUC-Agent-Secret",
+              "value": "REPLACE_WITH_N8N_EVENT_SHARED_SECRET"
+            }
+          ]
+        },
+        "sendBody": true,
+        "contentType": "raw",
+        "rawContentType": "application/json",
+        "body": "={{ JSON.stringify({operation:'execute',executionId:$('Prepare Systems Task').item.json.executionId,referenceNo:$('Prepare Systems Task').item.json.referenceNo,agentId:'SYSTEMS_OPERATOR',requestedAction:'PREPARE_SKY_ACTIVATION'}) }}",
+        "options": {}
+      },
+      "id": "execute",
+      "name": "Prepare Registry SKY Activation",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        220,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://anasbukhori.app.n8n.cloud/webhook/cs-adm-v2-action-gateway",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "X-IUC-Agent-Secret",
+              "value": "REPLACE_WITH_N8N_EVENT_SHARED_SECRET"
+            }
+          ]
+        },
+        "sendBody": true,
+        "contentType": "raw",
+        "rawContentType": "application/json",
+        "body": "={{ JSON.stringify({operation:'state',referenceNo:$('Prepare Systems Task').item.json.referenceNo}) }}",
+        "options": {}
+      },
+      "id": "state-after",
+      "name": "Read SKY State After",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        450,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const s=$input.first().json;\nconst w=s.workflow||{};\nconst exec=$('Prepare Registry SKY Activation').item.json||{};\nconst activation=String(w['SKY Activation Status']||'NOT_ACTIVATED').toUpperCase();\nconst waitingHuman=exec.requiresHuman===true || String(exec.status||'').toUpperCase()==='WAITING_HUMAN';\nif(!waitingHuman && activation!=='ACTIVATED') throw new Error('Systems Operator verification failed: expected Human Task or ACTIVATED state');\nreturn [{json:{\n  ok:true,referenceNo:s.referenceNo,\n  skyProspectId:w['SKY Prospect ID']||'',\n  feeGroup:w['Fee Group']||'',\n  skyActivationStatus:activation,\n  requiresHuman:waitingHuman,\n  verified:true\n}}];"
+      },
+      "id": "verify-after",
+      "name": "Verify Systems Result",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        680,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ $json }}",
+        "options": {}
+      },
+      "id": "response",
+      "name": "Return Systems Result",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.4,
+      "position": [
+        910,
+        0
+      ]
+    }
+  ],
+  "connections": {
+    "Systems Operator Webhook": {
+      "main": [
+        [
+          {
+            "node": "Prepare Systems Task",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Prepare Systems Task": {
+      "main": [
+        [
+          {
+            "node": "Read SKY State",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Read SKY State": {
+      "main": [
+        [
+          {
+            "node": "Verify SKY Readiness",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Verify SKY Readiness": {
+      "main": [
+        [
+          {
+            "node": "Prepare Registry SKY Activation",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Prepare Registry SKY Activation": {
+      "main": [
+        [
+          {
+            "node": "Read SKY State After",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Read SKY State After": {
+      "main": [
+        [
+          {
+            "node": "Verify Systems Result",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Verify Systems Result": {
+      "main": [
+        [
+          {
+            "node": "Return Systems Result",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "tags": []
+}
