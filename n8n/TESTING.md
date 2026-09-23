@@ -319,3 +319,18 @@ Expected:
 - no duplicate cohort batch for the same Orientation Session while the batch is still DRAFT
 - already HANDED_OVER / COMPLETED students are not re-added
 - Action Gateway Execution ID prevents duplicate side effects
+
+
+## Test W — Management Intelligence daily scan
+
+Run the Management Intelligence webhook manually, then validate the scheduled workflow separately.
+
+Expected:
+- V2_MANAGEMENT_INTELLIGENCE receives one snapshot row.
+- Snapshot contains applications today / 7D / 30D.
+- Open Human Task, failed execution and stuck-case counts match source tables.
+- Critical Signals JSON prioritises HIGH signals before MEDIUM signals.
+- ACC Management Intelligence card / Exception Center uses the latest snapshot when present.
+- No student stage is changed by the Management Intelligence run.
+- Replaying the same daily execution ID on the same date is idempotent.
+- Scheduled workflow timezone is Asia/Kuala_Lumpur and cron is 08:30 daily.
