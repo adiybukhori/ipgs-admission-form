@@ -1,0 +1,111 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <base target="_top">
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+  <title>IUC Admission Document Replacement</title>
+  <style>
+    :root{--primary:#2d2363;--bg:#f7f5ef;--card:#fff;--text:#20283b;--muted:#747b8b;--line:#e2e4ea;--green:#0f8b65;--greenSoft:#eaf8f2;--red:#a73d3d;--redSoft:#fff0f0;--amber:#8a6214;--amberSoft:#fff7df}
+    *{box-sizing:border-box}body{margin:0;font-family:Inter,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;background:linear-gradient(180deg,#f7f4ec,#fff);color:var(--text)}
+    .page{min-height:100dvh;padding:24px 16px}.shell{width:min(720px,100%);margin:0 auto}.brand{display:flex;align-items:center;gap:14px;margin-bottom:18px}.logo{width:86px;height:66px;border-radius:18px;background:var(--primary);display:grid;place-items:center;padding:10px}.logo img{max-width:100%;max-height:100%;object-fit:contain}.brand h1{font-size:19px;margin:0 0 2px}.brand p{font-size:13px;color:var(--muted);margin:0}
+    .hero{background:linear-gradient(135deg,#2d2363,#211849);color:#fff;border-radius:24px;padding:24px;margin-bottom:14px}.hero h2{font-size:27px;margin:0 0 8px}.hero p{font-size:14px;line-height:1.55;color:rgba(255,255,255,.82);margin:0}
+    .card{background:var(--card);border:1px solid var(--line);border-radius:20px;padding:20px;margin:14px 0;box-shadow:0 10px 30px rgba(27,31,52,.06)}.card h3{margin:0 0 4px;font-size:18px}.sub{font-size:13px;color:var(--muted);line-height:1.5;margin-bottom:14px}
+    .info{display:grid;grid-template-columns:1fr 1fr;gap:10px}.info div{border:1px solid var(--line);background:#fbfbfd;border-radius:13px;padding:11px}.info span{display:block;font-size:10px;color:var(--muted);text-transform:uppercase;font-weight:800;letter-spacing:.05em;margin-bottom:5px}.info strong{font-size:13px;line-height:1.35;word-break:break-word}.full{grid-column:1/-1}
+    .request{border:1px solid #e6e2ef;background:#fbfaff;border-radius:15px;padding:14px;margin:11px 0}.request h4{margin:0 0 6px;font-size:14px}.issue{font-size:12px;color:#8a4b56;line-height:1.45;margin:4px 0}.instruction{font-size:12px;color:#5f6572;line-height:1.55;margin:5px 0 10px}.file{display:block;width:100%;border:1px dashed #bfc3cf;border-radius:12px;padding:13px;background:#fff}
+    .notice{padding:13px;border-radius:13px;background:var(--amberSoft);color:var(--amber);font-size:12px;line-height:1.55;margin-bottom:14px}.hint{font-size:11px;color:var(--muted);line-height:1.5;margin-top:8px}.primary{width:100%;margin-top:16px;border:0;border-radius:14px;padding:14px 18px;background:var(--primary);color:#fff;font:inherit;font-weight:800;cursor:pointer}.primary:disabled{opacity:.55;cursor:not-allowed}.msg{display:none;margin-top:12px;padding:12px;border-radius:12px;font-size:12px;line-height:1.5}.msg.ok{display:block;background:var(--greenSoft);color:#17684e}.msg.error{display:block;background:var(--redSoft);color:var(--red)}.loading{display:flex;align-items:center;gap:10px;color:var(--muted);font-size:13px}.spinner{width:20px;height:20px;border:2px solid #e2deef;border-top-color:var(--primary);border-radius:50%;animation:spin .8s linear infinite}@keyframes spin{to{transform:rotate(360deg)}}.hidden{display:none!important}.success{text-align:center;padding:32px 18px}.success .icon{width:60px;height:60px;border-radius:50%;display:grid;place-items:center;background:var(--greenSoft);color:var(--green);font-size:28px;font-weight:900;margin:0 auto 12px}.footer{text-align:center;color:#9a9daa;font-size:11px;padding-top:8px}
+    @media(max-width:520px){.info{grid-template-columns:1fr}.full{grid-column:auto}.page{padding:14px 12px}.hero{padding:20px 18px}.card{padding:16px}}
+  </style>
+</head>
+<body>
+<div class="page"><div class="shell">
+  <div class="brand"><div class="logo"><img src="https://lh3.googleusercontent.com/d/1eOwwzXYC_aAWOgF4TGYTc8PNIBkcwsUI=s1000" alt="IUC"></div><div><h1>Innovative University College</h1><p>Institute of Postgraduate Studies</p></div></div>
+  <section class="hero"><h2>Replace Admission Document</h2><p>Secure upload page for documents that require a clearer, complete or corrected copy.</p></section>
+
+  <section id="loading" class="card"><div class="loading"><div class="spinner"></div><span>Checking your secure upload link...</span></div></section>
+
+  <div id="uploadView" class="hidden">
+    <section class="card"><h3>Application details</h3><div class="sub">Please confirm the information below.</div><div class="info"><div><span>Student</span><strong id="studentName">-</strong></div><div><span>Intake</span><strong id="intake">-</strong></div><div class="full"><span>Programme</span><strong id="programme">-</strong></div><div class="full"><span>Reference</span><strong id="referenceNo">-</strong></div></div></section>
+    <section class="card">
+      <h3>Replacement required</h3>
+      <div class="sub">Please upload a new copy for every document listed below. The previous file will be retained internally as a superseded record.</div>
+      <div class="notice"><strong>Before uploading:</strong> make sure the full page/document is visible, text is readable, there is no material crop, blur or glare, and the correct document is selected.</div>
+      <div id="requests"></div>
+      <div class="hint">Accepted: PDF, JPG, PNG, DOC, DOCX. Maximum 7MB per file and 18MB total.</div>
+      <button id="submitBtn" class="primary" type="button" onclick="submitReplacement()">Upload Replacement Document(s)</button>
+      <div id="message" class="msg"></div>
+    </section>
+  </div>
+
+  <section id="completed" class="card success hidden"><div class="icon">✓</div><h3>Replacement Document Received</h3><p style="color:var(--muted);font-size:13px;line-height:1.55">Your replacement document(s) have been added to your admission record. The document quality review will continue automatically.</p></section>
+  <section id="errorView" class="card hidden"><h3>Unable to open upload page</h3><div id="errorText" class="sub" style="margin-top:8px">This secure link is invalid or no longer available.</div></section>
+  <div class="footer">IUC · IPGS Admission V2</div>
+</div></div>
+<script>
+  const TOKEN=<?!= JSON.stringify(token || '') ?>;
+  let requested=[];
+  const loading=document.getElementById('loading');
+  const uploadView=document.getElementById('uploadView');
+  const completed=document.getElementById('completed');
+  const errorView=document.getElementById('errorView');
+  const errorText=document.getElementById('errorText');
+  const message=document.getElementById('message');
+  const submitBtn=document.getElementById('submitBtn');
+
+  function esc(v=''){return String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[c]))}
+  function showError(text){loading.classList.add('hidden');uploadView.classList.add('hidden');completed.classList.add('hidden');errorView.classList.remove('hidden');errorText.textContent=text||'This secure link is invalid or no longer available.'}
+  function showCompleted(){loading.classList.add('hidden');uploadView.classList.add('hidden');errorView.classList.add('hidden');completed.classList.remove('hidden')}
+  function renderRequests(){
+    const host=document.getElementById('requests');
+    host.innerHTML=requested.map((r,i)=>{
+      const issues=Array.isArray(r.issues)?r.issues.filter(Boolean):[];
+      return '<div class="request"><h4>'+esc(r.label||r.field||'Document')+'</h4>'+
+        (issues.length?'<div class="issue"><strong>Quality issue:</strong> '+esc(issues.join('; '))+'</div>':'')+
+        '<div class="instruction">'+esc(r.instruction||'Please upload a clear and complete replacement document.')+'</div>'+
+        '<input class="file replacement-file" data-field="'+esc(r.field||'')+'" data-index="'+i+'" type="file" accept=".pdf,.jpg,.jpeg,.png,.doc,.docx,application/pdf,image/jpeg,image/png,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document"></div>';
+    }).join('');
+  }
+  function load(){
+    if(!TOKEN){showError();return;}
+    google.script.run.withSuccessHandler(function(res){
+      loading.classList.add('hidden');
+      if(!res||!res.ok){showError('Unable to load this document replacement request.');return;}
+      document.getElementById('studentName').textContent=res.studentName||'-';
+      document.getElementById('programme').textContent=res.programme||'-';
+      document.getElementById('intake').textContent=res.intake||'-';
+      document.getElementById('referenceNo').textContent=res.referenceNo||'-';
+      if(String(res.status||'').toUpperCase()==='RECEIVED'){showCompleted();return;}
+      requested=Array.isArray(res.requestedDocuments)?res.requestedDocuments:[];
+      if(!requested.length){showError('No replacement document is currently requested.');return;}
+      renderRequests();uploadView.classList.remove('hidden');
+    }).withFailureHandler(function(err){showError(err&&err.message?err.message:String(err||'Unable to open upload page.'));}).v2GetDocumentReplacementForToken(TOKEN);
+  }
+  function fileToPayload(file,field){return new Promise(function(resolve,reject){const reader=new FileReader();reader.onload=function(){const raw=String(reader.result||'');resolve({field,fileName:file.name,mimeType:file.type||'',size:file.size,base64:raw.includes(',')?raw.split(',')[1]:raw});};reader.onerror=reject;reader.readAsDataURL(file);});}
+  async function submitReplacement(){
+    message.className='msg';message.textContent='';
+    const inputs=[...document.querySelectorAll('.replacement-file')];
+    const missing=inputs.filter(x=>!x.files[0]);
+    if(missing.length){message.className='msg error';message.textContent='Please select a replacement file for every requested document.';return;}
+    const total=inputs.reduce((sum,x)=>sum+(x.files[0]?.size||0),0);
+    if(inputs.some(x=>(x.files[0]?.size||0)>7*1024*1024)){message.className='msg error';message.textContent='Each file must be 7MB or smaller.';return;}
+    if(total>18*1024*1024){message.className='msg error';message.textContent='Total upload must be 18MB or smaller.';return;}
+    submitBtn.disabled=true;submitBtn.textContent='Uploading...';
+    try{
+      const payload=await Promise.all(inputs.map(x=>fileToPayload(x.files[0],x.dataset.field)));
+      google.script.run.withSuccessHandler(function(res){
+        submitBtn.disabled=false;submitBtn.textContent='Upload Replacement Document(s)';
+        if(!res||!res.ok){message.className='msg error';message.textContent='Upload could not be completed.';return;}
+        showCompleted();
+      }).withFailureHandler(function(err){
+        submitBtn.disabled=false;submitBtn.textContent='Upload Replacement Document(s)';
+        message.className='msg error';message.textContent=err&&err.message?err.message:String(err||'Upload failed.');
+      }).v2SubmitDocumentReplacementUpload(TOKEN,payload);
+    }catch(err){
+      submitBtn.disabled=false;submitBtn.textContent='Upload Replacement Document(s)';
+      message.className='msg error';message.textContent=err&&err.message?err.message:'Upload failed.';
+    }
+  }
+  window.addEventListener('load',load);
+</script>
+</body>
+</html>
