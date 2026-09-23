@@ -401,7 +401,7 @@
     <div class="tab-shell" style="margin-top:16px">
       <div class="tab-shell-head">
         <div><div class="eyebrow">MANAGEMENT INTELLIGENCE</div><h2>Daily Admission Brief</h2><p>Deterministic operational metrics with an AI-written management summary. Scheduled for 8:30 AM MYT after n8n activation.</p></div>
-        <button class="office-control" type="button" onclick="refreshManagementIntelligence(false)">Refresh Intelligence</button>
+        <button class="office-control" type="button" onclick="refreshManagementIntelligence(false,this)">Refresh Intelligence</button>
       </div>
       <div class="tab-shell-body" id="managementBriefPanel">
         <div class="exception"><b>No Management Intelligence snapshot yet</b><p>Use Refresh Intelligence now, or wait for the scheduled 8:30 AM agent run after n8n activation.</p></div>
@@ -694,8 +694,7 @@
       '</div>';
   }
 
-  async function refreshManagementIntelligence(sendEmail){
-    const btn=event?.currentTarget;
+  async function refreshManagementIntelligence(sendEmail,btn){
     const old=btn?.textContent;
     if(btn){btn.disabled=true;btn.textContent='Refreshing…';}
     try{
