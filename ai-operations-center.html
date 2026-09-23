@@ -168,6 +168,9 @@
     .decision-open-btn{margin-top:9px;border:1px solid rgba(154,124,255,.28);background:rgba(154,124,255,.10);color:#d9d1ff;border-radius:9px;padding:7px 9px;font-size:9px;font-weight:900;cursor:pointer}
     .human-task-form{display:grid;gap:12px}.human-task-form label{display:grid;gap:6px;color:#8f99bd;font-size:9px;font-weight:900;text-transform:uppercase;letter-spacing:.06em}.human-task-form select,.human-task-form textarea{width:100%;border:1px solid var(--line);border-radius:11px;background:#0a1025;color:#eef1ff;padding:10px;font:inherit;font-size:11px}.human-task-form textarea{min-height:78px;resize:vertical}.human-task-evidence{display:grid;grid-template-columns:repeat(2,1fr);gap:9px}.human-task-evidence>div{border:1px solid var(--line);border-radius:12px;padding:10px;background:rgba(255,255,255,.025)}.human-task-evidence small{display:block;color:#7d88ad;font-size:8px;text-transform:uppercase;font-weight:900;margin-bottom:4px}.human-task-evidence b{font-size:10px;color:#fff}.human-task-actions{display:flex;gap:8px;justify-content:flex-end;margin-top:4px}.human-task-actions button{border-radius:10px;padding:9px 12px;font-weight:900;border:1px solid var(--line);background:rgba(255,255,255,.04);color:#e9edff}.human-task-actions .confirm{background:linear-gradient(135deg,#7657f2,#3c9ce8);border:0;color:white}
     @media(max-width:700px){.human-task-evidence{grid-template-columns:1fr}}
+
+    .management-brief-grid{display:grid;grid-template-columns:1.4fr .8fr;gap:14px}.management-brief-card{border:1px solid var(--line);border-radius:16px;background:rgba(255,255,255,.025);padding:15px}.management-brief-card h3{margin:0 0 7px;font-size:13px}.management-brief-card p{margin:0;color:#a9b2d2;font-size:10px;line-height:1.65}.management-metrics{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}.management-metric{border:1px solid var(--line);border-radius:12px;padding:10px;background:rgba(255,255,255,.02)}.management-metric small{display:block;color:#7d88ad;font-size:7px;text-transform:uppercase;font-weight:900;letter-spacing:.05em;margin-bottom:5px}.management-metric b{font-size:15px;color:#fff}.management-brief-actions{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-top:12px}.management-brief-actions button{border:1px solid rgba(154,124,255,.3);border-radius:9px;padding:8px 10px;background:rgba(154,124,255,.1);color:#ded7ff;font-size:9px;font-weight:900;cursor:pointer}
+    @media(max-width:850px){.management-brief-grid{grid-template-columns:1fr}.management-metrics{grid-template-columns:repeat(2,1fr)}}
 </style>
 <link rel="stylesheet" href="/ai-agent-office.css">
 </head>
@@ -395,6 +398,16 @@
       <div class="tab-shell-head"><div><div class="eyebrow">WORKFORCE TODAY</div><h2>Performance & Agentic Readiness</h2><p>Live execution metrics when the agentic bridge is active; controlled simulation remains available as fallback.</p></div><span class="tag green">RUNTIME METRICS</span></div>
       <div class="tab-shell-body"><div id="performanceGrid" class="performance-grid"></div></div>
     </div>
+    <div class="tab-shell" style="margin-top:16px">
+      <div class="tab-shell-head">
+        <div><div class="eyebrow">MANAGEMENT INTELLIGENCE</div><h2>Daily Admission Brief</h2><p>Deterministic operational metrics with an AI-written management summary. Scheduled for 8:30 AM MYT after n8n activation.</p></div>
+        <button class="office-control" type="button" onclick="refreshManagementIntelligence(false)">Refresh Intelligence</button>
+      </div>
+      <div class="tab-shell-body" id="managementBriefPanel">
+        <div class="exception"><b>No Management Intelligence snapshot yet</b><p>Use Refresh Intelligence now, or wait for the scheduled 8:30 AM agent run after n8n activation.</p></div>
+      </div>
+    </div>
+
     <div class="tab-shell" style="margin-top:16px">
       <div class="tab-shell-head"><div><h2>Future Runtime Contract</h2><p>The visual office subscribes to structured agent-state events; it does not depend on free-form agent chat.</p></div></div>
       <div class="readiness">
@@ -639,12 +652,67 @@
         Number(latestManagement['Stuck Cases >24H']||0);
     }
     document.getElementById('loadManagement').textContent=managementSignals+' signals';
+    renderManagementBrief(latestManagement);
 
     if((state.humanTasks||[]).length) renderHumanTasks((state.humanTasks||[]).filter(r=>['OPEN','WAITING_HUMAN','IN_REVIEW'].includes(String(r['Status']||'').toUpperCase())));
     else renderDecisions(decisionRows);
     if(managementCritical.length) renderManagementSignals(managementCritical,latestManagement);
     else renderExceptions(exceptionRows);
     renderActivity();
+  }
+
+  function renderManagementBrief(snapshot){
+    const host=document.getElementById('managementBriefPanel');
+    if(!host)return;
+    if(!snapshot){
+      host.innerHTML='<div class="exception"><b>No Management Intelligence snapshot yet</b><p>Use Refresh Intelligence now, or wait for the scheduled 8:30 AM agent run after n8n activation.</p></div>';
+      return;
+    }
+    const brief=String(snapshot['AI Brief']||'No AI brief was stored for this snapshot.');
+    const provider=String(snapshot['AI Provider']||'');
+    const generated=String(snapshot['Generated At']||'');
+    const notification=String(snapshot['Notification Status']||'');
+    const metric=(label,value)=>'<div class="management-metric"><small>'+escapeHtml(label)+'</small><b>'+escapeHtml(value||'0')+'</b></div>';
+    host.innerHTML=
+      '<div class="management-brief-grid">'+
+        '<div class="management-brief-card"><h3>Management Brief</h3><p>'+escapeHtml(brief)+'</p>'+
+          '<div class="management-brief-actions"><span class="tag '+(provider==='OPENAI'?'green':'blue')+'">'+escapeHtml(provider||'SNAPSHOT')+'</span>'+
+          '<span style="font-size:8px;color:#7d88ad">'+escapeHtml(generated)+'</span>'+
+          (notification?'<span style="font-size:8px;color:#7d88ad">Email: '+escapeHtml(notification)+'</span>':'')+
+          '</div></div>'+
+        '<div class="management-metrics">'+
+          metric('Yesterday',snapshot['Applications Yesterday'])+
+          metric('Last 7 Days',snapshot['Applications 7D'])+
+          metric('This Month',snapshot['Applications This Month'])+
+          metric('Open Human',snapshot['Open Human Tasks'])+
+          metric('Failed Agents',snapshot['Failed Agent Executions'])+
+          metric('Stuck >24h',snapshot['Stuck Cases >24H'])+
+          metric('Ready for SAC',snapshot['SAC Waiting'])+
+          metric('Handover Ready',snapshot['Handover Ready'])+
+          metric('Provisioning',snapshot['Provisioning In Progress'])+
+        '</div>'+
+      '</div>';
+  }
+
+  async function refreshManagementIntelligence(sendEmail){
+    const btn=event?.currentTarget;
+    const old=btn?.textContent;
+    if(btn){btn.disabled=true;btn.textContent='Refreshing…';}
+    try{
+      const res=await fetch('/api/admin-action',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({
+        password,
+        action:'v2RunManagementIntelligence',
+        updatedBy:'ACC Management Intelligence',
+        data:{window:'MANUAL',sendEmail:sendEmail===true}
+      })});
+      const out=await res.json();
+      if(!res.ok||!out.ok)throw new Error(out.message||'Unable to refresh Management Intelligence.');
+      await loadOps();
+    }catch(e){
+      alert(e.message||'Unable to refresh Management Intelligence.');
+    }finally{
+      if(btn){btn.disabled=false;btn.textContent=old||'Refresh Intelligence';}
+    }
   }
 
   function renderDecisions(list){
@@ -1365,6 +1433,7 @@
     card.addEventListener('keydown',e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();openAgentDetail(card.dataset.agent);}});
   });
 
+  window.refreshManagementIntelligence=refreshManagementIntelligence;
   window.openHumanTaskResolution=openHumanTaskResolution;
   window.confirmHumanScreeningTask=confirmHumanScreeningTask;
   window.resolveHumanQualityTask=resolveHumanQualityTask;
