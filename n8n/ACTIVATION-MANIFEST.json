@@ -107,6 +107,10 @@
     {
       "key": "N8N_AGENTIC_ENABLED",
       "value": "TRUE only after controlled import/configuration/test"
+    },
+    {
+      "key": "V2_MANAGEMENT_REPORT_EMAILS",
+      "value": "<comma/semicolon separated management recipients for the 8:30 AM daily brief>"
     }
   ],
   "safety": [
