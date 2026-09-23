@@ -472,3 +472,45 @@ Expected:
 - Missing-document receipt email refers to required admission documents.
 - Quality-replacement receipt email refers to replacement / quality review.
 - Both flows use the same secure upload infrastructure without mixing their next-step logic.
+
+
+## Test AC — Prospect completed before Acceptance
+
+Expected:
+- Marketing completes Prospect + SKY Prospect ID + Fee Group.
+- PROSPECT_COMPLETED routes to Systems Operator.
+- Systems Operator verifies the Prospect evidence.
+- Because Acceptance is not complete, result = WAITING_ACCEPTANCE.
+- No SKY_ACTIVATION_REQUIRED human task is created.
+- No Orientation assignment/invitation is created.
+
+## Test AD — Acceptance to SKY activation barrier
+
+After the same applicant completes the electronic Acceptance Pack:
+
+Expected:
+- ACCEPTANCE_COMPLETED routes to Systems Operator, not Orientation.
+- If Prospect ID + Fee Group are valid, Systems Operator creates SKY_ACTIVATION_REQUIRED.
+- Registry performs the real SKY activation and records SKY Student / Registration ID.
+- SKY Activation Status = ACTIVATED.
+- SKY_ACTIVATED routes to Orientation.
+- Only then may Orientation Agent assign a session and send invitation.
+
+## Test AE — Orientation bypass prevention
+
+Attempt PREPARE_ORIENTATION_FOR_ACCEPTED for an accepted student whose SKY Activation Status is not ACTIVATED.
+
+Expected:
+- Orientation Agent returns WAITING_SKY_ACTIVATION / blocks the operation.
+- No session assignment is created.
+- No invitation is sent.
+
+## Test AF — Idempotent already-activated accepted case
+
+For a legacy/controlled applicant that is already ACCEPTED and ACTIVATED:
+
+Expected:
+- Systems Operator verifies ACTIVATED.
+- n8n emits an idempotent SKY_ACTIVATED handoff.
+- Orchestrator routes to Orientation.
+- No duplicate SKY activation human task is created.
