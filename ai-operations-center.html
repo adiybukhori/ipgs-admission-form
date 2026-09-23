@@ -302,9 +302,9 @@
       <div class="ready-card"><div class="r-top"><span>ACC Data & Case Context</span><span class="tag green">READY</span></div><p>Reuses the current operational dataset and student lifecycle records.</p></div>
       <div class="ready-card"><div class="r-top"><span>Agentic Org Chart & Authority</span><span class="tag green">READY</span></div><p>Human governance, Registrar Office Agent supervision and operational agent ownership are defined.</p></div>
       <div class="ready-card"><div class="r-top"><span>OpenAI Brain / Tool Calling</span><span class="tag amber">NEXT</span></div><p>Will enable reasoning, case interpretation and autonomous tool selection.</p></div>
-      <div class="ready-card"><div class="r-top"><span>n8n Triggers & Orchestration</span><span class="tag amber">NEXT</span></div><p>Will wake agents on events, schedules and pending-case conditions.</p></div>
+      <div class="ready-card"><div class="r-top"><span>n8n Triggers & Orchestration</span><span class="tag green">IMPORT READY</span></div><p>13 isolated CS-ADM-V2 workflows cover events, agent routing, human gates, retries and daily Management Intelligence.</p></div>
       <div class="ready-card"><div class="r-top"><span>Hermes Computer Operator</span><span class="tag amber">LATER</span></div><p>Reserved for systems such as SkyVialing when direct APIs are unavailable.</p></div>
-      <div class="ready-card"><div class="r-top"><span>Autonomous Action Governance</span><span class="tag amber">LATER</span></div><p>Action limits, approvals, rollback and audit policies will be activated before production autonomy.</p></div>
+      <div class="ready-card"><div class="r-top"><span>Autonomous Action Governance</span><span class="tag green">FOUNDATION READY</span></div><p>Action ownership, idempotency, verification, durable human tasks and retry/escalation boundaries are encoded before n8n activation.</p></div>
     </div>
   </section>
   </div>
@@ -418,7 +418,7 @@
   const DATA_API='/api/admin-data';
   const AGENT_RUNTIME_API='/api/agent-runtime-state';
   const password=sessionStorage.getItem('ipgsAdminPassword')||'';
-  let state={apps:[],workflow:[],docReview:[],aiScreening:[],qualification:[],sacSessions:[],sacCandidates:[],assessment:[],orientationSessions:[],orientation:[],handover:[],provisioning:[],activation:[],audit:[],agentEvents:[],agentExecutions:[],humanTasks:[],agentRuntime:null,decisions:0,exceptions:0};
+  let state={apps:[],workflow:[],docReview:[],aiScreening:[],qualification:[],sacSessions:[],sacCandidates:[],assessment:[],orientationSessions:[],orientation:[],handover:[],provisioning:[],activation:[],audit:[],agentEvents:[],agentExecutions:[],humanTasks:[],managementSnapshots:[],agentRuntime:null,decisions:0,exceptions:0};
   window.AI_OPS_STATE=state;
 
   if(!password){ location.href='/admin.html'; }
@@ -454,6 +454,7 @@
       state.agentEvents=rows(d,'V2_AGENT_EVENTS');
       state.agentExecutions=rows(d,'V2_AGENT_EXECUTIONS');
       state.humanTasks=rows(d,'V2_HUMAN_TASKS');
+      state.managementSnapshots=rows(d,'V2_MANAGEMENT_INTELLIGENCE');
       derive();
       renderJourneyOptions();
       document.getElementById('dataChip').innerHTML='<i class="dot"></i> Live ACC data connected';
@@ -626,11 +627,23 @@
     document.getElementById('loadSystems').textContent=systemsLoad+' cases';
     document.getElementById('loadOrientation').textContent=orientationLoad+' students';
     document.getElementById('loadHandover').textContent=handoverLoad+' cases';
-    document.getElementById('loadManagement').textContent=(state.decisions+state.exceptions)+' signals';
+    const latestManagement=(state.managementSnapshots||[]).slice(-1)[0]||null;
+    let managementSignals=state.decisions+state.exceptions;
+    let managementCritical=[];
+    if(latestManagement){
+      try{managementCritical=JSON.parse(latestManagement['Critical Signals JSON']||'[]')}catch(_){managementCritical=[]}
+      if(!Array.isArray(managementCritical))managementCritical=[];
+      managementSignals=managementCritical.length||
+        Number(latestManagement['Open Human Tasks']||0)+
+        Number(latestManagement['Failed Agent Executions']||0)+
+        Number(latestManagement['Stuck Cases >24H']||0);
+    }
+    document.getElementById('loadManagement').textContent=managementSignals+' signals';
 
     if((state.humanTasks||[]).length) renderHumanTasks((state.humanTasks||[]).filter(r=>['OPEN','WAITING_HUMAN','IN_REVIEW'].includes(String(r['Status']||'').toUpperCase())));
     else renderDecisions(decisionRows);
-    renderExceptions(exceptionRows);
+    if(managementCritical.length) renderManagementSignals(managementCritical,latestManagement);
+    else renderExceptions(exceptionRows);
     renderActivity();
   }
 
@@ -644,6 +657,29 @@
       const r=x.row; const n=nameOf(r); const ref=refOf(r);
       return '<div class="decision"><b>'+escapeHtml(n)+'</b><p>'+escapeHtml(ref)+' · Potential decision / review gate detected in current workflow.</p></div>';
     }).join('');
+  }
+
+  function renderManagementSignals(signals,snapshot){
+    const host=document.getElementById('exceptionList');
+    const list=Array.isArray(signals)?signals:[];
+    if(!list.length){renderExceptions([]);return;}
+    host.innerHTML=list.slice(0,6).map(sig=>{
+      const sev=String(sig.severity||'MEDIUM').toUpperCase();
+      const title=sig.title||sig.type||'Operational signal';
+      const detail=[
+        sig.referenceNo||'',
+        sig.stage||'',
+        Number.isFinite(Number(sig.ageHours))&&Number(sig.ageHours)>0 ? (sig.ageHours+'h') : '',
+        sig.error||''
+      ].filter(Boolean).join(' · ');
+      return '<div class="exception"><b>'+escapeHtml(sev+' · '+title)+'</b><p>'+escapeHtml(detail||'Management Intelligence signal')+'</p></div>';
+    }).join('')+
+    '<div class="exception" style="border-left-color:var(--green)"><b>Management snapshot</b><p>'+
+      escapeHtml(snapshot?.['Generated At']||'')+
+      ' · Open human: '+escapeHtml(snapshot?.['Open Human Tasks']||'0')+
+      ' · Failed agents: '+escapeHtml(snapshot?.['Failed Agent Executions']||'0')+
+      ' · Stuck >24h: '+escapeHtml(snapshot?.['Stuck Cases >24H']||'0')+
+    '</p></div>';
   }
 
   function renderExceptions(list){
