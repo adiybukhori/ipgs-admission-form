@@ -344,6 +344,25 @@ function v2AgentActionGateway_(data, actor) {
         referenceNo:reference,
         executionId:executionId
       }, 'Student Concierge Agent via n8n');
+    } else if (requestedAction === 'PREPARE_SAC_COORDINATION') {
+      if (agentId !== 'SAC_IA') throw new Error('PREPARE_SAC_COORDINATION is restricted to SAC_IA.');
+      result = v2PrepareSacCoordination_({
+        referenceNo:reference,
+        executionId:executionId,
+        sessionId:String(input.sessionId||'')
+      }, 'SAC / IA Coordination Agent via n8n');
+    } else if (requestedAction === 'PREPARE_IA_COORDINATION') {
+      if (agentId !== 'SAC_IA') throw new Error('PREPARE_IA_COORDINATION is restricted to SAC_IA.');
+      result = v2PrepareIaCoordination_({
+        referenceNo:reference,
+        executionId:executionId
+      }, 'SAC / IA Coordination Agent via n8n');
+    } else if (requestedAction === 'PREPARE_PREREQUISITE_COORDINATION') {
+      if (agentId !== 'SAC_IA') throw new Error('PREPARE_PREREQUISITE_COORDINATION is restricted to SAC_IA.');
+      result = v2PreparePrerequisiteCoordination_({
+        referenceNo:reference,
+        executionId:executionId
+      }, 'SAC / IA Coordination Agent via n8n');
     } else {
       throw new Error('Unsupported agent gateway action: ' + requestedAction);
     }
