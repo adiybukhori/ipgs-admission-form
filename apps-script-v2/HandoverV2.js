@@ -640,6 +640,28 @@ function v2UpdateProvisioningTask_(data, actor) {
       'Last Updated':readyAt,
       'Updated By':actor || 'Admin Portal V2'
     });
+
+    if (typeof v2EmitAgentEvent_==='function') {
+      try {
+        v2EmitAgentEvent_({
+          referenceNo:reference,
+          eventType:'PROVISIONING_READY_TO_NOTIFY',
+          agentId:'ORCHESTRATOR',
+          agentName:'AI Orchestrator',
+          action:'ROUTE_ACADEMIC_HANDOVER',
+          status:'QUEUED',
+          fromStage:'ACADEMIC_HANDOVER',
+          toStage:'ACADEMIC_HANDOVER',
+          requiresHuman:false,
+          source:'ADMISSION_V2',
+          summary:'IT, Moodle and e-Library provisioning are complete. Route to Academic Handover Agent for secure student-access delivery.'
+        });
+      } catch (eventError) {
+        v2Audit_(reference,'AGENTIC_BRIDGE','PROVISIONING_READY_EVENT_FAILED',{},{
+          message:String(eventError&&eventError.message||eventError)
+        },actor||'Provisioning','FAILED','Provisioning remains READY_TO_NOTIFY; agentic delivery requires reconciliation.');
+      }
+    }
   }
 
   const handoverStudentRows = v2Rows_('V2_HANDOVER_STUDENTS').filter(function(row){
@@ -804,6 +826,28 @@ function v2SendStudentProvisioningAccess_(data, actor) {
         });
       }
     });
+
+    if (typeof v2EmitAgentEvent_==='function') {
+      try {
+        v2EmitAgentEvent_({
+          referenceNo:reference,
+          eventType:'ACADEMIC_HANDOVER_COMPLETE',
+          agentId:'ACADEMIC_HANDOVER',
+          agentName:'Academic Handover Agent',
+          action:'STUDENT_ACTIVATED_FOR_ACADEMIC',
+          status:'COMPLETED',
+          fromStage:'ACADEMIC_HANDOVER',
+          toStage:'ACTIVE_STUDENT',
+          requiresHuman:false,
+          source:'ADMISSION_V2',
+          summary:'Student access details were delivered successfully. Academic handover and provisioning are complete.'
+        });
+      } catch (eventError) {
+        v2Audit_(reference,'AGENTIC_BRIDGE','HANDOVER_COMPLETE_EVENT_FAILED',{},{
+          message:String(eventError&&eventError.message||eventError)
+        },actor||'Academic Handover','FAILED','Student activation remains valid; command-centre event requires reconciliation.');
+      }
+    }
   }
 
   v2Audit_(reference,'PROVISIONING',resend ? 'RESEND_STUDENT_ACCESS' : 'SEND_STUDENT_ACCESS',{},{
