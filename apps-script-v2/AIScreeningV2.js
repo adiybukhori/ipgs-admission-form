@@ -525,7 +525,8 @@ function v2TryAutoAiScreening_(referenceNo, actor) {
     Number(normalized.confidence || 0) >= threshold &&
     Array.isArray(normalized.flags) && normalized.flags.length === 0 &&
     ['RELATED','PARTIALLY_RELATED','NON_RELATED'].indexOf(String(normalized.fieldClassification || '')) > -1 &&
-    ['YES','NO'].indexOf(String(normalized.relevantWorkExperience || '')) > -1;
+    ['YES','NO'].indexOf(String(normalized.relevantWorkExperience || '')) > -1 &&
+    String(normalized.gradeEquivalencyStatus || '').toUpperCase() !== 'PENDING_IUC_CONFIRMATION';
 
   if (!safeForRuleEngine) {
     const row = v2Find_(V2_AI_SCREENING_SHEET, 'Reference No', reference);
@@ -766,6 +767,7 @@ function v2CallOpenAiScreening_(application, apiKey) {
       'Review the transcript precisely: identify the reported CGPA, percentage, grade or classification exactly as shown.',
       'Never convert a foreign percentage, division, grade or classification into an IUC CGPA unless the supplied evidence explicitly contains an approved equivalency.',
       'Use gradeEquivalencyStatus=PENDING_IUC_CONFIRMATION when the result uses a foreign/non-CGPA grading format and no approved equivalency is supplied.',
+      'Whenever gradeEquivalencyStatus=PENDING_IUC_CONFIRMATION, add the flag GRADE_EQUIVALENCY_REQUIRED.',
       'Use gradeEquivalencyStatus=NOT_REQUIRED only when the academic result is already expressed in a directly usable CGPA/GPA format or equivalency is explicitly documented.',
       'Evidence entries must name the source document and the fact found, e.g. "Transcript: 71.20% First Division".',
       'If evidence is insufficient, use UNKNOWN and add a clear flag.'
