@@ -118,7 +118,6 @@ console.log('Agentic workflow set OK:',expected.length,'workflows');
 console.log('Unique webhook paths:',webhookPaths.size);
 
 
-const orchestrator=JSON.parse(fs.readFileSync(path.join(root,'CS-ADM-V2-00-ORCHESTRATOR.json'),'utf8'));
 const orchestratorRoute=orchestrator.nodes.find(n=>n.name==='Decide Next Agent');
 const orchestratorCode=String(orchestratorRoute?.parameters?.jsCode||'');
 if(!orchestratorCode.includes("DOCUMENT_MISSING_REQUIRED:'STUDENT_CONCIERGE'")){
