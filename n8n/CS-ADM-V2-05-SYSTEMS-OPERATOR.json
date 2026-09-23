@@ -129,7 +129,7 @@
     },
     {
       "parameters": {
-        "jsCode": "const s=$input.first().json;\nconst w=s.workflow||{};\nconst exec=$('Prepare Registry SKY Activation').item.json||{};\nconst activation=String(w['SKY Activation Status']||'NOT_ACTIVATED').toUpperCase();\nconst resultStatus=String(exec.result?.status||exec.status||'').toUpperCase();\nconst waitingHuman=exec.requiresHuman===true || resultStatus==='WAITING_HUMAN';\nconst waitingAcceptance=resultStatus==='WAITING_ACCEPTANCE';\nif(!waitingHuman && !waitingAcceptance && activation!=='ACTIVATED'){\n  throw new Error('Systems Operator verification failed: expected WAITING_ACCEPTANCE, Human Task or ACTIVATED state');\n}\nreturn [{json:{\n  ok:true,\n  referenceNo:s.referenceNo,\n  skyProspectId:w['SKY Prospect ID']||'',\n  feeGroup:w['Fee Group']||'',\n  skyActivationStatus:activation,\n  resultStatus,\n  requiresHuman:waitingHuman,\n  waitingAcceptance,\n  verified:true\n}}];"
+        "jsCode": "const s=$input.first().json;\nconst w=s.workflow||{};\nconst exec=$('Prepare Registry SKY Activation').item.json||{};\nconst activation=String(w['SKY Activation Status']||'NOT_ACTIVATED').toUpperCase();\nconst acceptance=String(w['Acceptance Status']||'').toUpperCase();\nconst resultStatus=String(exec.result?.status||exec.status||'').toUpperCase();\nconst waitingHuman=exec.requiresHuman===true || resultStatus==='WAITING_HUMAN';\nconst waitingAcceptance=resultStatus==='WAITING_ACCEPTANCE';\nconst routeOrientation=activation==='ACTIVATED' && acceptance==='ACCEPTED';\nif(!waitingHuman && !waitingAcceptance && activation!=='ACTIVATED'){\n  throw new Error('Systems Operator verification failed: expected WAITING_ACCEPTANCE, Human Task or ACTIVATED state');\n}\nreturn [{json:{\n  ok:true,\n  referenceNo:s.referenceNo,\n  skyProspectId:w['SKY Prospect ID']||'',\n  feeGroup:w['Fee Group']||'',\n  skyActivationStatus:activation,\n  acceptanceStatus:acceptance,\n  resultStatus,\n  requiresHuman:waitingHuman,\n  waitingAcceptance,\n  routeOrientation,\n  verified:true\n}}];"
       },
       "id": "verify-after",
       "name": "Verify Systems Result",
@@ -153,6 +153,75 @@
       "position": [
         910,
         0
+      ]
+    },
+    {
+      "parameters": {
+        "rules": {
+          "values": [
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict"
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.routeOrientation }}",
+                    "rightValue": true,
+                    "operator": {
+                      "type": "boolean",
+                      "operation": "true"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "activated"
+            }
+          ]
+        },
+        "options": {
+          "fallbackOutput": "extra"
+        }
+      },
+      "id": "sky-activated-switch",
+      "name": "SKY Activated?",
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3.2,
+      "position": [
+        880,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://anasbukhori.app.n8n.cloud/webhook/cs-adm-v2-orchestrator",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "X-IUC-Agent-Secret",
+              "value": "REPLACE_WITH_N8N_EVENT_SHARED_SECRET"
+            }
+          ]
+        },
+        "sendBody": true,
+        "contentType": "raw",
+        "rawContentType": "application/json",
+        "body": "={{ JSON.stringify({eventId:'SYS-ACT-'+Date.now(),timestamp:new Date().toISOString(),referenceNo:$json.referenceNo,eventType:'SKY_ACTIVATED',agentId:'SYSTEMS_OPERATOR',agentName:'Systems Operator Agent',action:'ROUTE_ORIENTATION',status:'COMPLETED',fromStage:'ACCEPTED',toStage:'ACCEPTED',summary:'SKY activation is verified for an accepted student. Route to Orientation Management Agent.',requiresHuman:false,source:'N8N'}) }}",
+        "options": {}
+      },
+      "id": "route-orientation",
+      "name": "Route Activated Student to Orientation",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1110,
+        -90
       ]
     }
   ],
@@ -224,6 +293,35 @@
       ]
     },
     "Verify Systems Result": {
+      "main": [
+        [
+          {
+            "node": "SKY Activated?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "SKY Activated?": {
+      "main": [
+        [
+          {
+            "node": "Route Activated Student to Orientation",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Return Systems Result",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Route Activated Student to Orientation": {
       "main": [
         [
           {
