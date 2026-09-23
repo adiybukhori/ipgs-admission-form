@@ -133,7 +133,9 @@ const LIVE_AGENT_MAP=Object.freeze({
 const liveRuntime={
   mode:'SIMULATION_FALLBACK',
   bridgeReady:false,
+  agenticEnabled:false,
   n8nLive:false,
+  recentN8nActivity:false,
   lastEventId:'',
   events:[],
   executions:[],
@@ -496,7 +498,7 @@ function renderPerformance(){
       perf('Completed',liveRuntime.summary.completed||0,'Verified completed executions')+
       perf('Failed',liveRuntime.summary.failed||0,'Requires retry / investigation')+
       perf('Agents Working',working,'Current live visual state')+
-      perf('Runtime',liveRuntime.n8nLive?'n8n LIVE':'BRIDGE READY',liveRuntime.n8nLive?'Recent n8n event detected':'Awaiting n8n activation / event');
+      perf('Runtime',liveRuntime.recentN8nActivity?'ACTIVE NOW':liveRuntime.agenticEnabled?'AGENTIC ENABLED':'BRIDGE READY',liveRuntime.recentN8nActivity?'Recent n8n event detected':liveRuntime.agenticEnabled?'Runtime enabled and currently idle':'Awaiting n8n activation');
     return;
   }
   host.innerHTML=
@@ -532,11 +534,13 @@ function liveEventAgentKey(row){
 function applyLiveRuntime(snapshot){
   const data=snapshot||{};
   liveRuntime.bridgeReady=!!data.bridgeReady;
+  liveRuntime.agenticEnabled=!!data.agenticEnabled;
   liveRuntime.n8nLive=!!data.n8nLive;
+  liveRuntime.recentN8nActivity=!!data.recentN8nActivity;
   liveRuntime.events=Array.isArray(data.events)?data.events.slice():[];
   liveRuntime.executions=Array.isArray(data.executions)?data.executions.slice():[];
   liveRuntime.summary={...liveRuntime.summary,...(data.summary||{})};
-  liveRuntime.mode=liveRuntime.n8nLive?'LIVE_N8N':(liveRuntime.bridgeReady?'BRIDGE_READY':'SIMULATION_FALLBACK');
+  liveRuntime.mode=liveRuntime.recentN8nActivity?'LIVE_N8N':(liveRuntime.agenticEnabled?'AGENTIC_ENABLED':(liveRuntime.bridgeReady?'BRIDGE_READY':'SIMULATION_FALLBACK'));
 
   if(!liveRuntime.bridgeReady){
     renderPerformance();
@@ -656,11 +660,14 @@ function renderLiveHumanDesk(events){
 function setLiveToolbar(){
   const stateEl=document.getElementById('officeSimState');
   if(stateEl){
-    stateEl.className='sim-state '+(liveRuntime.n8nLive?'running':'');
-    stateEl.innerHTML='<i></i>'+(liveRuntime.n8nLive?'LIVE n8n':'Bridge Ready');
+    stateEl.className='sim-state '+(liveRuntime.agenticEnabled?'running':'');
+    stateEl.innerHTML='<i></i>'+(liveRuntime.recentN8nActivity?'ACTIVE NOW':liveRuntime.agenticEnabled?'Agentic Enabled · Idle':'Bridge Ready');
   }
   const run=document.getElementById('officeRun');
-  if(run)run.textContent=liveRuntime.n8nLive?'Simulation Disabled While Live':'▶ Run Simulation Fallback';
+  if(run){
+    run.disabled=liveRuntime.agenticEnabled||simulation.running;
+    run.textContent=liveRuntime.agenticEnabled?'Simulation Disabled · Agentic Mode Enabled':'▶ Run Simulation Fallback';
+  }
 }
 
 function escapeOffice(v){return String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[c]));}
