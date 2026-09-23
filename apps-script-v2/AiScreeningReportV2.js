@@ -255,7 +255,8 @@ function v2GenerateAiScreeningReport_(data, actor) {
   // Avoid duplicate exact-name generated reports.
   const duplicates = folder.getFilesByName(fileName);
   while (duplicates.hasNext()) {
-    try { duplicates.next().setTrashed(true); } catch (_) { duplicates.next(); }
+    const duplicate = duplicates.next();
+    try { duplicate.setTrashed(true); } catch (_) {}
   }
 
   const pdf = folder.createFile(pdfBlob);
