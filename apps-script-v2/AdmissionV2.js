@@ -81,6 +81,57 @@ function v2SubmitAdmission_(payload) {
       researchIntentOutstanding:researchIntentRequirement.status === 'PENDING'
     }, 'Applicant', 'SUCCESS', 'Admission PDF + PG-ADM-01 generated. No COL or Offer Letter generated.');
     v2InvalidateCache_();
+
+    let agenticHandoff = null;
+    let agenticFallback = null;
+    try {
+      if (typeof v2AgenticEnabled_ === 'function' && v2AgenticEnabled_() && typeof v2EmitAgentEvent_ === 'function') {
+        agenticHandoff = v2EmitAgentEvent_({
+          referenceNo:reference,
+          eventType:'APPLICATION_SUBMITTED',
+          agentId:'ORCHESTRATOR',
+          agentName:'AI Orchestrator',
+          action:'RUN_DOCUMENT_COMPLETENESS',
+          status:'QUEUED',
+          fromStage:'APPLICATION_RECEIVED',
+          toStage:'DOCUMENT_REVIEW',
+          requiresHuman:false,
+          source:'ADMISSION_V2',
+          summary:'New application is saved. Start deterministic document completeness review.',
+          data:{
+            intakeId:intake.id,
+            programme:String(payload.programme||''),
+            researchIntentOutstanding:researchIntentRequirement.status === 'PENDING'
+          }
+        });
+
+        if (!agenticHandoff || !agenticHandoff.sent) {
+          agenticFallback = v2RunDocumentReview(
+            reference,
+            'Admission Submission Local Fallback',
+            'Automatic completeness check after n8n event delivery failure.'
+          );
+        }
+      }
+    } catch (agenticError) {
+      Logger.log('Submission agentic start failed non-blocking: ' + String(agenticError && agenticError.message || agenticError));
+      try {
+        if (typeof v2AgenticEnabled_ === 'function' && v2AgenticEnabled_()) {
+          agenticFallback = v2RunDocumentReview(
+            reference,
+            'Admission Submission Local Fallback',
+            'Automatic completeness check after agentic start exception.'
+          );
+        }
+      } catch (fallbackError) {
+        v2Audit_(reference,'AGENTIC_BRIDGE','SUBMISSION_AUTOMATION_START_FAILED',{},{
+          agenticError:String(agenticError && agenticError.message || agenticError),
+          fallbackError:String(fallbackError && fallbackError.message || fallbackError)
+        },'Admission Submission','FAILED','Application remains valid; Registry can run Document Review manually.');
+      }
+    }
+
+    v2InvalidateCache_();
     return {
       ok:true,
       success:true,
@@ -93,6 +144,8 @@ function v2SubmitAdmission_(payload) {
       researchIntentStatus:researchIntentRequirement.status,
       researchIntentOutstanding:researchIntentRequirement.status === 'PENDING',
       emailStatus:emailStatus,
+      agenticHandoff:agenticHandoff,
+      agenticFallback:agenticFallback,
       colGenerated:false,
       offerLetterGenerated:false,
       message:'Application submitted successfully and is pending review.'
