@@ -200,9 +200,25 @@ function v2ValidateAdmissionPayload_(payload) {
   if (payload.referralSource === 'Education Consultant' && !v2ResolveAgent_(payload.partnerCode)) {
     throw new Error('Select a valid registered partner / agent code.');
   }
+  // Initial submission requires only the four core admission documents.
+  // For international applicants, Passport / Identity Document satisfies the identity requirement.
+  // Other supporting documents remain optional at initial submission and may be requested later.
+  const documents = payload.documents || {};
+  const identityDoc = String(payload.applicantType || '').toLowerCase().indexOf('international') >= 0
+    ? (documents.passportCopyInternational || documents.identityDocument)
+    : documents.identityDocument;
+  const requiredDocuments = [
+    {doc:identityDoc, label:'IC / Passport'},
+    {doc:documents.transcript, label:'Academic Transcript'},
+    {doc:documents.certificate, label:'Academic Certificate'},
+    {doc:documents.cvResume, label:'CV / Resume'}
+  ];
+  requiredDocuments.forEach(function(item) {
+    if (!item.doc || !item.doc.base64) throw new Error(item.label + ' is required.');
+  });
+
   // Preliminary Research Intent is intentionally NOT a hard blocker here.
   // PhD applicants may submit first and provide it through the secure follow-up link.
-  const documents = payload.documents || {};
   Object.keys(documents).forEach(function(key) {
     const doc = documents[key];
     if (!doc || !doc.base64) return;
