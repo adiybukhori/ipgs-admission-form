@@ -287,12 +287,35 @@ function v2AgentActionGateway_(data, actor) {
   try {
     let result;
 
-    if (requestedAction === 'RUN_ADMISSION_INTELLIGENCE') {
+    if (requestedAction === 'RUN_COMPLIANCE_DOCUMENT_QUALITY') {
+      if (agentId !== 'COMPLIANCE') {
+        throw new Error('RUN_COMPLIANCE_DOCUMENT_QUALITY is restricted to COMPLIANCE.');
+      }
+      if (!doc || String(doc.record['Review Status'] || '') !== 'COMPLETE') {
+        throw new Error('Compliance review blocked: deterministic document completeness is not COMPLETE.');
+      }
+      if (currentStage !== 'DOCUMENT_REVIEW') {
+        throw new Error('Compliance review is not available at current stage: ' + currentStage);
+      }
+      result = v2RunComplianceDocumentQuality_({
+        referenceNo:reference,
+        executionId:executionId
+      }, 'Compliance & Records Agent via n8n');
+    } else if (requestedAction === 'RUN_ADMISSION_INTELLIGENCE') {
       if (agentId !== 'ADMISSION_INTELLIGENCE') {
         throw new Error('RUN_ADMISSION_INTELLIGENCE is restricted to ADMISSION_INTELLIGENCE.');
       }
       if (!doc || String(doc.record['Review Status'] || '') !== 'COMPLETE') {
         throw new Error('Admission Intelligence blocked: document review is not COMPLETE.');
+      }
+      if (v2AgenticEnabled_()) {
+        const qualityStatus = String(
+          doc.record['AI Quality Status'] ||
+          workflow.record['Document Quality Status'] || ''
+        ).toUpperCase();
+        if (qualityStatus !== 'PASS') {
+          throw new Error('Admission Intelligence blocked: Compliance & Records quality status is not PASS.');
+        }
       }
       if (['DOCUMENT_REVIEW','QUALIFICATION_SCREENING'].indexOf(currentStage) < 0) {
         throw new Error('Admission Intelligence is not available at current stage: ' + currentStage);
@@ -325,27 +348,33 @@ function v2AgentActionGateway_(data, actor) {
     const requiresHuman = !!(
       result && (
         String(result.status || '').toUpperCase() === 'REVIEW_REQUIRED' ||
+        String(result.status || '').toUpperCase() === 'HUMAN_REVIEW_REQUIRED' ||
+        result.requiresHuman === true ||
         result.manualScreeningAvailable === true ||
         result.screening && result.screening.manualReviewRequired === true
       )
     );
 
-    let humanTask = null;
-    if (requiresHuman && typeof v2CreateHumanTask_ === 'function') {
+    let humanTask = result && result.humanTask ? result.humanTask : null;
+    if (requiresHuman && !humanTask && typeof v2CreateHumanTask_ === 'function') {
+      const isAdmissionScreening = requestedAction === 'RUN_ADMISSION_INTELLIGENCE';
+      const isCompliance = requestedAction === 'RUN_COMPLIANCE_DOCUMENT_QUALITY';
       humanTask = v2CreateHumanTask_({
         referenceNo:reference,
-        taskType:requestedAction === 'RUN_ADMISSION_INTELLIGENCE'
+        taskType:isAdmissionScreening
           ? 'ADMISSION_SCREENING_REVIEW'
-          : 'AGENT_REVIEW_REQUIRED',
-        title:requestedAction === 'RUN_ADMISSION_INTELLIGENCE'
+          : (isCompliance ? 'DOCUMENT_QUALITY_REVIEW' : 'AGENT_REVIEW_REQUIRED'),
+        title:isAdmissionScreening
           ? 'Admission screening requires human confirmation'
-          : 'Agent action requires human confirmation',
-        reason:'Agent completed the automated step but the case cannot be finalised without authorised human confirmation.',
+          : (isCompliance ? 'Document quality requires human review' : 'Agent action requires human confirmation'),
+        reason:isCompliance
+          ? 'Compliance & Records Agent could not confidently resolve the document quality issue.'
+          : 'Agent completed the automated step but the case cannot be finalised without authorised human confirmation.',
         raisedByAgent:v2AgentDisplayName_(agentId),
         agentId:agentId,
         executionId:executionId,
         priority:'NORMAL',
-        assignedTo:'Registrar / Authorised Decision Maker',
+        assignedTo:isCompliance ? 'Registry / Authorised Reviewer' : 'Registrar / Authorised Decision Maker',
         resumeEvent:'HUMAN_TASK_COMPLETED',
         source:'N8N'
       }, v2AgentDisplayName_(agentId));
