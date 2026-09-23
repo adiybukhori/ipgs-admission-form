@@ -1,0 +1,21 @@
+{
+  "eventId": "TEST-EVT-FOREIGN-GRADE-001",
+  "timestamp": "2026-09-23T05:31:00.000Z",
+  "referenceNo": "REPLACE_WITH_FOREIGN_GRADE_CONTROLLED_REFERENCE",
+  "studentName": "CONTROLLED FOREIGN GRADE TEST",
+  "programme": "MBA - Master of Business Administration",
+  "eventType": "DOCUMENT_REVIEW_COMPLETED",
+  "agentId": "ORCHESTRATOR",
+  "agentName": "AI Orchestrator",
+  "action": "ROUTE_ADMISSION_INTELLIGENCE",
+  "status": "QUEUED",
+  "fromStage": "DOCUMENT_REVIEW",
+  "toStage": "QUALIFICATION_SCREENING",
+  "summary": "Controlled test: foreign grading case for human-equivalency gate.",
+  "requiresHuman": false,
+  "source": "ADMISSION_V2",
+  "data": {
+    "documentReviewStatus": "COMPLETE",
+    "expectedTestOutcome": "WAITING_HUMAN"
+  }
+}
