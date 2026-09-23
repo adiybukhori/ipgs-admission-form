@@ -35,6 +35,7 @@ function v2SubmitAdmission_(payload) {
     // BOD-approved SOP: every valid Admission Form submission receives one
     // Conditional Offer Letter immediately. IA / Prerequisite do not create
     // additional COLs later in the workflow.
+    v2EnsureSubmissionColHeaders_();
     const col = v2GenerateSubmissionCol_(studentFolder, payload, reference, intake, submittedAt);
 
     const row = v2SaveApplicationRecord_(payload, reference, intake, submittedAt, studentFolder, uploadedFiles, pdf, col, agent, 'PENDING');
