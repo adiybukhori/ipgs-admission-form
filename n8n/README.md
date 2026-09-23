@@ -9,6 +9,7 @@ This folder contains the first isolated n8n workflows for the Campus Simulation 
 - CS-ADM-V2 | 00 ORCHESTRATOR
 - CS-ADM-V2 | 01 COMPLIANCE
 - CS-ADM-V2 | 02 ADMISSION INTELLIGENCE
+- CS-ADM-V2 | 04 STUDENT CONCIERGE
 - CS-ADM-V2 | 92 HUMAN TASK GATEWAY
 - CS-ADM-V2 | 93 ERROR & RETRY
 
@@ -28,7 +29,7 @@ ACC / Campus Simulation reads V2_AGENT_EVENTS and V2_AGENT_EXECUTIONS.
 
 ## Required configuration before activation
 
-1. Import all seven JSON files into the dedicated n8n project:
+1. Import all eight JSON files into the dedicated n8n project:
    IUC | Campus Simulation | Admission V2
 2. Replace REPLACE_WITH_N8N_EVENT_SHARED_SECRET in all workflows with one strong shared secret.
 3. Replace REPLACE_WITH_V2_ADMIN_API_PASSWORD in the Action Gateway workflow with the protected V2 backend token, preferably via n8n credentials rather than plain text.
@@ -37,6 +38,7 @@ ACC / Campus Simulation reads V2_AGENT_EVENTS and V2_AGENT_EXECUTIONS.
    - 92 HUMAN TASK GATEWAY
    - 93 ERROR & RETRY
    - 01 COMPLIANCE
+   - 04 STUDENT CONCIERGE
    - 02 ADMISSION INTELLIGENCE
    - 00 ORCHESTRATOR
    - 90 EVENT INGRESS
@@ -117,3 +119,23 @@ Outcomes:
 - HUMAN_REVIEW_REQUIRED -> a durable DOCUMENT_QUALITY_REVIEW task is created.
 
 Admission Intelligence is blocked in agentic mode unless Document Quality Status = PASS.
+
+
+## Student Concierge replacement loop
+
+When Compliance returns FOLLOW_UP_REQUIRED:
+
+DOCUMENT_REPLACEMENT_REQUIRED
+-> AI Orchestrator
+-> Student Concierge Agent
+-> SEND_DOCUMENT_REPLACEMENT_REQUEST
+-> secure tokenised applicant upload link
+-> AWAITING_STUDENT
+-> applicant uploads every requested replacement file
+-> old files are retained and renamed as SUPERSEDED
+-> new files become the current Uploaded Files JSON record
+-> DOCUMENT_REPLACEMENT_RECEIVED
+-> AI Orchestrator
+-> Compliance & Records Agent re-runs quality inspection
+
+The replacement portal reuses the same hashed-token approach used by the existing Research Intent upload flow.
