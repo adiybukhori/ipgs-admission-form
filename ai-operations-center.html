@@ -164,6 +164,10 @@
     .journey-steps{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:8px;margin-top:16px}.journey-step{border:1px solid var(--line);border-radius:13px;padding:10px;background:rgba(255,255,255,.02);min-height:72px}.journey-step small{color:#7783a8;font-size:8px;text-transform:uppercase;font-weight:900}.journey-step b{display:block;margin-top:7px;font-size:10px}.journey-step.done{border-color:rgba(67,230,176,.28);background:rgba(67,230,176,.05)}.journey-step.current{border-color:rgba(154,124,255,.38);background:rgba(154,124,255,.08);box-shadow:0 0 24px rgba(154,124,255,.08)}.journey-step.pending{opacity:.7}
     .journey-events{display:grid;gap:8px;margin-top:16px}.journey-event{display:grid;grid-template-columns:72px 150px 1fr;gap:10px;border:1px solid var(--line);border-radius:12px;padding:10px;background:rgba(255,255,255,.02);font-size:9px}.journey-event time{color:#7783a8}.journey-event b{color:#fff}.journey-event span{color:#aab4d4;line-height:1.45}
     @media(max-width:900px){.journey-summary{grid-template-columns:repeat(2,1fr)}.journey-steps{grid-template-columns:repeat(2,1fr)}.journey-event{grid-template-columns:1fr}.journey-toolbar select{min-width:0;width:100%}}
+
+    .decision-open-btn{margin-top:9px;border:1px solid rgba(154,124,255,.28);background:rgba(154,124,255,.10);color:#d9d1ff;border-radius:9px;padding:7px 9px;font-size:9px;font-weight:900;cursor:pointer}
+    .human-task-form{display:grid;gap:12px}.human-task-form label{display:grid;gap:6px;color:#8f99bd;font-size:9px;font-weight:900;text-transform:uppercase;letter-spacing:.06em}.human-task-form select,.human-task-form textarea{width:100%;border:1px solid var(--line);border-radius:11px;background:#0a1025;color:#eef1ff;padding:10px;font:inherit;font-size:11px}.human-task-form textarea{min-height:78px;resize:vertical}.human-task-evidence{display:grid;grid-template-columns:repeat(2,1fr);gap:9px}.human-task-evidence>div{border:1px solid var(--line);border-radius:12px;padding:10px;background:rgba(255,255,255,.025)}.human-task-evidence small{display:block;color:#7d88ad;font-size:8px;text-transform:uppercase;font-weight:900;margin-bottom:4px}.human-task-evidence b{font-size:10px;color:#fff}.human-task-actions{display:flex;gap:8px;justify-content:flex-end;margin-top:4px}.human-task-actions button{border-radius:10px;padding:9px 12px;font-weight:900;border:1px solid var(--line);background:rgba(255,255,255,.04);color:#e9edff}.human-task-actions .confirm{background:linear-gradient(135deg,#7657f2,#3c9ce8);border:0;color:white}
+    @media(max-width:700px){.human-task-evidence{grid-template-columns:1fr}}
 </style>
 <link rel="stylesheet" href="/ai-agent-office.css">
 </head>
@@ -414,7 +418,7 @@
   const DATA_API='/api/admin-data';
   const AGENT_RUNTIME_API='/api/agent-runtime-state';
   const password=sessionStorage.getItem('ipgsAdminPassword')||'';
-  let state={apps:[],workflow:[],docReview:[],aiScreening:[],qualification:[],sacCandidates:[],assessment:[],orientation:[],handover:[],activation:[],audit:[],agentEvents:[],agentExecutions:[],agentRuntime:null,decisions:0,exceptions:0};
+  let state={apps:[],workflow:[],docReview:[],aiScreening:[],qualification:[],sacCandidates:[],assessment:[],orientation:[],handover:[],activation:[],audit:[],agentEvents:[],agentExecutions:[],humanTasks:[],agentRuntime:null,decisions:0,exceptions:0};
   window.AI_OPS_STATE=state;
 
   if(!password){ location.href='/admin.html'; }
@@ -446,6 +450,7 @@
       state.audit=rows(d,'V2_AUDIT_LOG');
       state.agentEvents=rows(d,'V2_AGENT_EVENTS');
       state.agentExecutions=rows(d,'V2_AGENT_EXECUTIONS');
+      state.humanTasks=rows(d,'V2_HUMAN_TASKS');
       derive();
       renderJourneyOptions();
       document.getElementById('dataChip').innerHTML='<i class="dot"></i> Live ACC data connected';
@@ -474,6 +479,7 @@
       state.agentRuntime=out;
       state.agentEvents=Array.isArray(out.events)?out.events:[];
       state.agentExecutions=Array.isArray(out.executions)?out.executions:[];
+      state.humanTasks=Array.isArray(out.humanTasks)?out.humanTasks:[];
       renderAgentRuntime(out);
       if(window.AI_AGENT_OFFICE?.applyLiveRuntime)window.AI_AGENT_OFFICE.applyLiveRuntime(out);
       const selectedJourney=document.getElementById('journeySelect')?.value;
@@ -527,11 +533,11 @@
     if(actionKpi)actionKpi.textContent=Number(summary.totalExecutions||0);
     if(actionMeta)actionMeta.textContent=runtime.n8nLive?((summary.running||0)+' running · '+(summary.completed||0)+' completed'):'Bridge ready · no live n8n run yet';
 
-    const waiting=latestHumanAgentEvents(state.agentEvents);
-    if(waiting.length){
-      state.decisions=waiting.length;
-      document.getElementById('kDecisions').textContent=waiting.length;
-      renderLiveDecisions(waiting);
+    const openTasks=(state.humanTasks||[]).filter(r=>['OPEN','WAITING_HUMAN','IN_REVIEW'].includes(String(r['Status']||'').toUpperCase()));
+    if(openTasks.length || runtime.bridgeReady){
+      state.decisions=openTasks.length;
+      document.getElementById('kDecisions').textContent=openTasks.length;
+      renderHumanTasks(openTasks);
     }
     if(state.agentEvents.length)renderActivity();
   }
@@ -545,17 +551,29 @@
     );
   }
 
-  function renderLiveDecisions(list){
+  function renderHumanTasks(tasks){
     const host=document.getElementById('decisionList');
     const tag=document.getElementById('decisionTag');
     if(!host||!tag)return;
-    tag.textContent=list.length?list.length+' LIVE':'CLEAR';
-    tag.className='tag '+(list.length?'amber':'green');
-    host.innerHTML=list.slice().reverse().slice(0,6).map(r=>
-      '<div class="decision"><b>'+escapeHtml(r['Student Name']||r['Reference No']||'Student case')+'</b><p>'+
-      escapeHtml(r['Reference No']||'')+' · '+escapeHtml(r['Agent Name']||r['Agent ID']||'AI Agent')+' · '+escapeHtml(r['Summary']||r['Action']||'Human authority required')+'</p></div>'
-    ).join('')||'<div class="decision" style="border-left-color:var(--green)"><b>No live human task</b><p>Agent event stream has no unresolved human-authority case.</p></div>';
-    if(window.AI_AGENT_OFFICE?.switchOpsView)window.AI_AGENT_OFFICE.switchOpsView;
+    const open=(tasks||[]).filter(r=>['OPEN','WAITING_HUMAN','IN_REVIEW'].includes(String(r['Status']||'').toUpperCase()));
+    tag.textContent=open.length?open.length+' LIVE':'CLEAR';
+    tag.className='tag '+(open.length?'amber':'green');
+    if(!open.length){
+      host.innerHTML='<div class="decision" style="border-left-color:var(--green)"><b>No live human task</b><p>AI agents currently have no unresolved authority request.</p></div>';
+      syncDecisionTab?.();
+      return;
+    }
+    host.innerHTML=open.slice().reverse().slice(0,8).map(t=>{
+      const priority=String(t['Priority']||'NORMAL').toUpperCase();
+      const taskId=String(t['Task ID']||'');
+      return '<div class="decision">'+
+        '<div style="display:flex;justify-content:space-between;gap:8px;align-items:flex-start"><b>'+escapeHtml(t['Student Name']||t['Reference No']||'Student case')+'</b><span class="tag '+(priority==='HIGH'?'red':'amber')+'">'+escapeHtml(priority)+'</span></div>'+
+        '<p>'+escapeHtml(t['Reference No']||'')+' · '+escapeHtml(t['Title']||t['Task Type']||'Human authority required')+'</p>'+
+        '<p>'+escapeHtml(t['Reason']||'')+'</p>'+
+        '<button class="decision-open-btn" type="button" onclick="openHumanTaskResolution(\''+escapeHtml(taskId)+'\')">Review Task</button>'+
+      '</div>';
+    }).join('');
+    syncDecisionTab?.();
   }
 
   function derive(){
@@ -573,7 +591,8 @@
       containsAny(x.t,['overdue','incomplete','missing','stuck','error','failed','exception','not received'])
       && !containsAny(x.t,['completed','resolved'])
     );
-    state.decisions=decisionRows.length;
+    const durableOpen=(state.humanTasks||[]).filter(r=>['OPEN','WAITING_HUMAN','IN_REVIEW'].includes(String(r['Status']||'').toUpperCase()));
+    state.decisions=durableOpen.length||decisionRows.length;
     state.exceptions=exceptionRows.length;
 
     document.getElementById('kCases').textContent=total;
@@ -602,7 +621,8 @@
     document.getElementById('loadHandover').textContent=handoverLoad+' cases';
     document.getElementById('loadManagement').textContent=(state.decisions+state.exceptions)+' signals';
 
-    renderDecisions(decisionRows);
+    if((state.humanTasks||[]).length) renderHumanTasks((state.humanTasks||[]).filter(r=>['OPEN','WAITING_HUMAN','IN_REVIEW'].includes(String(r['Status']||'').toUpperCase())));
+    else renderDecisions(decisionRows);
     renderExceptions(exceptionRows);
     renderActivity();
   }
@@ -663,6 +683,79 @@
   function shortTime(v){ const d=new Date(v); if(!isNaN(d)) return d.toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'}); return String(v).slice(0,8); }
   function escapeHtml(v){ return String(v||'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[c])); }
 
+
+  function openHumanTaskResolution(taskId){
+    const task=(state.humanTasks||[]).find(t=>String(t['Task ID']||'')===String(taskId||''));
+    if(!task)return;
+    document.getElementById('humanTaskOverlay')?.remove();
+    const ref=String(task['Reference No']||'');
+    const ai=(state.aiScreening||[]).filter(r=>String(r['Reference No']||'')===ref).slice(-1)[0]||{};
+    const q=(state.qualification||[]).filter(r=>String(r['Reference No']||'')===ref).slice(-1)[0]||{};
+    const field=ai['Field Classification']||ai['Human Field Classification']||q['Field Classification']||'PENDING';
+    const exp=ai['Relevant Work Experience']||ai['Human Relevant Work Experience']||q['Relevant Work Experience']||'PENDING';
+    const grade=ai['CGPA / Grade']||'—';
+    const report=ai['Report PDF URL']||'';
+    const taskType=String(task['Task Type']||'').toUpperCase();
+
+    const overlay=document.createElement('div');
+    overlay.id='humanTaskOverlay';overlay.className='agent-detail-overlay';
+    const screeningForm=taskType==='ADMISSION_SCREENING_REVIEW'?
+      '<div class="human-task-form">'+
+        '<div class="human-task-evidence">'+
+          '<div><small>AI Field Relationship</small><b>'+escapeHtml(field)+'</b></div>'+
+          '<div><small>AI Relevant Work Experience</small><b>'+escapeHtml(exp)+'</b></div>'+
+          '<div><small>Transcript Result</small><b>'+escapeHtml(grade)+'</b></div>'+
+          '<div><small>AI Report</small><b>'+(report?'<a href="'+escapeHtml(report)+'" target="_blank" rel="noopener" style="color:#8fc8ff">Open PDF</a>':'Not generated')+'</b></div>'+
+        '</div>'+
+        '<label>Authorised Screening Route<select id="humanTaskRoute"><option value="">Select authorised route</option><option value="DIRECT_ENTRY">Direct Entry</option><option value="NORMAL_ADMISSION_SCREENING">Normal Admission</option><option value="INTERNAL_ASSESSMENT">Internal Assessment (IA)</option><option value="NOT_ELIGIBLE_CONVENTIONAL">Not Eligible - Conventional</option></select></label>'+
+        '<label>Grade Equivalency / Academic Confirmation Note<textarea id="humanTaskEquiv" placeholder="Example: First Division confirmed by IUC as meeting the applicable entry threshold. State basis/source where applicable."></textarea></label>'+
+        '<details><summary style="cursor:pointer;color:#8f99bd;font-size:9px;font-weight:900">Override AI answers only if required</summary><div class="human-task-evidence" style="margin-top:9px">'+
+          '<label>Field Relationship<select id="humanTaskField"><option value="">Use AI result</option><option value="RELATED">Related</option><option value="PARTIALLY_RELATED">Partially Related</option><option value="NON_RELATED">Non-Related</option></select></label>'+
+          '<label>Relevant Work Experience<select id="humanTaskExp"><option value="">Use AI result</option><option value="YES">Yes</option><option value="NO">No</option></select></label>'+
+        '</div></details>'+
+        '<label>Resolution Notes<textarea id="humanTaskNotes" placeholder="Optional internal note"></textarea></label>'+
+        '<div class="human-task-actions"><button type="button" onclick="document.getElementById(\'humanTaskOverlay\').remove()">Cancel</button><button id="humanTaskConfirmBtn" class="confirm" type="button" onclick="confirmHumanScreeningTask(\''+escapeHtml(taskId)+'\')">Confirm & Continue to SAC</button></div>'+
+      '</div>':
+      '<div class="human-task-form"><div class="human-task-evidence"><div><small>Task Type</small><b>'+escapeHtml(task['Task Type']||'')+'</b></div><div><small>Priority</small><b>'+escapeHtml(task['Priority']||'NORMAL')+'</b></div></div><p style="font-size:10px;color:#a9b2d2;line-height:1.6">This task is currently read-only in the Decision Desk. Resolve it through the relevant operational module until its authorised handler is connected.</p><div class="human-task-actions"><button type="button" onclick="document.getElementById(\'humanTaskOverlay\').remove()">Close</button></div></div>';
+
+    overlay.innerHTML='<div class="agent-detail-card"><div class="agent-detail-head"><div class="agent-detail-title"><div class="avatar">⚖</div><div><h3>'+escapeHtml(task['Title']||'Human Decision')+'</h3><p>'+escapeHtml(task['Student Name']||ref)+' · '+escapeHtml(ref)+'</p></div></div><button type="button" onclick="document.getElementById(\'humanTaskOverlay\').remove()">Close</button></div><div class="agent-detail-body"><p>'+escapeHtml(task['Reason']||'Human authority is required.')+'</p>'+screeningForm+'</div></div>';
+    document.body.appendChild(overlay);
+    overlay.onclick=e=>{if(e.target===overlay)overlay.remove();};
+  }
+
+  async function confirmHumanScreeningTask(taskId){
+    const route=document.getElementById('humanTaskRoute')?.value||'';
+    if(!route){alert('Please select the authorised screening route.');return;}
+    const btn=document.getElementById('humanTaskConfirmBtn');
+    if(btn){btn.disabled=true;btn.textContent='Recording decision…';}
+    const resolution={
+      recommendedRoute:route,
+      gradeEquivalencyNote:(document.getElementById('humanTaskEquiv')?.value||'').trim()
+    };
+    const field=document.getElementById('humanTaskField')?.value||'';
+    const exp=document.getElementById('humanTaskExp')?.value||'';
+    if(field)resolution.fieldClassification=field;
+    if(exp)resolution.relevantWorkExperience=exp;
+    const notes=(document.getElementById('humanTaskNotes')?.value||'').trim();
+    try{
+      const res=await fetch('/api/admin-action',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({
+        password,action:'v2ResolveHumanTask',updatedBy:'ACC Human Decision Desk',
+        data:{taskId,decision:'CONFIRM',notes,resolution}
+      })});
+      const out=await res.json();
+      if(!res.ok||!out.ok)throw new Error(out.message||'Unable to record human resolution.');
+      document.getElementById('humanTaskOverlay')?.remove();
+      await loadOps();
+      await loadAgentRuntime();
+      const resolvedRef=out.result?.referenceNo||'';
+      if(resolvedRef){
+        const sel=document.getElementById('journeySelect');if(sel){sel.value=resolvedRef;renderStudentJourney(resolvedRef);}
+      }
+    }catch(e){
+      alert(e.message||'Unable to record human resolution.');
+      if(btn){btn.disabled=false;btn.textContent='Confirm & Continue to SAC';}
+    }
+  }
 
   function renderJourneyOptions(){
     const sel=document.getElementById('journeySelect'); if(!sel)return;
@@ -814,6 +907,9 @@
     card.addEventListener('keydown',e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();openAgentDetail(card.dataset.agent);}});
   });
 
+  window.openHumanTaskResolution=openHumanTaskResolution;
+  window.confirmHumanScreeningTask=confirmHumanScreeningTask;
+  window.renderStudentJourney=renderStudentJourney;
   loadOps();
   startAgentRuntimePolling();
 </script>
