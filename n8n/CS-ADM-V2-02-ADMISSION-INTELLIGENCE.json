@@ -60,7 +60,7 @@
     },
     {
       "parameters": {
-        "jsCode": "const s=$input.first().json; const w=s.workflow||{}; const d=s.documentReview||{}; if(String(d['Review Status']||'')!=='COMPLETE') throw new Error('Document review is not COMPLETE'); const stage=String(w['Application Stage']||''); if(!['DOCUMENT_REVIEW','QUALIFICATION_SCREENING'].includes(stage)) throw new Error('Unexpected stage: '+stage); return [{json:{referenceNo:s.referenceNo,stage,verifiedBefore:true}}];"
+        "jsCode": "const s=$input.first().json;\nconst w=s.workflow||{};\nconst d=s.documentReview||{};\nif(String(d['Review Status']||'').toUpperCase()!=='COMPLETE') throw new Error('Document review is not COMPLETE');\nconst quality=String(d['AI Quality Status']||w['Document Quality Status']||'').toUpperCase();\nif(quality!=='PASS') throw new Error('Compliance & Records quality status is not PASS: '+(quality||'NOT_REVIEWED'));\nconst stage=String(w['Application Stage']||'').toUpperCase();\nif(!['DOCUMENT_REVIEW','QUALIFICATION_SCREENING'].includes(stage)) throw new Error('Unexpected stage: '+stage);\nreturn [{json:{referenceNo:s.referenceNo,stage,documentQualityStatus:quality,verifiedBefore:true}}];"
       },
       "id": "verify-before",
       "name": "Verify Preconditions",
