@@ -145,3 +145,22 @@ Expected:
 - Action Gateway rejects the action.
 - No academic screening result is written.
 - Failure is auditable.
+
+
+## Test H — Student replacement loop
+
+Start from a controlled case with AI Quality Status = FOLLOW_UP_REQUIRED.
+
+Expected:
+- Orchestrator assigns Student Concierge.
+- Student Concierge creates a secure replacement token/link.
+- Replacement Request Status = AWAITING_STUDENT.
+- Notification status is recorded.
+- Applicant upload page lists only the requested document fields and the AI quality instruction.
+- Applicant must upload all requested replacements.
+- Previous Drive files are renamed with SUPERSEDED_ timestamp and retained for audit.
+- Uploaded Files JSON points to the new canonical files.
+- Replacement Request Status = RECEIVED.
+- Document Quality Status becomes PENDING_REVIEW.
+- DOCUMENT_REPLACEMENT_RECEIVED routes back to Compliance.
+- Admission Intelligence remains blocked until the new Compliance result is PASS.
