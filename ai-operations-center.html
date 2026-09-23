@@ -863,6 +863,7 @@
       ['Application',true],
       ['Prospect / Fee Group',!!(wf['SKY Prospect ID']||app['SKY Prospect ID']||/COMPLET|CONFIRM|READY/.test(String(wf['Prospect Status']||app['Prospect Status']||'').toUpperCase()))],
       ['Document Review',String(wf['Document Review Status']||'').toUpperCase()==='COMPLETE'],
+      ['Document Quality',String(wf['Document Quality Status']||'').toUpperCase()==='PASS'],
       ['Qualification Screening',/COMPLET|AUTO/.test(String(wf['Qualification Screening Status']||'').toUpperCase())||!!String(wf['Screening Recommendation']||'').replace(/PENDING.*/i,'')],
       ['SAC',!!String(wf['SAC Decision']||'').trim()],
       ['Offer',/ISSUED|SENT/.test(String(wf['Offer Letter Status']||'').toUpperCase())],
