@@ -23,7 +23,7 @@
     },
     {
       "parameters": {
-        "jsCode": "return [{json:{\n  operation:'execute',\n  executionId:'MI-DAILY-'+new Date().toISOString().slice(0,10),\n  agentId:'MANAGEMENT_INTELLIGENCE',\n  requestedAction:'RUN_MANAGEMENT_INTELLIGENCE',\n  window:'DAILY_0830'\n}}];"
+        "jsCode": "return [{json:{\n  operation:'execute',\n  executionId:'MI-DAILY-'+new Date().toISOString().slice(0,10),\n  agentId:'MANAGEMENT_INTELLIGENCE',\n  requestedAction:'RUN_MANAGEMENT_INTELLIGENCE',\n  window:'DAILY_0830',\n  sendEmail:true\n}}];"
       },
       "id": "prepare-daily",
       "name": "Prepare Daily Scan",
@@ -80,7 +80,7 @@
     },
     {
       "parameters": {
-        "jsCode": "const req=$input.first().json;\nconst h=req.headers||{};\nconst supplied=h['x-iuc-agent-secret']||h['X-IUC-Agent-Secret']||'';\nconst expected='REPLACE_WITH_N8N_EVENT_SHARED_SECRET';\nif(supplied!==expected) throw new Error('Invalid Management Intelligence secret');\nconst body=req.body||req;\nreturn [{json:{\n  operation:'execute',\n  executionId:String(body.executionId||('MI-MANUAL-'+Date.now())),\n  agentId:'MANAGEMENT_INTELLIGENCE',\n  requestedAction:'RUN_MANAGEMENT_INTELLIGENCE',\n  window:String(body.window||'MANUAL')\n}}];"
+        "jsCode": "const req=$input.first().json;\nconst h=req.headers||{};\nconst supplied=h['x-iuc-agent-secret']||h['X-IUC-Agent-Secret']||'';\nconst expected='REPLACE_WITH_N8N_EVENT_SHARED_SECRET';\nif(supplied!==expected) throw new Error('Invalid Management Intelligence secret');\nconst body=req.body||req;\nreturn [{json:{\n  operation:'execute',\n  executionId:String(body.executionId||('MI-MANUAL-'+Date.now())),\n  agentId:'MANAGEMENT_INTELLIGENCE',\n  requestedAction:'RUN_MANAGEMENT_INTELLIGENCE',\n  window:String(body.window||'MANUAL'),\n  sendEmail:body.sendEmail===true,\n  recipients:String(body.recipients||'')\n}}];"
       },
       "id": "prepare-manual",
       "name": "Prepare Manual Scan",
