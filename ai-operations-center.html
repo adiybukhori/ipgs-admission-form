@@ -158,7 +158,13 @@
     @media(max-width:760px){.shell{padding:13px}.topbar{margin:-13px -13px 15px;padding:12px 13px}.logos{display:none}.brand strong{font-size:14px}.top-actions .chip:nth-child(2){display:none}
       .hero{grid-template-columns:1fr}.hero-main{padding:22px}.hero h1{font-size:27px}.kpis{grid-template-columns:repeat(2,1fr)}.kpi:nth-child(5){grid-column:1/-1}
       .agents-grid{grid-template-columns:1fr}.org{padding:20px 12px}.readiness{grid-template-columns:1fr}.brain-orb{width:60px;height:60px}.workspace{grid-template-columns:1fr}}
-  </style>
+  
+    .journey-toolbar{display:flex;gap:10px;align-items:center;flex-wrap:wrap}.journey-toolbar select{min-width:320px;max-width:100%;border:1px solid var(--line);background:#0b1025;color:#e8edff;border-radius:12px;padding:10px 12px}
+    .journey-summary{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:10px;margin-top:16px}.journey-summary>div{border:1px solid var(--line);border-radius:14px;padding:11px;background:rgba(255,255,255,.025)}.journey-summary small{display:block;color:#7783a8;font-size:8px;text-transform:uppercase;letter-spacing:.08em;font-weight:900;margin-bottom:5px}.journey-summary b{font-size:10px;color:#fff;line-height:1.4}
+    .journey-steps{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:8px;margin-top:16px}.journey-step{border:1px solid var(--line);border-radius:13px;padding:10px;background:rgba(255,255,255,.02);min-height:72px}.journey-step small{color:#7783a8;font-size:8px;text-transform:uppercase;font-weight:900}.journey-step b{display:block;margin-top:7px;font-size:10px}.journey-step.done{border-color:rgba(67,230,176,.28);background:rgba(67,230,176,.05)}.journey-step.current{border-color:rgba(154,124,255,.38);background:rgba(154,124,255,.08);box-shadow:0 0 24px rgba(154,124,255,.08)}.journey-step.pending{opacity:.7}
+    .journey-events{display:grid;gap:8px;margin-top:16px}.journey-event{display:grid;grid-template-columns:72px 150px 1fr;gap:10px;border:1px solid var(--line);border-radius:12px;padding:10px;background:rgba(255,255,255,.02);font-size:9px}.journey-event time{color:#7783a8}.journey-event b{color:#fff}.journey-event span{color:#aab4d4;line-height:1.45}
+    @media(max-width:900px){.journey-summary{grid-template-columns:repeat(2,1fr)}.journey-steps{grid-template-columns:repeat(2,1fr)}.journey-event{grid-template-columns:1fr}.journey-toolbar select{min-width:0;width:100%}}
+</style>
 <link rel="stylesheet" href="/ai-agent-office.css">
 </head>
 <body>
@@ -181,6 +187,7 @@
   <nav class="ops-nav" aria-label="AI Operations Center views">
     <button class="active" data-view="overview" type="button" onclick="switchOpsView('overview')">Overview</button>
     <button data-view="ai-office" type="button" onclick="switchOpsView('ai-office')">AI Office</button>
+    <button data-view="journey" type="button" onclick="switchOpsView('journey')">Student Journey</button>
     <button data-view="decisions" type="button" onclick="switchOpsView('decisions')">Decisions</button>
     <button data-view="exceptions" type="button" onclick="switchOpsView('exceptions')">Exceptions</button>
     <button data-view="activity" type="button" onclick="switchOpsView('activity')">Activity</button>
@@ -351,6 +358,22 @@
     </div>
   </section>
 
+  <section class="ops-view" data-view="journey" id="opsJourneyView">
+    <div class="tab-shell">
+      <div class="tab-shell-head">
+        <div><div class="eyebrow">STUDENT DIGITAL JOURNEY</div><h2>Case Ownership & Agent Timeline</h2><p>Select a student to see the operational journey, current AI owner, current task, automation and human-authority state.</p></div>
+        <span class="tag green">LIVE ACC + AGENT EVENTS</span>
+      </div>
+      <div class="tab-shell-body">
+        <div class="journey-toolbar">
+          <select id="journeySelect" onchange="renderStudentJourney(this.value)"><option value="">Select student / reference</option></select>
+          <button class="office-control" type="button" onclick="renderStudentJourney(document.getElementById('journeySelect').value)">Refresh Case</button>
+        </div>
+        <div id="journeyContent"><div class="exception"><b>Select a student</b><p>The current owner, task, automation, human gate and stage history will appear here.</p></div></div>
+      </div>
+    </div>
+  </section>
+
   <section class="ops-view" data-view="decisions" id="opsDecisionsView">
     <div class="tab-shell"><div class="tab-shell-head"><div><div class="eyebrow">HUMAN AUTHORITY</div><h2>Decision Desk</h2><p>Cases and workflow signals that require human review or recorded authority.</p></div><span class="tag amber">CONTROLLED GATE</span></div><div id="decisionTabList" class="tab-shell-body decision-list"></div></div>
   </section>
@@ -424,6 +447,7 @@
       state.agentEvents=rows(d,'V2_AGENT_EVENTS');
       state.agentExecutions=rows(d,'V2_AGENT_EXECUTIONS');
       derive();
+      renderJourneyOptions();
       document.getElementById('dataChip').innerHTML='<i class="dot"></i> Live ACC data connected';
       document.getElementById('accConnector').textContent='CONNECTED';
       document.getElementById('accConnector').className='on';
@@ -452,6 +476,8 @@
       state.agentExecutions=Array.isArray(out.executions)?out.executions:[];
       renderAgentRuntime(out);
       if(window.AI_AGENT_OFFICE?.applyLiveRuntime)window.AI_AGENT_OFFICE.applyLiveRuntime(out);
+      const selectedJourney=document.getElementById('journeySelect')?.value;
+      if(selectedJourney)renderStudentJourney(selectedJourney);
       else window.PENDING_AI_AGENT_RUNTIME=out;
     }catch(e){
       const n8n=document.getElementById('n8nConnector');
@@ -636,6 +662,75 @@
   function feed(t,a,c){ return '<div class="feed-item"><div class="time">'+t+'</div><div class="feed-copy"><b>'+a+'</b> · '+c+'</div></div>'; }
   function shortTime(v){ const d=new Date(v); if(!isNaN(d)) return d.toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'}); return String(v).slice(0,8); }
   function escapeHtml(v){ return String(v||'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[c])); }
+
+
+  function renderJourneyOptions(){
+    const sel=document.getElementById('journeySelect'); if(!sel)return;
+    const current=sel.value;
+    const apps=(state.apps||[]).slice().sort((a,b)=>String(a['Student Name']||'').localeCompare(String(b['Student Name']||'')));
+    sel.innerHTML='<option value="">Select student / reference</option>'+apps.map(a=>{
+      const ref=String(a['Reference No']||'').trim();
+      const name=String(a['Student Name']||ref||'Student').trim();
+      const programme=String(a['Programme']||'').trim();
+      return '<option value="'+escapeHtml(ref)+'">'+escapeHtml(name)+' · '+escapeHtml(ref)+' · '+escapeHtml(programme)+'</option>';
+    }).join('');
+    if(current&&apps.some(a=>String(a['Reference No']||'')===current))sel.value=current;
+  }
+
+  function renderStudentJourney(reference){
+    const host=document.getElementById('journeyContent');if(!host)return;
+    const ref=String(reference||'').trim();
+    if(!ref){host.innerHTML='<div class="exception"><b>Select a student</b><p>The current owner, task, automation, human gate and stage history will appear here.</p></div>';return;}
+
+    const app=(state.apps||[]).find(r=>String(r['Reference No']||'')===ref)||{};
+    const wf=(state.workflow||[]).filter(r=>String(r['Reference No']||'')===ref).slice(-1)[0]||{};
+    const events=(state.agentEvents||[]).filter(r=>String(r['Reference No']||'')===ref).sort((a,b)=>Date.parse(a['Timestamp']||0)-Date.parse(b['Timestamp']||0));
+    const latest=events[events.length-1]||{};
+    const owner=latest['Agent Name']||latest['Agent ID']||'Not assigned to live agent';
+    const task=latest['Event Type']||wf['Application Stage']||'Waiting';
+    const automation=latest['Action']||'—';
+    const requiresHuman=String(latest['Status']||'').toUpperCase()==='WAITING_HUMAN'||String(latest['Requires Human']||'').toUpperCase()==='YES';
+    const currentStage=String(wf['Application Stage']||'APPLICATION_RECEIVED').toUpperCase();
+
+    const stages=[
+      ['Application',true],
+      ['Prospect / Fee Group',!!(wf['SKY Prospect ID']||app['SKY Prospect ID']||/COMPLET|CONFIRM|READY/.test(String(wf['Prospect Status']||app['Prospect Status']||'').toUpperCase()))],
+      ['Document Review',String(wf['Document Review Status']||'').toUpperCase()==='COMPLETE'],
+      ['Qualification Screening',/COMPLET|AUTO/.test(String(wf['Qualification Screening Status']||'').toUpperCase())||!!String(wf['Screening Recommendation']||'').replace(/PENDING.*/i,'')],
+      ['SAC',!!String(wf['SAC Decision']||'').trim()],
+      ['Offer',/ISSUED|SENT/.test(String(wf['Offer Letter Status']||'').toUpperCase())],
+      ['Acceptance',/ACCEPTED|RECEIVED|SIGNED/.test(String(wf['Acceptance Status']||'').toUpperCase())],
+      ['Orientation',/COMPLET|ATTENDED/.test(String(wf['Orientation Status']||'').toUpperCase())],
+      ['Provisioning',/COMPLET|DONE/.test(String(wf['Provisioning Status']||'').toUpperCase())],
+      ['Academic Handover',/COMPLET|HANDED/.test(String(wf['Academic Handover Status']||'').toUpperCase())]
+    ];
+    let firstPendingFound=false;
+    const stageHtml=stages.map(([label,done])=>{
+      let cls=done?'done':'pending';
+      if(!done&&!firstPendingFound){cls='current';firstPendingFound=true;}
+      return '<div class="journey-step '+cls+'"><small>'+escapeHtml(label)+'</small><b>'+escapeHtml(done?'Completed':cls==='current'?'Current / Next':'Pending')+'</b></div>';
+    }).join('');
+
+    const eventHtml=events.length?events.slice().reverse().slice(0,20).map(e=>
+      '<div class="journey-event"><time>'+escapeHtml(shortTime(e['Timestamp']||''))+'</time><b>'+escapeHtml(e['Agent Name']||e['Agent ID']||'Agent')+'</b><span><strong>'+escapeHtml(e['Event Type']||e['Status']||'EVENT')+'</strong> · '+escapeHtml(e['Action']||'')+(e['Summary']?' · '+escapeHtml(e['Summary']):'')+'</span></div>'
+    ).join(''):'<div class="exception"><b>No agent event yet</b><p>This case is visible in ACC, but has not yet entered the agentic event stream.</p></div>';
+
+    host.innerHTML=
+      '<div class="journey-summary">'+
+        '<div><small>Student</small><b>'+escapeHtml(app['Student Name']||ref)+'</b></div>'+
+        '<div><small>Current Stage</small><b>'+escapeHtml(currentStage)+'</b></div>'+
+        '<div><small>Current AI Owner</small><b>'+escapeHtml(owner)+'</b></div>'+
+        '<div><small>Current Task</small><b>'+escapeHtml(task)+'</b></div>'+
+        '<div><small>Current Automation</small><b>'+escapeHtml(automation)+'</b></div>'+
+        '<div><small>Human Intervention</small><b>'+escapeHtml(requiresHuman?'YES · WAITING AUTHORITY':'NO')+'</b></div>'+
+        '<div><small>Programme</small><b>'+escapeHtml(app['Programme']||wf['Programme']||'—')+'</b></div>'+
+        '<div><small>Screening Recommendation</small><b>'+escapeHtml(wf['Screening Recommendation']||'—')+'</b></div>'+
+        '<div><small>Reference</small><b>'+escapeHtml(ref)+'</b></div>'+
+        '<div><small>Last Agent Event</small><b>'+escapeHtml(latest['Timestamp']?shortTime(latest['Timestamp']):'—')+'</b></div>'+
+      '</div>'+
+      '<div class="journey-steps">'+stageHtml+'</div>'+
+      '<div class="journey-events">'+eventHtml+'</div>';
+  }
 
   function quickAsk(q){ document.getElementById('askInput').value=q; askOps(); }
   function askOps(){
