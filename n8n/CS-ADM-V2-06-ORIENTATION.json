@@ -154,6 +154,67 @@
         910,
         0
       ]
+    },
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "minutes",
+              "minutesInterval": 15
+            }
+          ]
+        }
+      },
+      "id": "orientation-lifecycle-schedule",
+      "name": "Orientation Lifecycle Schedule",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [
+        -700,
+        220
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const now=new Date();\nconst slot=Math.floor(now.getTime()/(15*60*1000));\nreturn [{json:{\n  operation:'execute',\n  executionId:'ORI-SUP-'+slot,\n  agentId:'ORIENTATION',\n  requestedAction:'RUN_ORIENTATION_SUPERVISOR',\n  closeGraceMinutes:30\n}}];"
+      },
+      "id": "prepare-supervisor",
+      "name": "Prepare Lifecycle Supervisor",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -460,
+        220
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://anasbukhori.app.n8n.cloud/webhook/cs-adm-v2-action-gateway",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "X-IUC-Agent-Secret",
+              "value": "REPLACE_WITH_N8N_EVENT_SHARED_SECRET"
+            }
+          ]
+        },
+        "sendBody": true,
+        "contentType": "raw",
+        "rawContentType": "application/json",
+        "body": "={{ JSON.stringify($json) }}",
+        "options": {}
+      },
+      "id": "run-supervisor",
+      "name": "Run Orientation Supervisor",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        -200,
+        220
+      ]
     }
   ],
   "connections": {
@@ -233,11 +294,34 @@
           }
         ]
       ]
+    },
+    "Orientation Lifecycle Schedule": {
+      "main": [
+        [
+          {
+            "node": "Prepare Lifecycle Supervisor",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Prepare Lifecycle Supervisor": {
+      "main": [
+        [
+          {
+            "node": "Run Orientation Supervisor",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
     }
   },
   "active": false,
   "settings": {
-    "executionOrder": "v1"
+    "executionOrder": "v1",
+    "timezone": "Asia/Kuala_Lumpur"
   },
   "tags": []
 }
