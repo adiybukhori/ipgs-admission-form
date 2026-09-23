@@ -20,30 +20,31 @@
 <body>
 <div class="page"><div class="shell">
   <div class="brand"><div class="logo"><img src="https://lh3.googleusercontent.com/d/1eOwwzXYC_aAWOgF4TGYTc8PNIBkcwsUI=s1000" alt="IUC"></div><div><h1>Innovative University College</h1><p>Institute of Postgraduate Studies</p></div></div>
-  <section class="hero"><h2>Replace Admission Document</h2><p>Secure upload page for documents that require a clearer, complete or corrected copy.</p></section>
+  <section class="hero"><h2 id="pageTitle">Upload Admission Document</h2><p id="pageIntro">Secure upload page for required admission documents.</p></section>
 
   <section id="loading" class="card"><div class="loading"><div class="spinner"></div><span>Checking your secure upload link...</span></div></section>
 
   <div id="uploadView" class="hidden">
     <section class="card"><h3>Application details</h3><div class="sub">Please confirm the information below.</div><div class="info"><div><span>Student</span><strong id="studentName">-</strong></div><div><span>Intake</span><strong id="intake">-</strong></div><div class="full"><span>Programme</span><strong id="programme">-</strong></div><div class="full"><span>Reference</span><strong id="referenceNo">-</strong></div></div></section>
     <section class="card">
-      <h3>Replacement required</h3>
-      <div class="sub">Please upload a new copy for every document listed below. The previous file will be retained internally as a superseded record.</div>
+      <h3 id="requestHeading">Document upload required</h3>
+      <div id="requestIntro" class="sub">Please upload every document listed below.</div>
       <div class="notice"><strong>Before uploading:</strong> make sure the full page/document is visible, text is readable, there is no material crop, blur or glare, and the correct document is selected.</div>
       <div id="requests"></div>
       <div class="hint">Accepted: PDF, JPG, PNG, DOC, DOCX. Maximum 7MB per file and 18MB total.</div>
-      <button id="submitBtn" class="primary" type="button" onclick="submitReplacement()">Upload Replacement Document(s)</button>
+      <button id="submitBtn" class="primary" type="button" onclick="submitReplacement()">Upload Document(s)</button>
       <div id="message" class="msg"></div>
     </section>
   </div>
 
-  <section id="completed" class="card success hidden"><div class="icon">✓</div><h3>Replacement Document Received</h3><p style="color:var(--muted);font-size:13px;line-height:1.55">Your replacement document(s) have been added to your admission record. The document quality review will continue automatically.</p></section>
+  <section id="completed" class="card success hidden"><div class="icon">✓</div><h3>Document Received</h3><p id="completedText" style="color:var(--muted);font-size:13px;line-height:1.55">Your document(s) have been added to your admission record. Processing will continue automatically.</p></section>
   <section id="errorView" class="card hidden"><h3>Unable to open upload page</h3><div id="errorText" class="sub" style="margin-top:8px">This secure link is invalid or no longer available.</div></section>
   <div class="footer">IUC · IPGS Admission V2</div>
 </div></div>
 <script>
   const TOKEN=<?!= JSON.stringify(token || '') ?>;
   let requested=[];
+  let requestType='QUALITY_REPLACEMENT';
   const loading=document.getElementById('loading');
   const uploadView=document.getElementById('uploadView');
   const completed=document.getElementById('completed');
@@ -60,7 +61,7 @@
     host.innerHTML=requested.map((r,i)=>{
       const issues=Array.isArray(r.issues)?r.issues.filter(Boolean):[];
       return '<div class="request"><h4>'+esc(r.label||r.field||'Document')+'</h4>'+
-        (issues.length?'<div class="issue"><strong>Quality issue:</strong> '+esc(issues.join('; '))+'</div>':'')+
+        (issues.length?'<div class="issue"><strong>'+(requestType==='MISSING_REQUIRED_DOCUMENT'?'Reason':'Quality issue')+':</strong> '+esc(issues.join('; '))+'</div>':'')+
         '<div class="instruction">'+esc(r.instruction||'Please upload a clear and complete replacement document.')+'</div>'+
         '<input class="file replacement-file" data-field="'+esc(r.field||'')+'" data-index="'+i+'" type="file" accept=".pdf,.jpg,.jpeg,.png,.doc,.docx,application/pdf,image/jpeg,image/png,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document"></div>';
     }).join('');
@@ -74,9 +75,23 @@
       document.getElementById('programme').textContent=res.programme||'-';
       document.getElementById('intake').textContent=res.intake||'-';
       document.getElementById('referenceNo').textContent=res.referenceNo||'-';
+      requestType=String(res.requestType||'QUALITY_REPLACEMENT').toUpperCase();
+      const missingMode=requestType==='MISSING_REQUIRED_DOCUMENT';
+      document.getElementById('pageTitle').textContent=missingMode?'Upload Missing Admission Document':'Replace Admission Document';
+      document.getElementById('pageIntro').textContent=missingMode
+        ?'Secure upload page for required documents that were not included with your application.'
+        :'Secure upload page for a clearer, complete or corrected copy.';
+      document.getElementById('requestHeading').textContent=missingMode?'Required document(s)':'Replacement required';
+      document.getElementById('requestIntro').textContent=missingMode
+        ?'Please upload every required document listed below so the admission review can continue.'
+        :'Please upload a new copy for every document listed below. The previous file will be retained internally as a superseded record.';
+      submitBtn.textContent=missingMode?'Upload Required Document(s)':'Upload Replacement Document(s)';
+      document.getElementById('completedText').textContent=missingMode
+        ?'Your required document(s) have been added to your admission record. The completeness review will continue automatically.'
+        :'Your replacement document(s) have been added to your admission record. The document quality review will continue automatically.';
       if(String(res.status||'').toUpperCase()==='RECEIVED'){showCompleted();return;}
       requested=Array.isArray(res.requestedDocuments)?res.requestedDocuments:[];
-      if(!requested.length){showError('No replacement document is currently requested.');return;}
+      if(!requested.length){showError('No document is currently requested through this secure link.');return;}
       renderRequests();uploadView.classList.remove('hidden');
     }).withFailureHandler(function(err){showError(err&&err.message?err.message:String(err||'Unable to open upload page.'));}).v2GetDocumentReplacementForToken(TOKEN);
   }
@@ -85,7 +100,7 @@
     message.className='msg';message.textContent='';
     const inputs=[...document.querySelectorAll('.replacement-file')];
     const missing=inputs.filter(x=>!x.files[0]);
-    if(missing.length){message.className='msg error';message.textContent='Please select a replacement file for every requested document.';return;}
+    if(missing.length){message.className='msg error';message.textContent='Please select a file for every requested document.';return;}
     const total=inputs.reduce((sum,x)=>sum+(x.files[0]?.size||0),0);
     if(inputs.some(x=>(x.files[0]?.size||0)>7*1024*1024)){message.className='msg error';message.textContent='Each file must be 7MB or smaller.';return;}
     if(total>18*1024*1024){message.className='msg error';message.textContent='Total upload must be 18MB or smaller.';return;}
@@ -93,15 +108,15 @@
     try{
       const payload=await Promise.all(inputs.map(x=>fileToPayload(x.files[0],x.dataset.field)));
       google.script.run.withSuccessHandler(function(res){
-        submitBtn.disabled=false;submitBtn.textContent='Upload Replacement Document(s)';
+        submitBtn.disabled=false;submitBtn.textContent=requestType==='MISSING_REQUIRED_DOCUMENT'?'Upload Required Document(s)':'Upload Replacement Document(s)';
         if(!res||!res.ok){message.className='msg error';message.textContent='Upload could not be completed.';return;}
         showCompleted();
       }).withFailureHandler(function(err){
-        submitBtn.disabled=false;submitBtn.textContent='Upload Replacement Document(s)';
+        submitBtn.disabled=false;submitBtn.textContent=requestType==='MISSING_REQUIRED_DOCUMENT'?'Upload Required Document(s)':'Upload Replacement Document(s)';
         message.className='msg error';message.textContent=err&&err.message?err.message:String(err||'Upload failed.');
       }).v2SubmitDocumentReplacementUpload(TOKEN,payload);
     }catch(err){
-      submitBtn.disabled=false;submitBtn.textContent='Upload Replacement Document(s)';
+      submitBtn.disabled=false;submitBtn.textContent=requestType==='MISSING_REQUIRED_DOCUMENT'?'Upload Required Document(s)':'Upload Replacement Document(s)';
       message.className='msg error';message.textContent=err&&err.message?err.message:'Upload failed.';
     }
   }
