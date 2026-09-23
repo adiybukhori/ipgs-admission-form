@@ -1,6 +1,6 @@
 # CS-ADM-V2 Controlled Test Harness
 
-Use these tests only after the four n8n workflows are imported, configured and activated.
+Use these tests only after the required CS-ADM-V2 n8n workflows are imported, configured and activated.
 
 ## Preconditions
 
@@ -269,3 +269,53 @@ Expected:
 - Systems Operator does not assume activation readiness.
 - Missing Prospect ID / Fee Group / Prospect completion produces a review/escalation state.
 - No SKY_ACTIVATED record is created.
+
+
+## Test S — Orientation completion to Academic Handover
+
+Use a controlled Orientation Session with at least two assigned students:
+- Student A = ATTENDED
+- Student B = ABSENT
+
+Complete the official Orientation session/report.
+
+Expected:
+- Student A becomes Orientation Status = COMPLETED and Academic Handover Status = READY.
+- Student B does not become handover-ready.
+- ORIENTATION_COMPLETED is emitted only for Student A.
+- Cohort readiness is committed before any handover event is emitted.
+- Academic Handover Agent groups READY students from the same Orientation Session into one batch.
+
+## Test T — Missing Handover PIC configuration
+
+Expected:
+- HANDOVER_CONFIGURATION_REQUIRED appears in Human Decision Desk.
+- Human enters Academic, IT, Moodle and e-Library PIC email addresses.
+- Agent creates/reuses the cohort batch, adds READY students and sends it.
+- Each included student becomes Academic Handover Status = HANDED_OVER.
+- Provisioning Status = IN_PROGRESS.
+
+## Test U — Provisioning complete to student access
+
+Mark IT, Moodle and e-Library provisioning COMPLETED for a controlled handed-over student.
+
+Expected:
+- PROVISIONING_READY_TO_NOTIFY is emitted.
+- Academic Handover Agent creates STUDENT_ACCESS_CREDENTIALS_REQUIRED.
+- Human Decision Desk accepts temporary credentials.
+- Passwords are sent directly through v2SendStudentProvisioningAccess and cleared from the browser fields.
+- Passwords do not appear in V2_HUMAN_TASKS, V2_AUDIT_LOG or V2_AGENT_EVENTS.
+- Student Notification Status = SENT.
+- Academic Handover Status = COMPLETED.
+- Application Stage = ACTIVE_STUDENT.
+- ACADEMIC_HANDOVER_COMPLETE is emitted.
+
+## Test V — Handover idempotency / batch aggregation
+
+Trigger ORIENTATION_COMPLETED twice for the same controlled student / session.
+
+Expected:
+- no duplicate handover student row
+- no duplicate cohort batch for the same Orientation Session while the batch is still DRAFT
+- already HANDED_OVER / COMPLETED students are not re-added
+- Action Gateway Execution ID prevents duplicate side effects
