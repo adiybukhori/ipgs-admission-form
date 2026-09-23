@@ -385,6 +385,7 @@ function handleV2Post_(payload) {
   if (action === 'v2PrepareSacCoordination') return v2PrepareSacCoordination_(payload.data || {}, payload.updatedBy || 'SAC / IA Coordination Agent');
   if (action === 'v2PrepareIaCoordination') return v2PrepareIaCoordination_(payload.data || {}, payload.updatedBy || 'SAC / IA Coordination Agent');
   if (action === 'v2PreparePrerequisiteCoordination') return v2PreparePrerequisiteCoordination_(payload.data || {}, payload.updatedBy || 'SAC / IA Coordination Agent');
+  if (action === 'v2PrepareOrientationForAccepted') return v2PrepareOrientationForAccepted_(payload.data || {}, payload.updatedBy || 'Orientation Management Agent');
   if (action === 'v2AgenticStatus') return v2AgenticStatus_();
   if (action === 'v2GetAgentCaseState') return v2GetAgentCaseState_(payload.data || {});
   if (action === 'v2AgentActionGateway') return v2AgentActionGateway_(payload.data || {}, payload.updatedBy || 'n8n Agentic Gateway');
