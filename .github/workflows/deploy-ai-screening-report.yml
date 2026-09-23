@@ -1,5 +1,5 @@
 name: Deploy Official AI Screening Report
-# source-sync: apps-script-v2-dev@aefaa3521cc47ef1188af1a88b9a53615d3824f7
+# source-sync: apps-script-v2-dev@59e92b4e6cc63b1a195cc40638aae48148d44cbe
 
 on:
   push:
@@ -33,6 +33,8 @@ jobs:
           node --check apps-script-v2/SacIaAgentV2.js
           node --check apps-script-v2/OrientationAgentV2.js
           node --check apps-script-v2/SystemsOperatorAgentV2.js
+          node --check apps-script-v2/AcademicHandoverAgentV2.js
+          node --check apps-script-v2/HandoverV2.js
           node --check apps-script-v2/AgentProspectV2.js
           node --check apps-script-v2/AcceptancePackV2.js
           node --check apps-script-v2/Code.js
@@ -55,6 +57,12 @@ jobs:
           grep -F "v2PreparePrerequisiteCoordination_" apps-script-v2/SacIaAgentV2.js
           grep -F "v2PrepareOrientationForAccepted_" apps-script-v2/OrientationAgentV2.js
           grep -F "v2PrepareSkyActivation_" apps-script-v2/SystemsOperatorAgentV2.js
+          grep -F "v2PrepareAcademicHandover_" apps-script-v2/AcademicHandoverAgentV2.js
+          grep -F "v2PrepareStudentAccessDelivery_" apps-script-v2/AcademicHandoverAgentV2.js
+          grep -F "PROVISIONING_READY_TO_NOTIFY" apps-script-v2/HandoverV2.js
+          grep -F "ACADEMIC_HANDOVER_COMPLETE" apps-script-v2/HandoverV2.js
+          grep -F "HANDOVER_CONFIGURATION_REQUIRED" apps-script-v2/HumanTaskV2.js
+          grep -F "STUDENT_ACCESS_CREDENTIALS_REQUIRED" apps-script-v2/HumanTaskV2.js
           grep -F "PROSPECT_COMPLETED" apps-script-v2/AgentProspectV2.js
           grep -F "SKY Prospect ID is required" apps-script-v2/AgentProspectV2.js
           grep -F "SKY_ACTIVATION_REQUIRED" apps-script-v2/HumanTaskV2.js
