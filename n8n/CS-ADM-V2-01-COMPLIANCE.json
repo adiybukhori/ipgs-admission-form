@@ -1,0 +1,429 @@
+{
+  "name": "CS-ADM-V2 | 01 COMPLIANCE",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "cs-adm-v2-compliance",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "compliance-webhook",
+      "name": "Compliance Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        -760,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const req=$input.first().json;\nconst h=req.headers||{};\nconst supplied=h['x-iuc-agent-secret']||h['X-IUC-Agent-Secret']||'';\nconst expected='REPLACE_WITH_N8N_EVENT_SHARED_SECRET';\nif(supplied!==expected) throw new Error('Invalid Compliance Agent secret');\nconst e=req.body||req;\nif(!e.referenceNo) throw new Error('referenceNo required');\nreturn [{json:{...e,agentId:'COMPLIANCE',executionId:'CQ-'+e.referenceNo+'-'+(e.eventId||Date.now())}}];"
+      },
+      "id": "prepare",
+      "name": "Prepare Compliance Task",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -540,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://anasbukhori.app.n8n.cloud/webhook/cs-adm-v2-action-gateway",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "X-IUC-Agent-Secret",
+              "value": "REPLACE_WITH_N8N_EVENT_SHARED_SECRET"
+            }
+          ]
+        },
+        "sendBody": true,
+        "contentType": "raw",
+        "rawContentType": "application/json",
+        "body": "={{ JSON.stringify({operation:'state',referenceNo:$json.referenceNo}) }}",
+        "options": {}
+      },
+      "id": "state-before",
+      "name": "Read State Before",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        -320,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const s=$input.first().json;\nconst w=s.workflow||{};\nconst d=s.documentReview||{};\nif(String(d['Review Status']||'').toUpperCase()!=='COMPLETE') throw new Error('Deterministic document completeness is not COMPLETE');\nconst stage=String(w['Application Stage']||'').toUpperCase();\nif(stage!=='DOCUMENT_REVIEW') throw new Error('Unexpected stage for Compliance Agent: '+stage);\nreturn [{json:{referenceNo:s.referenceNo,stage,verifiedBefore:true}}];"
+      },
+      "id": "verify-before",
+      "name": "Verify Compliance Preconditions",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -100,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://anasbukhori.app.n8n.cloud/webhook/cs-adm-v2-action-gateway",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "X-IUC-Agent-Secret",
+              "value": "REPLACE_WITH_N8N_EVENT_SHARED_SECRET"
+            }
+          ]
+        },
+        "sendBody": true,
+        "contentType": "raw",
+        "rawContentType": "application/json",
+        "body": "={{ JSON.stringify({operation:'execute',executionId:$('Prepare Compliance Task').item.json.executionId,referenceNo:$('Prepare Compliance Task').item.json.referenceNo,agentId:'COMPLIANCE',requestedAction:'RUN_COMPLIANCE_DOCUMENT_QUALITY'}) }}",
+        "options": {}
+      },
+      "id": "execute",
+      "name": "Execute AI Quality Review",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        130,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://anasbukhori.app.n8n.cloud/webhook/cs-adm-v2-action-gateway",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "X-IUC-Agent-Secret",
+              "value": "REPLACE_WITH_N8N_EVENT_SHARED_SECRET"
+            }
+          ]
+        },
+        "sendBody": true,
+        "contentType": "raw",
+        "rawContentType": "application/json",
+        "body": "={{ JSON.stringify({operation:'state',referenceNo:$('Prepare Compliance Task').item.json.referenceNo}) }}",
+        "options": {}
+      },
+      "id": "state-after",
+      "name": "Read State After",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        360,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const s=$input.first().json;\nconst d=s.documentReview||{};\nconst w=s.workflow||{};\nconst status=String(d['AI Quality Status']||w['Document Quality Status']||'').toUpperCase();\nif(!['PASS','FOLLOW_UP_REQUIRED','HUMAN_REVIEW_REQUIRED'].includes(status)) throw new Error('Compliance post-action verification failed: '+status);\nreturn [{json:{referenceNo:s.referenceNo,qualityStatus:status,confidence:d['AI Quality Confidence']||w['Document Quality Confidence']||'',followUp:d['AI Quality Follow-up JSON']||'[]',flags:d['AI Quality Flags JSON']||'[]',requiresHuman:status==='HUMAN_REVIEW_REQUIRED'}}];"
+      },
+      "id": "verify-after",
+      "name": "Verify Compliance Result",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        590,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "rules": {
+          "values": [
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict"
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.qualityStatus }}",
+                    "rightValue": "PASS",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "pass"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict"
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.qualityStatus }}",
+                    "rightValue": "FOLLOW_UP_REQUIRED",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "follow_up"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict"
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.qualityStatus }}",
+                    "rightValue": "HUMAN_REVIEW_REQUIRED",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "human"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "result-switch",
+      "name": "Quality Outcome",
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3.2,
+      "position": [
+        820,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://anasbukhori.app.n8n.cloud/webhook/cs-adm-v2-orchestrator",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "X-IUC-Agent-Secret",
+              "value": "REPLACE_WITH_N8N_EVENT_SHARED_SECRET"
+            }
+          ]
+        },
+        "sendBody": true,
+        "contentType": "raw",
+        "rawContentType": "application/json",
+        "body": "={{ JSON.stringify({eventId:'CQ-PASS-'+Date.now(),timestamp:new Date().toISOString(),referenceNo:$json.referenceNo,eventType:'DOCUMENT_QUALITY_PASSED',agentId:'COMPLIANCE',agentName:'Compliance & Records Agent',action:'ROUTE_ADMISSION_INTELLIGENCE',status:'COMPLETED',fromStage:'DOCUMENT_REVIEW',toStage:'QUALIFICATION_SCREENING',summary:'Document quality inspection passed. Route to Admission Intelligence Agent.',requiresHuman:false,source:'N8N'}) }}",
+        "options": {}
+      },
+      "id": "pass-route",
+      "name": "Route to Admission Intelligence",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1060,
+        -150
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://anasbukhori.app.n8n.cloud/webhook/cs-adm-v2-action-gateway",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "X-IUC-Agent-Secret",
+              "value": "REPLACE_WITH_N8N_EVENT_SHARED_SECRET"
+            }
+          ]
+        },
+        "sendBody": true,
+        "contentType": "raw",
+        "rawContentType": "application/json",
+        "body": "={{ JSON.stringify({operation:'activity',referenceNo:$json.referenceNo,eventType:'DOCUMENT_REPLACEMENT_REQUIRED',agentId:'COMPLIANCE',agentName:'Compliance & Records Agent',action:'STUDENT_DOCUMENT_REPLACEMENT',status:'WAITING',summary:'Document quality review requires one or more replacement documents before academic screening.',requiresHuman:false,source:'N8N',data:{followUp:$json.followUp,flags:$json.flags}}) }}",
+        "options": {}
+      },
+      "id": "followup-event",
+      "name": "Record Replacement Required",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1060,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ $json }}",
+        "options": {}
+      },
+      "id": "response",
+      "name": "Return Compliance Result",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.4,
+      "position": [
+        1300,
+        0
+      ]
+    }
+  ],
+  "connections": {
+    "Compliance Webhook": {
+      "main": [
+        [
+          {
+            "node": "Prepare Compliance Task",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Prepare Compliance Task": {
+      "main": [
+        [
+          {
+            "node": "Read State Before",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Read State Before": {
+      "main": [
+        [
+          {
+            "node": "Verify Compliance Preconditions",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Verify Compliance Preconditions": {
+      "main": [
+        [
+          {
+            "node": "Execute AI Quality Review",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Execute AI Quality Review": {
+      "main": [
+        [
+          {
+            "node": "Read State After",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Read State After": {
+      "main": [
+        [
+          {
+            "node": "Verify Compliance Result",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Verify Compliance Result": {
+      "main": [
+        [
+          {
+            "node": "Quality Outcome",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Quality Outcome": {
+      "main": [
+        [
+          {
+            "node": "Route to Admission Intelligence",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Record Replacement Required",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Return Compliance Result",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Route to Admission Intelligence": {
+      "main": [
+        [
+          {
+            "node": "Return Compliance Result",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Record Replacement Required": {
+      "main": [
+        [
+          {
+            "node": "Return Compliance Result",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "tags": []
+}
