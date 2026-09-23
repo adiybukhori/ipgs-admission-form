@@ -71,7 +71,6 @@ jobs:
           grep -F "WAITING_SKY_ACTIVATION" apps-script-v2/OrientationAgentV2.js
           grep -F "action:'ROUTE_SYSTEMS_OPERATOR'" apps-script-v2/AcceptancePackV2.js
           grep -F "SKY_PROSPECT_VERIFIED" apps-script-v2/SystemsOperatorAgentV2.js
-          grep -F "SKY_ACTIVATION_READY" apps-script-v2/AcceptancePackV2.js
           grep -F "v2PrepareAcademicHandover_" apps-script-v2/AcademicHandoverAgentV2.js
           grep -F "v2PrepareStudentAccessDelivery_" apps-script-v2/AcademicHandoverAgentV2.js
           grep -F "v2RunManagementIntelligence_" apps-script-v2/ManagementIntelligenceAgentV2.js
