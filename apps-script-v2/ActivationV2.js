@@ -247,13 +247,21 @@ function v2ActivationReadiness_(reference) {
   const w = workflow ? workflow.record : application.record;
   const reasons = [];
   const prospectStatus = String(w['Prospect Status'] || '').toUpperCase();
+  const acceptanceStatus = String(w['Acceptance Status'] || '').toUpperCase();
+  const applicationStage = String(w['Application Stage'] || '').toUpperCase();
+  const accepted = acceptanceStatus === 'ACCEPTED' ||
+    ['ACCEPTED','ORIENTATION','ACADEMIC_HANDOVER','ACTIVE_STUDENT'].indexOf(applicationStage) >= 0;
+
   if (['PROSPECT_COMPLETED','PROSPECT_UPDATED'].indexOf(prospectStatus) < 0) reasons.push('Marketing has not confirmed Prospect completion');
   if (!String(w['Fee Group'] || '').trim()) reasons.push('Fee Group missing');
+  if (!accepted) reasons.push('Student Acceptance is not complete');
   if (String(w['SKY Activation Status'] || '').toUpperCase() === 'ACTIVATED') reasons.push('Already activated');
   return {
     ready: reasons.length === 0,
     reasons: reasons,
     prospectStatus:String(w['Prospect Status'] || ''),
+    acceptanceStatus:acceptanceStatus,
+    applicationStage:applicationStage,
     skyActivationStatus:String(w['SKY Activation Status'] || 'NOT_ACTIVATED'),
     standalone:true
   };
@@ -262,7 +270,7 @@ function v2ActivationReadiness_(reference) {
 function v2ActivateStudentInSky_(data, actor) {
   v2ActivationEnsureFoundation_();
   const reference = v2Required_(data.referenceNo,'Reference No');
-  const skyStudentId = String(data.skyStudentId || '').trim();
+  const skyStudentId = v2Required_(data.skyStudentId,'SKY Student / Registration ID');
   const remarks = String(data.remarks || '').trim();
 
   const workflow = v2Find_('V2_WORKFLOW','Reference No',reference);
@@ -307,11 +315,41 @@ function v2ActivateStudentInSky_(data, actor) {
     activationStatus:'ACTIVATED',
     standalone:true
   },actor || 'Registry Admin','SUCCESS',remarks);
+
+  let agenticHandoff=null;
+  try {
+    if (typeof v2EmitAgentEvent_ === 'function') {
+      agenticHandoff=v2EmitAgentEvent_({
+        referenceNo:reference,
+        eventType:'SKY_ACTIVATED',
+        agentId:'SYSTEMS_OPERATOR',
+        agentName:'Systems Operator Agent',
+        action:'ROUTE_ORIENTATION',
+        status:'COMPLETED',
+        fromStage:String(workflow.record['Application Stage'] || 'ACCEPTED'),
+        toStage:'ACCEPTED',
+        requiresHuman:false,
+        source:'ADMISSION_V2',
+        summary:'SKY student activation is verified. Route accepted student to Orientation Management Agent.',
+        data:{
+          skyStudentId:skyStudentId,
+          skyProspectId:String(workflow.record['SKY Prospect ID'] || ''),
+          feeGroup:String(workflow.record['Fee Group'] || '')
+        }
+      });
+    }
+  } catch (agenticError) {
+    v2Audit_(reference,'AGENTIC_BRIDGE','SKY_ACTIVATION_EVENT_FAILED',{},{
+      message:String(agenticError && agenticError.message || agenticError)
+    },actor || 'Registry Admin','FAILED','SKY activation remains valid; Orientation handoff requires attention.');
+  }
+
   v2InvalidateCache_();
 
   return {
     ok:true,referenceNo:reference,skyStudentId:skyStudentId,
     skyActivationStatus:'ACTIVATED',activatedAt:now,activatedBy:actor || 'Registry Admin',
+    agenticHandoff:agenticHandoff,
     standalone:true,build:V2_ACTIVATION_BUILD
   };
 }
