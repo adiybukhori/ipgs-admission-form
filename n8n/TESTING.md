@@ -398,3 +398,41 @@ Expected:
 - ATTENDED students receive Orientation Status = COMPLETED and Academic Handover Status = READY.
 - ORIENTATION_COMPLETED events route those students to Academic Handover Agent.
 - ABSENT / EXCUSED students are not routed as handover-ready by the completion action.
+
+
+## Test Y — New application automatic document start
+
+Submit a controlled application while agentic mode is enabled.
+
+Expected:
+- application remains valid regardless of agentic delivery status
+- APPLICATION_SUBMITTED is emitted
+- Orchestrator runs deterministic RUN_DOCUMENT_COMPLETENESS
+- Application Stage moves to DOCUMENT_REVIEW
+- no academic AI screening runs before completeness and Compliance gates.
+
+## Test Z — Missing required document loop
+
+Submit a controlled application missing one hard-required document such as the academic certificate.
+
+Expected:
+- deterministic Document Review = INCOMPLETE
+- DOCUMENT_MISSING_REQUIRED routes to Student Concierge
+- secure request type = MISSING_REQUIRED_DOCUMENT
+- applicant email lists only the missing required document(s)
+- secure portal accepts the requested file(s)
+- upload updates Uploaded Files JSON
+- deterministic Document Review reruns automatically
+- if still incomplete, another DOCUMENT_MISSING_REQUIRED event is emitted
+- if complete, DOCUMENT_COMPLETENESS_CONFIRMED routes to Compliance
+- no direct jump from missing upload to Admission Intelligence.
+
+## Test AA — Agentic event delivery failure after completeness
+
+Enable agentic mode and intentionally make the event webhook unavailable for a controlled COMPLETE document case.
+
+Expected:
+- local fallback runs Compliance & Records AI first
+- Admission Intelligence runs locally only when Compliance status = PASS
+- FOLLOW_UP_REQUIRED / HUMAN_REVIEW_REQUIRED does not get bypassed
+- case does not get stuck solely because n8n is unavailable.
