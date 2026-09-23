@@ -81,6 +81,41 @@ function v2PrepareSkyActivation_(data,actor){
     };
   }
 
+  const acceptanceStatus=String(wf.record['Acceptance Status']||app.record['Acceptance Status']||'').toUpperCase();
+  const applicationStage=String(wf.record['Application Stage']||'').toUpperCase();
+  const accepted=acceptanceStatus==='ACCEPTED' || applicationStage==='ACCEPTED' ||
+    ['ORIENTATION','ACADEMIC_HANDOVER','ACTIVE_STUDENT'].indexOf(applicationStage)>=0;
+
+  if(!accepted){
+    if(typeof v2EmitAgentEvent_==='function'){
+      v2EmitAgentEvent_({
+        referenceNo:reference,
+        eventType:'SKY_PROSPECT_VERIFIED',
+        agentId:'SYSTEMS_OPERATOR',
+        agentName:'Systems Operator Agent',
+        action:'WAIT_FOR_ACCEPTANCE',
+        status:'WAITING',
+        requiresHuman:false,
+        executionId:String(input.executionId||''),
+        source:'N8N',
+        summary:'SKY Prospect ID and Fee Group are verified. Student activation remains blocked until Acceptance is complete.',
+        data:{skyProspectId:skyProspectId,feeGroup:feeGroup}
+      });
+    }
+
+    return {
+      ok:true,
+      referenceNo:reference,
+      status:'WAITING_ACCEPTANCE',
+      requiresHuman:false,
+      skyProspectId:skyProspectId,
+      feeGroup:feeGroup,
+      acceptanceStatus:acceptanceStatus,
+      applicationStage:applicationStage,
+      nextAction:'WAIT_FOR_ACCEPTANCE'
+    };
+  }
+
   // Current safe mode: Registry performs the actual SKY action.
   const task=typeof v2CreateHumanTask_==='function'?v2CreateHumanTask_({
     referenceNo:reference,
