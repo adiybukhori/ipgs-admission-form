@@ -759,6 +759,20 @@
             '<button id="humanQualityPassBtn" class="confirm" type="button" onclick="resolveHumanQualityTask(\''+escapeHtml(taskId)+'\',\'PASS\')">Confirm Quality PASS</button>'+
           '</div>'+
         '</div>';
+    }else if(taskType==='SKY_ACTIVATION_REQUIRED'){
+      taskForm=
+        '<div class="human-task-form">'+
+          '<div class="human-task-evidence">'+
+            '<div><small>SKY Prospect ID</small><b>'+escapeHtml(wf['SKY Prospect ID']||app['SKY Prospect ID']||'—')+'</b></div>'+
+            '<div><small>Fee Group</small><b>'+escapeHtml(wf['Fee Group']||app['Fee Group']||'—')+'</b></div>'+
+            '<div><small>Prospect Status</small><b>'+escapeHtml(wf['Prospect Status']||app['Prospect Status']||'—')+'</b></div>'+
+            '<div><small>Activation Status</small><b>'+escapeHtml(wf['SKY Activation Status']||app['SKY Activation Status']||'NOT ACTIVATED')+'</b></div>'+
+          '</div>'+
+          '<div style="padding:10px 12px;border:1px solid rgba(255,190,80,.24);background:rgba(255,190,80,.06);border-radius:11px;font-size:10px;color:#d7c69a;line-height:1.55">Complete the real student activation / registration in SKYVIALING first. This button records and verifies the result in Admission V2; it does not perform the SKY action itself.</div>'+
+          '<label>SKY Student / Registration ID<input id="humanSkyStudentId" style="width:100%;border:1px solid var(--line);border-radius:11px;background:#0a1025;color:#eef1ff;padding:10px;font:inherit;font-size:11px" placeholder="Enter ID returned by SKY"></label>'+
+          '<label>Registry Remarks<textarea id="humanSkyNotes" placeholder="Optional activation note"></textarea></label>'+
+          '<div class="human-task-actions"><button type="button" onclick="document.getElementById(\'humanTaskOverlay\').remove()">Cancel</button><button id="humanSkyBtn" class="confirm" type="button" onclick="resolveSkyActivationTask(\''+escapeHtml(taskId)+'\')">Confirm SKY Activation</button></div>'+
+        '</div>';
     }else if(taskType==='ORIENTATION_SESSION_REQUIRED'){
       const orientationOptions=openOrientationSessions.map(x=>{
         const id=String(x['Orientation Session ID']||'');
@@ -949,6 +963,13 @@
       if(btn){btn.disabled=false;btn.textContent=label||'Confirm';}
       return null;
     }
+  }
+
+  async function resolveSkyActivationTask(taskId){
+    const skyStudentId=(document.getElementById('humanSkyStudentId')?.value||'').trim();
+    if(!skyStudentId){alert('Please enter the SKY Student / Registration ID.');return;}
+    const notes=(document.getElementById('humanSkyNotes')?.value||'').trim();
+    await resolveHumanTaskGeneric(taskId,{skyStudentId},notes,'humanSkyBtn','Confirm SKY Activation');
   }
 
   async function resolveOrientationSessionTask(taskId){
@@ -1201,6 +1222,7 @@
   window.openHumanTaskResolution=openHumanTaskResolution;
   window.confirmHumanScreeningTask=confirmHumanScreeningTask;
   window.resolveHumanQualityTask=resolveHumanQualityTask;
+  window.resolveSkyActivationTask=resolveSkyActivationTask;
   window.resolveOrientationSessionTask=resolveOrientationSessionTask;
   window.createOrientationSessionAndResolve=createOrientationSessionAndResolve;
   window.resolveSacSessionTask=resolveSacSessionTask;
