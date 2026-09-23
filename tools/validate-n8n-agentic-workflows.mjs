@@ -78,6 +78,18 @@ for(const file of expected){
   }
 }
 
+const orchestrator=JSON.parse(fs.readFileSync(path.join(root,'CS-ADM-V2-00-ORCHESTRATOR.json'),'utf8'));
+const orchestratorText=JSON.stringify(orchestrator);
+if(!orchestratorText.includes("ACCEPTANCE_COMPLETED:'SYSTEMS_OPERATOR'")){
+  throw new Error('Acceptance must route to Systems Operator before Orientation');
+}
+if(!orchestratorText.includes("SKY_ACTIVATED:'ORIENTATION'")){
+  throw new Error('Verified SKY activation must route to Orientation');
+}
+if(orchestratorText.includes("ACCEPTANCE_COMPLETED:'ORIENTATION'")){
+  throw new Error('Acceptance must never route directly to Orientation');
+}
+
 const orientation=JSON.parse(fs.readFileSync(path.join(root,'CS-ADM-V2-06-ORIENTATION.json'),'utf8'));
 if(orientation.settings?.timezone!=='Asia/Kuala_Lumpur'){
   throw new Error('Orientation workflow timezone must be Asia/Kuala_Lumpur');
