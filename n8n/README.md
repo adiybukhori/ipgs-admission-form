@@ -8,10 +8,18 @@ This folder contains the first isolated n8n workflows for the Campus Simulation 
 - CS-ADM-V2 | 91 ACTION GATEWAY
 - CS-ADM-V2 | 00 ORCHESTRATOR
 - CS-ADM-V2 | 02 ADMISSION INTELLIGENCE
+- CS-ADM-V2 | 92 HUMAN TASK GATEWAY
+- CS-ADM-V2 | 93 ERROR & RETRY
 
 ## Architecture
 
 Admission V2 (Apps Script) -> 90 EVENT INGRESS -> 00 ORCHESTRATOR -> 02 ADMISSION INTELLIGENCE -> 91 ACTION GATEWAY -> Admission V2
+
+Exception path:
+Admission Intelligence -> durable V2_HUMAN_TASKS -> ACC Human Decision Desk -> authorised resolution -> FINAL screening report -> READY_FOR_SAC
+
+Failure path:
+Agent error -> 93 ERROR & RETRY -> retry within limit -> 92 HUMAN TASK GATEWAY when retry limit is exhausted
 
 Admission V2 remains the source of truth and transaction engine.
 n8n is the agentic orchestration layer.
@@ -19,12 +27,14 @@ ACC / Campus Simulation reads V2_AGENT_EVENTS and V2_AGENT_EXECUTIONS.
 
 ## Required configuration before activation
 
-1. Import all four JSON files into the dedicated n8n project:
+1. Import all six JSON files into the dedicated n8n project:
    IUC | Campus Simulation | Admission V2
 2. Replace REPLACE_WITH_N8N_EVENT_SHARED_SECRET in all workflows with one strong shared secret.
 3. Replace REPLACE_WITH_V2_ADMIN_API_PASSWORD in the Action Gateway workflow with the protected V2 backend token, preferably via n8n credentials rather than plain text.
 4. Activate in this order:
    - 91 ACTION GATEWAY
+   - 92 HUMAN TASK GATEWAY
+   - 93 ERROR & RETRY
    - 02 ADMISSION INTELLIGENCE
    - 00 ORCHESTRATOR
    - 90 EVENT INGRESS
@@ -57,3 +67,31 @@ DOCUMENT_REVIEW_COMPLETED
 - Apps Script validates stage and action ownership.
 - If n8n is enabled but an event cannot be delivered, current Document Review logic falls back to the existing local auto-screening path instead of blocking the applicant.
 - FINAL AI screening report is only allowed after the qualification rule engine is resolved.
+
+
+## ACC live command-centre contract
+
+The live portal now reads:
+- V2_AGENT_EVENTS
+- V2_AGENT_EXECUTIONS
+- V2_HUMAN_TASKS
+
+AI Office state is driven by these records. The frontend polls the live runtime approximately every 5 seconds. Simulation is retained only as fallback/demo when n8n is not active.
+
+The Human Decision Desk supports the first production authority handler:
+- ADMISSION_SCREENING_REVIEW
+- AI Field Relationship and Relevant Work Experience are reused automatically.
+- Human selects the authorised screening route.
+- Human may record grade-equivalency / academic confirmation notes.
+- Optional AI input override is available only when required.
+- Successful confirmation completes the manual second layer, regenerates the FINAL AI Screening Report and moves the case to READY_FOR_SAC.
+
+## Retry rule
+
+Agent execution must follow:
+REQUESTED -> EXECUTED -> VERIFIED -> COMPLETED
+
+On failure:
+FAILED -> retry through 93 ERROR & RETRY -> maximum configured attempts -> durable Human Task.
+
+Do not create unbounded retry loops.
