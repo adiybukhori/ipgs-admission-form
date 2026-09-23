@@ -1,5 +1,5 @@
 name: Deploy Official AI Screening Report
-# source-sync: apps-script-v2-dev@d0a22176fd0f4883c19ee204641e005fdabb8eb8
+# source-sync: apps-script-v2-dev@aefaa3521cc47ef1188af1a88b9a53615d3824f7
 
 on:
   push:
@@ -32,6 +32,8 @@ jobs:
           node --check apps-script-v2/DocumentReplacementV2.js
           node --check apps-script-v2/SacIaAgentV2.js
           node --check apps-script-v2/OrientationAgentV2.js
+          node --check apps-script-v2/SystemsOperatorAgentV2.js
+          node --check apps-script-v2/AgentProspectV2.js
           node --check apps-script-v2/AcceptancePackV2.js
           node --check apps-script-v2/Code.js
           node --check apps-script-v2/AiScreeningReportV2.js
@@ -52,6 +54,10 @@ jobs:
           grep -F "v2PrepareIaCoordination_" apps-script-v2/SacIaAgentV2.js
           grep -F "v2PreparePrerequisiteCoordination_" apps-script-v2/SacIaAgentV2.js
           grep -F "v2PrepareOrientationForAccepted_" apps-script-v2/OrientationAgentV2.js
+          grep -F "v2PrepareSkyActivation_" apps-script-v2/SystemsOperatorAgentV2.js
+          grep -F "PROSPECT_COMPLETED" apps-script-v2/AgentProspectV2.js
+          grep -F "SKY Prospect ID is required" apps-script-v2/AgentProspectV2.js
+          grep -F "SKY_ACTIVATION_REQUIRED" apps-script-v2/HumanTaskV2.js
           grep -F "ACCEPTANCE_COMPLETED" apps-script-v2/AcceptancePackV2.js
           grep -F "PREPARE_ORIENTATION_FOR_ACCEPTED" apps-script-v2/AgenticBridgeV2.js
           grep -F "ORIENTATION_SESSION_REQUIRED" apps-script-v2/HumanTaskV2.js
