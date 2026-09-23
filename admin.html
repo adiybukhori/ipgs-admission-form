@@ -1052,12 +1052,94 @@
     // PHASE2_SCREENING_OFFER_UI_V1
     function screeningControls(r){
       const aiStatus=String(r.ai?.['Status']||'AUTO PENDING').toUpperCase();
-      const field=String(r.ai?.['Human Field Classification']||r.workflow?.['Field Classification']||r.screening?.['Field Classification']||r.ai?.['Field Classification']||'');
-      const exp=String(r.ai?.['Human Relevant Work Experience']||r.workflow?.['Relevant Work Experience']||r.screening?.['Relevant Work Experience']||r.ai?.['Relevant Work Experience']||'');
-      const manualRequired=/YES|REQUIRED/.test(String(r.workflow?.['Manual Review Required']||'').toUpperCase())||/MANUAL_REVIEW_REQUIRED/.test(String(r.workflow?.['Qualification Screening Status']||'').toUpperCase());
-      const autoAction=PHASE2_BACKEND_READY?'<button class="ops-btn" onclick="retryAutoAiScreening()">Retry AI Auto</button>':'<button class="ops-btn" disabled>AI Auto · backend sync pending</button>';
-      const decisionBlock=manualRequired?`<div class="screening-section"><div class="screening-result"><div><div class="screening-title">2. Confirm screening decision</div><div class="screening-help" style="margin:3px 0 0">Human decision is required for this case before it can move to SAC.</div></div><span class="badge amber">Manual decision required</span></div><select id="opsManualRecommendation" class="ops-select" style="width:100%;margin-top:10px"><option value="">Select final screening recommendation</option><option value="DIRECT_ENTRY">Direct Entry</option><option value="NORMAL_ADMISSION_SCREENING">Normal Admission</option><option value="INTERNAL_ASSESSMENT">Internal Assessment (IA)</option><option value="NOT_ELIGIBLE_CONVENTIONAL">Not Eligible - Conventional</option></select><div class="screening-actions">${PHASE2_BACKEND_READY?'<button class="ops-btn primary" onclick="completeManualScreening()">Submit Screening Decision</button>':'<button class="ops-btn" disabled>Submit Screening Decision · backend sync pending</button>'}</div></div>`:'';
-      return `<div class="screening-stack"><div class="screening-section"><div class="screening-result"><div><div class="screening-title">AI Auto Screening</div><div class="screening-help" style="margin:3px 0 0">AI gets the first attempt. Manual screening remains available whenever AI is pending or requires review.</div></div><span class="badge ${classifyBadge(aiStatus)}">${esc(pretty(aiStatus))}</span></div><div class="screening-actions">${autoAction}</div></div><div class="screening-section"><div class="screening-title">1. Run manual screening</div><div class="screening-help">Confirm the relationship of the previous qualification to the applied programme and whether relevant work experience exists.</div><div class="screening-fields"><select id="opsFieldClassification" class="ops-select"><option value="">Field relationship</option><option value="RELATED" ${field==='RELATED'?'selected':''}>Related</option><option value="PARTIALLY_RELATED" ${field==='PARTIALLY_RELATED'?'selected':''}>Partially Related</option><option value="NON_RELATED" ${field==='NON_RELATED'?'selected':''}>Non-Related</option></select><select id="opsWorkExperience" class="ops-select"><option value="">Relevant work experience</option><option value="YES" ${exp==='YES'?'selected':''}>Yes</option><option value="NO" ${exp==='NO'?'selected':''}>No</option></select></div><div class="screening-actions"><button id="manualScreeningBtn" class="ops-btn primary" onclick="runQualificationScreening()">Run Manual Screening</button></div></div>${decisionBlock}</div>`;
+      const field=String(r.workflow?.['Field Classification']||r.screening?.['Field Classification']||r.ai?.['Field Classification']||r.ai?.['Human Field Classification']||'').toUpperCase();
+      const exp=String(r.workflow?.['Relevant Work Experience']||r.screening?.['Relevant Work Experience']||r.ai?.['Relevant Work Experience']||r.ai?.['Human Relevant Work Experience']||'').toUpperCase();
+      const confidenceRaw=Number(r.ai?.['Confidence']||0);
+      const confidence=Number.isFinite(confidenceRaw)&&confidenceRaw>0?Math.round((confidenceRaw<=1?confidenceRaw*100:confidenceRaw))+'%':'—';
+      const manualRequired=/YES|REQUIRED/.test(String(r.workflow?.['Manual Review Required']||'').toUpperCase())||/MANUAL_REVIEW_REQUIRED/.test(String(r.workflow?.['Qualification Screening Status']||'').toUpperCase())||/REVIEW_REQUIRED|AUTO_FAILED/.test(aiStatus);
+      const reportStatus=String(r.ai?.['Report Status']||'NOT GENERATED').toUpperCase();
+      const reportUrl=String(r.ai?.['Report PDF URL']||'');
+      const recommendation=String(r.screening?.['Recommended Route']||r.workflow?.['Screening Recommendation']||'PENDING');
+      const qualification=String(r.ai?.['Qualification']||r.app?.['Highest Qualification']||'—');
+      const institution=String(r.ai?.['Institution']||r.app?.['Institution / Awarding Body']||'—');
+      const academic=String(r.ai?.['CGPA / Grade']||r.app?.['Academic Result / CGPA / Grade']||'—');
+      const workSummary=String(r.ai?.['Work Experience Summary']||'');
+      const autoAction=PHASE2_BACKEND_READY?'<button class="ops-btn" onclick="retryAutoAiScreening()">Run / Retry AI Screening</button>':'<button class="ops-btn" disabled>AI Screening · backend sync pending</button>';
+      const reportAction=PHASE2_BACKEND_READY?'<button class="ops-btn" onclick="generateAiScreeningReport()">Generate / Refresh Report</button>':'<button class="ops-btn" disabled>Report · backend sync pending</button>';
+      const reportLink=reportUrl?'<a class="ops-btn primary" href="'+esc(reportUrl)+'" target="_blank" rel="noopener">Open Official PDF</a>':'';
+      const manualBlock=manualRequired?`
+        <div class="screening-section">
+          <div class="screening-result">
+            <div>
+              <div class="screening-title">Human Exception Review</div>
+              <div class="screening-help" style="margin:3px 0 0">AI has already proposed the two screening inputs. Human action is shown only because this case requires confirmation or an academic exception.</div>
+            </div>
+            <span class="badge amber">Human required</span>
+          </div>
+          <div class="screening-fields">
+            <select id="opsFieldClassification" class="ops-select">
+              <option value="">Field relationship</option>
+              <option value="RELATED" ${field==='RELATED'?'selected':''}>Related</option>
+              <option value="PARTIALLY_RELATED" ${field==='PARTIALLY_RELATED'?'selected':''}>Partially Related</option>
+              <option value="NON_RELATED" ${field==='NON_RELATED'?'selected':''}>Non-Related</option>
+            </select>
+            <select id="opsWorkExperience" class="ops-select">
+              <option value="">Relevant work experience</option>
+              <option value="YES" ${exp==='YES'?'selected':''}>Yes</option>
+              <option value="NO" ${exp==='NO'?'selected':''}>No</option>
+            </select>
+          </div>
+          <div class="screening-actions"><button id="manualScreeningBtn" class="ops-btn" onclick="runQualificationScreening()">Re-run Rule Screening with Human Inputs</button></div>
+          <select id="opsManualRecommendation" class="ops-select" style="width:100%;margin-top:10px">
+            <option value="">Select authorised screening recommendation if manual resolution is required</option>
+            <option value="DIRECT_ENTRY">Direct Entry</option>
+            <option value="NORMAL_ADMISSION_SCREENING">Normal Admission</option>
+            <option value="INTERNAL_ASSESSMENT">Internal Assessment (IA)</option>
+            <option value="NOT_ELIGIBLE_CONVENTIONAL">Not Eligible - Conventional</option>
+          </select>
+          <div class="screening-actions">${PHASE2_BACKEND_READY?'<button class="ops-btn primary" onclick="completeManualScreening()">Submit Human Resolution</button>':'<button class="ops-btn" disabled>Submit Human Resolution · backend sync pending</button>'}</div>
+        </div>`:'';
+
+      return `<div class="screening-stack">
+        <div class="screening-section">
+          <div class="screening-result">
+            <div>
+              <div class="screening-title">Official AI Admission Screening</div>
+              <div class="screening-help" style="margin:3px 0 0">Certificate + transcript + CV/resume are screened by the IUC Admission Intelligence Agent. AI supplies the two screening inputs; the approved rule engine determines the route.</div>
+            </div>
+            <span class="badge ${classifyBadge(aiStatus)}">${esc(pretty(aiStatus))}</span>
+          </div>
+
+          <div style="display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;margin-top:11px">
+            <div class="offer-mini"><span>Field relationship</span><b>${esc(pretty(field||'PENDING'))}</b></div>
+            <div class="offer-mini"><span>Relevant work experience</span><b>${esc(pretty(exp||'PENDING'))}</b></div>
+            <div class="offer-mini"><span>AI confidence</span><b>${esc(confidence)}</b></div>
+            <div class="offer-mini"><span>Proposed route</span><b>${esc(pretty(recommendation))}</b></div>
+          </div>
+
+          <div style="margin-top:10px;padding:10px 11px;border:1px solid var(--line);border-radius:12px;background:#fafafd">
+            <div style="font-size:10px;color:#8a90a0;font-weight:800;text-transform:uppercase;letter-spacing:.04em;margin-bottom:5px">Academic evidence reviewed</div>
+            <div style="font-size:12px;font-weight:850;color:#20283b">${esc(qualification)}</div>
+            <div style="font-size:11px;color:#6f7685;margin-top:3px">${esc(institution)} · Result: ${esc(academic)}</div>
+            ${workSummary?'<div style="font-size:11px;color:#6f7685;margin-top:5px"><b>CV:</b> '+esc(workSummary)+'</div>':''}
+          </div>
+
+          <div class="screening-actions">${autoAction}</div>
+        </div>
+
+        <div class="screening-section">
+          <div class="screening-result">
+            <div>
+              <div class="screening-title">Official AI Screening Report</div>
+              <div class="screening-help" style="margin:3px 0 0">The PDF is stored in the student's folder and the FINAL version is automatically included in the SAC print pack.</div>
+            </div>
+            <span class="badge ${reportStatus==='FINAL'?'green':reportStatus.includes('PENDING')?'amber':'blue'}">${esc(pretty(reportStatus))}</span>
+          </div>
+          <div class="screening-actions">${reportLink}${reportAction}</div>
+        </div>
+
+        ${manualBlock}
+      </div>`;
     }
     // MANUAL_DOCUMENT_REVIEW_UI_V1
     function requiredDocsForManual(r){
@@ -1271,6 +1353,7 @@
     }
     function runDocumentReview(){if(!selected)return;runAdminAction('v2RunDocumentReview',{referenceNo:selected.ref,remarks:''},`Run document review for ${selected.app['Student Name']||selected.ref}?`)}
     function retryAutoAiScreening(){if(!selected)return;runAdminAction('v2RunAutoAiScreening',{referenceNo:selected.ref},`Retry AI Auto screening for ${selected.app['Student Name']||selected.ref}? Manual Screening remains available if AI cannot complete it.`)}
+    function generateAiScreeningReport(){if(!selected)return;runAdminAction('v2GenerateAiScreeningReport',{referenceNo:selected.ref,finalize:true},`Generate or refresh the official AI Admission Screening Report for ${selected.app['Student Name']||selected.ref}? The backend will keep it pending if a human exception is still required.`)}
     async function runQualificationScreening(){if(!selected)return;const field=document.getElementById('opsFieldClassification')?.value||'',exp=document.getElementById('opsWorkExperience')?.value||'';if(!field||!exp)return opsMsg('Select Field Relationship and Relevant Work Experience first.','error');const btn=document.getElementById('manualScreeningBtn');if(btn){btn.disabled=true;btn.textContent='Checking…'}const started=performance.now();try{const result=await runAdminAction('v2RunQualificationScreening',{referenceNo:selected.ref,fieldClassification:field,relevantWorkExperience:exp,remarks:'Manual second-layer screening from Admin Portal'},`Run MANUAL qualification screening for ${selected.app['Student Name']||selected.ref}? If AI has already completed screening, the resolved stage will be preserved.`);if(result){const totalMs=Math.round(performance.now()-started);const backendMs=Number(result.performanceMs||0);opsMsg(`Screening saved in ${(totalMs/1000).toFixed(1)}s${backendMs? ` · backend ${(backendMs/1000).toFixed(1)}s`:''}.`,'ok')}}finally{const current=document.getElementById('manualScreeningBtn');if(current){current.disabled=false;current.textContent='Run Manual Screening'}}}
     function completeManualScreening(){if(!selected)return;const field=document.getElementById('opsFieldClassification')?.value||'',exp=document.getElementById('opsWorkExperience')?.value||'',route=document.getElementById('opsManualRecommendation')?.value||'';if(!field||!exp||!route)return opsMsg('Select Field Relationship, Work Experience and Manual Recommendation first.','error');runAdminAction('v2CompleteManualQualificationScreening',{referenceNo:selected.ref,fieldClassification:field,relevantWorkExperience:exp,recommendedRoute:route,remarks:'Registry manual second-layer resolution'},`Complete manual screening as ${pretty(route)}? This will move the case to Ready for SAC if screening is still pending.`)}
     function issueOffer(){if(!selected)return;runAdminAction('v2IssueOffer',{referenceNo:selected.ref,sendEmail:true,testMode:false},`Generate the official Offer Letter and SEND it to ${selected.app['Personal Email']||'the student'} with the secure Acceptance link?`)}
