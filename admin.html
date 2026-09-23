@@ -744,7 +744,7 @@
 
                 <div class="guide-flow-row"><div class="guide-flow-no">05</div><div class="guide-flow-stage">SAC Review</div><div class="guide-flow-arrow">→</div><div class="guide-flow-action"><span class="guide-role">Registry / SAC</span> Create or select the SAC session, assign eligible candidates, prepare the SAC pack and record the authorised outcome. Current route options include <b>Direct Entry</b>, <b>Internal Assessment</b> and <b>Rejected / Not Qualified</b>. PREREQ is not selected directly as a SAC outcome.</div></div>
 
-                <div class="guide-flow-row"><div class="guide-flow-no">06</div><div class="guide-flow-stage">IA / PREREQ (if required)</div><div class="guide-flow-arrow">→</div><div class="guide-flow-action"><span class="guide-role">Registry / Academic</span> Candidates routed to IA complete Internal Assessment. If the authorised IA outcome requires a prerequisite course, PREREQ is handled after IA. Direct Entry bypasses this stage.</div></div>
+                <div class="guide-flow-row"><div class="guide-flow-no">06</div><div class="guide-flow-stage">IA / PREREQ (if required)</div><div class="guide-flow-arrow">→</div><div class="guide-flow-action"><span class="guide-role">Registry / Academic</span> Candidates routed to IA receive the <b>IA email and related attachment</b>, then complete Internal Assessment. If the authorised IA outcome requires a prerequisite course, the student receives the <b>prerequisite email and related attachment</b> and completes PREREQ after IA. <b>No additional COL is issued for IA or prerequisite.</b> Direct Entry bypasses this stage.</div></div>
 
                 <div class="guide-flow-row"><div class="guide-flow-no">07</div><div class="guide-flow-stage">Offer</div><div class="guide-flow-arrow">→</div><div class="guide-flow-action"><span class="guide-role">Registry</span> Once the approved admission route is complete and the case is eligible, generate and send the Official Offer Letter. The system records the issue status, PDF and timestamp.</div></div>
 
@@ -833,8 +833,9 @@
               <div class="panel-head"><h3>Decision & Workflow Controls</h3><span>Use these as the operating boundaries</span></div>
               <div class="table-wrap"><table class="guide-table"><thead><tr><th>Area</th><th>Control</th></tr></thead><tbody>
                 <tr><td><span class="guide-badge purple">SAC</span></td><td>Screening supports SAC; it does not replace the authorised SAC decision.</td></tr>
-                <tr><td><span class="guide-badge blue">Offer</span></td><td>Issue only after the approved admission route is complete.</td></tr>
-                <tr><td><span class="guide-badge amber">IA / PREREQ</span></td><td>PREREQ follows IA when required; do not select PREREQ directly as the SAC decision.</td></tr>
+                <tr><td><span class="guide-badge purple">Submission COL</span></td><td>Automatically issue one Conditional Offer Letter immediately after a valid Admission Form submission. It is not the final Official Offer / LOA.</td></tr>
+                <tr><td><span class="guide-badge blue">Offer</span></td><td>Issue the final Official Offer Letter only after the approved admission route is complete.</td></tr>
+                <tr><td><span class="guide-badge amber">IA / PREREQ</span></td><td>PREREQ follows IA when required; do not select PREREQ directly as the SAC decision. IA and prerequisite use email + related attachments only; <b>no second COL</b> is issued.</td></tr>
                 <tr><td><span class="guide-badge amber">Prospect / SKY</span></td><td>Separate operational workstream. Use the module's own status and controls; do not create artificial gates from unrelated modules.</td></tr>
                 <tr><td><span class="guide-badge amber">Orientation</span></td><td>Session-based operational workstream. Add Students does not send invitation automatically. Completion locks the official Orientation record.</td></tr>
                 <tr><td><span class="guide-badge purple">Academic Handover</span></td><td>Separate module from Orientation. Provisioning and Student Access are processed inside the Handover session.</td></tr>
