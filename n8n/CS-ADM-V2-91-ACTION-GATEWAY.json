@@ -99,6 +99,28 @@
               },
               "renameOutput": true,
               "outputKey": "activity"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict"
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.operation }}",
+                    "rightValue": "screening_report",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "screening_report"
             }
           ]
         },
@@ -184,6 +206,25 @@
         430,
         0
       ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://script.google.com/macros/s/AKfycbxasT_HgtRSvTbR_bsa8p17Cm-C2PKn20Ok1kU-AyJmxiKX8kX5EGOtRLwVwNlAL7JB/exec",
+        "sendBody": true,
+        "contentType": "raw",
+        "rawContentType": "application/json",
+        "body": "={{ JSON.stringify({action:'v2GenerateAiScreeningReport',token:'REPLACE_WITH_V2_ADMIN_API_PASSWORD',updatedBy:'n8n | Admission Intelligence',data:{referenceNo:$json.referenceNo,finalize:$json.finalize!==false}}) }}",
+        "options": {}
+      },
+      "id": "generate-screening-report",
+      "name": "Generate Screening Report",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        160,
+        320
+      ]
     }
   ],
   "connections": {
@@ -231,6 +272,13 @@
             "type": "main",
             "index": 0
           }
+        ],
+        [
+          {
+            "node": "Generate Screening Report",
+            "type": "main",
+            "index": 0
+          }
         ]
       ]
     },
@@ -257,6 +305,17 @@
       ]
     },
     "Record Agent Activity": {
+      "main": [
+        [
+          {
+            "node": "Return Gateway Result",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Generate Screening Report": {
       "main": [
         [
           {
