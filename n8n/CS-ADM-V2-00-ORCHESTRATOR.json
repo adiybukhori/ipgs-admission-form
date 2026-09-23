@@ -19,7 +19,7 @@
     },
     {
       "parameters": {
-        "jsCode": "const req=$input.first().json;\nconst h=req.headers||{};\nconst supplied=h['x-iuc-agent-secret']||h['X-IUC-Agent-Secret']||'';\nconst expected='REPLACE_WITH_N8N_EVENT_SHARED_SECRET';\nif(supplied!==expected) throw new Error('Invalid orchestrator secret');\nconst e=req.body||req;\nconst routes={\n  DOCUMENT_COMPLETENESS_CONFIRMED:'COMPLIANCE',\n  DOCUMENT_REVIEW_COMPLETED:'COMPLIANCE',\n  DOCUMENT_REPLACEMENT_RECEIVED:'COMPLIANCE',\n  DOCUMENT_QUALITY_PASSED:'ADMISSION_INTELLIGENCE',\n  DOCUMENT_REPLACEMENT_REQUIRED:'STUDENT_CONCIERGE',\n  SCREENING_READY_FOR_SAC:'SAC_IA',\n  SAC_DECISION_RECORDED:'SAC_IA',\n  IA_OUTCOME_RECORDED:'SAC_IA'\n};\nconst target=routes[String(e.eventType||'').toUpperCase()]||'NO_ROUTE';\nreturn [{json:{...e,targetAgent:target}}];"
+        "jsCode": "const req=$input.first().json;\nconst h=req.headers||{};\nconst supplied=h['x-iuc-agent-secret']||h['X-IUC-Agent-Secret']||'';\nconst expected='REPLACE_WITH_N8N_EVENT_SHARED_SECRET';\nif(supplied!==expected) throw new Error('Invalid orchestrator secret');\nconst e=req.body||req;\nconst routes={\n  DOCUMENT_COMPLETENESS_CONFIRMED:'COMPLIANCE',\n  DOCUMENT_REVIEW_COMPLETED:'COMPLIANCE',\n  DOCUMENT_REPLACEMENT_RECEIVED:'COMPLIANCE',\n  DOCUMENT_QUALITY_PASSED:'ADMISSION_INTELLIGENCE',\n  DOCUMENT_REPLACEMENT_REQUIRED:'STUDENT_CONCIERGE',\n  SCREENING_READY_FOR_SAC:'SAC_IA',\n  SAC_DECISION_RECORDED:'SAC_IA',\n  IA_OUTCOME_RECORDED:'SAC_IA',\n  ACCEPTANCE_COMPLETED:'ORIENTATION'\n};\nconst target=routes[String(e.eventType||'').toUpperCase()]||'NO_ROUTE';\nreturn [{json:{...e,targetAgent:target}}];"
       },
       "id": "route",
       "name": "Decide Next Agent",
@@ -121,6 +121,28 @@
               },
               "renameOutput": true,
               "outputKey": "sac_ia"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict"
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.targetAgent }}",
+                    "rightValue": "ORIENTATION",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "orientation"
             }
           ]
         },
@@ -263,6 +285,34 @@
         180,
         330
       ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://anasbukhori.app.n8n.cloud/webhook/cs-adm-v2-orientation",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "X-IUC-Agent-Secret",
+              "value": "REPLACE_WITH_N8N_EVENT_SHARED_SECRET"
+            }
+          ]
+        },
+        "sendBody": true,
+        "contentType": "raw",
+        "rawContentType": "application/json",
+        "body": "={{ JSON.stringify($json) }}",
+        "options": {}
+      },
+      "id": "orientation",
+      "name": "Assign Orientation",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        180,
+        450
+      ]
     }
   ],
   "connections": {
@@ -320,6 +370,13 @@
         ],
         [
           {
+            "node": "Assign Orientation",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
             "node": "Orchestrator Response",
             "type": "main",
             "index": 0
@@ -361,6 +418,17 @@
       ]
     },
     "Assign SAC IA": {
+      "main": [
+        [
+          {
+            "node": "Orchestrator Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Assign Orientation": {
       "main": [
         [
           {
