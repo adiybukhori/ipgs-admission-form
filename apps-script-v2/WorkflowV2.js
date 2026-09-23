@@ -34,6 +34,7 @@ const V2_HEADERS = Object.freeze({
     'Registry Prospect Notification Status','Registry Prospect Notified At',
     'SKY Activation Status','SKY Student ID','SKY Activated At','SKY Activated By','SKY Activation Remarks',
     'Student Folder URL','Admission Form PDF URL',
+    'COL Status','COL Reference','COL PDF URL','COL Issued At',
     'Uploaded Files JSON','Raw Application JSON','Application Status','Email Status',
     'Last Updated','Version'
   ],
@@ -56,7 +57,9 @@ const V2_HEADERS = Object.freeze({
     'Registry Prospect Notification Status','Registry Prospect Notified At',
     'SKY Activation Status','SKY Student ID','SKY Activated At','SKY Activated By','SKY Activation Remarks',
     'SAC Session ID','SAC Decision','SAC Endorsed At',
-    'Assessment Status','Prerequisite Status','Offer Letter Status','Offer Letter Issued At',
+    'Assessment Status','Prerequisite Status',
+    'COL Status','COL Reference','COL PDF URL','COL Issued At',
+    'Offer Letter Status','Offer Letter Issued At',
     'Acceptance Status','Orientation Session ID','Orientation Status','Provisioning Status',
     'Academic Handover Status','Student Folder URL','Last Updated','Updated By','Version'
   ],
@@ -900,7 +903,7 @@ const letterAction =
   decision === 'DIRECT_ENTRY'
     ? 'OFFER_READY'
     : decision === 'INTERNAL_ASSESSMENT'
-      ? 'COL_IA_READY'
+      ? 'IA_EMAIL_READY'
       : 'DECISION_NOTICE_READY';
 
   v2UpdateRow_(candidate.sheet,candidate.rowNumber,{'Decision':decision,'Priority':data.priority || candidate.record['Priority'],
@@ -2248,7 +2251,7 @@ function v2SacFinalisationControlledTest() {
 
     letterActionCorrect:
       String(candidate.record['Letter Action']) ===
-      'COL_PREREQUISITE_READY',
+      'PREREQUISITE_EMAIL_READY',
 
     finalDecisionNowMade:
       finalSummary.finalDecisionMade === true,
