@@ -354,7 +354,23 @@ function v2RunDocumentReview(referenceNo, reviewer, remarks) {
 
     nextAction:
       status === 'COMPLETE'
-        ? (agenticHandoff && agenticHandoff.sent ? 'COMPLIANCE_DOCUMENT_QUALITY' : 'QUALIFICATION_SCREENING')
+        ? (
+            agenticHandoff && agenticHandoff.sent
+              ? 'COMPLIANCE_DOCUMENT_QUALITY'
+              : (
+                  autoAiScreening && autoAiScreening.compliance
+                    ? (
+                        String(autoAiScreening.compliance.status||'').toUpperCase()==='PASS'
+                          ? 'QUALIFICATION_SCREENING'
+                          : (
+                              String(autoAiScreening.compliance.status||'').toUpperCase()==='FOLLOW_UP_REQUIRED'
+                                ? 'REQUEST_REPLACEMENT_DOCUMENTS'
+                                : 'HUMAN_DOCUMENT_REVIEW'
+                            )
+                      )
+                    : 'QUALIFICATION_SCREENING'
+                )
+          )
         : 'REQUEST_MISSING_DOCUMENTS',
 
     applicationStage: 'DOCUMENT_REVIEW',
