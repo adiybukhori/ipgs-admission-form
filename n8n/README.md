@@ -14,6 +14,7 @@ This folder contains the first isolated n8n workflows for the Campus Simulation 
 - CS-ADM-V2 | 05 SYSTEMS OPERATOR
 - CS-ADM-V2 | 06 ORIENTATION
 - CS-ADM-V2 | 07 ACADEMIC HANDOVER
+- CS-ADM-V2 | 08 MANAGEMENT INTELLIGENCE
 - CS-ADM-V2 | 92 HUMAN TASK GATEWAY
 - CS-ADM-V2 | 93 ERROR & RETRY
 
@@ -33,7 +34,7 @@ ACC / Campus Simulation reads V2_AGENT_EVENTS and V2_AGENT_EXECUTIONS.
 
 ## Required configuration before activation
 
-1. Import all twelve JSON files into the dedicated n8n project:
+1. Import all thirteen JSON files into the dedicated n8n project:
    IUC | Campus Simulation | Admission V2
 2. Replace REPLACE_WITH_N8N_EVENT_SHARED_SECRET in all workflows with one strong shared secret.
 3. Replace REPLACE_WITH_V2_ADMIN_API_PASSWORD in the Action Gateway workflow with the protected V2 backend token, preferably via n8n credentials rather than plain text.
@@ -48,6 +49,7 @@ ACC / Campus Simulation reads V2_AGENT_EVENTS and V2_AGENT_EXECUTIONS.
    - 03 SAC-IA
    - 06 ORIENTATION
    - 07 ACADEMIC HANDOVER
+   - 08 MANAGEMENT INTELLIGENCE
    - 00 ORCHESTRATOR
    - 90 EVENT INGRESS
 5. In Apps Script properties set:
@@ -260,3 +262,32 @@ PROVISIONING_READY_TO_NOTIFY
 -> Academic Handover Status = COMPLETED
 -> Application Stage = ACTIVE_STUDENT
 -> ACADEMIC_HANDOVER_COMPLETE event
+
+
+## Management Intelligence Agent
+
+Runs cross-case operational intelligence without mutating student academic decisions.
+
+Scheduled run:
+- Daily at 8:30 AM
+- Workflow timezone: Asia/Kuala_Lumpur
+
+Manual refresh:
+- POST to /webhook/cs-adm-v2-management-intelligence using the shared agent secret.
+
+Snapshot includes:
+- applications today / 7 days / 30 days
+- open and high-priority human tasks
+- human tasks older than 24 hours
+- failed / running agent executions
+- document-quality follow-up
+- screening, SAC, IA and prerequisite queues
+- SKY activation pending
+- upcoming Orientation sessions
+- Orientation waiting cases
+- provisioning in progress
+- handover-ready cases
+- non-terminal cases unchanged for more than 24 hours
+- ranked critical operational signals
+
+Snapshots are written to V2_MANAGEMENT_INTELLIGENCE and surfaced in ACC.
