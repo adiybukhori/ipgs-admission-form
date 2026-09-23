@@ -1,0 +1,243 @@
+{
+  "name": "CS-ADM-V2 | 04 STUDENT CONCIERGE",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "cs-adm-v2-student-concierge",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "concierge-webhook",
+      "name": "Student Concierge Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        -700,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const req=$input.first().json;\nconst h=req.headers||{};\nconst supplied=h['x-iuc-agent-secret']||h['X-IUC-Agent-Secret']||'';\nconst expected='REPLACE_WITH_N8N_EVENT_SHARED_SECRET';\nif(supplied!==expected) throw new Error('Invalid Student Concierge secret');\nconst e=req.body||req;\nif(!e.referenceNo) throw new Error('referenceNo required');\nreturn [{json:{...e,agentId:'STUDENT_CONCIERGE',executionId:'SC-'+e.referenceNo+'-'+(e.eventId||Date.now())}}];"
+      },
+      "id": "prepare",
+      "name": "Prepare Concierge Task",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -480,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://anasbukhori.app.n8n.cloud/webhook/cs-adm-v2-action-gateway",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "X-IUC-Agent-Secret",
+              "value": "REPLACE_WITH_N8N_EVENT_SHARED_SECRET"
+            }
+          ]
+        },
+        "sendBody": true,
+        "contentType": "raw",
+        "rawContentType": "application/json",
+        "body": "={{ JSON.stringify({operation:'state',referenceNo:$json.referenceNo}) }}",
+        "options": {}
+      },
+      "id": "state-before",
+      "name": "Read State Before",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        -260,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const s=$input.first().json;\nconst d=s.documentReview||{};\nconst w=s.workflow||{};\nconst quality=String(d['AI Quality Status']||w['Document Quality Status']||'').toUpperCase();\nif(quality!=='FOLLOW_UP_REQUIRED') throw new Error('Student Concierge replacement task blocked: quality status is '+(quality||'NOT_SET'));\nlet follow=[];\ntry{follow=JSON.parse(String(d['AI Quality Follow-up JSON']||'[]'));}catch(_){}\nif(!Array.isArray(follow)||!follow.length) throw new Error('No replacement instruction is available');\nreturn [{json:{referenceNo:s.referenceNo,qualityStatus:quality,followUpCount:follow.length,verifiedBefore:true}}];"
+      },
+      "id": "verify-before",
+      "name": "Verify Replacement Need",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -40,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://anasbukhori.app.n8n.cloud/webhook/cs-adm-v2-action-gateway",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "X-IUC-Agent-Secret",
+              "value": "REPLACE_WITH_N8N_EVENT_SHARED_SECRET"
+            }
+          ]
+        },
+        "sendBody": true,
+        "contentType": "raw",
+        "rawContentType": "application/json",
+        "body": "={{ JSON.stringify({operation:'execute',executionId:$('Prepare Concierge Task').item.json.executionId,referenceNo:$('Prepare Concierge Task').item.json.referenceNo,agentId:'STUDENT_CONCIERGE',requestedAction:'SEND_DOCUMENT_REPLACEMENT_REQUEST'}) }}",
+        "options": {}
+      },
+      "id": "send-request",
+      "name": "Send Replacement Request",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        190,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://anasbukhori.app.n8n.cloud/webhook/cs-adm-v2-action-gateway",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "X-IUC-Agent-Secret",
+              "value": "REPLACE_WITH_N8N_EVENT_SHARED_SECRET"
+            }
+          ]
+        },
+        "sendBody": true,
+        "contentType": "raw",
+        "rawContentType": "application/json",
+        "body": "={{ JSON.stringify({operation:'state',referenceNo:$('Prepare Concierge Task').item.json.referenceNo}) }}",
+        "options": {}
+      },
+      "id": "state-after",
+      "name": "Read State After",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        420,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const s=$input.first().json;\nconst d=s.documentReview||{};\nconst status=String(d['Replacement Request Status']||'').toUpperCase();\nconst notify=String(d['Replacement Notification Status']||'').toUpperCase();\nconst gateway=$('Send Replacement Request').item.json||{};\nif(status!=='AWAITING_STUDENT') throw new Error('Replacement request verification failed: '+status);\nif(!notify) throw new Error('Replacement notification status was not recorded');\nreturn [{json:{ok:true,referenceNo:s.referenceNo,verified:true,replacementStatus:status,notificationStatus:notify,requiresHuman:gateway.requiresHuman===true,waitingForStudent:true}}];"
+      },
+      "id": "verify-after",
+      "name": "Verify Student Request",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        650,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ $json }}",
+        "options": {}
+      },
+      "id": "response",
+      "name": "Return Concierge Result",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.4,
+      "position": [
+        880,
+        0
+      ]
+    }
+  ],
+  "connections": {
+    "Student Concierge Webhook": {
+      "main": [
+        [
+          {
+            "node": "Prepare Concierge Task",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Prepare Concierge Task": {
+      "main": [
+        [
+          {
+            "node": "Read State Before",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Read State Before": {
+      "main": [
+        [
+          {
+            "node": "Verify Replacement Need",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Verify Replacement Need": {
+      "main": [
+        [
+          {
+            "node": "Send Replacement Request",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Send Replacement Request": {
+      "main": [
+        [
+          {
+            "node": "Read State After",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Read State After": {
+      "main": [
+        [
+          {
+            "node": "Verify Student Request",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Verify Student Request": {
+      "main": [
+        [
+          {
+            "node": "Return Concierge Result",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "tags": []
+}
