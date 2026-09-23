@@ -1,5 +1,5 @@
 name: Deploy Official AI Screening Report
-# source-sync: apps-script-v2-dev@bdf5305763cf7f183a1004e3bd91d0cf54c39142
+# source-sync: apps-script-v2-dev@ea59d9afe8e7653c23863baced9362540de152f4
 
 on:
   push:
@@ -28,6 +28,7 @@ jobs:
           node --check apps-script-v2/AIScreeningV2.js
           node --check apps-script-v2/AgenticBridgeV2.js
           node --check apps-script-v2/HumanTaskV2.js
+          node --check apps-script-v2/ComplianceAgentV2.js
           node --check apps-script-v2/AiScreeningReportV2.js
           node --check apps-script-v2/SacPackV2.js
           node --check apps-script-v2/WorkflowV2.js
@@ -39,6 +40,9 @@ jobs:
           grep -F "DOCUMENT_REVIEW_COMPLETED" apps-script-v2/DocumentReviewV2.js
           grep -F "v2CreateHumanTask_" apps-script-v2/HumanTaskV2.js
           grep -F "v2ResolveHumanTask_" apps-script-v2/HumanTaskV2.js
+          grep -F "v2RunComplianceDocumentQuality_" apps-script-v2/ComplianceAgentV2.js
+          grep -F "RUN_COMPLIANCE_DOCUMENT_QUALITY" apps-script-v2/AgenticBridgeV2.js
+          grep -F "DOCUMENT_COMPLETENESS_CONFIRMED" apps-script-v2/DocumentReviewV2.js
 
       - name: Verify clasp credential
         env:
