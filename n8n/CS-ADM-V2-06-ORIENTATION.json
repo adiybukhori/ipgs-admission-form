@@ -60,7 +60,7 @@
     },
     {
       "parameters": {
-        "jsCode": "const s=$input.first().json;\nconst w=s.workflow||{};\nconst stage=String(w['Application Stage']||'').toUpperCase();\nconst acceptance=String(w['Acceptance Status']||'').toUpperCase();\nif(stage!=='ACCEPTED' && acceptance!=='ACCEPTED') throw new Error('Orientation Agent blocked: applicant is not ACCEPTED');\nreturn [{json:{referenceNo:s.referenceNo,stage,acceptanceStatus:acceptance,verifiedBefore:true}}];"
+        "jsCode": "const s=$input.first().json;\nconst w=s.workflow||{};\nconst stage=String(w['Application Stage']||'').toUpperCase();\nconst acceptance=String(w['Acceptance Status']||'').toUpperCase();\nconst sky=String(w['SKY Activation Status']||'NOT_ACTIVATED').toUpperCase();\nif(stage!=='ACCEPTED' && acceptance!=='ACCEPTED') throw new Error('Orientation Agent blocked: applicant is not ACCEPTED');\nif(sky!=='ACTIVATED') throw new Error('Orientation Agent blocked: SKY Activation Status is '+sky);\nreturn [{json:{referenceNo:s.referenceNo,stage,acceptanceStatus:acceptance,skyActivationStatus:sky,verifiedBefore:true}}];"
       },
       "id": "verify-before",
       "name": "Verify Accepted Student",
