@@ -60,7 +60,7 @@
     },
     {
       "parameters": {
-        "jsCode": "const s=$input.first().json;\nconst d=s.documentReview||{};\nconst w=s.workflow||{};\nconst quality=String(d['AI Quality Status']||w['Document Quality Status']||'').toUpperCase();\nif(quality!=='FOLLOW_UP_REQUIRED') throw new Error('Student Concierge replacement task blocked: quality status is '+(quality||'NOT_SET'));\nlet follow=[];\ntry{follow=JSON.parse(String(d['AI Quality Follow-up JSON']||'[]'));}catch(_){}\nif(!Array.isArray(follow)||!follow.length) throw new Error('No replacement instruction is available');\nreturn [{json:{referenceNo:s.referenceNo,qualityStatus:quality,followUpCount:follow.length,verifiedBefore:true}}];"
+        "jsCode": "const s=$input.first().json;\nconst d=s.documentReview||{};\nconst w=s.workflow||{};\nconst quality=String(d['AI Quality Status']||w['Document Quality Status']||'').toUpperCase();\nconst review=String(d['Review Status']||w['Document Review Status']||'').toUpperCase();\nlet requestedAction='';\nlet requestType='';\nlet count=0;\n\nif(review==='INCOMPLETE'){\n  let missing=[];\n  try{missing=JSON.parse(String(d['Missing Documents JSON']||'[]'));}catch(_){}\n  if(!Array.isArray(missing)||!missing.length) throw new Error('Document Review is INCOMPLETE but no missing document list is recorded');\n  requestedAction='SEND_MISSING_DOCUMENT_REQUEST';\n  requestType='MISSING_REQUIRED_DOCUMENT';\n  count=missing.length;\n}else if(quality==='FOLLOW_UP_REQUIRED'){\n  let follow=[];\n  try{follow=JSON.parse(String(d['AI Quality Follow-up JSON']||'[]'));}catch(_){}\n  if(!Array.isArray(follow)||!follow.length) throw new Error('Quality follow-up is required but no replacement instruction is available');\n  requestedAction='SEND_DOCUMENT_REPLACEMENT_REQUEST';\n  requestType='QUALITY_REPLACEMENT';\n  count=follow.length;\n}else{\n  throw new Error('Student Concierge document task has no valid missing/quality request state');\n}\n\nreturn [{json:{\n  referenceNo:s.referenceNo,\n  reviewStatus:review,\n  qualityStatus:quality,\n  requestedAction,\n  requestType,\n  requestedCount:count,\n  verifiedBefore:true\n}}];"
       },
       "id": "verify-before",
       "name": "Verify Replacement Need",
@@ -87,11 +87,11 @@
         "sendBody": true,
         "contentType": "raw",
         "rawContentType": "application/json",
-        "body": "={{ JSON.stringify({operation:'execute',executionId:$('Prepare Concierge Task').item.json.executionId,referenceNo:$('Prepare Concierge Task').item.json.referenceNo,agentId:'STUDENT_CONCIERGE',requestedAction:'SEND_DOCUMENT_REPLACEMENT_REQUEST'}) }}",
+        "body": "={{ JSON.stringify({operation:'execute',executionId:$('Prepare Concierge Task').item.json.executionId,referenceNo:$('Prepare Concierge Task').item.json.referenceNo,agentId:'STUDENT_CONCIERGE',requestedAction:$('Verify Replacement Need').item.json.requestedAction}) }}",
         "options": {}
       },
       "id": "send-request",
-      "name": "Send Replacement Request",
+      "name": "Send Student Document Request",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
       "position": [
@@ -129,7 +129,7 @@
     },
     {
       "parameters": {
-        "jsCode": "const s=$input.first().json;\nconst d=s.documentReview||{};\nconst status=String(d['Replacement Request Status']||'').toUpperCase();\nconst notify=String(d['Replacement Notification Status']||'').toUpperCase();\nconst gateway=$('Send Replacement Request').item.json||{};\nif(status!=='AWAITING_STUDENT') throw new Error('Replacement request verification failed: '+status);\nif(!notify) throw new Error('Replacement notification status was not recorded');\nreturn [{json:{ok:true,referenceNo:s.referenceNo,verified:true,replacementStatus:status,notificationStatus:notify,requiresHuman:gateway.requiresHuman===true,waitingForStudent:true}}];"
+        "jsCode": "const s=$input.first().json;\nconst d=s.documentReview||{};\nconst status=String(d['Replacement Request Status']||'').toUpperCase();\nconst requestType=String(d['Replacement Request Type']||'').toUpperCase();\nconst notify=String(d['Replacement Notification Status']||'').toUpperCase();\nconst before=$('Verify Replacement Need').item.json||{};\nconst gateway=$('Send Student Document Request').item.json||{};\nif(status!=='AWAITING_STUDENT') throw new Error('Student document request verification failed: '+status);\nif(requestType!==String(before.requestType||'').toUpperCase()) throw new Error('Request type verification failed: '+requestType);\nif(!notify) throw new Error('Student notification status was not recorded');\nreturn [{json:{\n  ok:true,\n  referenceNo:s.referenceNo,\n  verified:true,\n  requestType,\n  requestStatus:status,\n  notificationStatus:notify,\n  requiresHuman:gateway.requiresHuman===true,\n  waitingForStudent:true\n}}];"
       },
       "id": "verify-after",
       "name": "Verify Student Request",
@@ -194,18 +194,7 @@
       "main": [
         [
           {
-            "node": "Send Replacement Request",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "Send Replacement Request": {
-      "main": [
-        [
-          {
-            "node": "Read State After",
+            "node": "Send Student Document Request",
             "type": "main",
             "index": 0
           }
@@ -228,6 +217,17 @@
         [
           {
             "node": "Return Concierge Result",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Send Student Document Request": {
+      "main": [
+        [
+          {
+            "node": "Read State After",
             "type": "main",
             "index": 0
           }
