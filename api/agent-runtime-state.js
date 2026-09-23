@@ -2,6 +2,7 @@ const SPREADSHEET_ID = '1O-Y-q7_q78xKM1p5e2C3EWyQfYr5rXvhO0oWbVaw5Mw';
 const AUTH_WEB_APP = 'https://script.google.com/macros/s/AKfycbw22-UOsHkaap3dzU16aOjA6XFr7jWGr9qQPfp8F1CQrXboP7YdRZJKKJhHijC3us4/exec';
 const EVENT_SHEET = 'V2_AGENT_EVENTS';
 const EXECUTION_SHEET = 'V2_AGENT_EXECUTIONS';
+const HUMAN_TASK_SHEET = 'V2_HUMAN_TASKS';
 
 function parseCsv(text) {
   const rows=[]; let row=[], field='', quoted=false;
@@ -61,9 +62,12 @@ export default async function handler(req,res){
   if(!(await validateAdminPassword(password)))return res.status(401).json({ok:false,message:'Invalid admin password.'});
 
   try{
-    const [eventResult,executionResult]=await Promise.all([fetchSheet(EVENT_SHEET),fetchSheet(EXECUTION_SHEET)]);
+    const [eventResult,executionResult,humanTaskResult]=await Promise.all([
+      fetchSheet(EVENT_SHEET),fetchSheet(EXECUTION_SHEET),fetchSheet(HUMAN_TASK_SHEET)
+    ]);
     const events=eventResult.rows.sort((a,b)=>ts(a)-ts(b)).slice(-150);
     const executions=executionResult.rows.sort((a,b)=>ts(a)-ts(b)).slice(-150);
+    const humanTasks=humanTaskResult.rows.sort((a,b)=>ts(a)-ts(b)).slice(-150);
 
     const now=Date.now();
     const liveN8nEvent=events.slice().reverse().find(r=>{
@@ -75,21 +79,18 @@ export default async function handler(req,res){
     const running=executions.filter(r=>String(r['Status']||'').toUpperCase()==='RUNNING').length;
     const failed=executions.filter(r=>String(r['Status']||'').toUpperCase()==='FAILED').length;
     const completed=executions.filter(r=>String(r['Status']||'').toUpperCase()==='COMPLETED').length;
-    const latestByRef={};
-    events.forEach(r=>{const ref=String(r['Reference No']||'').trim();if(ref)latestByRef[ref]=r;});
-    const humanWaiting=Object.values(latestByRef).filter(r=>
-      String(r['Status']||'').toUpperCase()==='WAITING_HUMAN' ||
-      (String(r['Requires Human']||'').toUpperCase()==='YES' && !/COMPLETED|RESOLVED/.test(String(r['Status']||'').toUpperCase()))
-    ).length;
+    const openHumanTasks=humanTasks.filter(r=>['OPEN','WAITING_HUMAN','IN_REVIEW'].includes(String(r['Status']||'').toUpperCase()));
+    const humanWaiting=openHumanTasks.length;
 
     return res.status(200).json({
       ok:true,
-      bridgeReady:eventResult.exists&&executionResult.exists,
+      bridgeReady:eventResult.exists&&executionResult.exists&&humanTaskResult.exists,
       n8nLive:!!liveN8nEvent,
       lastN8nEventAt:liveN8nEvent?liveN8nEvent['Timestamp']:'',
       events,
       executions,
-      summary:{running,failed,completed,humanWaiting,totalEvents:events.length,totalExecutions:executions.length}
+      humanTasks,
+      summary:{running,failed,completed,humanWaiting,totalEvents:events.length,totalExecutions:executions.length,totalHumanTasks:humanTasks.length}
     });
   }catch(error){
     return res.status(502).json({ok:false,message:error?.message||'Unable to load agent runtime state.'});
