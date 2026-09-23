@@ -329,6 +329,21 @@ function v2AgentActionGateway_(data, actor) {
         referenceNo:reference,
         finalize:input.finalize === true
       }, v2AgentDisplayName_(agentId) + ' via n8n');
+    } else if (requestedAction === 'SEND_DOCUMENT_REPLACEMENT_REQUEST') {
+      if (agentId !== 'STUDENT_CONCIERGE') {
+        throw new Error('SEND_DOCUMENT_REPLACEMENT_REQUEST is restricted to STUDENT_CONCIERGE.');
+      }
+      const qualityStatus = String(
+        doc && doc.record['AI Quality Status'] ||
+        workflow.record['Document Quality Status'] || ''
+      ).toUpperCase();
+      if (qualityStatus !== 'FOLLOW_UP_REQUIRED') {
+        throw new Error('Student document replacement request blocked: Document Quality Status is not FOLLOW_UP_REQUIRED.');
+      }
+      result = v2SendDocumentReplacementRequest_({
+        referenceNo:reference,
+        executionId:executionId
+      }, 'Student Concierge Agent via n8n');
     } else {
       throw new Error('Unsupported agent gateway action: ' + requestedAction);
     }
