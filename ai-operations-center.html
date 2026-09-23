@@ -560,7 +560,6 @@
     tag.className='tag '+(open.length?'amber':'green');
     if(!open.length){
       host.innerHTML='<div class="decision" style="border-left-color:var(--green)"><b>No live human task</b><p>AI agents currently have no unresolved authority request.</p></div>';
-      syncDecisionTab?.();
       return;
     }
     host.innerHTML=open.slice().reverse().slice(0,8).map(t=>{
@@ -573,7 +572,6 @@
         '<button class="decision-open-btn" type="button" onclick="openHumanTaskResolution(\''+escapeHtml(taskId)+'\')">Review Task</button>'+
       '</div>';
     }).join('');
-    syncDecisionTab?.();
   }
 
   function derive(){
