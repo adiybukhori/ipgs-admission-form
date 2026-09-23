@@ -231,7 +231,7 @@ function v2AgentActionGateway_(data, actor) {
   const executionId = v2Required_(input.executionId, 'Execution ID');
   const agentId = v2Required_(input.agentId, 'Agent ID').toUpperCase();
   const requestedAction = v2Required_(input.requestedAction, 'Requested Action').toUpperCase();
-  const isGlobalAction = requestedAction === 'RUN_MANAGEMENT_INTELLIGENCE';
+  const isGlobalAction = ['RUN_MANAGEMENT_INTELLIGENCE','RUN_ORIENTATION_SUPERVISOR'].indexOf(requestedAction)>=0;
   const reference = isGlobalAction ? String(input.referenceNo || '').trim() : v2Required_(input.referenceNo, 'Reference No');
   const now = new Date().toISOString();
 
@@ -289,7 +289,15 @@ function v2AgentActionGateway_(data, actor) {
   try {
     let result;
 
-    if (requestedAction === 'RUN_MANAGEMENT_INTELLIGENCE') {
+    if (requestedAction === 'RUN_ORIENTATION_SUPERVISOR') {
+      if (agentId !== 'ORIENTATION') {
+        throw new Error('RUN_ORIENTATION_SUPERVISOR is restricted to ORIENTATION.');
+      }
+      result = v2RunOrientationSessionSupervisor_({
+        sessionId:String(input.sessionId||''),
+        closeGraceMinutes:Number(input.closeGraceMinutes||30)
+      }, 'Orientation Management Agent via n8n');
+    } else if (requestedAction === 'RUN_MANAGEMENT_INTELLIGENCE') {
       if (agentId !== 'MANAGEMENT_INTELLIGENCE') {
         throw new Error('RUN_MANAGEMENT_INTELLIGENCE is restricted to MANAGEMENT_INTELLIGENCE.');
       }
