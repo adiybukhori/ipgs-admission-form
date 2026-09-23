@@ -30,7 +30,7 @@ function toObjects(csv){
 
 async function validateAdminPassword(password){
   if(!password)return false;
-  const url=`${AUTH_WEB_APP}?action=applications&token=${encodeURIComponent(password)}&_=\${Date.now()}`.replace('\\1790140178054',Date.now());
+  const url = AUTH_WEB_APP + '?action=applications&token=' + encodeURIComponent(password) + '&_=' + Date.now();
   const response=await fetch(url,{redirect:'follow'});
   const text=await response.text();
   try{const data=JSON.parse(text);return response.ok&&data&&data.ok===true;}catch(_){return false;}
@@ -75,7 +75,12 @@ export default async function handler(req,res){
     const running=executions.filter(r=>String(r['Status']||'').toUpperCase()==='RUNNING').length;
     const failed=executions.filter(r=>String(r['Status']||'').toUpperCase()==='FAILED').length;
     const completed=executions.filter(r=>String(r['Status']||'').toUpperCase()==='COMPLETED').length;
-    const humanWaiting=events.filter(r=>String(r['Event Type']||'').toUpperCase()==='HUMAN_TASK_CREATED' && String(r['Status']||'').toUpperCase()==='WAITING_HUMAN').length;
+    const latestByRef={};
+    events.forEach(r=>{const ref=String(r['Reference No']||'').trim();if(ref)latestByRef[ref]=r;});
+    const humanWaiting=Object.values(latestByRef).filter(r=>
+      String(r['Status']||'').toUpperCase()==='WAITING_HUMAN' ||
+      (String(r['Requires Human']||'').toUpperCase()==='YES' && !/COMPLETED|RESOLVED/.test(String(r['Status']||'').toUpperCase()))
+    ).length;
 
     return res.status(200).json({
       ok:true,
