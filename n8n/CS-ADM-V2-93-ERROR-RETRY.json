@@ -1,0 +1,215 @@
+{
+  "name": "CS-ADM-V2 | 93 ERROR & RETRY",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "cs-adm-v2-error-retry",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "retry-webhook",
+      "name": "Retry Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        -620,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const req=$input.first().json;\nconst h=req.headers||{};\nconst supplied=h['x-iuc-agent-secret']||h['X-IUC-Agent-Secret']||'';\nconst expected='REPLACE_WITH_N8N_EVENT_SHARED_SECRET';\nif(supplied!==expected) throw new Error('Invalid retry gateway secret');\nconst b=req.body||req;\nfor(const k of ['referenceNo','executionId','agentId','requestedAction']) if(!b[k]) throw new Error(k+' required');\nconst attempt=Number(b.attempt||0);\nconst maxRetries=Number(b.maxRetries||2);\nreturn [{json:{...b,attempt,maxRetries,nextAttempt:attempt+1,shouldRetry:attempt<maxRetries}}];"
+      },
+      "id": "retry-prepare",
+      "name": "Prepare Retry Decision",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -380,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "rules": {
+          "values": [
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict"
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.shouldRetry }}",
+                    "rightValue": true,
+                    "operator": {
+                      "type": "boolean",
+                      "operation": "true"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "retry"
+            }
+          ]
+        },
+        "options": {
+          "fallbackOutput": "extra"
+        }
+      },
+      "id": "retry-switch",
+      "name": "Retry Available?",
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3.2,
+      "position": [
+        -120,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://anasbukhori.app.n8n.cloud/webhook/cs-adm-v2-action-gateway",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "X-IUC-Agent-Secret",
+              "value": "REPLACE_WITH_N8N_EVENT_SHARED_SECRET"
+            }
+          ]
+        },
+        "sendBody": true,
+        "contentType": "raw",
+        "rawContentType": "application/json",
+        "body": "={{ JSON.stringify({operation:'execute',executionId:$json.executionId,referenceNo:$json.referenceNo,agentId:$json.agentId,requestedAction:$json.requestedAction,retryAttempt:$json.nextAttempt}) }}",
+        "options": {}
+      },
+      "id": "retry-action",
+      "name": "Retry Agent Action",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        160,
+        -120
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://anasbukhori.app.n8n.cloud/webhook/cs-adm-v2-human-task-gateway",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "X-IUC-Agent-Secret",
+              "value": "REPLACE_WITH_N8N_EVENT_SHARED_SECRET"
+            }
+          ]
+        },
+        "sendBody": true,
+        "contentType": "raw",
+        "rawContentType": "application/json",
+        "body": "={{ JSON.stringify({operation:'create',referenceNo:$json.referenceNo,taskType:'AGENT_EXECUTION_FAILURE',title:'Agent execution failed after retry limit',reason:$json.error||'Agent action failed after retry limit.',raisedByAgent:$json.agentId,agentId:$json.agentId,executionId:$json.executionId,priority:'HIGH',assignedTo:'Registrar / System Administrator',resumeEvent:'HUMAN_TASK_COMPLETED',source:'N8N'}) }}",
+        "options": {}
+      },
+      "id": "retry-escalate",
+      "name": "Escalate to Human Task",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        160,
+        120
+      ]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ $json }}",
+        "options": {}
+      },
+      "id": "retry-response",
+      "name": "Return Retry Result",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.4,
+      "position": [
+        440,
+        0
+      ]
+    }
+  ],
+  "connections": {
+    "Retry Webhook": {
+      "main": [
+        [
+          {
+            "node": "Prepare Retry Decision",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Prepare Retry Decision": {
+      "main": [
+        [
+          {
+            "node": "Retry Available?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Retry Available?": {
+      "main": [
+        [
+          {
+            "node": "Retry Agent Action",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Escalate to Human Task",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Retry Agent Action": {
+      "main": [
+        [
+          {
+            "node": "Return Retry Result",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Escalate to Human Task": {
+      "main": [
+        [
+          {
+            "node": "Return Retry Result",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "tags": []
+}
