@@ -129,7 +129,7 @@
     },
     {
       "parameters": {
-        "jsCode": "const s=$input.first().json;\nconst w=s.workflow||{};\nconst exec=$('Prepare Registry SKY Activation').item.json||{};\nconst activation=String(w['SKY Activation Status']||'NOT_ACTIVATED').toUpperCase();\nconst waitingHuman=exec.requiresHuman===true || String(exec.status||'').toUpperCase()==='WAITING_HUMAN';\nif(!waitingHuman && activation!=='ACTIVATED') throw new Error('Systems Operator verification failed: expected Human Task or ACTIVATED state');\nreturn [{json:{\n  ok:true,referenceNo:s.referenceNo,\n  skyProspectId:w['SKY Prospect ID']||'',\n  feeGroup:w['Fee Group']||'',\n  skyActivationStatus:activation,\n  requiresHuman:waitingHuman,\n  verified:true\n}}];"
+        "jsCode": "const s=$input.first().json;\nconst w=s.workflow||{};\nconst exec=$('Prepare Registry SKY Activation').item.json||{};\nconst activation=String(w['SKY Activation Status']||'NOT_ACTIVATED').toUpperCase();\nconst resultStatus=String(exec.result?.status||exec.status||'').toUpperCase();\nconst waitingHuman=exec.requiresHuman===true || resultStatus==='WAITING_HUMAN';\nconst waitingAcceptance=resultStatus==='WAITING_ACCEPTANCE';\nif(!waitingHuman && !waitingAcceptance && activation!=='ACTIVATED'){\n  throw new Error('Systems Operator verification failed: expected WAITING_ACCEPTANCE, Human Task or ACTIVATED state');\n}\nreturn [{json:{\n  ok:true,\n  referenceNo:s.referenceNo,\n  skyProspectId:w['SKY Prospect ID']||'',\n  feeGroup:w['Fee Group']||'',\n  skyActivationStatus:activation,\n  resultStatus,\n  requiresHuman:waitingHuman,\n  waitingAcceptance,\n  verified:true\n}}];"
       },
       "id": "verify-after",
       "name": "Verify Systems Result",
