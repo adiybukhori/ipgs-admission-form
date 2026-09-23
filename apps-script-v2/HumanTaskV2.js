@@ -118,6 +118,62 @@ function v2ResolveHumanTask_(data,actor){
   const reference=String(found.record['Reference No']||'');
   const resolution=input.resolution&&typeof input.resolution==='object'?input.resolution:{};
   const resumeEvent=String(found.record['Resume Event']||'HUMAN_TASK_COMPLETED').toUpperCase();
+  const taskType=String(found.record['Task Type']||'').toUpperCase();
+
+  // Screening exceptions: human resolves the authority question, not the full case.
+  // AI-extracted Field Relationship + Relevant Work Experience are reused unless
+  // the authorised reviewer explicitly overrides them.
+  let screeningResolution=null;
+  if (taskType==='ADMISSION_SCREENING_REVIEW' && ['APPROVE','CONFIRM','RESOLVED'].indexOf(decision)>-1) {
+    const ai=v2Find_('V2_AI_SCREENING','Reference No',reference);
+    const qs=v2Find_('V2_QUALIFICATION_SCREENING','Reference No',reference);
+    const field=String(
+      resolution.fieldClassification ||
+      ai && (ai.record['Field Classification'] || ai.record['Human Field Classification']) ||
+      qs && qs.record['Field Classification'] || ''
+    ).trim().toUpperCase();
+    const experience=String(
+      resolution.relevantWorkExperience ||
+      ai && (ai.record['Relevant Work Experience'] || ai.record['Human Relevant Work Experience']) ||
+      qs && qs.record['Relevant Work Experience'] || ''
+    ).trim().toUpperCase();
+    const recommendation=String(
+      resolution.recommendedRoute ||
+      qs && qs.record['Recommended Route'] || ''
+    ).trim().toUpperCase();
+
+    if (!field) throw new Error('Human screening resolution requires Field Classification or a reusable AI classification.');
+    if (!experience) throw new Error('Human screening resolution requires Relevant Work Experience or a reusable AI result.');
+    if (!recommendation) throw new Error('Human screening resolution requires an authorised screening recommendation.');
+
+    const equivalencyNote=String(resolution.gradeEquivalencyNote || resolution.equivalencyNote || '').trim();
+    const reviewRemarks=[
+      String(input.notes||input.resolutionNotes||'').trim(),
+      equivalencyNote ? ('Grade equivalency / academic confirmation: '+equivalencyNote) : ''
+    ].filter(Boolean).join(' | ');
+
+    if (ai) {
+      v2UpdateRow_(ai.sheet,ai.rowNumber,{
+        'Human Review Status':'CONFIRMED',
+        'Human Reviewed At':now,
+        'Human Reviewed By':resolvedBy,
+        'Human Field Classification':field,
+        'Human Relevant Work Experience':experience,
+        'Human Remarks':reviewRemarks,
+        'Confirmed For Rule Engine':'YES',
+        'Rule Engine Input Source':'HUMAN_CONFIRMED_AI',
+        'Last Updated':now
+      });
+    }
+
+    screeningResolution=v2CompleteManualQualificationScreening_({
+      referenceNo:reference,
+      fieldClassification:field,
+      relevantWorkExperience:experience,
+      recommendedRoute:recommendation,
+      remarks:reviewRemarks || ('Human task '+taskId+' confirmed the AI-assisted screening exception.')
+    },resolvedBy);
+  }
 
   const updates={
     'Status':'RESOLVED',
@@ -142,7 +198,7 @@ function v2ResolveHumanTask_(data,actor){
       executionId:String(found.record['Related Execution ID']||''),
       source:'HUMAN_DECISION_DESK',
       summary:'Human task '+taskId+' resolved: '+decision+'.',
-      data:{taskId:taskId,decision:decision,resolution:resolution,resolvedBy:resolvedBy}
+      data:{taskId:taskId,decision:decision,resolution:resolution,resolvedBy:resolvedBy,screeningResolution:screeningResolution}
     });
   }
 
@@ -158,7 +214,8 @@ function v2ResolveHumanTask_(data,actor){
     resumeEvent:resumeEvent,
     resolvedBy:resolvedBy,
     resolvedAt:now,
-    resolution:resolution
+    resolution:resolution,
+    screeningResolution:screeningResolution
   };
 }
 
