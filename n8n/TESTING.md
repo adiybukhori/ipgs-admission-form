@@ -362,3 +362,39 @@ Expected for each:
 
 Negative check:
 - ISSUE_OFFER against a case that is not ELIGIBLE_FOR_OFFER is rejected unless the Offer is already ISSUED (idempotent existing-state response).
+
+
+## Test X — Orientation lifecycle supervisor
+
+Use a controlled Orientation Session with assigned/invited students and a valid start/end time.
+
+Expected:
+- The n8n Orientation lifecycle supervisor runs every 15 minutes.
+- At/after session start, attendance opens automatically if not already open.
+- Existing Attendance Link email logic is reused.
+- Existing D3/D2/D1/H1 reminder scheduler remains authoritative; n8n does not duplicate reminders.
+- Attendance remains open through the configured 30-minute post-session grace period.
+- After grace period, attendance closes and the session is marked ENDED.
+
+## Test Y — Unresolved attendance after session
+
+Expected:
+- Any active student with attendance not ATTENDED / ABSENT / EXCUSED receives a durable ORIENTATION_ATTENDANCE_REVIEW_REQUIRED task.
+- Human Decision Desk shows Session ID and current attendance.
+- Human selects ATTENDED, ABSENT or EXCUSED.
+- After resolution, the Orientation supervisor re-runs automatically for that session.
+- The student is not made Academic Handover READY merely because attendance is recorded; official Orientation completion is still required.
+
+## Test Z — Recording and official completion
+
+Expected:
+- Once all attendance is resolved, missing recording URL creates ORIENTATION_RECORDING_URL_REQUIRED.
+- Human enters the recording URL in Decision Desk.
+- Orientation Agent sends the existing recording email to assigned students.
+- Recording delivery is verified.
+- Completion Assessment has no blockers.
+- Official Orientation report is generated.
+- Session Status becomes COMPLETED.
+- ATTENDED students receive Orientation Status = COMPLETED and Academic Handover Status = READY.
+- ORIENTATION_COMPLETED events route those students to Academic Handover Agent.
+- ABSENT / EXCUSED students are not routed as handover-ready by the completion action.
