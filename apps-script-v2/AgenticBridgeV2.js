@@ -363,6 +363,15 @@ function v2AgentActionGateway_(data, actor) {
         referenceNo:reference,
         executionId:executionId
       }, 'SAC / IA Coordination Agent via n8n');
+    } else if (requestedAction === 'PREPARE_ORIENTATION_FOR_ACCEPTED') {
+      if (agentId !== 'ORIENTATION') {
+        throw new Error('PREPARE_ORIENTATION_FOR_ACCEPTED is restricted to ORIENTATION.');
+      }
+      result = v2PrepareOrientationForAccepted_({
+        referenceNo:reference,
+        executionId:executionId,
+        sessionId:String(input.sessionId||'')
+      }, 'Orientation Management Agent via n8n');
     } else {
       throw new Error('Unsupported agent gateway action: ' + requestedAction);
     }
