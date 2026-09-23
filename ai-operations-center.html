@@ -418,7 +418,7 @@
   const DATA_API='/api/admin-data';
   const AGENT_RUNTIME_API='/api/agent-runtime-state';
   const password=sessionStorage.getItem('ipgsAdminPassword')||'';
-  let state={apps:[],workflow:[],docReview:[],aiScreening:[],qualification:[],sacSessions:[],sacCandidates:[],assessment:[],orientationSessions:[],orientation:[],handover:[],activation:[],audit:[],agentEvents:[],agentExecutions:[],humanTasks:[],agentRuntime:null,decisions:0,exceptions:0};
+  let state={apps:[],workflow:[],docReview:[],aiScreening:[],qualification:[],sacSessions:[],sacCandidates:[],assessment:[],orientationSessions:[],orientation:[],handover:[],provisioning:[],activation:[],audit:[],agentEvents:[],agentExecutions:[],humanTasks:[],agentRuntime:null,decisions:0,exceptions:0};
   window.AI_OPS_STATE=state;
 
   if(!password){ location.href='/admin.html'; }
@@ -448,6 +448,7 @@
       state.orientationSessions=rows(d,'V2_ORIENTATION_SESSIONS');
       state.orientation=rows(d,'V2_ORIENTATION_TRACKING');
       state.handover=rows(d,'V2_HANDOVER_STUDENTS');
+      state.provisioning=rows(d,'V2_PROVISIONING');
       state.activation=[...rows(d,'V2_AGENT_PROSPECT_LOG'),...rows(d,'V2_ACTIVATION_TRACKING'),...rows(d,'V2_ACTIVATION')];
       state.audit=rows(d,'V2_AUDIT_LOG');
       state.agentEvents=rows(d,'V2_AGENT_EVENTS');
@@ -706,6 +707,8 @@
     const wf=(state.workflow||[]).filter(r=>String(r['Reference No']||'')===ref).slice(-1)[0]||{};
     const sac=(state.sacCandidates||[]).filter(r=>String(r['Reference No']||'')===ref).slice(-1)[0]||{};
     const assessment=(state.assessment||[]).filter(r=>String(r['Reference No']||'')===ref).slice(-1)[0]||{};
+    const provisioning=(state.provisioning||[]).filter(r=>String(r['Reference No']||'')===ref).slice(-1)[0]||{};
+    const handoverStudent=(state.handover||[]).filter(r=>String(r['Reference No']||'')===ref).slice(-1)[0]||{};
     const openSacSessions=(state.sacSessions||[]).filter(r=>!/(FINAL|CLOSED|CANCEL)/.test(String(r['Status']||'DRAFT').toUpperCase())).sort((a,b)=>String(a['Meeting Date']||'').localeCompare(String(b['Meeting Date']||'')));
     const openOrientationSessions=(state.orientationSessions||[]).filter(r=>['SCHEDULED','OPEN','ACTIVE'].includes(String(r['Status']||'SCHEDULED').toUpperCase())).sort((a,b)=>{
       const av=String(a['Session Date']||'')+' '+String(a['Start Time']||'');
@@ -758,6 +761,40 @@
             '<button id="humanQualityReplaceBtn" type="button" onclick="resolveHumanQualityTask(\''+escapeHtml(taskId)+'\',\'FOLLOW_UP_REQUIRED\')">Require Replacement</button>'+
             '<button id="humanQualityPassBtn" class="confirm" type="button" onclick="resolveHumanQualityTask(\''+escapeHtml(taskId)+'\',\'PASS\')">Confirm Quality PASS</button>'+
           '</div>'+
+        '</div>';
+    }else if(taskType==='HANDOVER_CONFIGURATION_REQUIRED'){
+      taskForm=
+        '<div class="human-task-form">'+
+          '<div class="human-task-evidence">'+
+            '<div><small>Orientation Session</small><b>'+escapeHtml(wf['Orientation Session ID']||'—')+'</b></div>'+
+            '<div><small>Handover Status</small><b>'+escapeHtml(wf['Academic Handover Status']||'READY')+'</b></div>'+
+          '</div>'+
+          '<label>Academic PIC Email<input id="handoverAcademicEmail" type="email" style="width:100%;border:1px solid var(--line);border-radius:11px;background:#0a1025;color:#eef1ff;padding:10px;font:inherit;font-size:11px" placeholder="academic@innovative.edu.my"></label>'+
+          '<label>IT PIC Email<input id="handoverItEmail" type="email" style="width:100%;border:1px solid var(--line);border-radius:11px;background:#0a1025;color:#eef1ff;padding:10px;font:inherit;font-size:11px" placeholder="IT PIC"></label>'+
+          '<label>Moodle PIC Email<input id="handoverMoodleEmail" type="email" style="width:100%;border:1px solid var(--line);border-radius:11px;background:#0a1025;color:#eef1ff;padding:10px;font:inherit;font-size:11px" placeholder="Moodle PIC"></label>'+
+          '<label>E-Library PIC Email<input id="handoverLibraryEmail" type="email" style="width:100%;border:1px solid var(--line);border-radius:11px;background:#0a1025;color:#eef1ff;padding:10px;font:inherit;font-size:11px" placeholder="e-Library PIC"></label>'+
+          '<label>Batch Name <span style="text-transform:none;font-weight:500">(optional)</span><input id="handoverBatchName" style="width:100%;border:1px solid var(--line);border-radius:11px;background:#0a1025;color:#eef1ff;padding:10px;font:inherit;font-size:11px" placeholder="Leave blank for automatic Orientation-session batch name"></label>'+
+          '<div class="human-task-actions"><button type="button" onclick="document.getElementById(\'humanTaskOverlay\').remove()">Cancel</button><button id="handoverConfigBtn" class="confirm" type="button" onclick="resolveHandoverConfigurationTask(\''+escapeHtml(taskId)+'\')">Create & Send Handover Batch</button></div>'+
+        '</div>';
+    }else if(taskType==='STUDENT_ACCESS_CREDENTIALS_REQUIRED'){
+      const innovativeEmail=String(provisioning['Innovative Email']||wf['Innovative Email']||'');
+      const moodleLogin=String(provisioning['Moodle Login Email']||app['Personal Email']||wf['Personal Email']||'');
+      taskForm=
+        '<div class="human-task-form">'+
+          '<div class="human-task-evidence">'+
+            '<div><small>IT</small><b>'+escapeHtml(provisioning['IT Email Status']||'—')+'</b></div>'+
+            '<div><small>Moodle</small><b>'+escapeHtml(provisioning['Moodle Status']||'—')+'</b></div>'+
+            '<div><small>e-Library</small><b>'+escapeHtml(provisioning['E-Library Status']||'—')+'</b></div>'+
+            '<div><small>Batch</small><b>'+escapeHtml(provisioning['Handover Batch ID']||handoverStudent['Handover Batch ID']||'—')+'</b></div>'+
+          '</div>'+
+          '<div style="padding:10px 12px;border:1px solid rgba(72,201,151,.22);background:rgba(72,201,151,.05);border-radius:11px;font-size:10px;color:#bfe8d6;line-height:1.55"><b>Security:</b> temporary passwords are sent directly to the existing delivery action and are not stored in the Human Task, spreadsheet audit, or agent event.</div>'+
+          '<label>Innovative Email<input id="accessInnovativeEmail" type="email" value="'+escapeHtml(innovativeEmail)+'" autocomplete="off" style="width:100%;border:1px solid var(--line);border-radius:11px;background:#0a1025;color:#eef1ff;padding:10px;font:inherit;font-size:11px"></label>'+
+          '<label>Innovative Email Temporary Password<input id="accessItPassword" type="password" autocomplete="new-password" style="width:100%;border:1px solid var(--line);border-radius:11px;background:#0a1025;color:#eef1ff;padding:10px;font:inherit;font-size:11px"></label>'+
+          '<label>Moodle Login<input id="accessMoodleLogin" value="'+escapeHtml(moodleLogin)+'" autocomplete="off" style="width:100%;border:1px solid var(--line);border-radius:11px;background:#0a1025;color:#eef1ff;padding:10px;font:inherit;font-size:11px"></label>'+
+          '<label>Moodle Temporary Password<input id="accessMoodlePassword" type="password" autocomplete="new-password" style="width:100%;border:1px solid var(--line);border-radius:11px;background:#0a1025;color:#eef1ff;padding:10px;font:inherit;font-size:11px"></label>'+
+          '<label>e-Library Login<input id="accessLibraryLogin" value="'+escapeHtml(innovativeEmail)+'" autocomplete="off" style="width:100%;border:1px solid var(--line);border-radius:11px;background:#0a1025;color:#eef1ff;padding:10px;font:inherit;font-size:11px"></label>'+
+          '<label>e-Library Temporary Password<input id="accessLibraryPassword" type="password" autocomplete="new-password" style="width:100%;border:1px solid var(--line);border-radius:11px;background:#0a1025;color:#eef1ff;padding:10px;font:inherit;font-size:11px"></label>'+
+          '<div class="human-task-actions"><button type="button" onclick="document.getElementById(\'humanTaskOverlay\').remove()">Cancel</button><button id="sendAccessBtn" class="confirm" type="button" onclick="sendStudentAccessAndResolve(\''+escapeHtml(taskId)+'\',\''+escapeHtml(ref)+'\')">Send Access & Complete Handover</button></div>'+
         '</div>';
     }else if(taskType==='SKY_ACTIVATION_REQUIRED'){
       taskForm=
@@ -962,6 +999,79 @@
       alert(e.message||'Unable to record authorised outcome.');
       if(btn){btn.disabled=false;btn.textContent=label||'Confirm';}
       return null;
+    }
+  }
+
+  async function resolveHandoverConfigurationTask(taskId){
+    const academicEmail=(document.getElementById('handoverAcademicEmail')?.value||'').trim();
+    const itEmail=(document.getElementById('handoverItEmail')?.value||'').trim();
+    const moodleEmail=(document.getElementById('handoverMoodleEmail')?.value||'').trim();
+    const libraryEmail=(document.getElementById('handoverLibraryEmail')?.value||'').trim();
+    const name=(document.getElementById('handoverBatchName')?.value||'').trim();
+    if(!academicEmail||!itEmail||!moodleEmail||!libraryEmail){
+      alert('Please enter Academic, IT, Moodle and e-Library PIC email addresses.');
+      return;
+    }
+    await resolveHumanTaskGeneric(
+      taskId,
+      {academicEmail,itEmail,moodleEmail,libraryEmail,name},
+      'Handover PIC configuration confirmed in ACC.',
+      'handoverConfigBtn',
+      'Create & Send Handover Batch'
+    );
+  }
+
+  async function sendStudentAccessAndResolve(taskId,referenceNo){
+    const innovativeEmail=(document.getElementById('accessInnovativeEmail')?.value||'').trim();
+    const itTemporaryPassword=document.getElementById('accessItPassword')?.value||'';
+    const moodleLogin=(document.getElementById('accessMoodleLogin')?.value||'').trim();
+    const moodleTemporaryPassword=document.getElementById('accessMoodlePassword')?.value||'';
+    const eLibraryLogin=(document.getElementById('accessLibraryLogin')?.value||'').trim();
+    const eLibraryTemporaryPassword=document.getElementById('accessLibraryPassword')?.value||'';
+    if(!innovativeEmail||!itTemporaryPassword||!moodleLogin||!moodleTemporaryPassword||!eLibraryLogin||!eLibraryTemporaryPassword){
+      alert('Complete all login and temporary-password fields before sending.');
+      return;
+    }
+    const btn=document.getElementById('sendAccessBtn');
+    if(btn){btn.disabled=true;btn.textContent='Sending securely…';}
+    try{
+      const res=await fetch('/api/admin-action',{
+        method:'POST',
+        headers:{'Content-Type':'application/json'},
+        body:JSON.stringify({
+          password,
+          action:'v2SendStudentProvisioningAccess',
+          updatedBy:'ACC Human Decision Desk',
+          data:{
+            referenceNo,
+            innovativeEmail,
+            moodleLogin,
+            eLibraryLogin,
+            itTemporaryPassword,
+            moodleTemporaryPassword,
+            eLibraryTemporaryPassword
+          }
+        })
+      });
+      // Clear secret values immediately after the request leaves this page.
+      const secretIds=['accessItPassword','accessMoodlePassword','accessLibraryPassword'];
+      secretIds.forEach(id=>{const el=document.getElementById(id);if(el)el.value='';});
+      const out=await res.json();
+      if(!res.ok||!out.ok)throw new Error(out.message||'Unable to send student access details.');
+      const result=out.result||{};
+      if(result.sent!==true && String(result.status||'').toUpperCase()!=='SENT' && result.alreadySent!==true){
+        throw new Error('Student access delivery was not verified as SENT.');
+      }
+      await resolveHumanTaskGeneric(
+        taskId,
+        {accessDeliveryStatus:'SENT'},
+        'Student access delivery verified. No passwords stored in task resolution.',
+        'sendAccessBtn',
+        'Send Access & Complete Handover'
+      );
+    }catch(e){
+      alert(e.message||'Unable to send student access details.');
+      if(btn){btn.disabled=false;btn.textContent='Send Access & Complete Handover';}
     }
   }
 
@@ -1222,6 +1332,8 @@
   window.openHumanTaskResolution=openHumanTaskResolution;
   window.confirmHumanScreeningTask=confirmHumanScreeningTask;
   window.resolveHumanQualityTask=resolveHumanQualityTask;
+  window.resolveHandoverConfigurationTask=resolveHandoverConfigurationTask;
+  window.sendStudentAccessAndResolve=sendStudentAccessAndResolve;
   window.resolveSkyActivationTask=resolveSkyActivationTask;
   window.resolveOrientationSessionTask=resolveOrientationSessionTask;
   window.createOrientationSessionAndResolve=createOrientationSessionAndResolve;
