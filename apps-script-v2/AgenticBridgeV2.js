@@ -372,6 +372,14 @@ function v2AgentActionGateway_(data, actor) {
         executionId:executionId,
         sessionId:String(input.sessionId||'')
       }, 'Orientation Management Agent via n8n');
+    } else if (requestedAction === 'PREPARE_SKY_ACTIVATION') {
+      if (agentId !== 'SYSTEMS_OPERATOR') {
+        throw new Error('PREPARE_SKY_ACTIVATION is restricted to SYSTEMS_OPERATOR.');
+      }
+      result = v2PrepareSkyActivation_({
+        referenceNo:reference,
+        executionId:executionId
+      }, 'Systems Operator Agent via n8n');
     } else {
       throw new Error('Unsupported agent gateway action: ' + requestedAction);
     }
