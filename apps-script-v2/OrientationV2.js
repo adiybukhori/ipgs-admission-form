@@ -1486,6 +1486,92 @@ function v2OrientationGenerateOfficialReport_(sessionRecord, actor, options) {
   };
 }
 
+function v2OrientationFinalizeStudentReadiness_(sessionId, actor) {
+  const rows=v2Rows_('V2_ORIENTATION_TRACKING').filter(function(row){
+    return String(row['Orientation Session ID']||'')===String(sessionId||'') &&
+      (typeof v2OrientationAssignmentActive_!=='function'||v2OrientationAssignmentActive_(row));
+  });
+  const now=new Date().toISOString();
+  const summary={attended:0,notReady:0,routed:0,rows:[]};
+
+  rows.forEach(function(row){
+    const reference=String(row['Reference No']||'').trim();
+    if(!reference)return;
+    const attendance=String(row['Attendance Status']||'NOT_UPDATED').toUpperCase();
+    const tracking=v2FindComposite_(
+      'V2_ORIENTATION_TRACKING',
+      ['Orientation Session ID','Reference No'],
+      [sessionId,reference]
+    );
+    const workflow=v2Find_('V2_WORKFLOW','Reference No',reference);
+    if(!tracking||!workflow)return;
+
+    const previousHandover=String(
+      workflow.record['Academic Handover Status'] ||
+      tracking.record['Academic Handover Status'] ||
+      'NOT_READY'
+    ).toUpperCase();
+
+    if(attendance==='ATTENDED'){
+      summary.attended+=1;
+      v2UpdateRow_(tracking.sheet,tracking.rowNumber,{
+        'Academic Handover Status':'READY',
+        'Last Updated':now
+      });
+      v2UpdateRow_(workflow.sheet,workflow.rowNumber,{
+        'Orientation Status':'COMPLETED',
+        'Academic Handover Status':['HANDED_OVER','COMPLETED'].indexOf(previousHandover)>=0
+          ? previousHandover
+          : 'READY',
+        'Last Updated':now,
+        'Updated By':actor||'Orientation Completion'
+      });
+
+      if(['READY','HANDED_OVER','COMPLETED'].indexOf(previousHandover)<0 && typeof v2EmitAgentEvent_==='function'){
+        try{
+          v2EmitAgentEvent_({
+            referenceNo:reference,
+            eventType:'ORIENTATION_COMPLETED',
+            agentId:'ORCHESTRATOR',
+            agentName:'AI Orchestrator',
+            action:'ROUTE_ACADEMIC_HANDOVER',
+            status:'QUEUED',
+            fromStage:'ORIENTATION',
+            toStage:'ACADEMIC_HANDOVER',
+            requiresHuman:false,
+            source:'ADMISSION_V2',
+            summary:'Official orientation completion is recorded for an attended student. Route to Academic Handover Agent.',
+            data:{sessionId:String(sessionId||''),attendanceStatus:attendance}
+          });
+          summary.routed+=1;
+        }catch(eventError){
+          v2Audit_(reference,'AGENTIC_BRIDGE','ORIENTATION_COMPLETION_EVENT_FAILED',{},{
+            sessionId:String(sessionId||''),
+            message:String(eventError&&eventError.message||eventError)
+          },actor||'Orientation Completion','FAILED','Orientation completion remains valid; handover routing requires reconciliation.');
+        }
+      }
+      summary.rows.push({referenceNo:reference,attendanceStatus:attendance,academicHandoverStatus:'READY'});
+    }else{
+      summary.notReady+=1;
+      if(['HANDED_OVER','COMPLETED'].indexOf(previousHandover)<0){
+        v2UpdateRow_(tracking.sheet,tracking.rowNumber,{
+          'Academic Handover Status':'NOT_READY',
+          'Last Updated':now
+        });
+        v2UpdateRow_(workflow.sheet,workflow.rowNumber,{
+          'Orientation Status':attendance,
+          'Academic Handover Status':'NOT_READY',
+          'Last Updated':now,
+          'Updated By':actor||'Orientation Completion'
+        });
+      }
+      summary.rows.push({referenceNo:reference,attendanceStatus:attendance,academicHandoverStatus:previousHandover});
+    }
+  });
+  return summary;
+}
+
 function v2CompleteOrientationAndGenerateReport_(data, actor) {
   v2OrientationEnsureHeaders_();
   const sessionId=v2Required_(data.sessionId,'Orientation Session ID');
@@ -1494,6 +1580,7 @@ function v2CompleteOrientationAndGenerateReport_(data, actor) {
 
   const current=String(found.record['Status']||'').toUpperCase();
   if(current==='COMPLETED' && String(found.record['Report PDF URL']||'').trim()){
+    const readiness=v2OrientationFinalizeStudentReadiness_(sessionId,actor||'Orientation Completion Reconciliation');
     return {
       ok:true,
       alreadyCompleted:true,
@@ -1502,7 +1589,8 @@ function v2CompleteOrientationAndGenerateReport_(data, actor) {
       reportReference:String(found.record['Report Reference']||''),
       reportVersion:Number(found.record['Report Version']||1),
       reportPdfUrl:String(found.record['Report PDF URL']||''),
-      reportFileId:String(found.record['Report File ID']||'')
+      reportFileId:String(found.record['Report File ID']||''),
+      studentReadiness:readiness
     };
   }
 
@@ -1540,6 +1628,12 @@ function v2CompleteOrientationAndGenerateReport_(data, actor) {
   v2UpdateRow_(refreshed.sheet,refreshed.rowNumber,patch);
   v2Audit_('','ORIENTATION','COMPLETE_AND_GENERATE_REPORT',refreshed.record,Object.assign({},refreshed.record,patch),
     actor||'Admin Portal V2','SUCCESS','Orientation completed and official version 1 report generated.');
+
+  const studentReadiness=v2OrientationFinalizeStudentReadiness_(
+    sessionId,
+    actor||'Orientation Completion'
+  );
+
   v2InvalidateCache_();
   return {
     ok:true,
@@ -1550,7 +1644,8 @@ function v2CompleteOrientationAndGenerateReport_(data, actor) {
     reportVersion:report.reportVersion,
     reportPdfUrl:report.reportPdfUrl,
     reportFileId:report.reportFileId,
-    reportGeneratedAt:report.reportGeneratedAt
+    reportGeneratedAt:report.reportGeneratedAt,
+    studentReadiness:studentReadiness
   };
 }
 
@@ -2314,8 +2409,8 @@ function v2RunStage4Uat() {
     attendanceStatus: 'ATTENDED'
   }, actor);
 
-  if (!attendance || attendance.attendanceStatus !== 'ATTENDED' || attendance.academicHandoverStatus !== 'READY') {
-    throw new Error('Stage 4 UAT attendance / Academic Handover readiness gate failed.');
+  if (!attendance || attendance.attendanceStatus !== 'ATTENDED') {
+    throw new Error('Stage 4 UAT attendance update failed.');
   }
 
   const session = v2Find_('V2_ORIENTATION_SESSIONS', 'Orientation Session ID', sessionId);
@@ -2338,15 +2433,15 @@ function v2RunStage4Uat() {
   if (String(tracking.record['Attendance Status'] || '').toUpperCase() !== 'ATTENDED') {
     throw new Error('Stage 4 UAT tracking did not persist Attendance Status = ATTENDED.');
   }
-  if (!workflow || String(workflow.record['Academic Handover Status'] || '').toUpperCase() !== 'READY') {
-    throw new Error('Stage 4 UAT workflow did not persist Academic Handover Status = READY.');
+  if (!workflow || String(workflow.record['Academic Handover Status'] || 'NOT_READY').toUpperCase() !== 'NOT_READY') {
+    throw new Error('Stage 4 UAT policy mismatch: attendance alone must not make Academic Handover READY before official Orientation completion.');
   }
 
   v2Audit_(reference, 'ORIENTATION', 'STAGE4_UAT_PASS', {}, {
     sessionId: sessionId,
     invitationStatus: 'SENT',
     attendanceStatus: 'ATTENDED',
-    academicHandoverStatus: 'READY',
+    academicHandoverStatus: 'NOT_READY_UNTIL_OFFICIAL_COMPLETION',
     reminderAutomation: 'ACTIVE'
   }, actor, 'SUCCESS', 'Controlled Stage 4 end-to-end UAT passed.');
 
@@ -2360,7 +2455,7 @@ function v2RunStage4Uat() {
     reminderAutomation: 'ACTIVE',
     invitationStatus: 'SENT',
     attendanceStatus: 'ATTENDED',
-    academicHandoverStatus: 'READY',
+    academicHandoverStatus: 'NOT_READY_UNTIL_OFFICIAL_COMPLETION',
     sessionStatus: 'UAT_COMPLETE',
     build: V2_ORIENTATION_BUILD
   };
