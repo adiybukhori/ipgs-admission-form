@@ -164,3 +164,47 @@ Expected:
 - Document Quality Status becomes PENDING_REVIEW.
 - DOCUMENT_REPLACEMENT_RECEIVED routes back to Compliance.
 - Admission Intelligence remains blocked until the new Compliance result is PASS.
+
+
+## Test I — SAC Direct Entry
+
+Use a controlled READY_FOR_SAC applicant with a complete SAC pack.
+
+Expected:
+- SAC / IA Agent assigns the applicant to an open SAC session.
+- SAC pack is prepared and verified.
+- SAC_DECISION_REQUIRED is created.
+- No SAC decision is auto-selected.
+- Human records DIRECT_ENTRY.
+- Workflow moves to ELIGIBLE_FOR_OFFER.
+- No IA or prerequisite task is created.
+
+## Test J — SAC to IA, IA Qualified
+
+Expected:
+- Human SAC decision = INTERNAL_ASSESSMENT.
+- Workflow moves to INTERNAL_ASSESSMENT.
+- SAC / IA Agent creates / verifies IA progress.
+- IA_OUTCOME_REQUIRED is created.
+- Human IA outcome = QUALIFIED.
+- Workflow moves to ELIGIBLE_FOR_OFFER.
+
+## Test K — SAC to IA to Prerequisite
+
+Expected:
+- Human SAC decision = INTERNAL_ASSESSMENT.
+- Human IA outcome = PREREQUISITE_REQUIRED.
+- Workflow moves to PREREQUISITE.
+- SAC / IA Agent creates / verifies prerequisite progress.
+- PREREQUISITE_OUTCOME_REQUIRED is created.
+- Human prerequisite result = QUALIFIED.
+- Workflow moves to ELIGIBLE_FOR_OFFER.
+- Verify no direct SAC -> prerequisite path exists.
+
+## Test L — No SAC session available
+
+Expected:
+- Applicant remains READY_FOR_SAC.
+- SAC_SESSION_REQUIRED appears in V2_HUMAN_TASKS / ACC Decision Desk.
+- Human may select an existing session or create a controlled draft session from Decision Desk.
+- After session confirmation, the agent assigns the candidate, prepares the pack and creates SAC_DECISION_REQUIRED.
