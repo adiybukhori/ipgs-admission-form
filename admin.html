@@ -1050,6 +1050,51 @@
     function opsMsg(text,type='info'){const el=document.getElementById('opsMessage');if(!el)return;el.className='ops-message show '+type;el.textContent=text}
     function currentSacSession(r){return r.workflow?.['SAC Session ID']||r.sac?.['SAC Session ID']||r.sac?.['Session ID']||''}
     // PHASE2_SCREENING_OFFER_UI_V1
+    function documentQualityPanel(r){
+      const status=String(r.doc?.['AI Quality Status']||r.workflow?.['Document Quality Status']||'NOT_RUN').toUpperCase();
+      const confidenceRaw=Number(r.doc?.['AI Quality Confidence']||r.workflow?.['Document Quality Confidence']||0);
+      const confidence=Number.isFinite(confidenceRaw)&&confidenceRaw>0?Math.round((confidenceRaw<=1?confidenceRaw*100:confidenceRaw))+'%':'—';
+      let findings=[],followUp=[],flags=[];
+      try{findings=JSON.parse(r.doc?.['AI Quality Findings JSON']||'[]')}catch(_){}
+      try{followUp=JSON.parse(r.doc?.['AI Quality Follow-up JSON']||'[]')}catch(_){}
+      try{flags=JSON.parse(r.doc?.['AI Quality Flags JSON']||'[]')}catch(_){}
+      if(!Array.isArray(findings))findings=[];
+      if(!Array.isArray(followUp))followUp=[];
+      if(!Array.isArray(flags))flags=[];
+
+      const badgeClass=status==='PASS'?'green':status==='FOLLOW_UP_REQUIRED'||status==='HUMAN_REVIEW_REQUIRED'?'amber':'blue';
+      const issueRows=findings.filter(x=>String(x?.status||'').toUpperCase()!=='PASS').slice(0,8).map(x=>{
+        const issues=Array.isArray(x?.issues)?x.issues.filter(Boolean):[];
+        const evidence=Array.isArray(x?.evidence)?x.evidence.filter(Boolean):[];
+        return '<div style="padding:9px 10px;border:1px solid var(--line);border-radius:10px;background:#fafafd;margin-top:7px">'+
+          '<div style="display:flex;justify-content:space-between;gap:10px"><b style="font-size:11px">'+esc(x?.label||x?.field||'Document')+'</b><span class="badge '+(String(x?.status||'').toUpperCase()==='HUMAN_REVIEW'?'amber':'red')+'">'+esc(pretty(x?.status||'REVIEW'))+'</span></div>'+
+          (issues.length?'<div class="screening-help" style="margin-top:5px"><b>Issue:</b> '+esc(issues.join('; '))+'</div>':'')+
+          (evidence.length?'<div class="screening-help" style="margin-top:4px"><b>Evidence:</b> '+esc(evidence.join('; '))+'</div>':'')+
+          (x?.replacementInstruction?'<div class="screening-help" style="margin-top:4px"><b>Replacement:</b> '+esc(x.replacementInstruction)+'</div>':'')+
+        '</div>';
+      }).join('');
+
+      const followRows=followUp.slice(0,8).map(x=>
+        '<div style="padding:8px 10px;border-left:3px solid #d29a2e;background:#fff9ed;border-radius:8px;margin-top:6px;font-size:10px;line-height:1.45"><b>'+esc(x?.label||x?.field||'Document')+'</b> · '+esc(x?.instruction||'Replacement required')+'</div>'
+      ).join('');
+
+      const canRun=String(r.doc?.['Review Status']||r.workflow?.['Document Review Status']||'').toUpperCase()==='COMPLETE'&&String(stage(r)).toUpperCase()==='DOCUMENT_REVIEW';
+      const runButton=canRun?'<button class="ops-btn" onclick="runComplianceQualityReview()">'+(status==='NOT_RUN'?'Run AI Document Quality Review':'Re-run AI Document Quality Review')+'</button>':'';
+
+      return '<div class="screening-section">'+
+        '<div class="screening-result"><div><div class="screening-title">Compliance & Records AI · Document Quality</div>'+
+        '<div class="screening-help" style="margin:3px 0 0">Separate from file completeness. AI checks whether the submitted documents are actually usable: correct type, readability, crop/cut-off, blur/glare, orientation, page completeness and visible cross-document consistency.</div></div>'+
+        '<span class="badge '+badgeClass+'">'+esc(pretty(status))+'</span></div>'+
+        '<div style="display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;margin-top:10px">'+
+          '<div class="offer-mini"><span>AI Quality Status</span><b>'+esc(pretty(status))+'</b></div>'+
+          '<div class="offer-mini"><span>Confidence</span><b>'+esc(confidence)+'</b></div>'+
+        '</div>'+
+        (flags.length?'<div class="screening-help" style="margin-top:9px"><b>Flags:</b> '+esc(flags.join('; '))+'</div>':'')+
+        issueRows+followRows+
+        '<div class="screening-actions">'+runButton+'</div>'+
+      '</div>';
+    }
+
     function screeningControls(r){
       const aiStatus=String(r.ai?.['Status']||'AUTO PENDING').toUpperCase();
       const field=String(r.workflow?.['Field Classification']||r.screening?.['Field Classification']||r.ai?.['Field Classification']||r.ai?.['Human Field Classification']||'').toUpperCase();
@@ -1214,8 +1259,20 @@
       }else if(s==='DOCUMENT_REVIEW'){
         const docStatus=String(r.workflow?.['Document Review Status']||r.doc?.['Review Status']||'PENDING').toUpperCase();
         if(docStatus==='COMPLETE'){
-          copy='Documents are complete. AI Auto gets the first attempt automatically. If AI is pending, unavailable or needs review, use Manual Screening as the second layer so the application is not blocked.';
-          actions=screeningControls(r);
+          const qualityStatus=String(r.doc?.['AI Quality Status']||r.workflow?.['Document Quality Status']||'').toUpperCase();
+          if(qualityStatus==='FOLLOW_UP_REQUIRED'){
+            copy='Required files are present, but Compliance & Records AI found one or more document-quality issues. Replace the affected document(s) before academic screening.';
+            actions=documentQualityPanel(r);
+          }else if(qualityStatus==='HUMAN_REVIEW_REQUIRED'){
+            copy='Required files are present, but Compliance & Records AI found an ambiguous quality / records issue that requires authorised human review before academic screening.';
+            actions=documentQualityPanel(r);
+          }else if(qualityStatus==='PASS'){
+            copy='File completeness and AI document-quality review are both complete. The case may proceed to Admission Intelligence screening.';
+            actions=documentQualityPanel(r)+screeningControls(r);
+          }else{
+            copy='Required files are present. The agentic route will run Compliance & Records AI before academic screening. Existing manual / fallback screening remains available until n8n is activated.';
+            actions=documentQualityPanel(r)+screeningControls(r);
+          }
         }else{
           let missing=[];try{missing=JSON.parse(r.doc?.['Missing Documents JSON']||'[]')}catch(_){}const labels=Array.isArray(missing)?missing.map(x=>x?.label||x?.key||x).filter(Boolean):[];
           copy=docStatus==='INCOMPLETE'?(labels.length?`Documents incomplete: ${labels.join(', ')}. Upload the missing document(s) to the student folder/application record, then re-run the check.`:'Documents are incomplete. Upload the missing document(s), then re-run the check.'):'Document Review is ready to run.';
@@ -1352,6 +1409,7 @@
       }catch(e){opsMsg(e.message||'Unable to complete action.','error');return null}
     }
     function runDocumentReview(){if(!selected)return;runAdminAction('v2RunDocumentReview',{referenceNo:selected.ref,remarks:''},`Run document review for ${selected.app['Student Name']||selected.ref}?`)}
+    function runComplianceQualityReview(){if(!selected)return;runAdminAction('v2RunComplianceDocumentQuality',{referenceNo:selected.ref},`Run Compliance & Records AI document-quality inspection for ${selected.app['Student Name']||selected.ref}? This checks document usability and does not make an academic admission decision.`)}
     function retryAutoAiScreening(){if(!selected)return;runAdminAction('v2RunAutoAiScreening',{referenceNo:selected.ref},`Retry AI Auto screening for ${selected.app['Student Name']||selected.ref}? Manual Screening remains available if AI cannot complete it.`)}
     function generateAiScreeningReport(){if(!selected)return;runAdminAction('v2GenerateAiScreeningReport',{referenceNo:selected.ref,finalize:true},`Generate or refresh the official AI Admission Screening Report for ${selected.app['Student Name']||selected.ref}? The backend will keep it pending if a human exception is still required.`)}
     async function runQualificationScreening(){if(!selected)return;const field=document.getElementById('opsFieldClassification')?.value||'',exp=document.getElementById('opsWorkExperience')?.value||'';if(!field||!exp)return opsMsg('Select Field Relationship and Relevant Work Experience first.','error');const btn=document.getElementById('manualScreeningBtn');if(btn){btn.disabled=true;btn.textContent='Checking…'}const started=performance.now();try{const result=await runAdminAction('v2RunQualificationScreening',{referenceNo:selected.ref,fieldClassification:field,relevantWorkExperience:exp,remarks:'Manual second-layer screening from Admin Portal'},`Run MANUAL qualification screening for ${selected.app['Student Name']||selected.ref}? If AI has already completed screening, the resolved stage will be preserved.`);if(result){const totalMs=Math.round(performance.now()-started);const backendMs=Number(result.performanceMs||0);opsMsg(`Screening saved in ${(totalMs/1000).toFixed(1)}s${backendMs? ` · backend ${(backendMs/1000).toFixed(1)}s`:''}.`,'ok')}}finally{const current=document.getElementById('manualScreeningBtn');if(current){current.disabled=false;current.textContent='Run Manual Screening'}}}
