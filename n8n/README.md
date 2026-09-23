@@ -7,6 +7,7 @@ This folder contains the first isolated n8n workflows for the Campus Simulation 
 - CS-ADM-V2 | 90 EVENT INGRESS
 - CS-ADM-V2 | 91 ACTION GATEWAY
 - CS-ADM-V2 | 00 ORCHESTRATOR
+- CS-ADM-V2 | 01 COMPLIANCE
 - CS-ADM-V2 | 02 ADMISSION INTELLIGENCE
 - CS-ADM-V2 | 92 HUMAN TASK GATEWAY
 - CS-ADM-V2 | 93 ERROR & RETRY
@@ -27,7 +28,7 @@ ACC / Campus Simulation reads V2_AGENT_EVENTS and V2_AGENT_EXECUTIONS.
 
 ## Required configuration before activation
 
-1. Import all six JSON files into the dedicated n8n project:
+1. Import all seven JSON files into the dedicated n8n project:
    IUC | Campus Simulation | Admission V2
 2. Replace REPLACE_WITH_N8N_EVENT_SHARED_SECRET in all workflows with one strong shared secret.
 3. Replace REPLACE_WITH_V2_ADMIN_API_PASSWORD in the Action Gateway workflow with the protected V2 backend token, preferably via n8n credentials rather than plain text.
@@ -35,6 +36,7 @@ ACC / Campus Simulation reads V2_AGENT_EVENTS and V2_AGENT_EXECUTIONS.
    - 91 ACTION GATEWAY
    - 92 HUMAN TASK GATEWAY
    - 93 ERROR & RETRY
+   - 01 COMPLIANCE
    - 02 ADMISSION INTELLIGENCE
    - 00 ORCHESTRATOR
    - 90 EVENT INGRESS
@@ -46,8 +48,11 @@ ACC / Campus Simulation reads V2_AGENT_EVENTS and V2_AGENT_EXECUTIONS.
 
 ## First autonomous loop
 
-DOCUMENT_REVIEW_COMPLETED
+DOCUMENT_COMPLETENESS_CONFIRMED
 -> AI Orchestrator
+-> Compliance & Records Agent
+-> AI document-quality inspection
+-> PASS: DOCUMENT_QUALITY_PASSED
 -> Admission Intelligence Agent
 -> read case state
 -> verify document review complete
@@ -95,3 +100,20 @@ On failure:
 FAILED -> retry through 93 ERROR & RETRY -> maximum configured attempts -> durable Human Task.
 
 Do not create unbounded retry loops.
+
+
+## Compliance & Records gate
+
+The agentic route now separates two different checks:
+
+1. Deterministic completeness — is the required file present?
+2. AI document quality — is the submitted file administratively usable?
+
+Compliance quality checks include document type, readability, material crop/cut-off, blur/glare, orientation, page completeness where assessable, passport-photo suitability, and cross-document consistency.
+
+Outcomes:
+- PASS -> Orchestrator routes to Admission Intelligence.
+- FOLLOW_UP_REQUIRED -> academic screening is paused until replacement documents are received.
+- HUMAN_REVIEW_REQUIRED -> a durable DOCUMENT_QUALITY_REVIEW task is created.
+
+Admission Intelligence is blocked in agentic mode unless Document Quality Status = PASS.
