@@ -229,9 +229,10 @@ function v2AgentActionGateway_(data, actor) {
 
   const input = data || {};
   const executionId = v2Required_(input.executionId, 'Execution ID');
-  const reference = v2Required_(input.referenceNo, 'Reference No');
   const agentId = v2Required_(input.agentId, 'Agent ID').toUpperCase();
   const requestedAction = v2Required_(input.requestedAction, 'Requested Action').toUpperCase();
+  const isGlobalAction = requestedAction === 'RUN_MANAGEMENT_INTELLIGENCE';
+  const reference = isGlobalAction ? String(input.referenceNo || '').trim() : v2Required_(input.referenceNo, 'Reference No');
   const now = new Date().toISOString();
 
   const existing = v2Find_(V2_AGENT_EXECUTIONS_SHEET,'Execution ID',executionId);
@@ -252,12 +253,12 @@ function v2AgentActionGateway_(data, actor) {
     }
   }
 
-  const application = v2Find_('V2_APPLICATIONS','Reference No',reference);
-  const workflow = v2Find_('V2_WORKFLOW','Reference No',reference);
-  if (!application || !workflow) throw new Error('Application / workflow record not found.');
+  const application = isGlobalAction ? null : v2Find_('V2_APPLICATIONS','Reference No',reference);
+  const workflow = isGlobalAction ? null : v2Find_('V2_WORKFLOW','Reference No',reference);
+  if (!isGlobalAction && (!application || !workflow)) throw new Error('Application / workflow record not found.');
 
-  const currentStage = String(workflow.record['Application Stage'] || '').trim();
-  const doc = v2Find_('V2_DOCUMENT_REVIEW','Reference No',reference);
+  const currentStage = workflow ? String(workflow.record['Application Stage'] || '').trim() : 'GLOBAL';
+  const doc = isGlobalAction ? null : v2Find_('V2_DOCUMENT_REVIEW','Reference No',reference);
 
   v2Upsert_(V2_AGENT_EXECUTIONS_SHEET,'Execution ID',executionId,{
     'Execution ID':executionId,
@@ -288,7 +289,14 @@ function v2AgentActionGateway_(data, actor) {
   try {
     let result;
 
-    if (requestedAction === 'RUN_COMPLIANCE_DOCUMENT_QUALITY') {
+    if (requestedAction === 'RUN_MANAGEMENT_INTELLIGENCE') {
+      if (agentId !== 'MANAGEMENT_INTELLIGENCE') {
+        throw new Error('RUN_MANAGEMENT_INTELLIGENCE is restricted to MANAGEMENT_INTELLIGENCE.');
+      }
+      result = v2RunManagementIntelligence_({
+        window:String(input.window||'LIVE')
+      }, 'Management Intelligence Agent via n8n');
+    } else if (requestedAction === 'RUN_COMPLIANCE_DOCUMENT_QUALITY') {
       if (agentId !== 'COMPLIANCE') {
         throw new Error('RUN_COMPLIANCE_DOCUMENT_QUALITY is restricted to COMPLIANCE.');
       }
@@ -416,7 +424,7 @@ function v2AgentActionGateway_(data, actor) {
       'Last Updated':completedAt
     });
 
-    const fresh = v2Find_('V2_WORKFLOW','Reference No',reference);
+    const fresh = isGlobalAction ? null : v2Find_('V2_WORKFLOW','Reference No',reference);
     const toStage = fresh ? String(fresh.record['Application Stage'] || '') : currentStage;
     const requiresHuman = !!(
       result && (
@@ -493,7 +501,7 @@ function v2AgentActionGateway_(data, actor) {
 
     const errorMessage=String(error && error.message || error);
     let failureTask=null;
-    if (typeof v2CreateHumanTask_ === 'function') {
+    if (!isGlobalAction && typeof v2CreateHumanTask_ === 'function') {
       try {
         failureTask=v2CreateHumanTask_({
           referenceNo:reference,
