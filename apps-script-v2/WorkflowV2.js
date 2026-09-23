@@ -384,6 +384,9 @@ function handleV2Post_(payload) {
   if (action === 'v2GetAgentCaseState') return v2GetAgentCaseState_(payload.data || {});
   if (action === 'v2AgentActionGateway') return v2AgentActionGateway_(payload.data || {}, payload.updatedBy || 'n8n Agentic Gateway');
   if (action === 'v2RecordAgentActivity') return v2RecordAgentActivity_(payload.data || {}, payload.updatedBy || 'n8n');
+  if (action === 'v2CreateHumanTask') return v2CreateHumanTask_(payload.data || {}, payload.updatedBy || 'AI Orchestrator');
+  if (action === 'v2ResolveHumanTask') return v2ResolveHumanTask_(payload.data || {}, payload.updatedBy || 'Authorised Human');
+  if (action === 'v2ListOpenHumanTasks') return v2ListOpenHumanTasks_();
   if (action === 'v2CreateSacSession') return v2CreateSacSession_(payload.data || {}, payload.updatedBy);
   if (action === 'v2AssignSacCandidate') return v2AssignSacCandidate_(payload.data || {}, payload.updatedBy);
   if (action === 'v2PrepareSacPack') return v2PrepareSacPack_(payload.data || {}, payload.updatedBy);
