@@ -265,14 +265,48 @@ function v2RunDocumentReview(referenceNo, reviewer, remarks) {
 
   v2InvalidateCache_();
 
-  // V2_AUTO_AI_AFTER_DOCUMENT_REVIEW_V1
-  // AI gets the first automatic attempt. Any failure, missing API key or
-  // low-confidence result is non-blocking: Registry can immediately use the
-  // manual screening button as the second layer.
+  // Agentic handoff:
+  // When n8n orchestration is active, Document Review emits a real event and
+  // the Admission Intelligence Agent becomes responsible for the next action.
+  // If n8n is unavailable or not configured, preserve the existing local
+  // auto-screening behaviour as a safe fallback.
   let autoAiScreening = null;
+  let agenticHandoff = null;
   if (status === 'COMPLETE') {
     try {
-      autoAiScreening = v2TryAutoAiScreening_(reference, 'Document Review Auto Trigger');
+      if (typeof v2AgenticEnabled_ === 'function' && v2AgenticEnabled_()) {
+        agenticHandoff = v2EmitAgentEvent_({
+          referenceNo:reference,
+          eventType:'DOCUMENT_REVIEW_COMPLETED',
+          agentId:'ORCHESTRATOR',
+          agentName:'AI Orchestrator',
+          action:'ROUTE_ADMISSION_INTELLIGENCE',
+          status:'QUEUED',
+          fromStage:'DOCUMENT_REVIEW',
+          toStage:'QUALIFICATION_SCREENING',
+          source:'ADMISSION_V2',
+          summary:'Document review is complete. Route applicant to Admission Intelligence Agent.',
+          data:{
+            documentReviewStatus:status,
+            missingCount:missingDocuments.length,
+            outstandingCount:outstandingDocuments.length
+          }
+        });
+      }
+
+      if (agenticHandoff && agenticHandoff.sent) {
+        autoAiScreening = {
+          ok:true,
+          status:'HANDED_TO_N8N',
+          eventId:agenticHandoff.eventId,
+          manualScreeningAvailable:true
+        };
+      } else {
+        autoAiScreening = v2TryAutoAiScreening_(
+          reference,
+          agenticHandoff ? 'Local Fallback after n8n handoff failure' : 'Document Review Auto Trigger'
+        );
+      }
     } catch (autoAiError) {
       autoAiScreening = {
         ok: false,
@@ -280,7 +314,7 @@ function v2RunDocumentReview(referenceNo, reviewer, remarks) {
         message: String(autoAiError && autoAiError.message || autoAiError),
         manualScreeningAvailable: true
       };
-      Logger.log('V2 auto AI screening failed non-blocking: ' + autoAiScreening.message);
+      Logger.log('V2 auto AI / agentic handoff failed non-blocking: ' + autoAiScreening.message);
     }
   }
 
@@ -304,6 +338,7 @@ function v2RunDocumentReview(referenceNo, reviewer, remarks) {
 
     applicationStage: 'DOCUMENT_REVIEW',
     autoAiScreening: autoAiScreening,
+    agenticHandoff: agenticHandoff,
     manualScreeningAvailable: status === 'COMPLETE',
 
     emailSent: false,
