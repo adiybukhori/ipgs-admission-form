@@ -21,6 +21,7 @@ const ALLOWED_ACTIONS = new Set([
   'v2GenerateAiScreeningReport',
   'v2RunComplianceDocumentQuality',
   'v2SendDocumentReplacementRequest',
+  'v2SendMissingDocumentRequest',
   'v2PrepareSacCoordination',
   'v2PrepareIaCoordination',
   'v2PreparePrerequisiteCoordination',
