@@ -149,3 +149,19 @@ if(!orientationVerifyCode.includes("SKY Activation Status") && !orientationVerif
 }
 
 console.log('Admission sequence barrier OK: Acceptance -> SKY -> Orientation');
+
+
+const handover=JSON.parse(fs.readFileSync(path.join(root,'CS-ADM-V2-07-ACADEMIC-HANDOVER.json'),'utf8'));
+const handoverDecision=handover.nodes.find(n=>n.name==='Decide Handover Action');
+const handoverDecisionCode=String(handoverDecision?.parameters?.jsCode||'');
+if(!handoverDecisionCode.includes("Acceptance Status") || !handoverDecisionCode.includes("SKY Activation Status")){
+  throw new Error('Academic Handover workflow must verify Acceptance and SKY activation');
+}
+if(!handoverDecisionCode.includes("handover==='HANDED_OVER'") || !handoverDecisionCode.includes("provision==='READY_TO_NOTIFY'")){
+  throw new Error('Student access delivery must require HANDED_OVER and READY_TO_NOTIFY workflow states');
+}
+if(handoverDecisionCode.includes("Student Notification Status") || handoverDecisionCode.includes("IT Email Status")){
+  throw new Error('Academic Handover n8n must not bypass workflow readiness using raw provisioning task rows');
+}
+
+console.log('Academic Handover sequence barrier OK');
