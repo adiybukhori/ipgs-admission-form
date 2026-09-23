@@ -133,6 +133,8 @@ function v2ResolveHumanTask_(data,actor){
   let skyActivationResolution=null;
   let handoverConfigurationResolution=null;
   let studentAccessResolution=null;
+  let orientationAttendanceResolution=null;
+  let orientationRecordingResolution=null;
   if (taskType==='DOCUMENT_QUALITY_REVIEW' && ['APPROVE','CONFIRM','RESOLVED','REQUEST_EVIDENCE','RETURN'].indexOf(decision)>-1) {
     const doc=v2Find_('V2_DOCUMENT_REVIEW','Reference No',reference);
     const wf=v2Find_('V2_WORKFLOW','Reference No',reference);
@@ -341,6 +343,73 @@ function v2ResolveHumanTask_(data,actor){
     }
   }
 
+  if (taskType==='ORIENTATION_ATTENDANCE_REVIEW_REQUIRED' && ['APPROVE','CONFIRM','RESOLVED'].indexOf(decision)>-1) {
+    const wf=v2Find_('V2_WORKFLOW','Reference No',reference);
+    const trackingRows=v2Rows_('V2_ORIENTATION_TRACKING').filter(function(row){
+      return String(row['Reference No']||'')===reference &&
+        (typeof v2OrientationAssignmentActive_!=='function'||v2OrientationAssignmentActive_(row));
+    });
+    const tracking=trackingRows[0]||null;
+    const sessionId=String(
+      resolution.sessionId ||
+      tracking && tracking['Orientation Session ID'] ||
+      wf && wf.record['Orientation Session ID'] || ''
+    ).trim();
+    const attendanceStatus=String(resolution.attendanceStatus||'').trim().toUpperCase();
+    if(!sessionId)throw new Error('Orientation Session ID is required for attendance resolution.');
+    if(['ATTENDED','ABSENT','EXCUSED'].indexOf(attendanceStatus)<0){
+      throw new Error('Attendance status must be ATTENDED, ABSENT or EXCUSED.');
+    }
+
+    const updated=v2UpdateOrientationAttendance_({
+      sessionId:sessionId,
+      referenceNo:reference,
+      attendanceStatus:attendanceStatus
+    },resolvedBy);
+
+    const supervisor=v2RunOrientationSessionSupervisor_({
+      sessionId:sessionId,
+      closeGraceMinutes:0
+    },'Orientation Management Agent after human attendance resolution');
+
+    orientationAttendanceResolution={
+      update:updated,
+      supervisor:supervisor
+    };
+  }
+
+  if (taskType==='ORIENTATION_RECORDING_URL_REQUIRED' && ['APPROVE','CONFIRM','RESOLVED'].indexOf(decision)>-1) {
+    const wf=v2Find_('V2_WORKFLOW','Reference No',reference);
+    const trackingRows=v2Rows_('V2_ORIENTATION_TRACKING').filter(function(row){
+      return String(row['Reference No']||'')===reference &&
+        (typeof v2OrientationAssignmentActive_!=='function'||v2OrientationAssignmentActive_(row));
+    });
+    const tracking=trackingRows[0]||null;
+    const sessionId=String(
+      resolution.sessionId ||
+      tracking && tracking['Orientation Session ID'] ||
+      wf && wf.record['Orientation Session ID'] || ''
+    ).trim();
+    const recordingUrl=String(resolution.recordingUrl||'').trim();
+    if(!sessionId)throw new Error('Orientation Session ID is required for recording resolution.');
+    if(!/^https?:\/\//i.test(recordingUrl))throw new Error('A valid http/https recording URL is required.');
+
+    const setResult=v2SetOrientationRecording_({
+      sessionId:sessionId,
+      recordingUrl:recordingUrl
+    },resolvedBy);
+
+    const supervisor=v2RunOrientationSessionSupervisor_({
+      sessionId:sessionId,
+      closeGraceMinutes:0
+    },'Orientation Management Agent after recording URL resolution');
+
+    orientationRecordingResolution={
+      recording:setResult,
+      supervisor:supervisor
+    };
+  }
+
   if (taskType==='ORIENTATION_SESSION_REQUIRED' && ['APPROVE','CONFIRM','RESOLVED'].indexOf(decision)>-1) {
     const sessionId=String(resolution.sessionId||'').trim();
     if(!sessionId)throw new Error('Select or create an Orientation Session before resolving this task.');
@@ -507,7 +576,7 @@ function v2ResolveHumanTask_(data,actor){
       executionId:String(found.record['Related Execution ID']||''),
       source:'HUMAN_DECISION_DESK',
       summary:'Human task '+taskId+' resolved: '+decision+'.',
-      data:{taskId:taskId,decision:decision,resolution:resolution,resolvedBy:resolvedBy,screeningResolution:screeningResolution,documentQualityResolution:documentQualityResolution,sacSessionResolution:sacSessionResolution,sacDecisionResolution:sacDecisionResolution,iaOutcomeResolution:iaOutcomeResolution,prerequisiteOutcomeResolution:prerequisiteOutcomeResolution,orientationSessionResolution:orientationSessionResolution,skyActivationResolution:skyActivationResolution,handoverConfigurationResolution:handoverConfigurationResolution,studentAccessResolution:studentAccessResolution}
+      data:{taskId:taskId,decision:decision,resolution:resolution,resolvedBy:resolvedBy,screeningResolution:screeningResolution,documentQualityResolution:documentQualityResolution,sacSessionResolution:sacSessionResolution,sacDecisionResolution:sacDecisionResolution,iaOutcomeResolution:iaOutcomeResolution,prerequisiteOutcomeResolution:prerequisiteOutcomeResolution,orientationSessionResolution:orientationSessionResolution,skyActivationResolution:skyActivationResolution,handoverConfigurationResolution:handoverConfigurationResolution,studentAccessResolution:studentAccessResolution,orientationAttendanceResolution:orientationAttendanceResolution,orientationRecordingResolution:orientationRecordingResolution}
     });
   }
 
@@ -533,7 +602,9 @@ function v2ResolveHumanTask_(data,actor){
     orientationSessionResolution:orientationSessionResolution,
     skyActivationResolution:skyActivationResolution,
     handoverConfigurationResolution:handoverConfigurationResolution,
-    studentAccessResolution:studentAccessResolution
+    studentAccessResolution:studentAccessResolution,
+    orientationAttendanceResolution:orientationAttendanceResolution,
+    orientationRecordingResolution:orientationRecordingResolution
   };
 }
 
