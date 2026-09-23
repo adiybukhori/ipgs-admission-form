@@ -155,24 +155,8 @@ function v2NotificationUpdateWorkflow_(referenceNo, values) {
 }
 
 function v2AdmissionEmailHeaderHtml_() {
-  const iucLogo = 'https://lh3.googleusercontent.com/d/135uWJ59t0Gs5fey1Ef7548V-HBWsOiCk=s1000';
-  const ipgsLogo = 'https://lh3.googleusercontent.com/d/1iKsYwAVivYw9uRl2kLzt0LcKK7CAJPvd=s1000';
-  return '' +
-    '<div style="background:#ffffff;border-bottom:5px solid #39206f;overflow:hidden">' +
-      '<div style="height:8px;background:linear-gradient(90deg,#39206f 0%,#39206f 72%,#d7a62d 72%,#f0c24b 100%)"></div>' +
-      '<table role="presentation" cellpadding="0" cellspacing="0" style="width:100%;border-collapse:collapse"><tr>' +
-        '<td style="padding:20px 16px 18px 22px;vertical-align:middle;width:57%">' +
-          '<img src="'+iucLogo+'" alt="Innovative University College" style="display:inline-block;vertical-align:middle;max-width:190px;height:auto;margin-right:16px">' +
-          '<span style="display:inline-block;width:1px;height:58px;background:#d2b15e;vertical-align:middle;margin-right:16px"></span>' +
-          '<img src="'+ipgsLogo+'" alt="Institute of Postgraduate Studies" style="display:inline-block;vertical-align:middle;max-width:205px;height:auto">' +
-        '</td>' +
-        '<td style="padding:18px 22px 18px 10px;vertical-align:middle;border-left:2px solid #ddb95e;font-size:11px;line-height:1.55;color:#3e4050">' +
-          '<strong style="color:#39206f">Institute of Postgraduate Studies</strong><br>' +
-          'GL 35, Block C, Kelana Square<br>Jalan SS7/26, Kelana Jaya<br>47301 Petaling Jaya, Selangor, Malaysia<br>' +
-          '+603 2726 2436 &nbsp;·&nbsp; ipgs.admission@innovative.edu.my' +
-        '</td>' +
-      '</tr></table>' +
-      '<div style="height:4px;background:linear-gradient(90deg,#d7a62d 0%,#f1ca62 27%,#39206f 27%,#39206f 100%)"></div>' +
+  return '<div style="background:#ffffff;border-bottom:5px solid #39206f;overflow:hidden">' +
+    '<img src="cid:ipgsHeader" alt="Innovative University College · Institute of Postgraduate Studies" style="display:block;width:100%;height:auto;border:0">' +
     '</div>';
 }
 
@@ -262,6 +246,7 @@ function v2SendApplicationNotifications_(payload, reference, intake, pdf, col) {
     studentHtml,
     {
       attachments:studentAttachments,
+      inlineImages:{ipgsHeader:v2AdmissionEmailHeaderBlob_()},
       senderName:'IUC IPGS Admission',
       fromAlias:'ipgs.admission@innovative.edu.my',
       replyTo:'ipgs.admission@innovative.edu.my'
