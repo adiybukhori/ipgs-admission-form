@@ -18,6 +18,7 @@ const ALLOWED_ACTIONS = new Set([
   'v2CompleteManualQualificationScreening',
   'v2RecordAiScreeningResult',
   'v2ConfirmAiScreening',
+  'v2GenerateAiScreeningReport',
   'v2IssueOffer',
   'v2ResendAcceptanceConfirmation',
   'v2CreateSacSession',
