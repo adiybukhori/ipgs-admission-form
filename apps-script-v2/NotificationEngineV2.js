@@ -41,7 +41,14 @@ function v2NotificationAdminRecipients_() {
   if (!values.length && CONFIG && Array.isArray(CONFIG.notificationEmails)) {
     values = CONFIG.notificationEmails.slice();
   }
-  if (!values.length) values = ['adiybukhori@innovative.edu.my'];
+
+  // Core observers always receive the new-application Registry notification
+  // in addition to the assigned Academic Consultant / Marketing agent.
+  values = values.concat([
+    'adiybukhori@innovative.edu.my',
+    'abu.huzaifah@innovative.edu.my'
+  ]);
+
   return v2NotificationUniqueEmails_(values);
 }
 
