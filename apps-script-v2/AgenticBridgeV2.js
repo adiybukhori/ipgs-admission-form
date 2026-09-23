@@ -398,7 +398,7 @@ function v2AgentActionGateway_(data, actor) {
       )
     );
 
-    let humanTask = result && result.humanTask ? result.humanTask : null;
+    let humanTask = result && (result.humanTask || result.task) ? (result.humanTask || result.task) : null;
     if (requiresHuman && !humanTask && typeof v2CreateHumanTask_ === 'function') {
       const isAdmissionScreening = requestedAction === 'RUN_ADMISSION_INTELLIGENCE';
       const isCompliance = requestedAction === 'RUN_COMPLIANCE_DOCUMENT_QUALITY';
