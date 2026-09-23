@@ -251,11 +251,16 @@ Expected:
 - Successful submission persists Prospect Status = PROSPECT_COMPLETED, SKY Prospect ID and Fee Group.
 - PROSPECT_COMPLETED event is emitted.
 - Orchestrator routes to Systems Operator.
-- Systems Operator creates SKY_ACTIVATION_REQUIRED for Registry.
+- Systems Operator verifies Prospect evidence and returns WAITING_ACCEPTANCE.
+- No SKY_ACTIVATION_REQUIRED task exists before Acceptance.
 
 ## Test Q — Registry SKY activation
 
+First complete the student's Acceptance Pack.
+
 Expected:
+- ACCEPTANCE_COMPLETED and SKY_ACTIVATION_READY are emitted.
+- Systems Operator resumes after Acceptance.
 - Human Decision Desk shows SKY Prospect ID + Fee Group as evidence.
 - Registry performs the actual SKY activation outside Admission V2.
 - Registry enters SKY Student / Registration ID.
@@ -334,3 +339,26 @@ Expected:
 - No student stage is changed by the Management Intelligence run.
 - Replaying the same daily execution ID on the same date is idempotent.
 - Scheduled workflow timezone is Asia/Kuala_Lumpur and cron is 08:30 daily.
+
+
+## Test X — Authorised eligibility to automatic Offer
+
+Use three controlled cases separately:
+1. SAC Direct Entry
+2. IA = QUALIFIED
+3. Prerequisite = QUALIFIED
+
+Expected for each:
+- authorised human outcome moves workflow to ELIGIBLE_FOR_OFFER
+- event returns to Orchestrator
+- Orchestrator resolves target = OFFER_AUTOMATION
+- ISSUE_OFFER runs through the Action Gateway
+- Offer Letter Status becomes ISSUED
+- Offer PDF URL exists
+- Acceptance Signing URL exists
+- no second academic decision is invented by AI
+- Acceptance remains pending student action
+- retrying same execution ID does not generate duplicate Offer side effects
+
+Negative check:
+- ISSUE_OFFER against a case that is not ELIGIBLE_FOR_OFFER is rejected unless the Offer is already ISSUED (idempotent existing-state response).
