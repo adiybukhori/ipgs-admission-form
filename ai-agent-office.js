@@ -15,7 +15,7 @@ const OFFICE_AGENTS={
 };
 
 const DEFAULT_STATE={
-  status:'IDLE',current_case:'—',current_task:'Waiting for event',location:'',target_location:'',handover_to:'',event:'—',
+  status:'IDLE',current_case:'—',current_task:'Waiting for event',current_automation:'—',location:'',target_location:'',handover_to:'',event:'—',
   authority_level:'',timestamp:'',last_action:'No action yet',next_action:'Wait for event',waiting_since:'—',workload:0
 };
 
@@ -410,7 +410,7 @@ function renderDrawer(key){
   title.textContent=a.name;sub.textContent=a.role;
   body.innerHTML='<div class="drawer-status"><div><small>Status</small><b>'+escapeOffice(s.status)+'</b></div><span class="desk-state '+String(s.status).toLowerCase()+'">'+escapeOffice(s.status)+'</span></div>'+
     '<div class="drawer-grid">'+
-      card('Current Case',s.current_case)+card('Current Task',s.current_task)+card('Workload',(s.workload||0)+' queued')+card('Last Action',s.last_action)+card('Next Action',s.next_action)+
+      card('Current Case',s.current_case)+card('Current Task',s.current_task)+card('Current Automation',s.current_automation)+card('Workload',(s.workload||0)+' queued')+card('Last Action',s.last_action)+card('Next Action',s.next_action)+
       card('Authority Level',s.authority_level)+card('Waiting Since',s.waiting_since)+card('Current Event',s.event)+card('Tools Available',(s.tools||[]).join(' · '),'drawer-wide')+
       card('Escalation Rule',s.escalation_rule,'drawer-wide')+
     '</div>';
@@ -556,14 +556,15 @@ function applyLiveRuntime(snapshot){
       String(x['Status']||'').toUpperCase()==='RUNNING'
     ).length;
     if(!row){
-      setAgent(key,{status:'IDLE',current_case:'—',current_task:'Waiting for backend event',event:'—',last_action:'No live action yet',next_action:'Wait for event',waiting_since:'—',workload:running});
+      setAgent(key,{status:'IDLE',current_case:'—',current_task:'Waiting for backend event',current_automation:'—',event:'—',last_action:'No live action yet',next_action:'Wait for event',waiting_since:'—',workload:running});
       return;
     }
     const status=liveEventStatus(row);
     setAgent(key,{
       status,
       current_case:String(row['Reference No']||'—'),
-      current_task:String(row['Action']||row['Event Type']||'Backend event'),
+      current_task:String(row['Event Type']||'Backend event'),
+      current_automation:String(row['Action']||'—'),
       event:String(row['Event Type']||status),
       last_action:String(row['Summary']||row['Action']||'Event recorded'),
       next_action:status==='WAITING'?'Await human authority':status==='ESCALATION'?'Investigate / retry':'Wait for next verified event',
