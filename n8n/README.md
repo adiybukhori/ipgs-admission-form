@@ -379,3 +379,35 @@ Quality replacement upload routes back to Compliance for a new AI quality inspec
 
 If agentic mode is enabled but n8n event delivery fails, the local fallback preserves the same safety order:
 Completeness -> Compliance -> Admission Intelligence.
+
+
+## Missing required document loop
+
+The Student Concierge uses one secure upload infrastructure for two distinct cases, but the states remain separate.
+
+### Missing required document
+`APPLICATION_SUBMITTED`
+→ deterministic completeness
+→ `DOCUMENT_MISSING_REQUIRED`
+→ Student Concierge
+→ `SEND_MISSING_DOCUMENT_REQUEST`
+→ secure upload
+→ deterministic completeness re-check
+
+Only after completeness becomes COMPLETE:
+→ `DOCUMENT_COMPLETENESS_CONFIRMED`
+→ Compliance & Records Agent.
+
+### Quality replacement
+Compliance returns `FOLLOW_UP_REQUIRED`
+→ `DOCUMENT_REPLACEMENT_REQUIRED`
+→ Student Concierge
+→ `SEND_DOCUMENT_REPLACEMENT_REQUEST`
+→ secure upload
+→ Compliance quality re-check.
+
+Stored request types:
+- `MISSING_REQUIRED_DOCUMENT`
+- `QUALITY_REPLACEMENT`
+
+This separation prevents a newly uploaded missing document from bypassing the deterministic completeness gate.
