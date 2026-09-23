@@ -802,20 +802,25 @@ function v2QualificationNormalizeWorkExperience_(value) {
 
 function v2QualificationParseCgpa_(value) {
   const text = String(value || '').trim();
+  if (!text) return NaN;
 
-  const match = text.match(
-    /(\d+(?:\.\d+)?)/
-  );
-
-  if (!match) {
+  // Do not treat a percentage, division/classification or clearly non-CGPA scale
+  // as an IUC-equivalent CGPA. Those cases must go through approved equivalency.
+  if (/%/.test(text) || /FIRST\s+DIVISION|SECOND\s+DIVISION|THIRD\s+DIVISION|CLASS|CLASSIFICATION/i.test(text)) {
     return NaN;
   }
 
-  const result = Number(match[1]);
+  const match = text.match(/(\d+(?:\.\d+)?)/);
+  if (!match) return NaN;
 
-  return isFinite(result)
-    ? result
-    : NaN;
+  const result = Number(match[1]);
+  if (!isFinite(result)) return NaN;
+
+  // Current deterministic IUC admission rules use a 4.00-style CGPA threshold.
+  // A value above 4 is not silently converted.
+  if (result > 4.0) return NaN;
+
+  return result;
 }
 
 function v2QualificationControlledTest() {
