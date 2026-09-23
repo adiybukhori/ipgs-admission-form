@@ -19,7 +19,7 @@
     },
     {
       "parameters": {
-        "jsCode": "const req=$input.first().json;\nconst h=req.headers||{};\nconst supplied=h['x-iuc-agent-secret']||h['X-IUC-Agent-Secret']||'';\nconst expected='REPLACE_WITH_N8N_EVENT_SHARED_SECRET';\nif(supplied!==expected) throw new Error('Invalid orchestrator secret');\nconst e=req.body||req;\nconst routes={\n  DOCUMENT_COMPLETENESS_CONFIRMED:'COMPLIANCE',\n  DOCUMENT_REVIEW_COMPLETED:'COMPLIANCE',\n  DOCUMENT_QUALITY_PASSED:'ADMISSION_INTELLIGENCE'\n};\nconst target=routes[String(e.eventType||'').toUpperCase()]||'NO_ROUTE';\nreturn [{json:{...e,targetAgent:target}}];"
+        "jsCode": "const req=$input.first().json;\nconst h=req.headers||{};\nconst supplied=h['x-iuc-agent-secret']||h['X-IUC-Agent-Secret']||'';\nconst expected='REPLACE_WITH_N8N_EVENT_SHARED_SECRET';\nif(supplied!==expected) throw new Error('Invalid orchestrator secret');\nconst e=req.body||req;\nconst routes={\n  DOCUMENT_COMPLETENESS_CONFIRMED:'COMPLIANCE',\n  DOCUMENT_REVIEW_COMPLETED:'COMPLIANCE',\n  DOCUMENT_REPLACEMENT_RECEIVED:'COMPLIANCE',\n  DOCUMENT_QUALITY_PASSED:'ADMISSION_INTELLIGENCE',\n  DOCUMENT_REPLACEMENT_REQUIRED:'STUDENT_CONCIERGE'\n};\nconst target=routes[String(e.eventType||'').toUpperCase()]||'NO_ROUTE';\nreturn [{json:{...e,targetAgent:target}}];"
       },
       "id": "route",
       "name": "Decide Next Agent",
@@ -77,6 +77,28 @@
               },
               "renameOutput": true,
               "outputKey": "compliance"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict"
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.targetAgent }}",
+                    "rightValue": "STUDENT_CONCIERGE",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "student_concierge"
             }
           ]
         },
@@ -163,6 +185,34 @@
         180,
         80
       ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://anasbukhori.app.n8n.cloud/webhook/cs-adm-v2-student-concierge",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "X-IUC-Agent-Secret",
+              "value": "REPLACE_WITH_N8N_EVENT_SHARED_SECRET"
+            }
+          ]
+        },
+        "sendBody": true,
+        "contentType": "raw",
+        "rawContentType": "application/json",
+        "body": "={{ JSON.stringify($json) }}",
+        "options": {}
+      },
+      "id": "student-concierge",
+      "name": "Assign Student Concierge",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        180,
+        210
+      ]
     }
   ],
   "connections": {
@@ -206,6 +256,13 @@
         ],
         [
           {
+            "node": "Assign Student Concierge",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
             "node": "Orchestrator Response",
             "type": "main",
             "index": 0
@@ -225,6 +282,17 @@
       ]
     },
     "Assign Compliance": {
+      "main": [
+        [
+          {
+            "node": "Orchestrator Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Assign Student Concierge": {
       "main": [
         [
           {
