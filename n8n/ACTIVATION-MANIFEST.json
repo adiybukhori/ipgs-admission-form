@@ -1,0 +1,137 @@
+{
+  "project": "IUC | Campus Simulation | Admission V2",
+  "prefix": "CS-ADM-V2",
+  "status": "IMPORT_READY_INACTIVE",
+  "timezone": "Asia/Kuala_Lumpur",
+  "workflows": [
+    {
+      "order": 1,
+      "file": "CS-ADM-V2-91-ACTION-GATEWAY.json",
+      "name": "CS-ADM-V2 | 91 ACTION GATEWAY",
+      "webhook": "cs-adm-v2-action-gateway"
+    },
+    {
+      "order": 2,
+      "file": "CS-ADM-V2-92-HUMAN-TASK-GATEWAY.json",
+      "name": "CS-ADM-V2 | 92 HUMAN TASK GATEWAY",
+      "webhook": "cs-adm-v2-human-task-gateway"
+    },
+    {
+      "order": 3,
+      "file": "CS-ADM-V2-93-ERROR-RETRY.json",
+      "name": "CS-ADM-V2 | 93 ERROR & RETRY",
+      "webhook": "cs-adm-v2-error-retry"
+    },
+    {
+      "order": 4,
+      "file": "CS-ADM-V2-01-COMPLIANCE.json",
+      "name": "CS-ADM-V2 | 01 COMPLIANCE",
+      "webhook": "cs-adm-v2-compliance"
+    },
+    {
+      "order": 5,
+      "file": "CS-ADM-V2-04-STUDENT-CONCIERGE.json",
+      "name": "CS-ADM-V2 | 04 STUDENT CONCIERGE",
+      "webhook": "cs-adm-v2-student-concierge"
+    },
+    {
+      "order": 6,
+      "file": "CS-ADM-V2-05-SYSTEMS-OPERATOR.json",
+      "name": "CS-ADM-V2 | 05 SYSTEMS OPERATOR",
+      "webhook": "cs-adm-v2-systems-operator"
+    },
+    {
+      "order": 7,
+      "file": "CS-ADM-V2-02-ADMISSION-INTELLIGENCE.json",
+      "name": "CS-ADM-V2 | 02 ADMISSION INTELLIGENCE",
+      "webhook": "cs-adm-v2-admission-intelligence"
+    },
+    {
+      "order": 8,
+      "file": "CS-ADM-V2-03-SAC-IA.json",
+      "name": "CS-ADM-V2 | 03 SAC-IA",
+      "webhook": "cs-adm-v2-sac-ia"
+    },
+    {
+      "order": 9,
+      "file": "CS-ADM-V2-06-ORIENTATION.json",
+      "name": "CS-ADM-V2 | 06 ORIENTATION",
+      "webhook": "cs-adm-v2-orientation"
+    },
+    {
+      "order": 10,
+      "file": "CS-ADM-V2-07-ACADEMIC-HANDOVER.json",
+      "name": "CS-ADM-V2 | 07 ACADEMIC HANDOVER",
+      "webhook": "cs-adm-v2-academic-handover"
+    },
+    {
+      "order": 11,
+      "file": "CS-ADM-V2-08-MANAGEMENT-INTELLIGENCE.json",
+      "name": "CS-ADM-V2 | 08 MANAGEMENT INTELLIGENCE",
+      "webhook": "cs-adm-v2-management-intelligence",
+      "schedule": "30 8 * * *",
+      "scheduleTimezone": "Asia/Kuala_Lumpur"
+    },
+    {
+      "order": 12,
+      "file": "CS-ADM-V2-00-ORCHESTRATOR.json",
+      "name": "CS-ADM-V2 | 00 ORCHESTRATOR",
+      "webhook": "cs-adm-v2-orchestrator"
+    },
+    {
+      "order": 13,
+      "file": "CS-ADM-V2-90-EVENT-INGRESS.json",
+      "name": "CS-ADM-V2 | 90 EVENT INGRESS",
+      "webhook": "cs-adm-v2-events"
+    }
+  ],
+  "replacements": [
+    {
+      "placeholder": "REPLACE_WITH_N8N_EVENT_SHARED_SECRET",
+      "source": "Create one strong project-specific shared secret in n8n credentials / variables and Apps Script property N8N_EVENT_SHARED_SECRET."
+    },
+    {
+      "placeholder": "REPLACE_WITH_V2_ADMIN_API_PASSWORD",
+      "source": "Use the protected Admission V2 backend token via n8n credentials / variables; do not commit a real value."
+    }
+  ],
+  "appsScriptProperties": [
+    {
+      "key": "N8N_EVENT_WEBHOOK_URL",
+      "value": "https://anasbukhori.app.n8n.cloud/webhook/cs-adm-v2-events"
+    },
+    {
+      "key": "N8N_EVENT_SHARED_SECRET",
+      "value": "<same project shared secret>"
+    },
+    {
+      "key": "N8N_AGENTIC_ENABLED",
+      "value": "TRUE only after controlled import/configuration/test"
+    }
+  ],
+  "safety": [
+    "Import only into the dedicated project IUC | Campus Simulation | Admission V2.",
+    "Do not edit, rename, delete, activate or execute unrelated/shared workflows.",
+    "Keep all imported workflows inactive until placeholders are replaced and webhook dependencies exist.",
+    "Activate in manifest order.",
+    "Run controlled test cases before enabling real production event handoff.",
+    "Admission V2 remains source of truth. n8n orchestrates; it does not replace existing deterministic transaction functions.",
+    "Academic decisions remain human-authorised."
+  ],
+  "controlledTests": [
+    "A",
+    "E",
+    "B",
+    "I",
+    "J",
+    "K",
+    "M",
+    "P",
+    "S",
+    "U",
+    "W",
+    "C",
+    "D"
+  ],
+  "definitionOfDone": "REQUESTED -> EXECUTED -> VERIFIED -> COMPLETED; otherwise RETRY / WAITING_HUMAN / NEEDS_INVESTIGATION."
+}
