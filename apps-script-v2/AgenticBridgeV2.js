@@ -391,6 +391,37 @@ function v2AgentActionGateway_(data, actor) {
         referenceNo:reference,
         executionId:executionId
       }, 'Systems Operator Agent via n8n');
+    } else if (requestedAction === 'ISSUE_OFFER') {
+      if (agentId !== 'ORCHESTRATOR') {
+        throw new Error('ISSUE_OFFER is restricted to ORCHESTRATOR.');
+      }
+      if (currentStage !== 'ELIGIBLE_FOR_OFFER') {
+        const offerStatus=String(workflow.record['Offer Letter Status']||'').toUpperCase();
+        if (offerStatus==='ISSUED') {
+          result={
+            ok:true,
+            idempotentState:true,
+            referenceNo:reference,
+            offerLetterStatus:offerStatus,
+            applicationStage:currentStage,
+            emailStatus:String(workflow.record['Offer Email Status']||'')
+          };
+        } else {
+          throw new Error('Offer issuance blocked: applicant is not ELIGIBLE_FOR_OFFER.');
+        }
+      } else {
+        result=v2IssueOffer_(reference,'AI Orchestrator via n8n',{sendEmail:true});
+        const refreshedOffer=v2Find_('V2_WORKFLOW','Reference No',reference);
+        const issuedStatus=String(refreshedOffer&&refreshedOffer.record['Offer Letter Status']||result.offerLetterStatus||'').toUpperCase();
+        if(issuedStatus!=='ISSUED') {
+          throw new Error('Offer issuance verification failed: Offer Letter Status is '+(issuedStatus||'EMPTY')+'.');
+        }
+        const emailStatus=String(result.emailStatus||refreshedOffer&&refreshedOffer.record['Offer Email Status']||'').toUpperCase();
+        if(result.emailSent!==true && !/DISABLED|DRY_RUN|NOT_REQUESTED/.test(emailStatus)) {
+          result.requiresHuman=true;
+          result.deliveryIssue='Offer was generated but email delivery was not verified.';
+        }
+      }
     } else if (requestedAction === 'PREPARE_ACADEMIC_HANDOVER') {
       if (agentId !== 'ACADEMIC_HANDOVER') {
         throw new Error('PREPARE_ACADEMIC_HANDOVER is restricted to ACADEMIC_HANDOVER.');
