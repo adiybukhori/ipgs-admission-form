@@ -21,7 +21,11 @@ const V2_COMPLIANCE_REVIEW_HEADERS = [
   'AI Quality Model',
   'AI Quality Run ID',
   'AI Quality Reviewed At',
-  'AI Quality Reviewed By'
+  'AI Quality Reviewed By',
+  'Human Quality Decision',
+  'Human Quality Notes',
+  'Human Quality Reviewed At',
+  'Human Quality Reviewed By'
 ];
 
 function v2ComplianceEnsureFoundation_() {
