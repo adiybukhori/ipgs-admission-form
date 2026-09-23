@@ -1,7 +1,7 @@
 (function guideTrainingV2(){
 const L1='https://lh3.googleusercontent.com/d/135uWJ59t0Gs5fey1Ef7548V-HBWsOiCk=s1000',L2='https://lh3.googleusercontent.com/d/1iKsYwAVivYw9uRl2kLzt0LcKK7CAJPvd=s1000';
 const steps=[
-[1,'master','Application Submitted','Student','Applications','Submit Admission Form + documents','Application record + Reference No'],
+[1,'master','Application + Submission COL','Student + System','Applications','Submit Admission Form + 4 required documents; system issues COL + welcome email','Application record + Reference No + COL'],
 [2,'master','SKY Prospect & Fee Group','Academic Consultant / Marketing','Prospect / Activation','Create SKY Prospect + select ACTIVE Fee Group','Prospect Done'],
 [3,'admission','Document Review','Registry','Applications','Verify required documents','Document Review complete'],
 [4,'admission','Qualification Screening','Registry','Applications','Review field / experience','Screening recommendation'],
@@ -20,8 +20,8 @@ const steps=[
 const phases={master:['Master & Intake','purple','01–02'],admission:['Admission Decision','blue','03–08'],ops:['Operational Workstreams','amber','09–12'],handover:['Provisioning & Completion','green','13–15']};
 const slides=[
 ['SYSTEM OVERVIEW','Admission Command Center','One operational workspace for the postgraduate admission journey',0,'overview','dashboard',['Move between operational modules from the sidebar.','Main pages monitor; detailed views process.','Refresh after actions when the latest status has not appeared.']],
-['STUDENT JOURNEY','From Application to Active Student','See the student move across the full ACC journey',0,'journey','applications',['Formal admission decisions and operational workstreams are different layers.','Orientation and Academic Handover are separate workstreams; neither should be drawn as a child of the other.','Student Access closes the Academic Handover workstream.']],
-['APPLICATIONS','Monitor New Applications','Search, filter and open the student record',1,'apps','applications',['Reference No is the primary internal identifier.','The list shows programme, intake and current stage.','Open the applicant to process the next action.']],
+['STUDENT JOURNEY','From Application to Active Student','See the student move across the full ACC journey',0,'journey','applications',['A valid application immediately receives one submission COL before the formal admission review continues.','Formal admission decisions and operational workstreams are different layers; Orientation and Academic Handover remain separate workstreams.','IA and prerequisite use email + related attachments only — no second COL.']],
+['APPLICATIONS','Monitor New Applications','Search, filter and open the student record',1,'apps','applications',['Reference No is the primary internal identifier.','A valid new submission now receives its Conditional Offer Letter and welcome email automatically.','Open the applicant to process the formal admission review and next action.']],
 ['APPLICATION DETAIL','Process the Applicant','Operational Action Center + progress tracker + controlled tabs',3,'appdetail','applications',['Operational Action Center tells staff what happens next.','Journey tracker shows completed/current stages.','Tabs keep all controlled evidence in one record.']],
 ['SAC','Formal Admission Decision','Create session, assign candidates and record the authorised outcome',5,'sac','sac',['Assign only eligible candidates.','Retain the controlled SAC pack.','Record Direct Entry, IA or Rejected / Not Qualified.']],
 ['IA / PREREQ','Assessment Route','IA first; prerequisite only where authorised',6,'assessment','assessment',['IA and PREREQ are monitored separately.','PREREQ follows IA where required.','Completion returns the candidate to the approved route.']],
