@@ -254,7 +254,7 @@
     {
       "parameters": {
         "method": "POST",
-        "url": "https://anasbukhori.app.n8n.cloud/webhook/cs-adm-v2-action-gateway",
+        "url": "https://anasbukhori.app.n8n.cloud/webhook/cs-adm-v2-orchestrator",
         "sendHeaders": true,
         "headerParameters": {
           "parameters": [
@@ -267,11 +267,11 @@
         "sendBody": true,
         "contentType": "raw",
         "rawContentType": "application/json",
-        "body": "={{ JSON.stringify({operation:'activity',referenceNo:$json.referenceNo,eventType:'DOCUMENT_REPLACEMENT_REQUIRED',agentId:'COMPLIANCE',agentName:'Compliance & Records Agent',action:'STUDENT_DOCUMENT_REPLACEMENT',status:'WAITING',summary:'Document quality review requires one or more replacement documents before academic screening.',requiresHuman:false,source:'N8N',data:{followUp:$json.followUp,flags:$json.flags}}) }}",
+        "body": "={{ JSON.stringify({eventId:'CQ-FOLLOWUP-'+Date.now(),timestamp:new Date().toISOString(),referenceNo:$json.referenceNo,eventType:'DOCUMENT_REPLACEMENT_REQUIRED',agentId:'COMPLIANCE',agentName:'Compliance & Records Agent',action:'ROUTE_STUDENT_CONCIERGE',status:'WAITING',fromStage:'DOCUMENT_REVIEW',toStage:'DOCUMENT_REVIEW',summary:'Document quality review requires replacement document(s) before academic screening.',requiresHuman:false,source:'N8N',data:{followUp:$json.followUp,flags:$json.flags}}) }}",
         "options": {}
       },
       "id": "followup-event",
-      "name": "Record Replacement Required",
+      "name": "Route Replacement to Student Concierge",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
       "position": [
@@ -384,7 +384,7 @@
         ],
         [
           {
-            "node": "Record Replacement Required",
+            "node": "Route Replacement to Student Concierge",
             "type": "main",
             "index": 0
           }
@@ -409,7 +409,7 @@
         ]
       ]
     },
-    "Record Replacement Required": {
+    "Route Replacement to Student Concierge": {
       "main": [
         [
           {
