@@ -78,8 +78,19 @@ function v2GenerateAiScreeningReport_(data, actor) {
     return !/^INFO_/i.test(String(flag || ''));
   }) : [];
 
-  const finalised = requestedFinal && !manualRequired;
-  const reportStatus = finalised ? 'FINAL' : (manualRequired ? 'PENDING_HUMAN_REVIEW' : 'SCREENED');
+  const screeningResult = String(qs['Screening Result'] || '').toUpperCase();
+  const screeningResolved =
+    !!screening &&
+    !!recommendation &&
+    !manualRequired &&
+    /RULE_MATCHED|MANUAL_SCREENING_COMPLETED|COMPLETED/.test(screeningResult);
+
+  // A PDF may be generated at any point for review, but FINAL is reserved for
+  // a case whose deterministic qualification screening route is already resolved.
+  const finalised = requestedFinal && screeningResolved;
+  const reportStatus = finalised
+    ? 'FINAL'
+    : (manualRequired ? 'PENDING_HUMAN_REVIEW' : (!screeningResolved ? 'PENDING_RULE_ENGINE' : 'SCREENED'));
   const previousVersion = parseInt(String(aiRecord['Report Version'] || '0').replace(/\D+/g, ''), 10) || 0;
   const version = previousVersion + 1;
   const now = new Date().toISOString();
