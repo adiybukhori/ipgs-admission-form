@@ -23,6 +23,22 @@ function v2PrepareOrientationForAccepted_(data,actor){
     return {ok:true,skipped:true,referenceNo:reference,stage:stage,acceptanceStatus:acceptance,message:'Applicant is not accepted yet.'};
   }
 
+  const skyActivation=String(
+    wf.record['SKY Activation Status'] ||
+    app.record['SKY Activation Status'] || 'NOT_ACTIVATED'
+  ).toUpperCase();
+  if(skyActivation!=='ACTIVATED'){
+    return {
+      ok:true,
+      skipped:true,
+      referenceNo:reference,
+      status:'WAITING_SKY_ACTIVATION',
+      acceptanceStatus:acceptance,
+      skyActivationStatus:skyActivation,
+      message:'Orientation Agent blocked until SKY activation is verified.'
+    };
+  }
+
   let sessionId=String(input.sessionId||wf.record['Orientation Session ID']||'').trim();
   let tracking=null;
 
