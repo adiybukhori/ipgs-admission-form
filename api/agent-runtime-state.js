@@ -1,5 +1,6 @@
 const SPREADSHEET_ID = '1O-Y-q7_q78xKM1p5e2C3EWyQfYr5rXvhO0oWbVaw5Mw';
 const AUTH_WEB_APP = 'https://script.google.com/macros/s/AKfycbw22-UOsHkaap3dzU16aOjA6XFr7jWGr9qQPfp8F1CQrXboP7YdRZJKKJhHijC3us4/exec';
+const V2_WEB_APP = 'https://script.google.com/macros/s/AKfycbxasT_HgtRSvTbR_bsa8p17Cm-C2PKn20Ok1kU-AyJmxiKX8kX5EGOtRLwVwNlAL7JB/exec';
 const EVENT_SHEET = 'V2_AGENT_EVENTS';
 const EXECUTION_SHEET = 'V2_AGENT_EXECUTIONS';
 const HUMAN_TASK_SHEET = 'V2_HUMAN_TASKS';
@@ -37,6 +38,29 @@ async function validateAdminPassword(password){
   try{const data=JSON.parse(text);return response.ok&&data&&data.ok===true;}catch(_){return false;}
 }
 
+const agenticStatusCache = globalThis.__IUC_AGENTIC_STATUS_CACHE__ || {at:0,value:null};
+globalThis.__IUC_AGENTIC_STATUS_CACHE__ = agenticStatusCache;
+
+async function fetchAgenticStatus(password){
+  if(agenticStatusCache.value && Date.now()-agenticStatusCache.at<30000) return agenticStatusCache.value;
+  try{
+    const response=await fetch(V2_WEB_APP,{
+      method:'POST',
+      headers:{'Content-Type':'text/plain;charset=utf-8'},
+      body:JSON.stringify({action:'v2AgenticStatus',token:password,updatedBy:'ACC Runtime State',data:{}}),
+      redirect:'follow'
+    });
+    const text=await response.text();
+    const parsed=JSON.parse(text);
+    const value=parsed&&parsed.ok!==false?(parsed.result||parsed):{ok:false};
+    agenticStatusCache.at=Date.now();
+    agenticStatusCache.value=value;
+    return value;
+  }catch(_){
+    return agenticStatusCache.value||{ok:false,enabled:false,webhookConfigured:false,secretConfigured:false};
+  }
+}
+
 async function fetchSheet(sheet){
   const url=`https://docs.google.com/spreadsheets/d/${SPREADSHEET_ID}/gviz/tq?tqx=out:csv&sheet=${encodeURIComponent(sheet)}&_=${Date.now()}`;
   const response=await fetch(url,{redirect:'follow'});
@@ -62,8 +86,8 @@ export default async function handler(req,res){
   if(!(await validateAdminPassword(password)))return res.status(401).json({ok:false,message:'Invalid admin password.'});
 
   try{
-    const [eventResult,executionResult,humanTaskResult]=await Promise.all([
-      fetchSheet(EVENT_SHEET),fetchSheet(EXECUTION_SHEET),fetchSheet(HUMAN_TASK_SHEET)
+    const [eventResult,executionResult,humanTaskResult,agentic]=await Promise.all([
+      fetchSheet(EVENT_SHEET),fetchSheet(EXECUTION_SHEET),fetchSheet(HUMAN_TASK_SHEET),fetchAgenticStatus(password)
     ]);
     const events=eventResult.rows.sort((a,b)=>ts(a)-ts(b)).slice(-150);
     const executions=executionResult.rows.sort((a,b)=>ts(a)-ts(b)).slice(-150);
@@ -85,8 +109,13 @@ export default async function handler(req,res){
     return res.status(200).json({
       ok:true,
       bridgeReady:eventResult.exists&&executionResult.exists&&humanTaskResult.exists,
+      agenticEnabled:!!agentic?.enabled,
+      agenticWebhookConfigured:!!agentic?.webhookConfigured,
+      agenticSecretConfigured:!!agentic?.secretConfigured,
       n8nLive:!!liveN8nEvent,
+      recentN8nActivity:!!liveN8nEvent,
       lastN8nEventAt:liveN8nEvent?liveN8nEvent['Timestamp']:'',
+      agentic,
       events,
       executions,
       humanTasks,
