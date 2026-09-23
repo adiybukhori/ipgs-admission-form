@@ -1,0 +1,117 @@
+{
+  "name": "CS-ADM-V2 | 90 EVENT INGRESS",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "cs-adm-v2-events",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "event-webhook",
+      "name": "Event Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        -520,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const req = $input.first().json;\nconst headers = req.headers || {};\nconst supplied = headers['x-iuc-agent-secret'] || headers['X-IUC-Agent-Secret'] || '';\nconst expected = 'REPLACE_WITH_N8N_EVENT_SHARED_SECRET';\nif (!supplied || supplied !== expected) throw new Error('Invalid agent event secret');\nconst body = req.body || req;\nif (!body.eventType) throw new Error('eventType is required');\nreturn [{json:{...body, ingressReceivedAt:new Date().toISOString()}}];"
+      },
+      "id": "normalize",
+      "name": "Validate + Normalize Event",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -280,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://anasbukhori.app.n8n.cloud/webhook/cs-adm-v2-orchestrator",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "X-IUC-Agent-Secret",
+              "value": "REPLACE_WITH_N8N_EVENT_SHARED_SECRET"
+            }
+          ]
+        },
+        "sendBody": true,
+        "contentType": "raw",
+        "rawContentType": "application/json",
+        "body": "={{ JSON.stringify($json) }}",
+        "options": {}
+      },
+      "id": "to-orchestrator",
+      "name": "Send to Orchestrator",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        -40,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ {ok:true, accepted:true, eventId:$('Validate + Normalize Event').item.json.eventId, routed:true} }}",
+        "options": {}
+      },
+      "id": "respond",
+      "name": "Acknowledge Event",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.4,
+      "position": [
+        220,
+        0
+      ]
+    }
+  ],
+  "connections": {
+    "Event Webhook": {
+      "main": [
+        [
+          {
+            "node": "Validate + Normalize Event",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Validate + Normalize Event": {
+      "main": [
+        [
+          {
+            "node": "Send to Orchestrator",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Send to Orchestrator": {
+      "main": [
+        [
+          {
+            "node": "Acknowledge Event",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "tags": []
+}
