@@ -418,7 +418,7 @@
   const DATA_API='/api/admin-data';
   const AGENT_RUNTIME_API='/api/agent-runtime-state';
   const password=sessionStorage.getItem('ipgsAdminPassword')||'';
-  let state={apps:[],workflow:[],docReview:[],aiScreening:[],qualification:[],sacSessions:[],sacCandidates:[],assessment:[],orientation:[],handover:[],activation:[],audit:[],agentEvents:[],agentExecutions:[],humanTasks:[],agentRuntime:null,decisions:0,exceptions:0};
+  let state={apps:[],workflow:[],docReview:[],aiScreening:[],qualification:[],sacSessions:[],sacCandidates:[],assessment:[],orientationSessions:[],orientation:[],handover:[],activation:[],audit:[],agentEvents:[],agentExecutions:[],humanTasks:[],agentRuntime:null,decisions:0,exceptions:0};
   window.AI_OPS_STATE=state;
 
   if(!password){ location.href='/admin.html'; }
@@ -445,6 +445,7 @@
       state.sacSessions=rows(d,'V2_SAC_SESSIONS');
       state.sacCandidates=rows(d,'V2_SAC_CANDIDATES');
       state.assessment=rows(d,'V2_ASSESSMENT_PROGRESS');
+      state.orientationSessions=rows(d,'V2_ORIENTATION_SESSIONS');
       state.orientation=rows(d,'V2_ORIENTATION_TRACKING');
       state.handover=rows(d,'V2_HANDOVER_STUDENTS');
       state.activation=[...rows(d,'V2_AGENT_PROSPECT_LOG'),...rows(d,'V2_ACTIVATION_TRACKING'),...rows(d,'V2_ACTIVATION')];
@@ -695,10 +696,16 @@
     const grade=ai['CGPA / Grade']||'—';
     const report=ai['Report PDF URL']||'';
     const taskType=String(task['Task Type']||'').toUpperCase();
+    const app=(state.apps||[]).filter(r=>String(r['Reference No']||'')===ref).slice(-1)[0]||{};
     const wf=(state.workflow||[]).filter(r=>String(r['Reference No']||'')===ref).slice(-1)[0]||{};
     const sac=(state.sacCandidates||[]).filter(r=>String(r['Reference No']||'')===ref).slice(-1)[0]||{};
     const assessment=(state.assessment||[]).filter(r=>String(r['Reference No']||'')===ref).slice(-1)[0]||{};
     const openSacSessions=(state.sacSessions||[]).filter(r=>!/(FINAL|CLOSED|CANCEL)/.test(String(r['Status']||'DRAFT').toUpperCase())).sort((a,b)=>String(a['Meeting Date']||'').localeCompare(String(b['Meeting Date']||'')));
+    const openOrientationSessions=(state.orientationSessions||[]).filter(r=>['SCHEDULED','OPEN','ACTIVE'].includes(String(r['Status']||'SCHEDULED').toUpperCase())).sort((a,b)=>{
+      const av=String(a['Session Date']||'')+' '+String(a['Start Time']||'');
+      const bv=String(b['Session Date']||'')+' '+String(b['Start Time']||'');
+      return av.localeCompare(bv);
+    });
 
     const doc=(state.docReview||[]).filter(r=>String(r['Reference No']||'')===ref).slice(-1)[0]||{};
     let qualityFindings=[];
@@ -745,6 +752,33 @@
             '<button id="humanQualityReplaceBtn" type="button" onclick="resolveHumanQualityTask(\''+escapeHtml(taskId)+'\',\'FOLLOW_UP_REQUIRED\')">Require Replacement</button>'+
             '<button id="humanQualityPassBtn" class="confirm" type="button" onclick="resolveHumanQualityTask(\''+escapeHtml(taskId)+'\',\'PASS\')">Confirm Quality PASS</button>'+
           '</div>'+
+        '</div>';
+    }else if(taskType==='ORIENTATION_SESSION_REQUIRED'){
+      const orientationOptions=openOrientationSessions.map(x=>{
+        const id=String(x['Orientation Session ID']||'');
+        const name=String(x['Orientation Name']||id);
+        const date=String(x['Session Date']||'');
+        const time=String(x['Start Time']||'');
+        const mode=String(x['Mode']||'');
+        return '<option value="'+escapeHtml(id)+'">'+escapeHtml(name+' · '+date+' '+time+' · '+mode)+'</option>';
+      }).join('');
+      const intakeDefault=String(app['Intake ID']||wf['Intake ID']||app['Intake']||wf['Intake']||'');
+      taskForm=
+        '<div class="human-task-form">'+
+          '<label>Select Existing Orientation Session<select id="humanOrientationSession"><option value="">Select session</option>'+orientationOptions+'</select></label>'+
+          '<div class="human-task-actions"><button type="button" onclick="document.getElementById(\'humanTaskOverlay\').remove()">Cancel</button><button id="useOrientationSessionBtn" class="confirm" type="button" onclick="resolveOrientationSessionTask(\''+escapeHtml(taskId)+'\')">Use Selected Session</button></div>'+
+          '<div style="height:1px;background:var(--line);margin:4px 0 2px"></div>'+
+          '<div class="human-task-evidence"><div><small>No suitable session?</small><b>Create a new scheduled Orientation Session here. The agent will assign the student and send the invitation after creation.</b></div></div>'+
+          '<label>Orientation Name<input id="newOriName" style="width:100%;border:1px solid var(--line);border-radius:11px;background:#0a1025;color:#eef1ff;padding:10px;font:inherit;font-size:11px" placeholder="e.g. PG Orientation October 2026"></label>'+
+          '<label>Intake ID<input id="newOriIntake" value="'+escapeHtml(intakeDefault)+'" style="width:100%;border:1px solid var(--line);border-radius:11px;background:#0a1025;color:#eef1ff;padding:10px;font:inherit;font-size:11px"></label>'+
+          '<div class="human-task-evidence">'+
+            '<label>Session Date<input id="newOriDate" type="date" style="width:100%;border:1px solid var(--line);border-radius:11px;background:#0a1025;color:#eef1ff;padding:10px"></label>'+
+            '<label>Mode<select id="newOriMode"><option value="ONLINE">Online</option><option value="PHYSICAL">Physical</option><option value="HYBRID">Hybrid</option></select></label>'+
+            '<label>Start Time<input id="newOriStart" type="time" value="08:30" style="width:100%;border:1px solid var(--line);border-radius:11px;background:#0a1025;color:#eef1ff;padding:10px"></label>'+
+            '<label>End Time<input id="newOriEnd" type="time" value="10:30" style="width:100%;border:1px solid var(--line);border-radius:11px;background:#0a1025;color:#eef1ff;padding:10px"></label>'+
+          '</div>'+
+          '<label>Meeting Link / Venue<input id="newOriAccess" style="width:100%;border:1px solid var(--line);border-radius:11px;background:#0a1025;color:#eef1ff;padding:10px;font:inherit;font-size:11px" placeholder="Google Meet link or physical venue"></label>'+
+          '<div class="human-task-actions"><button id="createOrientationBtn" class="confirm" type="button" onclick="createOrientationSessionAndResolve(\''+escapeHtml(taskId)+'\')">Create Session & Continue</button></div>'+
         '</div>';
     }else if(taskType==='SAC_SESSION_REQUIRED'){
       const sessionOptions=openSacSessions.map(x=>{
@@ -908,6 +942,46 @@
       alert(e.message||'Unable to record authorised outcome.');
       if(btn){btn.disabled=false;btn.textContent=label||'Confirm';}
       return null;
+    }
+  }
+
+  async function resolveOrientationSessionTask(taskId){
+    const sessionId=document.getElementById('humanOrientationSession')?.value||'';
+    if(!sessionId){alert('Please select an Orientation Session.');return;}
+    await resolveHumanTaskGeneric(taskId,{sessionId},'','useOrientationSessionBtn','Use Selected Session');
+  }
+
+  async function createOrientationSessionAndResolve(taskId){
+    const name=(document.getElementById('newOriName')?.value||'').trim();
+    const intakeId=(document.getElementById('newOriIntake')?.value||'').trim();
+    const sessionDate=document.getElementById('newOriDate')?.value||'';
+    const startTime=document.getElementById('newOriStart')?.value||'08:30';
+    const endTime=document.getElementById('newOriEnd')?.value||'10:30';
+    const mode=document.getElementById('newOriMode')?.value||'ONLINE';
+    const access=(document.getElementById('newOriAccess')?.value||'').trim();
+    if(!name||!intakeId||!sessionDate){alert('Orientation Name, Intake ID and Session Date are required.');return;}
+    const btn=document.getElementById('createOrientationBtn');
+    if(btn){btn.disabled=true;btn.textContent='Creating session…';}
+    try{
+      const data={
+        name,intakeId,sessionDate,startTime,endTime,mode,
+        programmeGroup:'ALL',
+        status:'SCHEDULED'
+      };
+      if(mode==='ONLINE')data.meetingLink=access;
+      else if(mode==='PHYSICAL')data.venue=access;
+      else {data.meetingLink=access;data.venue=access;}
+      const res=await fetch('/api/admin-action',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({
+        password,action:'v2CreateOrientationSession',updatedBy:'ACC Human Decision Desk',data
+      })});
+      const out=await res.json();
+      if(!res.ok||!out.ok)throw new Error(out.message||'Unable to create Orientation Session.');
+      const sessionId=out.result?.session?.['Orientation Session ID']||out.result?.sessionId||'';
+      if(!sessionId)throw new Error('Orientation Session was created but no Session ID was returned.');
+      await resolveHumanTaskGeneric(taskId,{sessionId},'Created Orientation Session '+sessionId,'useOrientationSessionBtn','Use Selected Session');
+    }catch(e){
+      alert(e.message||'Unable to create Orientation Session.');
+      if(btn){btn.disabled=false;btn.textContent='Create Session & Continue';}
     }
   }
 
@@ -1121,6 +1195,8 @@
   window.openHumanTaskResolution=openHumanTaskResolution;
   window.confirmHumanScreeningTask=confirmHumanScreeningTask;
   window.resolveHumanQualityTask=resolveHumanQualityTask;
+  window.resolveOrientationSessionTask=resolveOrientationSessionTask;
+  window.createOrientationSessionAndResolve=createOrientationSessionAndResolve;
   window.resolveSacSessionTask=resolveSacSessionTask;
   window.createSacSessionAndResolve=createSacSessionAndResolve;
   window.resolveSacDecisionTask=resolveSacDecisionTask;
