@@ -294,7 +294,9 @@ function v2AgentActionGateway_(data, actor) {
         throw new Error('RUN_MANAGEMENT_INTELLIGENCE is restricted to MANAGEMENT_INTELLIGENCE.');
       }
       result = v2RunManagementIntelligence_({
-        window:String(input.window||'LIVE')
+        window:String(input.window||'LIVE'),
+        sendEmail:input.sendEmail===true || String(input.sendEmail||'').toUpperCase()==='TRUE',
+        recipients:String(input.recipients||'')
       }, 'Management Intelligence Agent via n8n');
     } else if (requestedAction === 'RUN_COMPLIANCE_DOCUMENT_QUALITY') {
       if (agentId !== 'COMPLIANCE') {
@@ -410,15 +412,6 @@ function v2AgentActionGateway_(data, actor) {
         referenceNo:reference,
         executionId:executionId
       }, 'Academic Handover Agent via n8n');
-    } else if (requestedAction === 'RUN_MANAGEMENT_INTELLIGENCE') {
-      if (agentId !== 'MANAGEMENT_INTELLIGENCE') {
-        throw new Error('RUN_MANAGEMENT_INTELLIGENCE is restricted to MANAGEMENT_INTELLIGENCE.');
-      }
-      result = v2RunManagementIntelligence_({
-        window:String(input.window||'LIVE'),
-        sendEmail:input.sendEmail===true || String(input.sendEmail||'').toUpperCase()==='TRUE',
-        recipients:String(input.recipients||'')
-      }, 'Management Intelligence Agent via n8n');
     } else {
       throw new Error('Unsupported agent gateway action: ' + requestedAction);
     }
