@@ -26,6 +26,8 @@ const ALLOWED_ACTIONS = new Set([
   'v2PreparePrerequisiteCoordination',
   'v2PrepareOrientationForAccepted',
   'v2PrepareSkyActivation',
+  'v2PrepareAcademicHandover',
+  'v2PrepareStudentAccessDelivery',
   'v2AgenticStatus',
   'v2GetAgentCaseState',
   'v2AgentActionGateway',
