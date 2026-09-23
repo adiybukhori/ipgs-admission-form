@@ -289,7 +289,40 @@ function v2AgentActionGateway_(data, actor) {
   try {
     let result;
 
-    if (requestedAction === 'RUN_ORIENTATION_SUPERVISOR') {
+    if (requestedAction === 'RUN_DOCUMENT_COMPLETENESS') {
+      if (agentId !== 'ORCHESTRATOR') {
+        throw new Error('RUN_DOCUMENT_COMPLETENESS is restricted to ORCHESTRATOR.');
+      }
+      if (['APPLICATION_RECEIVED','DOCUMENT_REVIEW'].indexOf(currentStage) < 0) {
+        throw new Error('Document completeness check is not available at current stage: ' + currentStage);
+      }
+      result = v2RunDocumentReview(
+        reference,
+        'AI Orchestrator via n8n',
+        'Deterministic completeness check started automatically after application submission.'
+      );
+
+      if (String(result.status||'').toUpperCase()==='INCOMPLETE' && typeof v2EmitAgentEvent_==='function') {
+        v2EmitAgentEvent_({
+          referenceNo:reference,
+          eventType:'DOCUMENT_MISSING_REQUIRED',
+          agentId:'ORCHESTRATOR',
+          agentName:'AI Orchestrator',
+          action:'ROUTE_STUDENT_CONCIERGE',
+          status:'QUEUED',
+          fromStage:'DOCUMENT_REVIEW',
+          toStage:'DOCUMENT_REVIEW',
+          requiresHuman:false,
+          executionId:executionId,
+          source:'N8N',
+          summary:'Deterministic document review found missing required documents. Route to Student Concierge.',
+          data:{
+            missingDocuments:result.missingDocuments||[],
+            missingCount:Number(result.missingCount||0)
+          }
+        });
+      }
+    } else if (requestedAction === 'RUN_ORIENTATION_SUPERVISOR') {
       if (agentId !== 'ORIENTATION') {
         throw new Error('RUN_ORIENTATION_SUPERVISOR is restricted to ORIENTATION.');
       }
