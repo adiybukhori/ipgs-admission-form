@@ -514,3 +514,29 @@ Expected:
 - n8n emits an idempotent SKY_ACTIVATED handoff.
 - Orchestrator routes to Orientation.
 - No duplicate SKY activation human task is created.
+
+
+## Test AC — Acceptance → SKY activation → Orientation gate
+
+Use a controlled applicant with Marketing Prospect + Fee Group complete.
+
+Before Acceptance:
+- Systems Operator may verify the Prospect.
+- Result must be WAITING_ACCEPTANCE.
+- No SKY_ACTIVATION_REQUIRED human task may be raised.
+- Direct v2ActivateStudentInSky must fail with Student Acceptance is not complete.
+- Orientation Agent must return WAITING_SKY_ACTIVATION / blocked state and must not assign a session.
+
+After Acceptance:
+- ACCEPTANCE_COMPLETED routes to Systems Operator, not Orientation.
+- Systems Operator creates SKY_ACTIVATION_REQUIRED only when Prospect ID + Fee Group are valid.
+- Registry records the real SKY Student / Registration ID.
+- v2ActivateStudentInSky verifies Acceptance again at transaction level.
+- Successful activation emits SKY_ACTIVATED exactly once from ActivationV2.
+- SKY_ACTIVATED routes to Orientation.
+- Orientation Agent verifies SKY Activation Status = ACTIVATED before assigning/inviting.
+
+Regression rule:
+`ACCEPTANCE_COMPLETED → SYSTEMS_OPERATOR → SKY_ACTIVATED → ORIENTATION`
+must never become
+`ACCEPTANCE_COMPLETED → ORIENTATION`.
