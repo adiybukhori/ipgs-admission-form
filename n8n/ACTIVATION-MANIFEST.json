@@ -120,7 +120,9 @@
     "Activate in manifest order.",
     "Run controlled test cases before enabling real production event handoff.",
     "Admission V2 remains source of truth. n8n orchestrates; it does not replace existing deterministic transaction functions.",
-    "Academic decisions remain human-authorised."
+    "Academic decisions remain human-authorised.",
+    "Acceptance must complete before SKY activation; SKY must be ACTIVATED before Orientation.",
+    "Agentic Academic Handover requires Acceptance + SKY ACTIVATED + Orientation COMPLETED + Handover READY."
   ],
   "controlledTests": [
     "A",
@@ -135,7 +137,11 @@
     "U",
     "W",
     "C",
-    "D"
+    "D",
+    "AA",
+    "AB",
+    "AC",
+    "AD"
   ],
   "definitionOfDone": "REQUESTED -> EXECUTED -> VERIFIED -> COMPLETED; otherwise RETRY / WAITING_HUMAN / NEEDS_INVESTIGATION.",
   "workflowCount": 13,
