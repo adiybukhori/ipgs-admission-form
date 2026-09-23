@@ -436,3 +436,39 @@ Expected:
 - Admission Intelligence runs locally only when Compliance status = PASS
 - FOLLOW_UP_REQUIRED / HUMAN_REVIEW_REQUIRED does not get bypassed
 - case does not get stuck solely because n8n is unavailable.
+
+
+## Test AA — Missing required document loop
+
+Use a controlled application submitted without one mandatory admission document.
+
+Expected:
+- APPLICATION_SUBMITTED routes to deterministic document completeness.
+- Review Status = INCOMPLETE.
+- DOCUMENT_MISSING_REQUIRED routes to Student Concierge.
+- Student Concierge uses SEND_MISSING_DOCUMENT_REQUEST, not the quality-replacement action.
+- V2_DOCUMENT_REVIEW records Replacement Request Type = MISSING_REQUIRED_DOCUMENT.
+- Secure upload page says the document is required/missing, not that it failed a quality review.
+- Applicant receives a secure upload link for the missing field(s) only.
+- Applicant must upload every requested missing field.
+- Uploaded Files JSON is updated with the canonical new file.
+- Deterministic document completeness is re-run after upload.
+
+If completeness becomes COMPLETE:
+- DOCUMENT_COMPLETENESS_CONFIRMED is emitted.
+- Orchestrator routes to Compliance & Records Agent.
+- Academic screening does not run before Compliance PASS.
+
+If completeness remains INCOMPLETE:
+- DOCUMENT_MISSING_REQUIRED is emitted again with the current missing list.
+- Student Concierge prepares a new secure missing-document request.
+- The case remains at DOCUMENT_REVIEW.
+
+## Test AB — Missing vs quality request separation
+
+Expected:
+- Initial missing file uses Request Type MISSING_REQUIRED_DOCUMENT.
+- A later blurry/cropped file uses Request Type QUALITY_REPLACEMENT.
+- Missing-document receipt email refers to required admission documents.
+- Quality-replacement receipt email refers to replacement / quality review.
+- Both flows use the same secure upload infrastructure without mixing their next-step logic.
