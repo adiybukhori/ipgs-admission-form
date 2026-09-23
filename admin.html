@@ -564,8 +564,28 @@
         </section>
 
         <section id="assessment" class="section">
-          <div class="hero"><div><h2>IA / Prerequisite monitoring</h2><p>Track assessment progress and cases that are waiting for the next admission decision.</p></div></div>
-          <div class="panel"><div class="panel-head"><h3>Assessment progress</h3><span>Live assessment tracking</span></div><div class="table-wrap"><table><thead><tr><th>Applicant</th><th>Route</th><th>Status</th><th>Submission</th><th>Interview</th><th>Result</th><th>Updated</th></tr></thead><tbody id="assessmentBody"></tbody></table></div></div>
+          <div class="hero"><div><h2>IA / Prerequisite Operations</h2><p>Operational workspace from authorised IA referral until admission clearance. Prerequisite may only be opened after an IA decision requires it.</p></div><span class="badge purple">IA FIRST · CONTROLLED ROUTE</span></div>
+          <div class="kpis">
+            <div class="kpi"><div class="label">IA PENDING</div><div id="iaPendingKpi" class="value">0</div><div class="meta">Active internal assessments</div></div>
+            <div class="kpi"><div class="label">IA COMPLETED</div><div id="iaCompletedKpi" class="value">0</div><div class="meta">IA routes with a recorded outcome</div></div>
+            <div class="kpi"><div class="label">PREREQ PENDING</div><div id="prereqPendingKpi" class="value">0</div><div class="meta">Cases requiring prerequisite completion</div></div>
+            <div class="kpi"><div class="label">CLEARED</div><div id="assessmentClearedKpi" class="value">0</div><div class="meta">Assessment routes qualified / passed</div></div>
+          </div>
+          <div class="panel">
+            <div class="panel-body">
+              <div class="warning-banner" style="margin-bottom:14px"><b>V2 operating rule:</b> SAC can route a candidate to Internal Assessment, but it cannot assign Prerequisite directly. IA must be completed first. Only an authorised IA result of <b>Prerequisite Required</b> opens the Prerequisite stage.</div>
+              <div id="assessmentPageMessage" class="message" style="display:none;margin-bottom:12px"></div>
+              <div style="display:flex;gap:8px;align-items:center;justify-content:space-between;flex-wrap:wrap">
+                <div><div class="student">Assessment Case Register</div><div class="subline">Open an applicant to manage evidence, interview, panel decision, prerequisite delivery and final result.</div></div>
+                <select id="assessmentRouteFilter" class="ops-select" style="min-width:210px">
+                  <option value="ALL">All assessment routes</option>
+                  <option value="INTERNAL_ASSESSMENT">Internal Assessment</option>
+                  <option value="PREREQUISITE">Prerequisite</option>
+                </select>
+              </div>
+            </div>
+            <div class="table-wrap"><table><thead><tr><th>Applicant</th><th>Programme / Route</th><th>Current Step</th><th>Interview / Delivery</th><th>Result</th><th>Updated</th><th>Action</th></tr></thead><tbody id="assessmentBody"></tbody></table></div>
+          </div>
         </section>
 
         <section id="activation" class="section">
@@ -1546,7 +1566,7 @@
     async function copyText(text){try{await navigator.clipboard.writeText(text)}catch(_){}}
     function exportApplicationsCsv(){const list=filteredApplications(),rows=[['Reference','Student Name','ID / Passport','Email','Programme','Intake','Stage','Decision','Status','Last Updated']];list.forEach(r=>rows.push([r.ref,r.app['Student Name'],r.app['ID / Passport No'],r.app['Personal Email'],r.app['Programme'],r.app['Intake'],stage(r),decision(r),status(r),val(r,'Last Updated',r.app['Last Updated'])]));const csv=rows.map(row=>row.map(v=>`"${String(v||'').replaceAll('"','""')}"`).join(',')).join('\n'),blob=new Blob([csv],{type:'text/csv;charset=utf-8'}),a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='IPGS_Admission_Report.csv';a.click();URL.revokeObjectURL(a.href)}
   </script>
-  <script src="/orientation-admin.js"></script>
+  <script src="/assessment-admin.js"></script>\n  <script src="/orientation-admin.js"></script>
   <script src="/handover-admin.js"></script>
   <script src="/activation-admin.js"></script>
   <script src="/fee-structure-admin.js"></script>

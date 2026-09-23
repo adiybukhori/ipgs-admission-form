@@ -1,0 +1,33 @@
+name: Validate IA Prerequisite Workspace
+
+on:
+  push:
+    branches:
+      - feature/ia-prereq-workspace-v2
+    paths:
+      - 'admin.html'
+      - 'assessment-admin.js'
+      - '.github/workflows/validate-ia-prereq-workspace.yml'
+  workflow_dispatch:
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Check assessment workspace JavaScript
+        run: node --check assessment-admin.js
+      - name: Extract and check admin inline JavaScript
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          import re
+          html = Path('admin.html').read_text(encoding='utf-8')
+          blocks = re.findall(r'<script(?:\s[^>]*)?>(.*?)</script>', html, flags=re.S|re.I)
+          if not blocks:
+              raise SystemExit('No inline script found')
+          Path('/tmp/admin-inline.js').write_text('\n'.join(blocks), encoding='utf-8')
+          PY
+          node --check /tmp/admin-inline.js
+      - name: Confirm assessment script is loaded
+        run: grep -q 'assessment-admin.js' admin.html
