@@ -11,6 +11,7 @@ This folder contains the first isolated n8n workflows for the Campus Simulation 
 - CS-ADM-V2 | 02 ADMISSION INTELLIGENCE
 - CS-ADM-V2 | 03 SAC-IA
 - CS-ADM-V2 | 04 STUDENT CONCIERGE
+- CS-ADM-V2 | 06 ORIENTATION
 - CS-ADM-V2 | 92 HUMAN TASK GATEWAY
 - CS-ADM-V2 | 93 ERROR & RETRY
 
@@ -30,7 +31,7 @@ ACC / Campus Simulation reads V2_AGENT_EVENTS and V2_AGENT_EXECUTIONS.
 
 ## Required configuration before activation
 
-1. Import all nine JSON files into the dedicated n8n project:
+1. Import all ten JSON files into the dedicated n8n project:
    IUC | Campus Simulation | Admission V2
 2. Replace REPLACE_WITH_N8N_EVENT_SHARED_SECRET in all workflows with one strong shared secret.
 3. Replace REPLACE_WITH_V2_ADMIN_API_PASSWORD in the Action Gateway workflow with the protected V2 backend token, preferably via n8n credentials rather than plain text.
@@ -42,6 +43,7 @@ ACC / Campus Simulation reads V2_AGENT_EVENTS and V2_AGENT_EXECUTIONS.
    - 04 STUDENT CONCIERGE
    - 02 ADMISSION INTELLIGENCE
    - 03 SAC-IA
+   - 06 ORIENTATION
    - 00 ORCHESTRATOR
    - 90 EVENT INGRESS
 5. In Apps Script properties set:
@@ -176,3 +178,24 @@ PREREQUISITE
    - NOT_QUALIFIED -> REJECTED
 
 Direct SAC -> prerequisite remains prohibited.
+
+
+## Orientation Management Agent — accepted student intake
+
+ACCEPTANCE_COMPLETED
+-> AI Orchestrator
+-> Orientation Management Agent
+-> find existing assignment or nearest suitable future session
+-> if no suitable session: ORIENTATION_SESSION_REQUIRED Human Task
+-> assign student
+-> send invitation using existing OrientationV2 backend
+-> verify Invitation Status = SENT
+-> verify existing Apps Script reminder engine = ACTIVE
+-> monitor session
+
+Reminder scheduling is NOT duplicated in n8n. Existing OrientationV2 reminder automation is authoritative:
+- every 15 minutes sweep
+- D3 / D2 / D1 / H1 milestones
+- reminders only for students whose invitation status is SENT
+
+If invitation or reminder-trigger verification fails, the Orientation Agent creates a durable Human Task rather than silently continuing.
