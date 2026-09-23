@@ -13,6 +13,7 @@ This folder contains the first isolated n8n workflows for the Campus Simulation 
 - CS-ADM-V2 | 04 STUDENT CONCIERGE
 - CS-ADM-V2 | 05 SYSTEMS OPERATOR
 - CS-ADM-V2 | 06 ORIENTATION
+- CS-ADM-V2 | 07 ACADEMIC HANDOVER
 - CS-ADM-V2 | 92 HUMAN TASK GATEWAY
 - CS-ADM-V2 | 93 ERROR & RETRY
 
@@ -32,7 +33,7 @@ ACC / Campus Simulation reads V2_AGENT_EVENTS and V2_AGENT_EXECUTIONS.
 
 ## Required configuration before activation
 
-1. Import all eleven JSON files into the dedicated n8n project:
+1. Import all twelve JSON files into the dedicated n8n project:
    IUC | Campus Simulation | Admission V2
 2. Replace REPLACE_WITH_N8N_EVENT_SHARED_SECRET in all workflows with one strong shared secret.
 3. Replace REPLACE_WITH_V2_ADMIN_API_PASSWORD in the Action Gateway workflow with the protected V2 backend token, preferably via n8n credentials rather than plain text.
@@ -46,6 +47,7 @@ ACC / Campus Simulation reads V2_AGENT_EVENTS and V2_AGENT_EXECUTIONS.
    - 02 ADMISSION INTELLIGENCE
    - 03 SAC-IA
    - 06 ORIENTATION
+   - 07 ACADEMIC HANDOVER
    - 00 ORCHESTRATOR
    - 90 EVENT INGRESS
 5. In Apps Script properties set:
@@ -224,3 +226,37 @@ PROSPECT_COMPLETED
 -> Systems Operator emits SKY_ACTIVATED
 
 Important: v2ActivateStudentInSky records/validates the completed external action. It is not treated as an API call into SKY itself.
+
+
+## Academic Handover Agent
+
+Official Orientation completion is the gate for handover readiness.
+
+For each attended student after the Orientation session is officially completed:
+- Orientation Status = COMPLETED
+- Academic Handover Status = READY
+- ORIENTATION_COMPLETED event is emitted only after the whole cohort readiness state is committed.
+
+The Academic Handover Agent aggregates READY students by Orientation Session ID.
+
+Flow:
+ORIENTATION_COMPLETED
+-> Academic Handover Agent
+-> if PIC configuration is missing: durable HANDOVER_CONFIGURATION_REQUIRED task
+-> create / reuse one batch for the Orientation cohort
+-> add all READY students not already assigned to another handover batch
+-> send Academic handover + IT / Moodle / e-Library provisioning tasks using existing HandoverV2
+-> verify Academic Handover Status = HANDED_OVER and Provisioning Status = IN_PROGRESS
+-> monitor provisioning
+
+When all three provisioning tasks become COMPLETED:
+PROVISIONING_READY_TO_NOTIFY
+-> Academic Handover Agent
+-> durable STUDENT_ACCESS_CREDENTIALS_REQUIRED task
+-> authorised staff enters temporary credentials once
+-> existing v2SendStudentProvisioningAccess sends credentials directly to the student
+-> temporary passwords are not stored in Human Task, spreadsheet audit or agent events
+-> verify Student Notification = SENT
+-> Academic Handover Status = COMPLETED
+-> Application Stage = ACTIVE_STUDENT
+-> ACADEMIC_HANDOVER_COMPLETE event
