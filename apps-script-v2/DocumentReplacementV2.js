@@ -8,6 +8,7 @@
 const V2_DOC_REPLACEMENT_MAX_FILE_BYTES = 7 * 1024 * 1024;
 const V2_DOC_REPLACEMENT_MAX_TOTAL_BYTES = 18 * 1024 * 1024;
 const V2_DOC_REPLACEMENT_HEADERS = [
+  'Replacement Request Type',
   'Replacement Request Status',
   'Replacement Token Hash',
   'Replacement Upload URL',
@@ -108,6 +109,7 @@ function v2SendDocumentReplacementRequest_(data,actor) {
   }
 
   v2UpdateRow_(doc.sheet,doc.rowNumber,{
+    'Replacement Request Type':'QUALITY_REPLACEMENT',
     'Replacement Request Status':'AWAITING_STUDENT',
     'Replacement Token Hash':tokenHash,
     'Replacement Upload URL':uploadUrl,
@@ -156,6 +158,128 @@ function v2SendDocumentReplacementRequest_(data,actor) {
   };
 }
 
+function v2SendMissingDocumentRequest_(data,actor) {
+  assertDevIdentity_();
+  v2DocumentReplacementEnsureHeaders_();
+
+  const input=data||{};
+  const reference=v2Required_(input.referenceNo,'Reference No');
+  const requestedBy=String(actor||input.requestedBy||'Student Concierge Agent').trim();
+
+  const app=v2Find_('V2_APPLICATIONS','Reference No',reference);
+  const wf=v2Find_('V2_WORKFLOW','Reference No',reference);
+  const doc=v2Find_(V2_DOCUMENT_REVIEW_SHEET,'Reference No',reference);
+  if(!app||!wf||!doc)throw new Error('Application/workflow/document review record not found.');
+
+  const reviewStatus=String(doc.record['Review Status']||wf.record['Document Review Status']||'').toUpperCase();
+  if(reviewStatus!=='INCOMPLETE'){
+    throw new Error('Missing-document request is only available when Document Review Status is INCOMPLETE.');
+  }
+
+  let missing=[];
+  try{missing=JSON.parse(String(doc.record['Missing Documents JSON']||'[]'));}catch(_){missing=[];}
+  if(!Array.isArray(missing)||!missing.length)throw new Error('No missing required documents are recorded.');
+
+  const requested=missing.map(function(item){
+    const field=String(item&& (item.key||item.field) ||'').trim();
+    return {
+      field:field,
+      label:String(item&&item.label||V2_DOCUMENT_LABELS[field]||field||'Required Document'),
+      issues:['Required document was not submitted.'],
+      instruction:'Please upload this required admission document in a clear and complete file.'
+    };
+  }).filter(function(item){return !!item.field;});
+  if(!requested.length)throw new Error('Missing document fields are unavailable.');
+
+  const now=new Date().toISOString();
+  const rawToken=Utilities.getUuid().replace(/-/g,'')+Utilities.getUuid().replace(/-/g,'');
+  const tokenHash=v2OfferHashToken_(rawToken);
+  const serviceUrl=String(ScriptApp.getService().getUrl()||'').trim();
+  const uploadUrl=serviceUrl?serviceUrl+'?page=document-replacement-v2&token='+encodeURIComponent(rawToken):'';
+  if(!uploadUrl)throw new Error('Secure document upload URL could not be created.');
+
+  const recipient=String(app.record['Personal Email']||'').trim();
+  const student=String(app.record['Student Name']||'Applicant').trim();
+  const programme=String(app.record['Programme']||'').trim();
+  const requestHtml=requested.map(function(item){
+    return '<div style="border:1px solid #e6e2ef;border-radius:12px;padding:13px 14px;margin:10px 0;background:#fbfaff">'+
+      '<strong>'+v2Html_(item.label)+'</strong>'+
+      '<div style="font-size:12px;color:#5f6572;margin-top:5px">'+v2Html_(item.instruction)+'</div>'+
+    '</div>';
+  }).join('');
+
+  const subject='[IUC IPGS] Missing Admission Document(s) Required - '+reference;
+  const textBody=
+    'Dear '+student+',\n\n'+
+    'Your admission application was received successfully. Before academic screening can continue, please provide the required document(s) listed below.\n\n'+
+    requested.map(function(item){return '- '+item.label+': '+item.instruction;}).join('\n')+
+    '\n\nSecure upload link:\n'+uploadUrl+
+    '\n\nReference: '+reference+'\nProgramme: '+programme+'\n\nIPGS Registry\nInnovative University College';
+
+  const htmlBody='<div style="font-family:Arial,sans-serif;max-width:680px;margin:auto;border:1px solid #e5e7eb;border-radius:16px;overflow:hidden">'+
+    '<div style="background:#2d2363;color:#fff;padding:22px"><h2 style="margin:0">Missing Admission Document(s)</h2></div>'+
+    '<div style="padding:24px"><p>Dear <strong>'+v2Html_(student)+'</strong>,</p>'+
+    '<p>Your application has been received. Before academic screening can continue, please provide the required document(s) below.</p>'+
+    requestHtml+
+    '<div style="margin:20px 0"><a href="'+v2Html_(uploadUrl)+'" style="display:inline-block;background:#2d2363;color:#fff;text-decoration:none;padding:12px 18px;border-radius:10px;font-weight:700">Upload Required Document(s)</a></div>'+
+    '<p style="font-size:12px;color:#6f7581"><strong>Reference:</strong> '+v2Html_(reference)+'<br><strong>Programme:</strong> '+v2Html_(programme)+'</p>'+
+    '<p>Regards,<br><strong>IPGS Registry</strong><br>Innovative University College</p></div></div>';
+
+  let notification={sent:false,status:'UNAVAILABLE',mode:'UNAVAILABLE',recipients:[]};
+  if(typeof v2NotificationSend_==='function'){
+    notification=v2NotificationSend_('MISSING_ADMISSION_DOCUMENTS',[recipient],subject,textBody,htmlBody,{});
+  }
+
+  v2UpdateRow_(doc.sheet,doc.rowNumber,{
+    'Replacement Request Type':'MISSING_REQUIRED_DOCUMENT',
+    'Replacement Request Status':'AWAITING_STUDENT',
+    'Replacement Token Hash':tokenHash,
+    'Replacement Upload URL':uploadUrl,
+    'Replacement Requested JSON':JSON.stringify(requested),
+    'Replacement Requested At':now,
+    'Replacement Notification Status':String(notification.status||''),
+    'Replacement Notification Sent At':notification.sent?now:'',
+    'Applicant Notification Status':String(notification.status||''),
+    'Last Updated':now
+  });
+
+  let humanTask=null;
+  if(!notification.sent&&typeof v2CreateHumanTask_==='function'){
+    humanTask=v2CreateHumanTask_({
+      referenceNo:reference,
+      taskType:'STUDENT_COMMUNICATION_REQUIRED',
+      title:'Missing-document request could not be delivered',
+      reason:'Student Concierge prepared the missing-document request, but the notification was not sent. Status: '+String(notification.status||'UNKNOWN'),
+      raisedByAgent:'Student Concierge Agent',
+      agentId:'STUDENT_CONCIERGE',
+      executionId:String(input.executionId||''),
+      priority:'HIGH',
+      assignedTo:'Registry / Student Services',
+      resumeEvent:'HUMAN_TASK_COMPLETED',
+      source:'N8N'
+    },requestedBy);
+  }
+
+  v2Audit_(reference,'STUDENT_CONCIERGE','MISSING_DOCUMENT_REQUEST_SENT',{},{
+    requestedDocuments:requested,
+    notificationStatus:notification.status,
+    sent:notification.sent
+  },requestedBy,notification.sent?'SUCCESS':'PARTIAL','Secure missing admission-document request prepared.');
+
+  v2InvalidateCache_();
+  return {
+    ok:true,
+    referenceNo:reference,
+    requestType:'MISSING_REQUIRED_DOCUMENT',
+    status:'AWAITING_STUDENT',
+    notification:notification,
+    requiresHuman:!notification.sent,
+    humanTask:humanTask,
+    requestedDocuments:requested,
+    uploadUrl:uploadUrl
+  };
+}
+
 function v2DocumentReplacementFindByToken_(rawToken) {
   const token=String(rawToken||'').trim();
   if(!token)throw new Error('Document replacement upload token is required.');
@@ -184,6 +308,7 @@ function v2GetDocumentReplacementForToken(rawToken) {
     studentName:String(app.record['Student Name']||''),
     programme:String(app.record['Programme']||''),
     intake:String(app.record['Intake']||''),
+    requestType:String(row['Replacement Request Type']||'QUALITY_REPLACEMENT'),
     status:String(row['Replacement Request Status']||'AWAITING_STUDENT'),
     requestedDocuments:Array.isArray(requested)?requested:[],
     receivedAt:String(row['Replacement Received At']||'')
@@ -205,6 +330,7 @@ function v2SubmitDocumentReplacementUpload(rawToken,filesInput) {
     return {ok:true,alreadyReceived:true,referenceNo:reference,status:'RECEIVED'};
   }
 
+  const requestType=String(doc.record['Replacement Request Type']||'QUALITY_REPLACEMENT').toUpperCase();
   let requested=[];
   try{requested=JSON.parse(String(doc.record['Replacement Requested JSON']||'[]'));}catch(_){requested=[];}
   if(!Array.isArray(requested)||!requested.length)throw new Error('Replacement request details are unavailable.');
@@ -298,49 +424,89 @@ function v2SubmitDocumentReplacementUpload(rawToken,filesInput) {
     'Replacement Request Status':'RECEIVED',
     'Replacement Received At':now,
     'Replacement Uploads JSON':JSON.stringify(replacementRecords),
-    'AI Quality Status':'PENDING_REVIEW',
-    'AI Quality Confidence':'',
     'Last Updated':now
   });
 
-  v2UpdateRow_(wf.sheet,wf.rowNumber,{
-    'Document Quality Status':'PENDING_REVIEW',
-    'Document Quality Confidence':'',
-    'Last Updated':now,
-    'Updated By':'Student Document Replacement Upload'
-  });
-
-  v2Audit_(reference,'DOCUMENT_REVIEW','DOCUMENT_REPLACEMENT_RECEIVED',{},{
-    fields:requestedFields,
-    files:replacementRecords
-  },'Applicant','SUCCESS','Requested replacement document(s) uploaded through secure link.');
-
   let handoff=null;
   let localFallback=null;
-  if(typeof v2AgenticEnabled_==='function'&&v2AgenticEnabled_()&&typeof v2EmitAgentEvent_==='function') {
-    handoff=v2EmitAgentEvent_({
-      referenceNo:reference,
-      eventType:'DOCUMENT_REPLACEMENT_RECEIVED',
-      agentId:'ORCHESTRATOR',
-      agentName:'AI Orchestrator',
-      action:'ROUTE_COMPLIANCE',
-      status:'QUEUED',
-      fromStage:'DOCUMENT_REVIEW',
-      toStage:'DOCUMENT_REVIEW',
-      source:'APPLICANT_UPLOAD',
-      summary:'Requested replacement document(s) received. Route back to Compliance & Records Agent.',
-      data:{fields:requestedFields}
-    });
-  }
+  let completenessResult=null;
 
-  if(!handoff||!handoff.sent) {
-    try {
-      localFallback=v2RunComplianceDocumentQuality_({referenceNo:reference},'Replacement Upload Local Compliance Fallback');
-      if(localFallback&&localFallback.status==='PASS') {
-        localFallback.admissionIntelligence=v2TryAutoAiScreening_(reference,'Replacement Upload Local Admission Intelligence Fallback');
+  if(requestType==='MISSING_REQUIRED_DOCUMENT'){
+    v2Audit_(reference,'DOCUMENT_REVIEW','MISSING_DOCUMENT_RECEIVED',{},{
+      fields:requestedFields,
+      files:replacementRecords
+    },'Applicant','SUCCESS','Requested missing admission document(s) uploaded through secure link.');
+
+    completenessResult=v2RunDocumentReview(
+      reference,
+      'Student Concierge Upload Recheck',
+      'Automatic deterministic completeness re-check after missing document upload.'
+    );
+
+    if(String(completenessResult.status||'').toUpperCase()==='INCOMPLETE' &&
+       typeof v2AgenticEnabled_==='function'&&v2AgenticEnabled_()&&typeof v2EmitAgentEvent_==='function'){
+      handoff=v2EmitAgentEvent_({
+        referenceNo:reference,
+        eventType:'DOCUMENT_MISSING_REQUIRED',
+        agentId:'ORCHESTRATOR',
+        agentName:'AI Orchestrator',
+        action:'ROUTE_STUDENT_CONCIERGE',
+        status:'QUEUED',
+        fromStage:'DOCUMENT_REVIEW',
+        toStage:'DOCUMENT_REVIEW',
+        source:'APPLICANT_UPLOAD',
+        summary:'Missing-document upload was received, but deterministic completeness still shows required document(s) outstanding.',
+        data:{
+          fields:requestedFields,
+          missingDocuments:completenessResult.missingDocuments||[],
+          missingCount:Number(completenessResult.missingCount||0)
+        }
+      });
+    }
+  }else{
+    v2UpdateRow_(doc.sheet,doc.rowNumber,{
+      'AI Quality Status':'PENDING_REVIEW',
+      'AI Quality Confidence':'',
+      'Last Updated':now
+    });
+
+    v2UpdateRow_(wf.sheet,wf.rowNumber,{
+      'Document Quality Status':'PENDING_REVIEW',
+      'Document Quality Confidence':'',
+      'Last Updated':now,
+      'Updated By':'Student Document Replacement Upload'
+    });
+
+    v2Audit_(reference,'DOCUMENT_REVIEW','DOCUMENT_REPLACEMENT_RECEIVED',{},{
+      fields:requestedFields,
+      files:replacementRecords
+    },'Applicant','SUCCESS','Requested replacement document(s) uploaded through secure link.');
+
+    if(typeof v2AgenticEnabled_==='function'&&v2AgenticEnabled_()&&typeof v2EmitAgentEvent_==='function') {
+      handoff=v2EmitAgentEvent_({
+        referenceNo:reference,
+        eventType:'DOCUMENT_REPLACEMENT_RECEIVED',
+        agentId:'ORCHESTRATOR',
+        agentName:'AI Orchestrator',
+        action:'ROUTE_COMPLIANCE',
+        status:'QUEUED',
+        fromStage:'DOCUMENT_REVIEW',
+        toStage:'DOCUMENT_REVIEW',
+        source:'APPLICANT_UPLOAD',
+        summary:'Requested quality replacement document(s) received. Route back to Compliance & Records Agent.',
+        data:{fields:requestedFields}
+      });
+    }
+
+    if(!handoff||!handoff.sent) {
+      try {
+        localFallback=v2RunComplianceDocumentQuality_({referenceNo:reference},'Replacement Upload Local Compliance Fallback');
+        if(localFallback&&localFallback.status==='PASS') {
+          localFallback.admissionIntelligence=v2TryAutoAiScreening_(reference,'Replacement Upload Local Admission Intelligence Fallback');
+        }
+      } catch(error) {
+        localFallback={ok:false,message:String(error&&error.message||error)};
       }
-    } catch(error) {
-      localFallback={ok:false,message:String(error&&error.message||error)};
     }
   }
 
@@ -359,8 +525,10 @@ function v2SubmitDocumentReplacementUpload(rawToken,filesInput) {
     ok:true,
     referenceNo:reference,
     status:'RECEIVED',
+    requestType:requestType,
     receivedAt:now,
     files:replacementRecords,
+    completenessResult:completenessResult,
     agenticHandoff:handoff,
     localFallback:localFallback
   };
