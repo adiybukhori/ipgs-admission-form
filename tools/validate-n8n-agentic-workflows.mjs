@@ -27,8 +27,8 @@ if(actual.length!==expected.length)throw new Error('Expected '+expected.length+'
 
 const webhookPaths=new Map();
 const workflowNames=new Set();
-const allowedSecret='REPLACE_WITH_N8N_EVENT_SHARED_SECRET';
-const allowedAdmin='REPLACE_WITH_V2_ADMIN_API_PASSWORD';
+const allowedSecret='$vars.N8N_EVENT_SHARED_SECRET';
+const allowedAdmin='$vars.V2_ADMIN_API_PASSWORD';
 
 for(const file of expected){
   const full=path.join(root,file);
@@ -69,12 +69,16 @@ for(const file of expected){
     throw new Error(file+': possible live secret detected');
   }
 
+  if(raw.includes('REPLACE_WITH_')){
+    throw new Error(file+': unresolved import placeholder remains');
+  }
+
   if(raw.includes('X-IUC-Agent-Secret')&&!raw.includes(allowedSecret)){
-    throw new Error(file+': shared secret header exists without the approved placeholder');
+    throw new Error(file+': shared secret header exists without the approved project variable');
   }
 
   if(raw.includes('V2_ADMIN_API_PASSWORD')&&!raw.includes(allowedAdmin)){
-    throw new Error(file+': V2 admin password reference exists without the approved placeholder');
+    throw new Error(file+': V2 admin password reference exists without the approved project variable');
   }
 }
 

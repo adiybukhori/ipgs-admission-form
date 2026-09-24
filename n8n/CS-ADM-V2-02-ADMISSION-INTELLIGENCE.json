@@ -19,7 +19,7 @@
     },
     {
       "parameters": {
-        "jsCode": "const req=$input.first().json; const h=req.headers||{}; const supplied=h['x-iuc-agent-secret']||h['X-IUC-Agent-Secret']||''; const expected='REPLACE_WITH_N8N_EVENT_SHARED_SECRET'; if(supplied!==expected) throw new Error('Invalid Admission Intelligence secret'); const e=req.body||req; if(!e.referenceNo) throw new Error('referenceNo required'); return [{json:{...e,agentId:'ADMISSION_INTELLIGENCE',executionId:'AI-'+e.referenceNo+'-'+(e.eventId||Date.now())}}];"
+        "jsCode": "const req=$input.first().json; const h=req.headers||{}; const supplied=h['x-iuc-agent-secret']||h['X-IUC-Agent-Secret']||''; const expected=$vars.N8N_EVENT_SHARED_SECRET; if(supplied!==expected) throw new Error('Invalid Admission Intelligence secret'); const e=req.body||req; if(!e.referenceNo) throw new Error('referenceNo required'); return [{json:{...e,agentId:'ADMISSION_INTELLIGENCE',executionId:'AI-'+e.referenceNo+'-'+(e.eventId||Date.now())}}];"
       },
       "id": "prepare",
       "name": "Prepare Agent Task",
@@ -39,7 +39,7 @@
           "parameters": [
             {
               "name": "X-IUC-Agent-Secret",
-              "value": "REPLACE_WITH_N8N_EVENT_SHARED_SECRET"
+              "value": "={{ $vars.N8N_EVENT_SHARED_SECRET }}"
             }
           ]
         },
@@ -80,7 +80,7 @@
           "parameters": [
             {
               "name": "X-IUC-Agent-Secret",
-              "value": "REPLACE_WITH_N8N_EVENT_SHARED_SECRET"
+              "value": "={{ $vars.N8N_EVENT_SHARED_SECRET }}"
             }
           ]
         },
@@ -108,7 +108,7 @@
           "parameters": [
             {
               "name": "X-IUC-Agent-Secret",
-              "value": "REPLACE_WITH_N8N_EVENT_SHARED_SECRET"
+              "value": "={{ $vars.N8N_EVENT_SHARED_SECRET }}"
             }
           ]
         },
@@ -205,7 +205,7 @@
           "parameters": [
             {
               "name": "X-IUC-Agent-Secret",
-              "value": "REPLACE_WITH_N8N_EVENT_SHARED_SECRET"
+              "value": "={{ $vars.N8N_EVENT_SHARED_SECRET }}"
             }
           ]
         },
@@ -233,7 +233,7 @@
           "parameters": [
             {
               "name": "X-IUC-Agent-Secret",
-              "value": "REPLACE_WITH_N8N_EVENT_SHARED_SECRET"
+              "value": "={{ $vars.N8N_EVENT_SHARED_SECRET }}"
             }
           ]
         },

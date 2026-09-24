@@ -19,7 +19,7 @@
     },
     {
       "parameters": {
-        "jsCode": "const req=$input.first().json; const h=req.headers||{}; const supplied=h['x-iuc-agent-secret']||h['X-IUC-Agent-Secret']||''; const expected='REPLACE_WITH_N8N_EVENT_SHARED_SECRET'; if(supplied!==expected) throw new Error('Invalid gateway secret'); const b=req.body||req; if(!b.operation) throw new Error('operation required'); return [{json:b}];"
+        "jsCode": "const req=$input.first().json; const h=req.headers||{}; const supplied=h['x-iuc-agent-secret']||h['X-IUC-Agent-Secret']||''; const expected=$vars.N8N_EVENT_SHARED_SECRET; if(supplied!==expected) throw new Error('Invalid gateway secret'); const b=req.body||req; if(!b.operation) throw new Error('operation required'); return [{json:b}];"
       },
       "id": "gateway-validate",
       "name": "Validate Gateway Request",
@@ -142,7 +142,7 @@
         "sendBody": true,
         "contentType": "raw",
         "rawContentType": "application/json",
-        "body": "={{ JSON.stringify({action:'v2GetAgentCaseState',token:'REPLACE_WITH_V2_ADMIN_API_PASSWORD',updatedBy:'n8n | Action Gateway',data:{referenceNo:$json.referenceNo}}) }}",
+        "body": "={{ JSON.stringify({action:'v2GetAgentCaseState',token:$vars.V2_ADMIN_API_PASSWORD,updatedBy:'n8n | Action Gateway',data:{referenceNo:$json.referenceNo}}) }}",
         "options": {}
       },
       "id": "get-state",
@@ -161,7 +161,7 @@
         "sendBody": true,
         "contentType": "raw",
         "rawContentType": "application/json",
-        "body": "={{ JSON.stringify({action:'v2AgentActionGateway',token:'REPLACE_WITH_V2_ADMIN_API_PASSWORD',updatedBy:'n8n | '+$json.agentId,data:$json}) }}",
+        "body": "={{ JSON.stringify({action:'v2AgentActionGateway',token:$vars.V2_ADMIN_API_PASSWORD,updatedBy:'n8n | '+$json.agentId,data:$json}) }}",
         "options": {}
       },
       "id": "execute-action",
@@ -180,7 +180,7 @@
         "sendBody": true,
         "contentType": "raw",
         "rawContentType": "application/json",
-        "body": "={{ JSON.stringify({action:'v2RecordAgentActivity',token:'REPLACE_WITH_V2_ADMIN_API_PASSWORD',updatedBy:'n8n',data:$json}) }}",
+        "body": "={{ JSON.stringify({action:'v2RecordAgentActivity',token:$vars.V2_ADMIN_API_PASSWORD,updatedBy:'n8n',data:$json}) }}",
         "options": {}
       },
       "id": "record-activity",
@@ -214,7 +214,7 @@
         "sendBody": true,
         "contentType": "raw",
         "rawContentType": "application/json",
-        "body": "={{ JSON.stringify({action:'v2GenerateAiScreeningReport',token:'REPLACE_WITH_V2_ADMIN_API_PASSWORD',updatedBy:'n8n | Admission Intelligence',data:{referenceNo:$json.referenceNo,finalize:$json.finalize!==false}}) }}",
+        "body": "={{ JSON.stringify({action:'v2GenerateAiScreeningReport',token:$vars.V2_ADMIN_API_PASSWORD,updatedBy:'n8n | Admission Intelligence',data:{referenceNo:$json.referenceNo,finalize:$json.finalize!==false}}) }}",
         "options": {}
       },
       "id": "generate-screening-report",
