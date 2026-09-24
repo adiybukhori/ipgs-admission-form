@@ -19,7 +19,7 @@
     },
     {
       "parameters": {
-        "jsCode": "const req=$input.first().json;\nconst h=req.headers||{};\nconst supplied=h['x-iuc-agent-secret']||h['X-IUC-Agent-Secret']||'';\nconst expected='REPLACE_WITH_N8N_EVENT_SHARED_SECRET';\nif(supplied!==expected) throw new Error('Invalid Systems Operator secret');\nconst e=req.body||req;\nif(!e.referenceNo) throw new Error('referenceNo required');\nreturn [{json:{...e,agentId:'SYSTEMS_OPERATOR',executionId:'SYS-'+e.referenceNo+'-'+(e.eventId||Date.now())}}];"
+        "jsCode": "const req=$input.first().json;\nconst h=req.headers||{};\nconst supplied=h['x-iuc-agent-secret']||h['X-IUC-Agent-Secret']||'';\nconst expected=$vars.N8N_EVENT_SHARED_SECRET;\nif(supplied!==expected) throw new Error('Invalid Systems Operator secret');\nconst e=req.body||req;\nif(!e.referenceNo) throw new Error('referenceNo required');\nreturn [{json:{...e,agentId:'SYSTEMS_OPERATOR',executionId:'SYS-'+e.referenceNo+'-'+(e.eventId||Date.now())}}];"
       },
       "id": "prepare",
       "name": "Prepare Systems Task",
@@ -39,7 +39,7 @@
           "parameters": [
             {
               "name": "X-IUC-Agent-Secret",
-              "value": "REPLACE_WITH_N8N_EVENT_SHARED_SECRET"
+              "value": "={{ $vars.N8N_EVENT_SHARED_SECRET }}"
             }
           ]
         },
@@ -80,7 +80,7 @@
           "parameters": [
             {
               "name": "X-IUC-Agent-Secret",
-              "value": "REPLACE_WITH_N8N_EVENT_SHARED_SECRET"
+              "value": "={{ $vars.N8N_EVENT_SHARED_SECRET }}"
             }
           ]
         },
@@ -108,7 +108,7 @@
           "parameters": [
             {
               "name": "X-IUC-Agent-Secret",
-              "value": "REPLACE_WITH_N8N_EVENT_SHARED_SECRET"
+              "value": "={{ $vars.N8N_EVENT_SHARED_SECRET }}"
             }
           ]
         },
@@ -129,7 +129,7 @@
     },
     {
       "parameters": {
-        "jsCode": "const s=$input.first().json;\nconst w=s.workflow||{};\nconst exec=$('Prepare Registry SKY Activation').item.json||{};\nconst activation=String(w['SKY Activation Status']||'NOT_ACTIVATED').toUpperCase();\nconst acceptance=String(w['Acceptance Status']||'').toUpperCase();\nconst resultStatus=String(exec.result?.status||exec.status||'').toUpperCase();\nconst waitingHuman=exec.requiresHuman===true || resultStatus==='WAITING_HUMAN';\nconst waitingAcceptance=resultStatus==='WAITING_ACCEPTANCE';\nconst routeOrientation=activation==='ACTIVATED' && acceptance==='ACCEPTED';\nif(!waitingHuman && !waitingAcceptance && activation!=='ACTIVATED'){\n  throw new Error('Systems Operator verification failed: expected WAITING_ACCEPTANCE, Human Task or ACTIVATED state');\n}\nreturn [{json:{\n  ok:true,\n  referenceNo:s.referenceNo,\n  skyProspectId:w['SKY Prospect ID']||'',\n  feeGroup:w['Fee Group']||'',\n  skyActivationStatus:activation,\n  acceptanceStatus:acceptance,\n  resultStatus,\n  requiresHuman:waitingHuman,\n  waitingAcceptance,\n  routeOrientation,\n  verified:true\n}}];"
+        "jsCode": "const s=$input.first().json;\nconst w=s.workflow||{};\nconst exec=$('Prepare Registry SKY Activation').item.json||{};\nconst activation=String(w['SKY Activation Status']||'NOT_ACTIVATED').toUpperCase();\nconst acceptance=String(w['Acceptance Status']||'').toUpperCase();\nconst resultStatus=String(exec.result?.status||exec.status||'').toUpperCase();\nconst waitingHuman=exec.requiresHuman===true || resultStatus==='WAITING_HUMAN';\nconst activationReady=['READY_FOR_ACTIVATION','PENDING_ACTIVATION','WAITING_HUMAN'].includes(resultStatus);\nconst routeOrientation=activation==='ACTIVATED' && acceptance==='ACCEPTED';\nif(!waitingHuman && !activationReady && activation!=='ACTIVATED'){\n  throw new Error('Systems Operator verification failed: expected SKY activation task/readiness or ACTIVATED state');\n}\nreturn [{json:{ok:true,referenceNo:s.referenceNo,skyProspectId:w['SKY Prospect ID']||'',feeGroup:w['Fee Group']||'',skyActivationStatus:activation,acceptanceStatus:acceptance,resultStatus,requiresHuman:waitingHuman,activationReady,routeOrientation,verified:true}}];"
       },
       "id": "verify-after",
       "name": "Verify Systems Result",
@@ -205,7 +205,7 @@
           "parameters": [
             {
               "name": "X-IUC-Agent-Secret",
-              "value": "REPLACE_WITH_N8N_EVENT_SHARED_SECRET"
+              "value": "={{ $vars.N8N_EVENT_SHARED_SECRET }}"
             }
           ]
         },

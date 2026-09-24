@@ -19,7 +19,7 @@
     },
     {
       "parameters": {
-        "jsCode": "const req=$input.first().json;\nconst h=req.headers||{};\nconst supplied=h['x-iuc-agent-secret']||h['X-IUC-Agent-Secret']||'';\nconst expected='REPLACE_WITH_N8N_EVENT_SHARED_SECRET';\nif(supplied!==expected) throw new Error('Invalid retry gateway secret');\nconst b=req.body||req;\nfor(const k of ['referenceNo','executionId','agentId','requestedAction']) if(!b[k]) throw new Error(k+' required');\nconst attempt=Number(b.attempt||0);\nconst maxRetries=Number(b.maxRetries||2);\nreturn [{json:{...b,attempt,maxRetries,nextAttempt:attempt+1,shouldRetry:attempt<maxRetries}}];"
+        "jsCode": "const req=$input.first().json;\nconst h=req.headers||{};\nconst supplied=h['x-iuc-agent-secret']||h['X-IUC-Agent-Secret']||'';\nconst expected=$vars.N8N_EVENT_SHARED_SECRET;\nif(supplied!==expected) throw new Error('Invalid retry gateway secret');\nconst b=req.body||req;\nfor(const k of ['referenceNo','executionId','agentId','requestedAction']) if(!b[k]) throw new Error(k+' required');\nconst attempt=Number(b.attempt||0);\nconst maxRetries=Number(b.maxRetries||2);\nreturn [{json:{...b,attempt,maxRetries,nextAttempt:attempt+1,shouldRetry:attempt<maxRetries}}];"
       },
       "id": "retry-prepare",
       "name": "Prepare Retry Decision",
@@ -80,7 +80,7 @@
           "parameters": [
             {
               "name": "X-IUC-Agent-Secret",
-              "value": "REPLACE_WITH_N8N_EVENT_SHARED_SECRET"
+              "value": "={{ $vars.N8N_EVENT_SHARED_SECRET }}"
             }
           ]
         },
@@ -108,7 +108,7 @@
           "parameters": [
             {
               "name": "X-IUC-Agent-Secret",
-              "value": "REPLACE_WITH_N8N_EVENT_SHARED_SECRET"
+              "value": "={{ $vars.N8N_EVENT_SHARED_SECRET }}"
             }
           ]
         },

@@ -19,7 +19,7 @@
     },
     {
       "parameters": {
-        "jsCode": "const req=$input.first().json;\nconst h=req.headers||{};\nconst supplied=h['x-iuc-agent-secret']||h['X-IUC-Agent-Secret']||'';\nconst expected='REPLACE_WITH_N8N_EVENT_SHARED_SECRET';\nif(supplied!==expected) throw new Error('Invalid Orientation Agent secret');\nconst e=req.body||req;\nif(!e.referenceNo) throw new Error('referenceNo required');\nreturn [{json:{...e,agentId:'ORIENTATION',executionId:'ORI-'+e.referenceNo+'-'+(e.eventId||Date.now())}}];"
+        "jsCode": "const req=$input.first().json;\nconst h=req.headers||{};\nconst supplied=h['x-iuc-agent-secret']||h['X-IUC-Agent-Secret']||'';\nconst expected=$vars.N8N_EVENT_SHARED_SECRET;\nif(supplied!==expected) throw new Error('Invalid Orientation Agent secret');\nconst e=req.body||req;\nif(!e.referenceNo) throw new Error('referenceNo required');\nreturn [{json:{...e,agentId:'ORIENTATION',executionId:'ORI-'+e.referenceNo+'-'+(e.eventId||Date.now())}}];"
       },
       "id": "prepare",
       "name": "Prepare Orientation Task",
@@ -39,7 +39,7 @@
           "parameters": [
             {
               "name": "X-IUC-Agent-Secret",
-              "value": "REPLACE_WITH_N8N_EVENT_SHARED_SECRET"
+              "value": "={{ $vars.N8N_EVENT_SHARED_SECRET }}"
             }
           ]
         },
@@ -80,7 +80,7 @@
           "parameters": [
             {
               "name": "X-IUC-Agent-Secret",
-              "value": "REPLACE_WITH_N8N_EVENT_SHARED_SECRET"
+              "value": "={{ $vars.N8N_EVENT_SHARED_SECRET }}"
             }
           ]
         },
@@ -108,7 +108,7 @@
           "parameters": [
             {
               "name": "X-IUC-Agent-Secret",
-              "value": "REPLACE_WITH_N8N_EVENT_SHARED_SECRET"
+              "value": "={{ $vars.N8N_EVENT_SHARED_SECRET }}"
             }
           ]
         },
@@ -197,7 +197,7 @@
           "parameters": [
             {
               "name": "X-IUC-Agent-Secret",
-              "value": "REPLACE_WITH_N8N_EVENT_SHARED_SECRET"
+              "value": "={{ $vars.N8N_EVENT_SHARED_SECRET }}"
             }
           ]
         },
