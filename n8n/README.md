@@ -232,19 +232,20 @@ PROSPECT_COMPLETED
 -> AI Orchestrator
 -> Systems Operator Agent
 -> verify Prospect Status + SKY Prospect ID + Fee Group
--> WAIT_FOR_ACCEPTANCE
-
-ACCEPTANCE_COMPLETED
--> AI Orchestrator
--> Systems Operator Agent
--> verify Acceptance is complete
 -> durable SKY_ACTIVATION_REQUIRED task for Registry
--> Registry performs the real activation / registration in SKY
+-> Registry may activate / register the student in SKY without waiting for Acceptance
 -> Registry records SKY Student / Registration ID in ACC Human Decision Desk
 -> Admission V2 records SKY Activation Status = ACTIVATED
 -> Systems Operator emits SKY_ACTIVATED
 
-Important: v2ActivateStudentInSky records/validates the completed external action. It is not treated as an API call into SKY itself.\n\nDirect ACCEPTANCE_COMPLETED -> Orientation is prohibited. Orientation may only start after SKY_ACTIVATED.
+ACCEPTANCE_COMPLETED
+-> AI Orchestrator
+-> Systems Operator Agent
+-> verify current SKY state
+-> if SKY is already ACTIVATED: route to Orientation eligibility check
+-> if SKY is not yet ACTIVATED: ensure the Registry activation task exists
+
+Important: v2ActivateStudentInSky records/validates the completed external action. It is not treated as an API call into SKY itself. SKY activation and Acceptance are independent milestones. Orientation requires both Acceptance = ACCEPTED and SKY Activation Status = ACTIVATED.
 
 
 ## Academic Handover Agent

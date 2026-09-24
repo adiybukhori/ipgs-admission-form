@@ -136,7 +136,10 @@ if(!orchestratorCode.includes("SKY_ACTIVATED:'ORIENTATION'")){
 const systems=JSON.parse(fs.readFileSync(path.join(root,'CS-ADM-V2-05-SYSTEMS-OPERATOR.json'),'utf8'));
 const systemsVerify=systems.nodes.find(n=>n.name==='Verify Systems Result');
 if(!String(systemsVerify?.parameters?.jsCode||'').includes("acceptanceStatus")){
-  throw new Error('Systems Operator must preserve the Acceptance gate');
+  throw new Error('Systems Operator must preserve Acceptance as an independent Orientation gate');
+}
+if(String(systemsVerify?.parameters?.jsCode||'').includes('WAITING_ACCEPTANCE')){
+  throw new Error('Systems Operator must not block SKY activation on Acceptance');
 }
 if(!systems.nodes.some(n=>n.name==='Route Activated Student to Orientation')){
   throw new Error('Systems Operator must support verified activated-state handoff to Orientation');
@@ -148,7 +151,7 @@ if(!orientationVerifyCode.includes("SKY Activation Status") && !orientationVerif
   throw new Error('Orientation workflow must verify SKY activation before assignment/invitation');
 }
 
-console.log('Admission sequence barrier OK: Acceptance -> SKY -> Orientation');
+console.log('Admission sequence barrier OK: SKY may activate independently; Orientation requires Acceptance + SKY');
 
 
 const handover=JSON.parse(fs.readFileSync(path.join(root,'CS-ADM-V2-07-ACADEMIC-HANDOVER.json'),'utf8'));
