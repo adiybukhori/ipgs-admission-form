@@ -45,8 +45,9 @@ function v2NotificationAdminRecipients_() {
   // Core observers always receive the new-application Registry notification
   // in addition to the assigned Academic Consultant / Marketing agent.
   values = values.concat([
-    'adiybukhori@innovative.edu.my',
-    'abu.huzaifah@innovative.edu.my'
+    'ipgs.admission@innovative.edu.my',
+    'adiybukhori.ipgs@innovative.edu.my',
+    'abu.huzaifah.ipgs@innovative.edu.my'
   ]);
 
   return v2NotificationUniqueEmails_(values);
@@ -99,16 +100,10 @@ function v2NotificationSend_(eventName, intendedRecipients, subject, textBody, h
         senderAliasApplied = true;
         effectiveSender = requestedFrom;
       } else {
-        // Keep delivery operational while making replies route to the official mailbox.
-        // Once the alias is authorised on the Apps Script execution account, GmailApp
-        // will automatically use it as the actual From address.
-        mailOptions.replyTo = requestedFrom;
-        effectiveSender = effectiveUser;
-        Logger.log('Requested V2 notification From alias is not authorised for this Apps Script user: ' + requestedFrom);
+        throw new Error('Required sender alias is not authorised for this Apps Script user: ' + requestedFrom);
       }
     } catch (senderError) {
-      mailOptions.replyTo = requestedFrom;
-      Logger.log('Unable to inspect Gmail aliases for V2 notification sender: ' + String(senderError && senderError.message || senderError));
+      throw new Error('Unable to use required V2 notification sender ' + requestedFrom + ': ' + String(senderError && senderError.message || senderError));
     }
   }
   if (opts.replyTo) mailOptions.replyTo = String(opts.replyTo);
@@ -155,8 +150,9 @@ function v2NotificationUpdateWorkflow_(referenceNo, values) {
 }
 
 function v2AdmissionEmailHeaderHtml_() {
-  return '<div style="background:#ffffff;border-bottom:5px solid #39206f;overflow:hidden">' +
-    '<img src="cid:ipgsHeader" alt="Innovative University College · Institute of Postgraduate Studies" style="display:block;width:100%;height:auto;border:0">' +
+  return '<div style="background:#31206f;padding:20px 24px;border-bottom:4px solid #d9a428">' +
+    '<div style="font-size:19px;line-height:1.25;font-weight:800;color:#ffffff">Innovative University College</div>' +
+    '<div style="margin-top:4px;font-size:11px;line-height:1.4;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:#eadb9d">Institute of Postgraduate Studies (IPGS)</div>' +
     '</div>';
 }
 
@@ -238,20 +234,31 @@ function v2SendApplicationNotifications_(payload, reference, intake, pdf, col) {
       '</div>' +
     '</div>';
 
-  const studentResult = v2NotificationSend_(
-    'NEW_APPLICATION_STUDENT',
-    [payload.email],
-    studentSubject,
-    studentText,
-    studentHtml,
-    {
-      attachments:studentAttachments,
-      inlineImages:{ipgsHeader:v2AdmissionEmailHeaderBlob_()},
-      senderName:'IUC IPGS Admission',
-      fromAlias:'ipgs.admission@innovative.edu.my',
-      replyTo:'ipgs.admission@innovative.edu.my'
-    }
-  );
+  let studentResult;
+  try {
+    studentResult = v2NotificationSend_(
+      'NEW_APPLICATION_STUDENT',
+      [payload.email],
+      studentSubject,
+      studentText,
+      studentHtml,
+      {
+        attachments:studentAttachments,
+        senderName:'IUC IPGS Admission',
+        fromAlias:'ipgs.admission@innovative.edu.my',
+        replyTo:'ipgs.admission@innovative.edu.my'
+      }
+    );
+  } catch (studentError) {
+    studentResult = {
+      sent:false,
+      status:'FAILED: ' + String(studentError && studentError.message || studentError),
+      mode:v2NotificationMode_(),
+      event:'NEW_APPLICATION_STUDENT',
+      recipients:[String(payload.email || '').trim()]
+    };
+    Logger.log('V2 student application email failed: ' + studentResult.status);
+  }
 
   const adminRecipients = v2NotificationAdminRecipients_();
   const agentLine = payload.partnerCode ? '<br><strong>Agent Code:</strong> '+v2Html_(payload.partnerCode) : '';
@@ -264,12 +271,29 @@ function v2SendApplicationNotifications_(payload, reference, intake, pdf, col) {
     '<div style="padding:24px"><p>A new postgraduate application has been submitted and the student submission COL has been issued.</p>' +
     '<p><strong>Student:</strong> '+v2Html_(student)+'<br><strong>Programme:</strong> '+v2Html_(programme)+'<br><strong>Intake:</strong> '+v2Html_(intakeName)+'<br><strong>Reference:</strong> '+v2Html_(reference)+agentLine+researchIntentAdminLine+'</p>' +
     '<p>The Admission Form is attached. Please continue the document review and screening process in Admission V2.</p></div></div>';
-  const adminResult = v2NotificationSend_(
-    'NEW_APPLICATION_ADMIN', adminRecipients, adminSubject,
-    'New application: ' + student + ' / ' + programme + ' / ' + reference,
-    adminHtml,
-    {attachments:admissionAttachment, senderName:'IUC IPGS Admission', replyTo:'ipgs.admission@innovative.edu.my'}
-  );
+  let adminResult;
+  try {
+    adminResult = v2NotificationSend_(
+      'NEW_APPLICATION_ADMIN', adminRecipients, adminSubject,
+      'New application: ' + student + ' / ' + programme + ' / ' + reference,
+      adminHtml,
+      {
+        attachments:admissionAttachment,
+        senderName:'IUC IPGS Admission',
+        fromAlias:'ipgs.admission@innovative.edu.my',
+        replyTo:'ipgs.admission@innovative.edu.my'
+      }
+    );
+  } catch (adminError) {
+    adminResult = {
+      sent:false,
+      status:'FAILED: ' + String(adminError && adminError.message || adminError),
+      mode:v2NotificationMode_(),
+      event:'NEW_APPLICATION_ADMIN',
+      recipients:adminRecipients
+    };
+    Logger.log('V2 admin application email failed: ' + adminResult.status);
+  }
 
   v2NotificationUpdateApplication_(reference, {
     'Application Student Email Status': studentResult.status,
