@@ -175,8 +175,9 @@ function v2ApplicantFriendlyName_(fullName) {
   }).join(' ');
 }
 
-function v2SendApplicationNotifications_(payload, reference, intake, pdf, col) {
+function v2SendApplicationNotifications_(payload, reference, intake, pdf, col, options) {
   v2NotificationEnsureHeaders_();
+  options = options || {};
   const now = new Date().toISOString();
   const student = String(payload.fullName || 'Applicant').trim();
   const friendlyName = v2ApplicantFriendlyName_(student);
@@ -311,54 +312,131 @@ function v2SendApplicationNotifications_(payload, reference, intake, pdf, col) {
     Logger.log('V2 student application email failed: ' + studentResult.status);
   }
 
-  const adminRecipients = v2NotificationAdminRecipients_();
-  const agentLine = payload.partnerCode ? '<br><strong>Agent Code:</strong> '+v2Html_(payload.partnerCode) : '';
-  const researchIntentAdminLine = researchIntentStatus ? '<br><strong>Research Intent:</strong> '+v2Html_(researchIntentStatus) : '';
-  const adminSubject = '[IPGS Admission] New Application - ' + student + ' - ' + reference;
-  const adminHtml = '<div style="font-family:Arial,sans-serif;max-width:680px;margin:auto;border:1px solid #e5e7eb;border-radius:14px;overflow:hidden">' +
-    '<div style="background:#34206f;color:white;padding:20px"><h2 style="margin:0;font-size:20px">New Admission Application</h2></div>' +
-    '<div style="padding:22px"><p>A new postgraduate application has been submitted and the student Conditional Offer Letter has been issued.</p>' +
-    '<p><strong>Student:</strong> '+v2Html_(student)+'<br><strong>Programme:</strong> '+v2Html_(programme)+'<br><strong>Intake:</strong> '+v2Html_(intakeName)+'<br><strong>Reference:</strong> '+v2Html_(reference)+agentLine+researchIntentAdminLine+'</p>' +
-    '<p>The Admission Form is attached. Please continue the document review and screening process in Admission V2.</p></div></div>';
+  let adminResult = {
+    sent:false,
+    status:'UNCHANGED',
+    mode:v2NotificationMode_(),
+    event:'NEW_APPLICATION_ADMIN',
+    recipients:[]
+  };
 
-  let adminResult;
-  try {
-    adminResult = v2NotificationSend_(
-      'NEW_APPLICATION_ADMIN', adminRecipients, adminSubject,
-      'New application: ' + student + ' / ' + programme + ' / ' + reference,
-      adminHtml,
-      {
-        attachments:admissionAttachment,
-        senderName:'IUC IPGS Admission',
-        fromAlias:'ipgs.admission@innovative.edu.my',
-        replyTo:'ipgs.admission@innovative.edu.my'
-      }
-    );
-  } catch (adminError) {
-    adminResult = {
-      sent:false,
-      status:'FAILED: ' + String(adminError && adminError.message || adminError),
-      mode:v2NotificationMode_(),
-      event:'NEW_APPLICATION_ADMIN',
-      recipients:adminRecipients
-    };
-    Logger.log('V2 admin application email failed: ' + adminResult.status);
+  if (!options.studentOnly) {
+    const adminRecipients = v2NotificationAdminRecipients_();
+    const agentLine = payload.partnerCode ? '<br><strong>Agent Code:</strong> '+v2Html_(payload.partnerCode) : '';
+    const researchIntentAdminLine = researchIntentStatus ? '<br><strong>Research Intent:</strong> '+v2Html_(researchIntentStatus) : '';
+    const adminSubject = '[IPGS Admission] New Application - ' + student + ' - ' + reference;
+    const adminHtml = '<div style="font-family:Arial,sans-serif;max-width:680px;margin:auto;border:1px solid #e5e7eb;border-radius:14px;overflow:hidden">' +
+      '<div style="background:#34206f;color:white;padding:20px"><h2 style="margin:0;font-size:20px">New Admission Application</h2></div>' +
+      '<div style="padding:22px"><p>A new postgraduate application has been submitted and the student Conditional Offer Letter has been issued.</p>' +
+      '<p><strong>Student:</strong> '+v2Html_(student)+'<br><strong>Programme:</strong> '+v2Html_(programme)+'<br><strong>Intake:</strong> '+v2Html_(intakeName)+'<br><strong>Reference:</strong> '+v2Html_(reference)+agentLine+researchIntentAdminLine+'</p>' +
+      '<p>The Admission Form is attached. Please continue the document review and screening process in Admission V2.</p></div></div>';
+
+    try {
+      adminResult = v2NotificationSend_(
+        'NEW_APPLICATION_ADMIN', adminRecipients, adminSubject,
+        'New application: ' + student + ' / ' + programme + ' / ' + reference,
+        adminHtml,
+        {
+          attachments:admissionAttachment,
+          senderName:'IUC IPGS Admission',
+          fromAlias:'ipgs.admission@innovative.edu.my',
+          replyTo:'ipgs.admission@innovative.edu.my'
+        }
+      );
+    } catch (adminError) {
+      adminResult = {
+        sent:false,
+        status:'FAILED: ' + String(adminError && adminError.message || adminError),
+        mode:v2NotificationMode_(),
+        event:'NEW_APPLICATION_ADMIN',
+        recipients:adminRecipients
+      };
+      Logger.log('V2 admin application email failed: ' + adminResult.status);
+    }
   }
 
-  v2NotificationUpdateApplication_(reference, {
+  const applicationUpdate = {
     'Application Student Email Status': studentResult.status,
     'Application Student Email Sent At': studentResult.sent ? now : '',
-    'Application Admin Email Status': adminResult.status,
-    'Application Admin Email Sent At': adminResult.sent ? now : '',
-    'Email Status': 'STUDENT=' + studentResult.status + ';ADMIN=' + adminResult.status,
     'Last Updated': now
-  });
+  };
+
+  if (!options.studentOnly) {
+    applicationUpdate['Application Admin Email Status'] = adminResult.status;
+    applicationUpdate['Application Admin Email Sent At'] = adminResult.sent ? now : '';
+    applicationUpdate['Email Status'] = 'STUDENT=' + studentResult.status + ';ADMIN=' + adminResult.status;
+  } else {
+    applicationUpdate['Email Status'] = 'STUDENT=' + studentResult.status + ';ADMIN=UNCHANGED';
+  }
+
+  v2NotificationUpdateApplication_(reference, applicationUpdate);
 
   return {
     sent: studentResult.sent || adminResult.sent,
-    status: 'STUDENT=' + studentResult.status + ';ADMIN=' + adminResult.status,
+    status: options.studentOnly ? 'STUDENT=' + studentResult.status + ';ADMIN=UNCHANGED' : 'STUDENT=' + studentResult.status + ';ADMIN=' + adminResult.status,
     student: studentResult,
     admin: adminResult
+  };
+}
+
+function v2ResendApplicationWelcomeEmail_(data, actor) {
+  v2NotificationEnsureHeaders_();
+  const reference = String(data && data.referenceNo || '').trim();
+  if (!reference) throw new Error('Reference No is required.');
+
+  const application = v2Find_('V2_APPLICATIONS','Reference No',reference);
+  if (!application) throw new Error('Application record not found.');
+
+  let payload = {};
+  try {
+    payload = JSON.parse(String(application.record['Raw Application JSON'] || '{}'));
+  } catch (error) {
+    payload = {};
+  }
+
+  payload.fullName = payload.fullName || application.record['Student Name'] || '';
+  payload.email = payload.email || application.record['Personal Email'] || '';
+  payload.programme = payload.programme || application.record['Programme'] || '';
+  payload.levelOfStudy = payload.levelOfStudy || application.record['Level of Study'] || '';
+  payload.studyMode = payload.studyMode || application.record['Study Mode'] || '';
+  payload.intake = payload.intake || application.record['Intake'] || '';
+  payload.applicantType = payload.applicantType || application.record['Applicant Type'] || '';
+  payload.idPassport = payload.idPassport || application.record['ID / Passport No'] || '';
+
+  const admissionBlob = v2NotificationBlobFromUrl_(application.record['Admission Form PDF URL']);
+  const colBlob = v2NotificationBlobFromUrl_(application.record['COL PDF URL']);
+  if (!admissionBlob) throw new Error('Admission Form PDF could not be loaded.');
+  if (!colBlob) throw new Error('Conditional Offer Letter PDF could not be loaded.');
+
+  const result = v2SendApplicationNotifications_(
+    payload,
+    reference,
+    {name:String(application.record['Intake'] || payload.intake || '')},
+    {blob:admissionBlob},
+    {blob:colBlob},
+    {studentOnly:true}
+  );
+
+  if (typeof v2Audit_ === 'function') {
+    v2Audit_(
+      reference,
+      'APPLICATION',
+      'RESEND_WELCOME_EMAIL',
+      {},
+      {status:result.student.status,recipients:result.student.recipients || []},
+      actor || 'Admin Portal V2',
+      result.student.sent ? 'SUCCESS' : 'SKIPPED',
+      'Student application welcome email manually resent.'
+    );
+  }
+
+  return {
+    ok:true,
+    referenceNo:reference,
+    sent:result.student.sent,
+    status:result.student.status,
+    recipients:result.student.recipients || [],
+    v1Touched:false
   };
 }
 
