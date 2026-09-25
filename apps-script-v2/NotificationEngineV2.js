@@ -149,24 +149,19 @@ function v2NotificationUpdateWorkflow_(referenceNo, values) {
   if (row) v2UpdateRow_(row.sheet, row.rowNumber, values || {});
 }
 
-function v2AdmissionEmailLogoBlob_() {
-  try {
-    return DriveApp.getFileById(CONFIG.iucLogoFileId).getBlob().setName('IUC_Logo.png');
-  } catch (error) {
-    Logger.log('Unable to load IUC email logo: ' + String(error && error.message || error));
-    return null;
+function v2AdmissionEmailHeaderHtml_(withHeader) {
+  if (withHeader) {
+    return '<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="width:100%;border-collapse:collapse">' +
+      '<tr><td style="padding:0;background:#ffffff">' +
+        '<img src="cid:ipgsHeader" alt="Innovative University College - Institute of Postgraduate Studies" width="600" ' +
+          'style="display:block;width:100%;max-width:600px;height:auto;margin:0;border:0;outline:none;text-decoration:none">' +
+      '</td></tr></table>';
   }
-}
-
-function v2AdmissionEmailHeaderHtml_(withLogo) {
-  const logo = withLogo
-    ? '<img src="cid:iucLogo" alt="Innovative University College" width="164" style="display:block;width:164px;max-width:100%;height:auto;border:0">'
-    : '<div style="font-size:20px;line-height:1.2;font-weight:800;color:#34206f">Innovative University College</div>';
 
   return '<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="width:100%;border-collapse:collapse">' +
-    '<tr><td style="padding:20px 22px 16px;background:#ffffff;border-bottom:4px solid #d9a428">' +
-      logo +
-      '<div style="margin-top:8px;font-size:11px;line-height:1.4;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:#6f6489">Institute of Postgraduate Studies (IPGS)</div>' +
+    '<tr><td style="padding:18px 20px 14px;background:#ffffff;border-bottom:4px solid #d9a428">' +
+      '<div style="font-size:20px;line-height:1.2;font-weight:800;color:#34206f">Innovative University College</div>' +
+      '<div style="margin-top:5px;font-size:10px;line-height:1.4;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:#6f6489">Institute of Postgraduate Studies (IPGS)</div>' +
     '</td></tr></table>';
 }
 
@@ -198,8 +193,8 @@ function v2SendApplicationNotifications_(payload, reference, intake, pdf, col) {
   const researchIntentUrl = applicationRow ? String(applicationRow.record['Research Intent Upload URL'] || '') : '';
   const researchIntentPending = researchIntentStatus === 'PENDING' && !!researchIntentUrl;
 
-  const logoBlob = v2AdmissionEmailLogoBlob_();
-  const inlineImages = logoBlob ? {iucLogo:logoBlob} : null;
+  const headerBlob = v2AdmissionEmailHeaderBlob_();
+  const inlineImages = headerBlob ? {ipgsHeader:headerBlob} : null;
 
   const supplementaryBlock = researchIntentPending
     ? '<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin-top:22px;border-collapse:separate"><tr><td style="padding:16px 17px;background:#fffaf0;border:1px solid #ead9a2;border-radius:12px">' +
@@ -225,7 +220,7 @@ function v2SendApplicationNotifications_(payload, reference, intake, pdf, col) {
     '<div style="margin:0;padding:0;background:#f5f5f3;font-family:Arial,Helvetica,sans-serif;color:#272633">' +
       '<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="width:100%;border-collapse:collapse;background:#f5f5f3"><tr><td align="center" style="padding:18px 10px">' +
         '<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="width:100%;max-width:600px;border-collapse:separate;background:#ffffff;border:1px solid #e6e4ea;border-radius:14px;overflow:hidden">' +
-          '<tr><td>'+v2AdmissionEmailHeaderHtml_(!!logoBlob)+'</td></tr>' +
+          '<tr><td>'+v2AdmissionEmailHeaderHtml_(!!headerBlob)+'</td></tr>' +
           '<tr><td style="padding:28px 22px 26px">' +
             '<div style="font-size:11px;line-height:1.4;font-weight:800;letter-spacing:.12em;text-transform:uppercase;color:#9a7622">Postgraduate Admission</div>' +
             '<h1 style="margin:10px 0 12px;font-size:28px;line-height:1.16;font-weight:800;color:#34206f">Congratulations, '+v2Html_(friendlyName)+'!</h1>' +
