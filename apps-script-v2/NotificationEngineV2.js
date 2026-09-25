@@ -149,18 +149,44 @@ function v2NotificationUpdateWorkflow_(referenceNo, values) {
   if (row) v2UpdateRow_(row.sheet, row.rowNumber, values || {});
 }
 
-function v2AdmissionEmailHeaderHtml_() {
-  return '<div style="background:#31206f;padding:20px 24px;border-bottom:4px solid #d9a428">' +
-    '<div style="font-size:19px;line-height:1.25;font-weight:800;color:#ffffff">Innovative University College</div>' +
-    '<div style="margin-top:4px;font-size:11px;line-height:1.4;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:#eadb9d">Institute of Postgraduate Studies (IPGS)</div>' +
-    '</div>';
+function v2AdmissionEmailLogoBlob_() {
+  try {
+    return DriveApp.getFileById(CONFIG.iucLogoFileId).getBlob().setName('IUC_Logo.png');
+  } catch (error) {
+    Logger.log('Unable to load IUC email logo: ' + String(error && error.message || error));
+    return null;
+  }
+}
+
+function v2AdmissionEmailHeaderHtml_(withLogo) {
+  const logo = withLogo
+    ? '<img src="cid:iucLogo" alt="Innovative University College" width="164" style="display:block;width:164px;max-width:100%;height:auto;border:0">'
+    : '<div style="font-size:20px;line-height:1.2;font-weight:800;color:#34206f">Innovative University College</div>';
+
+  return '<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="width:100%;border-collapse:collapse">' +
+    '<tr><td style="padding:20px 22px 16px;background:#ffffff;border-bottom:4px solid #d9a428">' +
+      logo +
+      '<div style="margin-top:8px;font-size:11px;line-height:1.4;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:#6f6489">Institute of Postgraduate Studies (IPGS)</div>' +
+    '</td></tr></table>';
+}
+
+function v2ApplicantFriendlyName_(fullName) {
+  const raw = String(fullName || '').trim();
+  if (!raw) return 'there';
+  const beforeRelation = raw.split(/\s+(?:BIN|BINTI|A\/L|A\/P)\s+/i)[0].trim();
+  const words = (beforeRelation || raw).split(/\s+/).filter(Boolean).slice(0, 2);
+  return words.map(function(word){
+    return word.charAt(0).toUpperCase() + word.slice(1).toLowerCase();
+  }).join(' ');
 }
 
 function v2SendApplicationNotifications_(payload, reference, intake, pdf, col) {
   v2NotificationEnsureHeaders_();
   const now = new Date().toISOString();
   const student = String(payload.fullName || 'Applicant').trim();
-  const programme = String(payload.programme || '').trim();
+  const friendlyName = v2ApplicantFriendlyName_(student);
+  const programmeRaw = String(payload.programme || '').trim();
+  const programme = programmeRaw.indexOf(' - ') >= 0 ? programmeRaw.split(' - ').slice(1).join(' - ').trim() : programmeRaw;
   const intakeName = String(intake && intake.name || payload.intake || '').trim();
   const admissionAttachment = pdf && pdf.blob ? [pdf.blob] : [];
   const studentAttachments = [];
@@ -172,66 +198,64 @@ function v2SendApplicationNotifications_(payload, reference, intake, pdf, col) {
   const researchIntentUrl = applicationRow ? String(applicationRow.record['Research Intent Upload URL'] || '') : '';
   const researchIntentPending = researchIntentStatus === 'PENDING' && !!researchIntentUrl;
 
-  const supplementaryBlock = researchIntentPending
-    ? '<div style="margin:26px 0 0;padding:12px 14px;background:#fffaf0;border:1px solid #eddcae;border-radius:10px;color:#715728;font-size:12px;line-height:1.55">' +
-        '<strong style="display:block;margin-bottom:4px">One additional item for your file</strong>' +
-        'For your PhD application, the Preliminary Research Intent (2–3 pages) is still outstanding. This does not affect issuance of your COL, but it will be required for the later academic review process.' +
-        '<div style="margin-top:9px"><a href="'+v2Html_(researchIntentUrl)+'" style="color:#39206f;font-weight:700;text-decoration:none">Upload Research Intent →</a></div>' +
-      '</div>'
-    : '<div style="margin:26px 0 0;padding-top:12px;border-top:1px solid #ececf0;color:#7a7d89;font-size:11px;line-height:1.55">If any additional supporting document or academic information is required during the review, the IPGS Admission Team will contact you separately.</div>';
+  const logoBlob = v2AdmissionEmailLogoBlob_();
+  const inlineImages = logoBlob ? {iucLogo:logoBlob} : null;
 
-  const studentSubject = 'Congratulations, ' + student + '! Welcome to IUC IPGS — Your Conditional Offer Letter';
+  const supplementaryBlock = researchIntentPending
+    ? '<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin-top:22px;border-collapse:separate"><tr><td style="padding:16px 17px;background:#fffaf0;border:1px solid #ead9a2;border-radius:12px">' +
+        '<div style="font-size:13px;font-weight:800;color:#72551b;margin-bottom:6px">One more item to complete</div>' +
+        '<div style="font-size:13px;line-height:1.65;color:#65562f">For your PhD application, please upload your Preliminary Research Intent (2-3 pages). Your Conditional Offer Letter has already been issued; this item is needed for the academic review stage.</div>' +
+        '<div style="margin-top:14px"><a href="'+v2Html_(researchIntentUrl)+'" style="display:inline-block;background:#34206f;color:#ffffff;text-decoration:none;font-size:13px;font-weight:800;padding:11px 16px;border-radius:8px">Upload Research Intent</a></div>' +
+      '</td></tr></table>'
+    : '';
+
+  const studentSubject = 'Congratulations, ' + friendlyName + ' - Your IUC Conditional Offer Letter';
   const studentText =
-    'Dear ' + student + ',\n\n' +
-    'Congratulations and welcome to Innovative University College. We are delighted to receive your application for ' + programme + '.\n\n' +
-    'Your Conditional Offer Letter and a copy of your submitted Admission Form are attached to this email.\n\n' +
-    'Reference: ' + reference + '\nProgramme: ' + programme + '\nIntake: ' + intakeName + '\n\n' +
-    'Your application will continue through the formal verification and academic admission process. The final Official Offer Letter / Letter of Admission will be issued after the applicable admission requirements are completed and approved.\n\n' +
+    'Dear ' + friendlyName + ',\n\n' +
+    'Congratulations. We are delighted that you have chosen Innovative University College for the next step in your postgraduate journey.\n\n' +
+    'Your application for ' + programme + ' has been received, and we are pleased to issue your Conditional Offer Letter for the ' + intakeName + ' intake.\n\n' +
+    'Programme: ' + programme + '\nIntake: ' + intakeName + '\nReference: ' + reference + '\n\n' +
+    'What happens next: Our admission team will review your submitted documents and academic eligibility. If anything further is needed, we will contact you. Once the applicable requirements are completed and approved, the final Official Offer Letter / Letter of Admission will be issued.\n\n' +
+    'Attached: Conditional Offer Letter and your submitted Admission Form.\n\n' +
+    (researchIntentPending ? 'One more item: Please upload your Preliminary Research Intent (2-3 pages): ' + researchIntentUrl + '\n\n' : '') +
+    'We are glad to have you begin this journey with us, and our team will guide you through the remaining steps.\n\n' +
     'Warm regards,\nIPGS Admission Team\nInnovative University College';
 
   const studentHtml =
-    '<div style="margin:0;padding:0;background:#f3f4f8;font-family:Arial,Helvetica,sans-serif;color:#252637">' +
-      '<div style="max-width:760px;margin:0 auto;padding:28px 12px">' +
-        '<div style="background:#fff;border:1px solid #e5e6eb;border-radius:18px;overflow:hidden;box-shadow:0 8px 30px rgba(45,35,99,.08)">' +
-          v2AdmissionEmailHeaderHtml_() +
-          '<div style="padding:34px 34px 30px">' +
-            '<div style="font-size:12px;font-weight:800;letter-spacing:.11em;color:#9a7622;text-transform:uppercase">Your postgraduate journey starts here</div>' +
-            '<h1 style="margin:9px 0 7px;color:#2d1d68;font-size:29px;line-height:1.2">Congratulations, '+v2Html_(student)+'!</h1>' +
-            '<p style="margin:0 0 22px;color:#6a6f7f;font-size:15px;line-height:1.65">We are delighted to welcome your application to <strong style="color:#2d1d68">Innovative University College</strong> and the <strong style="color:#2d1d68">Institute of Postgraduate Studies (IPGS)</strong>.</p>' +
+    '<div style="margin:0;padding:0;background:#f5f5f3;font-family:Arial,Helvetica,sans-serif;color:#272633">' +
+      '<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="width:100%;border-collapse:collapse;background:#f5f5f3"><tr><td align="center" style="padding:18px 10px">' +
+        '<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="width:100%;max-width:600px;border-collapse:separate;background:#ffffff;border:1px solid #e6e4ea;border-radius:14px;overflow:hidden">' +
+          '<tr><td>'+v2AdmissionEmailHeaderHtml_(!!logoBlob)+'</td></tr>' +
+          '<tr><td style="padding:28px 22px 26px">' +
+            '<div style="font-size:11px;line-height:1.4;font-weight:800;letter-spacing:.12em;text-transform:uppercase;color:#9a7622">Postgraduate Admission</div>' +
+            '<h1 style="margin:10px 0 12px;font-size:28px;line-height:1.16;font-weight:800;color:#34206f">Congratulations, '+v2Html_(friendlyName)+'!</h1>' +
+            '<p style="margin:0;font-size:16px;line-height:1.65;color:#555866">We are delighted that you have chosen <strong style="color:#34206f">Innovative University College</strong> for the next step in your postgraduate journey.</p>' +
+            '<p style="margin:16px 0 0;font-size:15px;line-height:1.65;color:#555866">Your application has been received, and we are pleased to issue your <strong style="color:#34206f">Conditional Offer Letter</strong> for the '+v2Html_(intakeName)+' intake.</p>' +
 
-            '<div style="margin:22px 0;padding:21px 22px;background:linear-gradient(135deg,#34206f,#5c3ea5);border-radius:15px;color:#fff">' +
-              '<div style="font-size:11px;letter-spacing:.1em;font-weight:800;color:#eadb9d;text-transform:uppercase">Conditional Offer Issued</div>' +
-              '<div style="font-size:18px;line-height:1.4;font-weight:700;margin-top:6px">We are pleased to issue your Conditional Offer Letter for '+v2Html_(programme)+'.</div>' +
-              '<div style="margin-top:12px;font-size:12px;line-height:1.55;color:#e9e5f7">Your COL confirms your conditional admission status while our formal verification and academic admission process continues.</div>' +
-            '</div>' +
-
-            '<table role="presentation" cellpadding="0" cellspacing="0" style="width:100%;border-collapse:separate;border-spacing:0;margin:22px 0;border:1px solid #e7e6ec;border-radius:12px;overflow:hidden">' +
-              '<tr><td style="width:30%;padding:11px 13px;background:#f8f6fd;color:#6d6289;font-size:12px;font-weight:700;border-bottom:1px solid #eceaf1">Reference No.</td><td style="padding:11px 13px;font-size:13px;font-weight:700;border-bottom:1px solid #eceaf1">'+v2Html_(reference)+'</td></tr>' +
-              '<tr><td style="padding:11px 13px;background:#f8f6fd;color:#6d6289;font-size:12px;font-weight:700;border-bottom:1px solid #eceaf1">Programme</td><td style="padding:11px 13px;font-size:13px;font-weight:700;border-bottom:1px solid #eceaf1">'+v2Html_(programme)+'</td></tr>' +
-              '<tr><td style="padding:11px 13px;background:#f8f6fd;color:#6d6289;font-size:12px;font-weight:700">Intake</td><td style="padding:11px 13px;font-size:13px;font-weight:700">'+v2Html_(intakeName)+'</td></tr>' +
+            '<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin-top:22px;width:100%;border-collapse:separate;background:#f7f5fb;border:1px solid #e7e1f1;border-radius:12px">' +
+              '<tr><td style="padding:16px 17px">' +
+                '<div style="font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.08em;color:#8a7c9f">Your programme</div>' +
+                '<div style="margin-top:5px;font-size:17px;line-height:1.45;font-weight:800;color:#34206f">'+v2Html_(programme)+'</div>' +
+                '<div style="margin-top:11px;font-size:13px;line-height:1.6;color:#555866"><strong>Intake:</strong> '+v2Html_(intakeName)+'<br><strong>Application reference:</strong> '+v2Html_(reference)+'</div>' +
+              '</td></tr>' +
             '</table>' +
 
-            '<div style="margin:24px 0 10px;font-size:16px;font-weight:800;color:#2d1d68">What happens next?</div>' +
-            '<table role="presentation" cellpadding="0" cellspacing="0" style="width:100%;border-collapse:collapse"><tr>' +
-              '<td style="width:33.33%;padding:8px 8px 8px 0;vertical-align:top"><div style="height:100%;padding:13px;border:1px solid #e7e6ec;border-radius:11px"><div style="font-size:11px;font-weight:800;color:#9a7622">01 · VERIFICATION</div><div style="margin-top:5px;font-size:12px;line-height:1.5;color:#555b6b">Registry reviews your submitted information and documents.</div></div></td>' +
-              '<td style="width:33.33%;padding:8px 4px;vertical-align:top"><div style="height:100%;padding:13px;border:1px solid #e7e6ec;border-radius:11px"><div style="font-size:11px;font-weight:800;color:#9a7622">02 · ACADEMIC PROCESS</div><div style="margin-top:5px;font-size:12px;line-height:1.5;color:#555b6b">SAC, IA or prerequisite requirements are managed only when applicable.</div></div></td>' +
-              '<td style="width:33.33%;padding:8px 0 8px 8px;vertical-align:top"><div style="height:100%;padding:13px;border:1px solid #e7e6ec;border-radius:11px"><div style="font-size:11px;font-weight:800;color:#9a7622">03 · OFFICIAL OFFER</div><div style="margin-top:5px;font-size:12px;line-height:1.5;color:#555b6b">The final Official Offer Letter is issued after the approved admission route is completed.</div></div></td>' +
-            '</tr></table>' +
+            '<div style="margin-top:24px;font-size:15px;font-weight:800;color:#34206f">What happens next</div>' +
+            '<p style="margin:8px 0 0;font-size:14px;line-height:1.7;color:#555866">Our admission team will review your submitted documents and academic eligibility. If we need anything further, we will contact you. Once the applicable requirements are completed and approved, we will issue your final Official Offer Letter / Letter of Admission.</p>' +
 
-            '<div style="margin:24px 0 0;padding:15px 17px;background:#f8f9fb;border-radius:11px;border:1px solid #e8e9ed">' +
-              '<strong style="display:block;color:#2d1d68;font-size:13px;margin-bottom:5px">Attached to this email</strong>' +
-              '<span style="font-size:12px;color:#626775;line-height:1.6">1. Conditional Offer Letter (COL)<br>2. Copy of your submitted Admission Form</span>' +
-            '</div>' +
+            '<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin-top:22px;border-collapse:separate"><tr><td style="padding:15px 17px;background:#fafafa;border:1px solid #e8e8eb;border-radius:12px">' +
+              '<div style="font-size:13px;font-weight:800;color:#34206f;margin-bottom:7px">Included with this email</div>' +
+              '<div style="font-size:13px;line-height:1.65;color:#555866">Conditional Offer Letter (COL)<br>Copy of your submitted Admission Form</div>' +
+            '</td></tr></table>' +
 
-            '<p style="margin:26px 0 0;font-size:13px;line-height:1.7;color:#555b6b">We are excited to have you begin this journey with us. Our team will guide you through each remaining admission step, and we look forward to welcoming you into the IUC postgraduate community.</p>' +
             supplementaryBlock +
 
-            '<p style="margin:26px 0 0;font-size:13px;line-height:1.65;color:#555b6b">Warm regards,<br><strong style="color:#2d1d68">IPGS Admission Team</strong><br>Innovative University College</p>' +
-
-            '<div style="margin-top:26px;padding-top:14px;border-top:1px solid #ececf0;color:#898d99;font-size:10px;line-height:1.55"><strong>Important:</strong> The attached Conditional Offer Letter is not the final Official Offer Letter / Letter of Admission. Final admission remains subject to the applicable verification and academic approval process.</div>' +
-          '</div>' +
-        '</div>' +
-      '</div>' +
+            '<p style="margin:24px 0 0;font-size:14px;line-height:1.7;color:#555866">We are glad to have you begin this journey with us. Our team will guide you through each remaining admission step, and we look forward to welcoming you into the IUC postgraduate community.</p>' +
+            '<p style="margin:22px 0 0;font-size:14px;line-height:1.65;color:#555866">Warm regards,<br><strong style="color:#34206f">IPGS Admission Team</strong><br>Innovative University College</p>' +
+            '<div style="margin-top:22px;padding-top:14px;border-top:1px solid #ececf0;font-size:11px;line-height:1.55;color:#858793">This Conditional Offer Letter is not the final Official Offer Letter / Letter of Admission. Final admission remains subject to the applicable verification and academic approval process.</div>' +
+          '</td></tr>' +
+        '</table>' +
+      '</td></tr></table>' +
     '</div>';
 
   let studentResult;
@@ -244,6 +268,7 @@ function v2SendApplicationNotifications_(payload, reference, intake, pdf, col) {
       studentHtml,
       {
         attachments:studentAttachments,
+        inlineImages:inlineImages,
         senderName:'IUC IPGS Admission',
         fromAlias:'ipgs.admission@innovative.edu.my',
         replyTo:'ipgs.admission@innovative.edu.my'
@@ -262,15 +287,14 @@ function v2SendApplicationNotifications_(payload, reference, intake, pdf, col) {
 
   const adminRecipients = v2NotificationAdminRecipients_();
   const agentLine = payload.partnerCode ? '<br><strong>Agent Code:</strong> '+v2Html_(payload.partnerCode) : '';
-  const researchIntentAdminLine = researchIntentStatus
-    ? '<br><strong>Research Intent:</strong> '+v2Html_(researchIntentStatus)
-    : '';
+  const researchIntentAdminLine = researchIntentStatus ? '<br><strong>Research Intent:</strong> '+v2Html_(researchIntentStatus) : '';
   const adminSubject = '[IPGS Admission] New Application - ' + student + ' - ' + reference;
-  const adminHtml = '<div style="font-family:Arial,sans-serif;max-width:680px;margin:auto;border:1px solid #e5e7eb;border-radius:16px;overflow:hidden">' +
-    '<div style="background:#2d2363;color:white;padding:22px"><h2 style="margin:0">New Admission Application</h2></div>' +
-    '<div style="padding:24px"><p>A new postgraduate application has been submitted and the student submission COL has been issued.</p>' +
+  const adminHtml = '<div style="font-family:Arial,sans-serif;max-width:680px;margin:auto;border:1px solid #e5e7eb;border-radius:14px;overflow:hidden">' +
+    '<div style="background:#34206f;color:white;padding:20px"><h2 style="margin:0;font-size:20px">New Admission Application</h2></div>' +
+    '<div style="padding:22px"><p>A new postgraduate application has been submitted and the student Conditional Offer Letter has been issued.</p>' +
     '<p><strong>Student:</strong> '+v2Html_(student)+'<br><strong>Programme:</strong> '+v2Html_(programme)+'<br><strong>Intake:</strong> '+v2Html_(intakeName)+'<br><strong>Reference:</strong> '+v2Html_(reference)+agentLine+researchIntentAdminLine+'</p>' +
     '<p>The Admission Form is attached. Please continue the document review and screening process in Admission V2.</p></div></div>';
+
   let adminResult;
   try {
     adminResult = v2NotificationSend_(
