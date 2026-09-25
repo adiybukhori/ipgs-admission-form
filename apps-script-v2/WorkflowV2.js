@@ -380,6 +380,7 @@ function handleV2Post_(payload) {
   if (action === 'v2CompleteManualQualificationScreening') return v2CompleteManualQualificationScreening_(payload.data || {}, payload.updatedBy || 'Admin Portal V2');
   if (action === 'v2IssueOffer') return v2IssueOffer_((payload.data || {}).referenceNo, payload.updatedBy || 'Admin Portal V2', payload.data || {});
   if (action === 'v2ResendAcceptanceConfirmation') return v2ResendAcceptanceConfirmation_(payload.data || {}, payload.updatedBy || 'Admin Portal V2');
+  if (action === 'v2ResendApplicationWelcomeEmail') return v2ResendApplicationWelcomeEmail_(payload.data || {}, payload.updatedBy || 'Admin Portal V2');
   if (action === 'v2RecordAiScreeningResult') return v2RecordAiScreeningResult_(payload.data || {}, payload.updatedBy);
   if (action === 'v2ConfirmAiScreening') return v2ConfirmAiScreening_(payload.data || {}, payload.updatedBy);
   if (action === 'v2GenerateAiScreeningReport') return v2GenerateAiScreeningReport_(payload.data || {}, payload.updatedBy || 'IUC Admission Intelligence Agent');
