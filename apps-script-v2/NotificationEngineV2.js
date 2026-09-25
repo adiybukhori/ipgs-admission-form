@@ -210,7 +210,14 @@ function v2SendApplicationNotifications_(payload, reference, intake, pdf, col) {
     'Congratulations. We are delighted that you have chosen Innovative University College for the next step in your postgraduate journey.\n\n' +
     'Your application for ' + programme + ' has been received, and we are pleased to issue your Conditional Offer Letter for the ' + intakeName + ' intake.\n\n' +
     'Programme: ' + programme + '\nIntake: ' + intakeName + '\nReference: ' + reference + '\n\n' +
-    'What happens next: Our admission team will review your submitted documents and academic eligibility. If anything further is needed, we will contact you. Once the applicable requirements are completed and approved, the final Official Offer Letter / Letter of Admission will be issued.\n\n' +
+    'YOUR ADMISSION JOURNEY\n' +
+    '1. Application Received - You are here. Your application has been received and your Conditional Offer Letter has been issued.\n' +
+    '2. Document Review - Our admission team will review the documents you submitted for completeness and verification.\n' +
+    '3. Academic Screening - Your academic qualifications and programme eligibility will be reviewed.\n' +
+    '4. Academic Endorsement - Eligible applications will proceed for the required academic endorsement and approval.\n' +
+    '5. Official Offer - Once all applicable admission requirements are satisfied and approved, we will issue your Official Offer Letter / Letter of Admission.\n' +
+    '6. Orientation & Class Commencement - You will be invited to IPGS Orientation before beginning your studies for the confirmed intake.\n\n' +
+    'If an additional academic assessment or prerequisite requirement applies to your application, we will contact you separately with clear instructions.\n\n' +
     'Attached: Conditional Offer Letter and your submitted Admission Form.\n\n' +
     (researchIntentPending ? 'One more item: Please upload your Preliminary Research Intent (2-3 pages): ' + researchIntentUrl + '\n\n' : '') +
     'We are glad to have you begin this journey with us, and our team will guide you through the remaining steps.\n\n' +
@@ -235,8 +242,32 @@ function v2SendApplicationNotifications_(payload, reference, intake, pdf, col) {
               '</td></tr>' +
             '</table>' +
 
-            '<div style="margin-top:24px;font-size:15px;font-weight:800;color:#34206f">What happens next</div>' +
-            '<p style="margin:8px 0 0;font-size:14px;line-height:1.7;color:#555866">Our admission team will review your submitted documents and academic eligibility. If we need anything further, we will contact you. Once the applicable requirements are completed and approved, we will issue your final Official Offer Letter / Letter of Admission.</p>' +
+            '<div style="margin-top:26px;font-size:16px;font-weight:800;color:#34206f">Your admission journey</div>' +
+            '<p style="margin:7px 0 16px;font-size:13.5px;line-height:1.65;color:#686b78">Here is where your application is now, and what will happen next.</p>' +
+
+            '<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="width:100%;border-collapse:collapse">' +
+              '<tr><td style="width:38px;vertical-align:top;padding:0 0 15px"><div style="width:28px;height:28px;line-height:28px;text-align:center;border-radius:50%;background:#34206f;color:#ffffff;font-size:12px;font-weight:800">1</div></td>' +
+              '<td style="vertical-align:top;padding:0 0 15px"><div style="font-size:14px;font-weight:800;color:#34206f">Application received <span style="display:inline-block;margin-left:5px;padding:3px 7px;border-radius:999px;background:#eee9f8;color:#34206f;font-size:9px;letter-spacing:.04em;text-transform:uppercase">You are here</span></div><div style="margin-top:4px;font-size:13px;line-height:1.6;color:#5d606d">We have received your application and issued your Conditional Offer Letter.</div></td></tr>' +
+
+              '<tr><td style="width:38px;vertical-align:top;padding:0 0 15px"><div style="width:28px;height:28px;line-height:28px;text-align:center;border-radius:50%;background:#ece9f3;color:#34206f;font-size:12px;font-weight:800">2</div></td>' +
+              '<td style="vertical-align:top;padding:0 0 15px"><div style="font-size:14px;font-weight:800;color:#34206f">Document review</div><div style="margin-top:4px;font-size:13px;line-height:1.6;color:#5d606d">Our admission team will review the documents you submitted to ensure they are complete and suitable for verification.</div></td></tr>' +
+
+              '<tr><td style="width:38px;vertical-align:top;padding:0 0 15px"><div style="width:28px;height:28px;line-height:28px;text-align:center;border-radius:50%;background:#ece9f3;color:#34206f;font-size:12px;font-weight:800">3</div></td>' +
+              '<td style="vertical-align:top;padding:0 0 15px"><div style="font-size:14px;font-weight:800;color:#34206f">Academic screening</div><div style="margin-top:4px;font-size:13px;line-height:1.6;color:#5d606d">Your academic qualifications and eligibility for the programme will be reviewed.</div></td></tr>' +
+
+              '<tr><td style="width:38px;vertical-align:top;padding:0 0 15px"><div style="width:28px;height:28px;line-height:28px;text-align:center;border-radius:50%;background:#ece9f3;color:#34206f;font-size:12px;font-weight:800">4</div></td>' +
+              '<td style="vertical-align:top;padding:0 0 15px"><div style="font-size:14px;font-weight:800;color:#34206f">Academic endorsement</div><div style="margin-top:4px;font-size:13px;line-height:1.6;color:#5d606d">Eligible applications will proceed for the required academic endorsement and approval.</div></td></tr>' +
+
+              '<tr><td style="width:38px;vertical-align:top;padding:0 0 15px"><div style="width:28px;height:28px;line-height:28px;text-align:center;border-radius:50%;background:#ece9f3;color:#34206f;font-size:12px;font-weight:800">5</div></td>' +
+              '<td style="vertical-align:top;padding:0 0 15px"><div style="font-size:14px;font-weight:800;color:#34206f">Official offer</div><div style="margin-top:4px;font-size:13px;line-height:1.6;color:#5d606d">Once all applicable admission requirements are satisfied and approved, we will issue your <strong>Official Offer Letter / Letter of Admission</strong>.</div></td></tr>' +
+
+              '<tr><td style="width:38px;vertical-align:top;padding:0"><div style="width:28px;height:28px;line-height:28px;text-align:center;border-radius:50%;background:#ece9f3;color:#34206f;font-size:12px;font-weight:800">6</div></td>' +
+              '<td style="vertical-align:top;padding:0"><div style="font-size:14px;font-weight:800;color:#34206f">Orientation & class commencement</div><div style="margin-top:4px;font-size:13px;line-height:1.6;color:#5d606d">You will be invited to IPGS Orientation before beginning your studies for the confirmed intake.</div></td></tr>' +
+            '</table>' +
+
+            '<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin-top:18px;border-collapse:separate"><tr><td style="padding:13px 15px;background:#faf8fd;border-left:3px solid #d9a428;border-radius:8px">' +
+              '<div style="font-size:12px;line-height:1.6;color:#666170"><strong style="color:#4b3b72">Please note:</strong> Some applications may require an additional academic assessment or prerequisite requirement. If this applies to you, our team will contact you separately with clear instructions and guidance.</div>' +
+            '</td></tr></table>' +
 
             '<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin-top:22px;border-collapse:separate"><tr><td style="padding:15px 17px;background:#fafafa;border:1px solid #e8e8eb;border-radius:12px">' +
               '<div style="font-size:13px;font-weight:800;color:#34206f;margin-bottom:7px">Included with this email</div>' +
