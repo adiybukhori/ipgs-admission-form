@@ -8,7 +8,7 @@ on:
       - '.github/workflows/clasp-v2-push-head.yml'
 
 permissions:
-  contents: read
+  contents: write
 
 # Force-sync the full Admission V2 source tree to the locked Apps Script project.
 # Deployment trigger: Orientation clean date-time formatting 2026-09-20.
@@ -20,6 +20,7 @@ permissions:
 # Deployment trigger: four required admission documents + Adiy/Huzaifah new-application notification 2026-09-23.
 # Deployment trigger: BOD SOP submission COL + welcome email + one-COL IA/PREQ rule 2026-09-23.
 # Deployment trigger: synced cloud HEAD for controlled agentic UAT 2026-09-27.
+# Deployment trigger: parallel Compliance document AI calls to stay under proxy timeout 2026-09-27.
 jobs:
   push-head:
     runs-on: ubuntu-latest
@@ -29,6 +30,92 @@ jobs:
         with:
           ref: apps-script-v2-dev
           fetch-depth: 0
+
+      - name: Patch Compliance document calls to parallel execution
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          import re
+          p = Path('apps-script-v2/ComplianceAgentV2.js')
+          text = p.read_text(encoding='utf-8')
+          if 'UrlFetchApp.fetchAll(requests)' in text:
+              print('Compliance parallel patch already present.')
+              raise SystemExit(0)
+          replacement = r'''  const requests = uploaded.documents.map(function(doc){
+            return {
+              url:webhookUrl,
+              method:'post',
+              contentType:'application/json',
+              headers:{'X-IUC-Agent-Secret':secret},
+              payload:JSON.stringify({
+                mode:'DOCUMENT',
+                referenceNo:String(referenceNo || ''),
+                applicantName:applicantName,
+                applicantId:applicantId,
+                programme:programme,
+                field:doc.field,
+                label:doc.label,
+                fileName:doc.fileName,
+                mimeType:doc.mimeType,
+                base64:doc.base64
+              }),
+              muteHttpExceptions:true
+            };
+          });
+
+          let responses = [];
+          try {
+            responses = UrlFetchApp.fetchAll(requests);
+          } catch (batchError) {
+            uploaded.sources.forEach(function(source){
+              if (!source.error) source.error = 'N8N_AI_GATEWAY_BATCH: ' + String(batchError && batchError.message || batchError);
+            });
+          }
+
+          uploaded.documents.forEach(function(doc, index){
+            try {
+              const httpResponse = responses[index];
+              if (!httpResponse) throw new Error('DOCUMENT_RESPONSE_MISSING');
+              const code = httpResponse.getResponseCode();
+              const text = httpResponse.getContentText();
+              if (code < 200 || code >= 300) throw new Error('HTTP_' + code + ': ' + text.slice(0,300));
+              let response;
+              try { response = JSON.parse(text); }
+              catch (_) { throw new Error('INVALID_JSON: ' + text.slice(0,200)); }
+              if (!response || response.ok !== true) throw new Error('INVALID_RESPONSE');
+              const result = response.result || {};
+              if (!result.document || typeof result.document !== 'object') throw new Error('DOCUMENT_RESULT_MISSING');
+              findings.push(result.document);
+              if (Array.isArray(result.flags)) result.flags.forEach(function(x){ flags.push(String(x)); });
+              const c = Number(result.confidence != null ? result.confidence : result.document.confidence);
+              if (isFinite(c)) confidenceValues.push(Math.max(0,Math.min(1,c)));
+              if (response.runId) runIds.push(String(response.runId));
+              if (response.model) models.push(String(response.model));
+            } catch (error) {
+              const source = uploaded.sources.filter(function(s){
+                return s.field === doc.field && s.fileName === doc.fileName && !s.error;
+              })[0];
+              if (source) source.error = 'N8N_AI_GATEWAY: ' + String(error && error.message || error);
+            }
+          });'''
+          pattern = r"  uploaded\.documents\.forEach\(function\(doc\)\{.*?\n  \}\);\n\n  let crossDocumentConsistency"
+          text2, n = re.subn(pattern, replacement + '\n\n  let crossDocumentConsistency', text, count=1, flags=re.S)
+          if n != 1:
+              raise SystemExit(f'Compliance sequential block replacement count: {n}')
+          p.write_text(text2, encoding='utf-8')
+          PY
+
+      - name: Commit patched Compliance source
+        run: |
+          if git diff --quiet -- apps-script-v2/ComplianceAgentV2.js; then
+            echo 'No source commit required.'
+          else
+            git config user.name 'adiybukhori'
+            git config user.email 'muhammadadiy93@gmail.com'
+            git add apps-script-v2/ComplianceAgentV2.js
+            git commit -m 'Parallelize Compliance AI document checks'
+            git push origin apps-script-v2-dev
+          fi
 
       - name: Verify clasp credential is configured
         env:
@@ -72,7 +159,7 @@ jobs:
       - name: Redeploy existing V2 web app
         env:
           V2_DEPLOYMENT_ID: AKfycbxasT_HgtRSvTbR_bsa8p17Cm-C2PKn20Ok1kU-AyJmxiKX8kX5EGOtRLwVwNlAL7JB
-        run: clasp create-deployment --deploymentId "$V2_DEPLOYMENT_ID" --description "Admission V2 full source sync"
+        run: clasp create-deployment --deploymentId "$V2_DEPLOYMENT_ID" --description "Admission V2 parallel Compliance sync"
 
       - name: Remove clasp credential
         if: always()
