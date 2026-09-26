@@ -3511,6 +3511,12 @@ function v2IssueOffer_(referenceNo, actor, options) {
   const opts = options || {};
   const prepared = v2PrepareOffer_(reference, actor || 'Offer Issuance');
   const generated = v2GenerateOfferLetter_(reference, actor || 'Offer Issuance');
+  // Prepare the EXISTING approved Acceptance Pack before the student receives the link.
+  // This keeps acceptance-v2.html fast and avoids first-open spinner/timeouts.
+  const acceptancePack = v2AcceptancePackEnsureReviewDocs_(
+    reference,
+    actor || 'Offer Issuance'
+  );
   let email = {sent:false,mode:'NOT_REQUESTED',status:'NOT_REQUESTED'};
   // Production behaviour: issuing an Offer sends it automatically.
   // Controlled tests can explicitly pass sendEmail:false.
@@ -3537,6 +3543,8 @@ function v2IssueOffer_(referenceNo, actor, options) {
     applicationStage:generated.applicationStage,
     offerLetterPdfUrl:generated.offerLetterPdfUrl,
     acceptanceSigningUrl:prepared.acceptanceSigningUrl,
+    acceptancePackStatus:String(acceptancePack && acceptancePack.status || ''),
+    acceptancePackDocumentCount:Array.isArray(acceptancePack && acceptancePack.documents) ? acceptancePack.documents.length : 0,
     emailSent:!!email.sent,
     emailMode:email.mode || '',
     emailStatus:email.status || '',
