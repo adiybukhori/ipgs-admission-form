@@ -137,7 +137,10 @@ function extractAppsScriptError(text = '') {
 }
 
 async function callV2(action, data, password, updatedBy) {
-  const token = process.env.V2_ADMIN_API_PASSWORD || password;
+  // The password entered in the portal has already been validated against the
+  // live admin auth service. Prefer it over any stale Vercel environment copy.
+  const token = String(password || process.env.V2_ADMIN_API_PASSWORD || '').trim();
+  if (!token) throw new Error('V2 admin password is not available.');
   const payload = { action, token, data: data || {}, updatedBy: updatedBy || 'Admin Portal V2' };
   const response = await fetch(V2_WEB_APP, {
     method: 'POST',
