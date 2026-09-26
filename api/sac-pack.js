@@ -1,7 +1,7 @@
 import { PDFDocument } from 'pdf-lib';
 
-const V2_WEB_APP = 'https://script.google.com/macros/s/AKfycbxasT_HgtRSvTbR_bsa8p17Cm-C2PKn20Ok1kU-AyJmxiKX8kX5EGOtRLwVwNlAL7JB/exec';
 const AUTH_WEB_APP = 'https://script.google.com/macros/s/AKfycbw22-UOsHkaap3dzU16aOjA6XFr7jWGr9qQPfp8F1CQrXboP7YdRZJKKJhHijC3us4/exec';
+const ADMIN_BRIDGE = 'https://anasbukhori.app.n8n.cloud/webhook/iuc-admission-v2-admin-bridge';
 
 async function validateAdminPassword(password) {
   if (!password) return false;
@@ -16,39 +16,24 @@ async function validateAdminPassword(password) {
   }
 }
 
-function cleanErrorText(text = '') {
-  return String(text)
-    .replace(/<script[\s\S]*?<\/script>/gi, ' ')
-    .replace(/<style[\s\S]*?<\/style>/gi, ' ')
-    .replace(/<[^>]+>/g, ' ')
-    .replace(/&quot;/g, '"')
-    .replace(/&#39;|&apos;/g, "'")
-    .replace(/&amp;/g, '&')
-    .replace(/\s+/g, ' ')
-    .trim()
-    .slice(0, 900);
-}
-
 async function callV2(action, data, password) {
-  // Use the live password that was just validated for this request. This avoids
-  // stale Vercel environment values causing false "Invalid V2 admin password" errors.
-  const token = String(password || process.env.V2_ADMIN_API_PASSWORD || '').trim();
-  if (!token) throw new Error('V2 admin password is not available.');
-  const response = await fetch(V2_WEB_APP, {
+  const response = await fetch(ADMIN_BRIDGE, {
     method: 'POST',
-    headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-    body: JSON.stringify({ action, token, data: data || {}, updatedBy: 'Admin Portal V2 - SAC Pack' }),
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      password: String(password || ''),
+      action,
+      data: data || {},
+      updatedBy: 'Admin Portal V2 - SAC Pack'
+    }),
     redirect: 'follow'
   });
   const text = await response.text();
   let parsed;
-  try {
-    parsed = JSON.parse(text);
-  } catch (_) {
-    throw new Error(cleanErrorText(text) || `V2 backend returned HTTP ${response.status}.`);
-  }
+  try { parsed = JSON.parse(text); }
+  catch (_) { throw new Error(`Admin bridge returned HTTP ${response.status}.`); }
   if (!response.ok || !parsed || parsed.ok === false) {
-    throw new Error(parsed?.message || `V2 backend returned HTTP ${response.status}.`);
+    throw new Error(parsed?.message || `Admin bridge returned HTTP ${response.status}.`);
   }
   return parsed;
 }
@@ -64,7 +49,6 @@ async function appendImage(target, bytes, mimeType) {
   let image;
   if (/png/i.test(mimeType)) image = await target.embedPng(bytes);
   else image = await target.embedJpg(bytes);
-
   const pageWidth = 595.28;
   const pageHeight = 841.89;
   const margin = 24;
@@ -84,10 +68,7 @@ async function appendImage(target, bytes, mimeType) {
 
 export default async function handler(req, res) {
   res.setHeader('Cache-Control', 'no-store, max-age=0');
-
-  if (req.method !== 'POST') {
-    return res.status(405).json({ ok: false, message: 'Method not allowed.' });
-  }
+  if (req.method !== 'POST') return res.status(405).json({ ok: false, message: 'Method not allowed.' });
 
   let body = req.body || {};
   if (typeof body === 'string') {
@@ -100,28 +81,18 @@ export default async function handler(req, res) {
   }
 
   const sessionId = String(body.sessionId || '').trim();
-  if (!sessionId) {
-    return res.status(400).json({ ok: false, message: 'SAC Session ID is required.' });
-  }
+  if (!sessionId) return res.status(400).json({ ok: false, message: 'SAC Session ID is required.' });
 
   const choices = Array.isArray(body.choices) ? body.choices : [];
-  const choiceMap = new Map(
-    choices.map(item => [String(item.referenceNo || ''), String(item.action || '').toUpperCase()])
-  );
+  const choiceMap = new Map(choices.map(item => [String(item.referenceNo || ''), String(item.action || '').toUpperCase()]));
 
   try {
     const prepared = await callV2('v2PrepareSacPack', { sessionId }, password);
     const pack = prepared?.result || prepared;
     const candidates = Array.isArray(pack?.candidates) ? pack.candidates : [];
+    const selected = candidates.filter(candidate => candidate.complete || choiceMap.get(String(candidate.referenceNo || '')) === 'PROCEED');
 
-    const selected = candidates.filter(candidate => {
-      if (candidate.complete) return true;
-      return choiceMap.get(String(candidate.referenceNo || '')) === 'PROCEED';
-    });
-
-    if (!selected.length) {
-      return res.status(400).json({ ok: false, message: 'No candidates were selected for printing.' });
-    }
+    if (!selected.length) return res.status(400).json({ ok: false, message: 'No candidates were selected for printing.' });
 
     const merged = await PDFDocument.create();
     merged.setTitle(`${pack.sessionName || sessionId} - SAC Print Pack`);
@@ -142,13 +113,9 @@ export default async function handler(req, res) {
 
         const bytes = Buffer.from(file.base64, 'base64');
         const mime = String(file.mimeType || '').toLowerCase();
-        if (mime === 'application/pdf') {
-          await appendPdf(merged, bytes);
-        } else if (/^image\/(png|jpeg|jpg)$/.test(mime)) {
-          await appendImage(merged, bytes, mime);
-        } else {
-          throw new Error(`Unsupported printable file type for ${file.fileName || doc.label}: ${mime || 'unknown'}.`);
-        }
+        if (mime === 'application/pdf') await appendPdf(merged, bytes);
+        else if (/^image\/(png|jpeg|jpg)$/.test(mime)) await appendImage(merged, bytes, mime);
+        else throw new Error(`Unsupported printable file type for ${file.fileName || doc.label}: ${mime || 'unknown'}.`);
       }
     }
 
@@ -166,9 +133,6 @@ export default async function handler(req, res) {
     res.setHeader('X-SAC-Candidate-Count', String(selected.length));
     return res.status(200).send(Buffer.from(bytes));
   } catch (error) {
-    return res.status(502).json({
-      ok: false,
-      message: error?.message || 'Unable to generate SAC print pack.'
-    });
+    return res.status(502).json({ ok: false, message: error?.message || 'Unable to generate SAC print pack.' });
   }
 }
