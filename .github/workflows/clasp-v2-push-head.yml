@@ -21,6 +21,7 @@ permissions:
 # Deployment trigger: BOD SOP submission COL + welcome email + one-COL IA/PREQ rule 2026-09-23.
 # Deployment trigger: synced cloud HEAD for controlled agentic UAT 2026-09-27.
 # Deployment trigger: parallel Compliance document AI calls to stay under proxy timeout 2026-09-27.
+# Deployment trigger: pre-generate the existing Acceptance Pack before Offer email and expose controlled pack preparation 2026-09-27.
 jobs:
   push-head:
     runs-on: ubuntu-latest
@@ -105,15 +106,51 @@ jobs:
           p.write_text(text2, encoding='utf-8')
           PY
 
-      - name: Commit patched Compliance source
+      - name: Patch existing Offer and Acceptance Pack flow
         run: |
-          if git diff --quiet -- apps-script-v2/ComplianceAgentV2.js; then
+          python3 - <<'PY'
+          from pathlib import Path
+
+          workflow = Path('apps-script-v2/WorkflowV2.js')
+          text = workflow.read_text(encoding='utf-8')
+          dispatch = "  if (action === 'v2PrepareAcceptancePack') return v2AcceptancePackEnsureReviewDocs_((payload.data || {}).referenceNo, payload.updatedBy || 'Admin Portal V2');\n"
+          anchor = "  if (action === 'v2IssueOffer') return v2IssueOffer_((payload.data || {}).referenceNo, payload.updatedBy || 'Admin Portal V2', payload.data || {});\n"
+          if "action === 'v2PrepareAcceptancePack'" not in text:
+              if anchor not in text:
+                  raise SystemExit('v2IssueOffer dispatcher anchor not found')
+              text = text.replace(anchor, anchor + dispatch, 1)
+              workflow.write_text(text, encoding='utf-8')
+          else:
+              print('Acceptance Pack dispatcher already present.')
+
+          offer = Path('apps-script-v2/OfferLetterV2.js')
+          text = offer.read_text(encoding='utf-8')
+          marker = "const acceptancePack = v2AcceptancePackEnsureReviewDocs_("
+          if marker not in text:
+              old = "  const generated = v2GenerateOfferLetter_(reference, actor || 'Offer Issuance');\n  let email = {sent:false,mode:'NOT_REQUESTED',status:'NOT_REQUESTED'};"
+              new = "  const generated = v2GenerateOfferLetter_(reference, actor || 'Offer Issuance');\n  // Prepare the EXISTING approved Acceptance Pack before the student receives the link.\n  // This keeps acceptance-v2.html fast and avoids first-open spinner/timeouts.\n  const acceptancePack = v2AcceptancePackEnsureReviewDocs_(\n    reference,\n    actor || 'Offer Issuance'\n  );\n  let email = {sent:false,mode:'NOT_REQUESTED',status:'NOT_REQUESTED'};"
+              if old not in text:
+                  raise SystemExit('v2IssueOffer generation anchor not found')
+              text = text.replace(old, new, 1)
+              old_return = "    acceptanceSigningUrl:prepared.acceptanceSigningUrl,\n    emailSent:!!email.sent,"
+              new_return = "    acceptanceSigningUrl:prepared.acceptanceSigningUrl,\n    acceptancePackStatus:String(acceptancePack && acceptancePack.status || ''),\n    acceptancePackDocumentCount:Array.isArray(acceptancePack && acceptancePack.documents) ? acceptancePack.documents.length : 0,\n    emailSent:!!email.sent,"
+              if old_return not in text:
+                  raise SystemExit('v2IssueOffer return anchor not found')
+              text = text.replace(old_return, new_return, 1)
+              offer.write_text(text, encoding='utf-8')
+          else:
+              print('Offer Acceptance Pack pre-generation already present.')
+          PY
+
+      - name: Commit patched V2 source
+        run: |
+          if git diff --quiet -- apps-script-v2/ComplianceAgentV2.js apps-script-v2/WorkflowV2.js apps-script-v2/OfferLetterV2.js; then
             echo 'No source commit required.'
           else
             git config user.name 'adiybukhori'
             git config user.email 'muhammadadiy93@gmail.com'
-            git add apps-script-v2/ComplianceAgentV2.js
-            git commit -m 'Parallelize Compliance AI document checks'
+            git add apps-script-v2/ComplianceAgentV2.js apps-script-v2/WorkflowV2.js apps-script-v2/OfferLetterV2.js
+            git commit -m 'Repair existing Offer Acceptance Pack flow'
             git push origin apps-script-v2-dev
           fi
 
@@ -159,7 +196,7 @@ jobs:
       - name: Redeploy existing V2 web app
         env:
           V2_DEPLOYMENT_ID: AKfycbxasT_HgtRSvTbR_bsa8p17Cm-C2PKn20Ok1kU-AyJmxiKX8kX5EGOtRLwVwNlAL7JB
-        run: clasp create-deployment --deploymentId "$V2_DEPLOYMENT_ID" --description "Admission V2 parallel Compliance sync"
+        run: clasp create-deployment --deploymentId "$V2_DEPLOYMENT_ID" --description "Admission V2 existing Acceptance Pack pre-generation repair"
 
       - name: Remove clasp credential
         if: always()
