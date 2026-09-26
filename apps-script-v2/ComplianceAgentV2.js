@@ -264,35 +264,63 @@ function v2ComplianceCallN8nGateway_(application, referenceNo) {
   const applicantId = String(application['ID / Passport No'] || '');
   const programme = String(application['Programme'] || '');
   const findings = [], flags = [], runIds = [], models = [], confidenceValues = [];
-  uploaded.documents.forEach(function(doc){
-    try {
-      const response = v2ComplianceGatewayPost_(webhookUrl, secret, {
-        mode:'DOCUMENT',
-        referenceNo:String(referenceNo || ''),
-        applicantName:applicantName,
-        applicantId:applicantId,
-        programme:programme,
-        field:doc.field,
-        label:doc.label,
-        fileName:doc.fileName,
-        mimeType:doc.mimeType,
-        base64:doc.base64
-      });
-      const result = response.result || {};
-      if (!result.document || typeof result.document !== 'object') {
-        throw new Error('DOCUMENT_RESULT_MISSING');
-      }
-      findings.push(result.document);
-      if (Array.isArray(result.flags)) result.flags.forEach(function(x){ flags.push(String(x)); });
-      const c = Number(result.confidence != null ? result.confidence : result.document.confidence);
-      if (isFinite(c)) confidenceValues.push(Math.max(0,Math.min(1,c)));
-      if (response.runId) runIds.push(String(response.runId));
-      if (response.model) models.push(String(response.model));
-    } catch (error) {
-      const source = uploaded.sources.filter(function(s){ return s.field === doc.field && !s.error; })[0];
-      if (source) source.error = 'N8N_AI_GATEWAY: ' + String(error && error.message || error);
-    }
+  const requests = uploaded.documents.map(function(doc){
+  return {
+    url:webhookUrl,
+    method:'post',
+    contentType:'application/json',
+    headers:{'X-IUC-Agent-Secret':secret},
+    payload:JSON.stringify({
+      mode:'DOCUMENT',
+      referenceNo:String(referenceNo || ''),
+      applicantName:applicantName,
+      applicantId:applicantId,
+      programme:programme,
+      field:doc.field,
+      label:doc.label,
+      fileName:doc.fileName,
+      mimeType:doc.mimeType,
+      base64:doc.base64
+    }),
+    muteHttpExceptions:true
+  };
+});
+
+let responses = [];
+try {
+  responses = UrlFetchApp.fetchAll(requests);
+} catch (batchError) {
+  uploaded.sources.forEach(function(source){
+    if (!source.error) source.error = 'N8N_AI_GATEWAY_BATCH: ' + String(batchError && batchError.message || batchError);
   });
+}
+
+uploaded.documents.forEach(function(doc, index){
+  try {
+    const httpResponse = responses[index];
+    if (!httpResponse) throw new Error('DOCUMENT_RESPONSE_MISSING');
+    const code = httpResponse.getResponseCode();
+    const text = httpResponse.getContentText();
+    if (code < 200 || code >= 300) throw new Error('HTTP_' + code + ': ' + text.slice(0,300));
+    let response;
+    try { response = JSON.parse(text); }
+    catch (_) { throw new Error('INVALID_JSON: ' + text.slice(0,200)); }
+    if (!response || response.ok !== true) throw new Error('INVALID_RESPONSE');
+    const result = response.result || {};
+    if (!result.document || typeof result.document !== 'object') throw new Error('DOCUMENT_RESULT_MISSING');
+    findings.push(result.document);
+    if (Array.isArray(result.flags)) result.flags.forEach(function(x){ flags.push(String(x)); });
+    const c = Number(result.confidence != null ? result.confidence : result.document.confidence);
+    if (isFinite(c)) confidenceValues.push(Math.max(0,Math.min(1,c)));
+    if (response.runId) runIds.push(String(response.runId));
+    if (response.model) models.push(String(response.model));
+  } catch (error) {
+    const source = uploaded.sources.filter(function(s){
+      return s.field === doc.field && s.fileName === doc.fileName && !s.error;
+    })[0];
+    if (source) source.error = 'N8N_AI_GATEWAY: ' + String(error && error.message || error);
+  }
+});
 
   let crossDocumentConsistency = 'NOT_ASSESSABLE';
   let crossDocumentNotes = [];
