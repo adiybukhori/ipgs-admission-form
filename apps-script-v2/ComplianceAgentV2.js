@@ -68,10 +68,7 @@ function v2RunComplianceDocumentQuality_(data, actor) {
     throw new Error('AI quality review is not available at current stage: ' + stage);
   }
 
-  const apiKey = String(PropertiesService.getScriptProperties().getProperty('OPENAI_API_KEY') || '').trim();
-  if (!apiKey) throw new Error('OPENAI_API_KEY_MISSING');
-
-  const ai = v2ComplianceCallOpenAi_(application.record, apiKey);
+  const ai = v2ComplianceCallN8nGateway_(application.record, reference);
   const normalized = v2ComplianceNormalizeResult_(ai.result, ai.sourceDocuments);
 
   const now = new Date().toISOString();
@@ -102,7 +99,7 @@ function v2RunComplianceDocumentQuality_(data, actor) {
     'AI Quality Follow-up JSON':JSON.stringify(followUp),
     'AI Quality Flags JSON':JSON.stringify(normalized.flags),
     'AI Quality Source Documents JSON':JSON.stringify(ai.sourceDocuments || []),
-    'AI Quality Provider':'OPENAI',
+    'AI Quality Provider':'N8N_GATEWAY',
     'AI Quality Model':ai.model || '',
     'AI Quality Run ID':ai.runId || '',
     'AI Quality Reviewed At':now,
@@ -162,6 +159,182 @@ function v2RunComplianceDocumentQuality_(data, actor) {
       status === 'PASS' ? 'ADMISSION_INTELLIGENCE' :
       status === 'FOLLOW_UP_REQUIRED' ? 'STUDENT_DOCUMENT_REPLACEMENT' :
       'HUMAN_DOCUMENT_REVIEW'
+  };
+}
+
+function v2ComplianceGatewayPost_(webhookUrl, secret, payload) {
+  const response = UrlFetchApp.fetch(webhookUrl, {
+    method:'post',
+    contentType:'application/json',
+    headers:{'X-IUC-Agent-Secret':secret},
+    payload:JSON.stringify(payload || {}),
+    muteHttpExceptions:true
+  });
+  const code = response.getResponseCode();
+  const text = response.getContentText();
+  if (code < 200 || code >= 300) {
+    throw new Error('N8N_COMPLIANCE_AI_HTTP_' + code + ': ' + text.slice(0,600));
+  }
+  let parsed;
+  try { parsed = JSON.parse(text); }
+  catch (_) { throw new Error('N8N_COMPLIANCE_AI_INVALID_JSON: ' + text.slice(0,300)); }
+  if (!parsed || parsed.ok !== true) {
+    throw new Error('N8N_COMPLIANCE_AI_INVALID_RESPONSE');
+  }
+  return parsed;
+}
+
+function v2ComplianceReadGatewayDocuments_(application) {
+  let files = [];
+  try { files = JSON.parse(String(application['Uploaded Files JSON'] || '[]')); } catch (_) { files = []; }
+  if (!Array.isArray(files)) files = [];
+  const wanted = [
+    'identityDocument','passportPhoto','passportCopyInternational',
+    'transcript','certificate','apelCertificate','cvResume',
+    'otherSupportingDocument','completedAdmissionForm','completedHealthDeclaration',
+    'emgsPaymentReceipt','preliminaryResearchIntent'
+  ];
+  const documents = [], sources = [];
+  let totalBytes = 0;
+  const maxTotal = 18 * 1024 * 1024;
+
+  files.filter(function(meta){
+    return wanted.indexOf(String(meta && meta.field || '')) > -1;
+  }).some(function(meta){
+    const idMatch = String(meta.url || '').match(/[-\w]{20,}/);
+    const field = String(meta.field || '');
+    const label = V2_DOCUMENT_LABELS[field] || field;
+    if (!idMatch) {
+      sources.push({field:field,label:label,fileName:String(meta.fileName || ''),error:'DRIVE_FILE_ID_NOT_FOUND'});
+      return false;
+    }
+    try {
+      const file = DriveApp.getFileById(idMatch[0]);
+      const blob = file.getBlob();
+      const bytes = blob.getBytes();
+      const fileName = String(meta.fileName || file.getName());
+      if (totalBytes + bytes.length > maxTotal) {
+        sources.push({field:field,label:label,fileName:fileName,error:'SKIPPED_SIZE_LIMIT'});
+        return false;
+      }
+      const mime = String(blob.getContentType() || meta.mimeType || 'application/pdf').toLowerCase();
+      if (!/^image\/(png|jpeg|jpg|gif|webp)$/.test(mime) && mime !== 'application/pdf') {
+        sources.push({field:field,label:label,fileName:fileName,mimeType:mime,error:'UNSUPPORTED_MIME_TYPE'});
+        return false;
+      }
+      totalBytes += bytes.length;
+      documents.push({
+        field:field,
+        label:label,
+        fileName:fileName,
+        mimeType:mime,
+        base64:Utilities.base64Encode(bytes)
+      });
+      sources.push({
+        field:field,
+        label:label,
+        fileName:fileName,
+        mimeType:mime,
+        size:bytes.length
+      });
+    } catch (error) {
+      sources.push({field:field,label:label,fileName:String(meta.fileName || ''),error:String(error && error.message || error)});
+    }
+    return totalBytes >= maxTotal;
+  });
+  return {documents:documents,sources:sources,totalBytes:totalBytes};
+}
+
+function v2ComplianceCallN8nGateway_(application, referenceNo) {
+  const properties = PropertiesService.getScriptProperties();
+  const webhookUrl = String(
+    properties.getProperty('N8N_COMPLIANCE_AI_WEBHOOK_URL') ||
+    'https://anasbukhori.app.n8n.cloud/webhook/cs-adm-v2-09-compliance-ai-bridge-20260926'
+  ).trim();
+  const secret = String(properties.getProperty('N8N_EVENT_SHARED_SECRET') || '').trim();
+  if (!webhookUrl) throw new Error('N8N_COMPLIANCE_AI_WEBHOOK_MISSING');
+  if (!secret) throw new Error('N8N_EVENT_SHARED_SECRET_MISSING');
+
+  const uploaded = v2ComplianceReadGatewayDocuments_(application);
+  if (!uploaded.documents.length) {
+    throw new Error('No supported uploaded files available for AI quality inspection.');
+  }
+
+  const applicantName = String(application['Student Name'] || '');
+  const applicantId = String(application['ID / Passport No'] || '');
+  const programme = String(application['Programme'] || '');
+  const findings = [], flags = [], runIds = [], models = [], confidenceValues = [];
+  uploaded.documents.forEach(function(doc){
+    try {
+      const response = v2ComplianceGatewayPost_(webhookUrl, secret, {
+        mode:'DOCUMENT',
+        referenceNo:String(referenceNo || ''),
+        applicantName:applicantName,
+        applicantId:applicantId,
+        programme:programme,
+        field:doc.field,
+        label:doc.label,
+        fileName:doc.fileName,
+        mimeType:doc.mimeType,
+        base64:doc.base64
+      });
+      const result = response.result || {};
+      if (!result.document || typeof result.document !== 'object') {
+        throw new Error('DOCUMENT_RESULT_MISSING');
+      }
+      findings.push(result.document);
+      if (Array.isArray(result.flags)) result.flags.forEach(function(x){ flags.push(String(x)); });
+      const c = Number(result.confidence != null ? result.confidence : result.document.confidence);
+      if (isFinite(c)) confidenceValues.push(Math.max(0,Math.min(1,c)));
+      if (response.runId) runIds.push(String(response.runId));
+      if (response.model) models.push(String(response.model));
+    } catch (error) {
+      const source = uploaded.sources.filter(function(s){ return s.field === doc.field && !s.error; })[0];
+      if (source) source.error = 'N8N_AI_GATEWAY: ' + String(error && error.message || error);
+    }
+  });
+
+  let crossDocumentConsistency = 'NOT_ASSESSABLE';
+  let crossDocumentNotes = [];
+  if (findings.length) {
+    try {
+      const cross = v2ComplianceGatewayPost_(webhookUrl, secret, {
+        mode:'CROSS',
+        referenceNo:String(referenceNo || ''),
+        applicantName:applicantName,
+        applicantId:applicantId,
+        programme:programme,
+        documents:findings
+      });
+      const result = cross.result || {};
+      crossDocumentConsistency = String(result.crossDocumentConsistency || 'NOT_ASSESSABLE').toUpperCase();
+      crossDocumentNotes = Array.isArray(result.crossDocumentNotes) ? result.crossDocumentNotes.map(String) : [];
+      if (Array.isArray(result.flags)) result.flags.forEach(function(x){ flags.push(String(x)); });
+      const c = Number(result.confidence);
+      if (isFinite(c)) confidenceValues.push(Math.max(0,Math.min(1,c)));
+      if (cross.runId) runIds.push(String(cross.runId));
+      if (cross.model) models.push(String(cross.model));
+    } catch (error) {
+      flags.push('UNABLE_TO_VERIFY_CROSS_DOCUMENT');
+      crossDocumentNotes.push('Cross-document AI check failed: ' + String(error && error.message || error));
+    }
+  }
+
+  const hasSourceError = uploaded.sources.some(function(x){ return !!x.error; });
+  let confidence = confidenceValues.length ? Math.min.apply(null,confidenceValues) : 0;
+  if (hasSourceError) confidence = 0;
+
+  return {
+    model:Array.from(new Set(models)).join(',') || 'gpt-5-mini',
+    runId:Array.from(new Set(runIds)).join(','),
+    sourceDocuments:uploaded.sources,
+    result:{
+      documents:findings,
+      crossDocumentConsistency:crossDocumentConsistency,
+      crossDocumentNotes:crossDocumentNotes,
+      flags:Array.from(new Set(flags)),
+      confidence:confidence
+    }
   };
 }
 
@@ -434,4 +607,28 @@ function v2ComplianceHumanReason_(normalized, sources) {
     reasons.push((s.label || s.field || 'Document') + ': ' + s.error);
   });
   return reasons.slice(0,8).join(' | ') || 'Document quality could not be confidently resolved by AI.';
+}
+
+
+function testV2ComplianceDependencies() {
+  const checks = {
+    assertDevIdentity_: typeof assertDevIdentity_ === 'function',
+    v2EnsureHeaders_: typeof v2EnsureHeaders_ === 'function',
+    v2Required_: typeof v2Required_ === 'function',
+    v2Find_: typeof v2Find_ === 'function',
+    v2UpdateRow_: typeof v2UpdateRow_ === 'function',
+    v2Audit_: typeof v2Audit_ === 'function',
+    v2InvalidateCache_: typeof v2InvalidateCache_ === 'function',
+    v2GetRequiredDocuments_: typeof v2GetRequiredDocuments_ === 'function',
+    v2AiExtractResponseText_: typeof v2AiExtractResponseText_ === 'function',
+    V2_DOCUMENT_REVIEW_SHEET: typeof V2_DOCUMENT_REVIEW_SHEET !== 'undefined',
+    V2_DOCUMENT_REVIEW_HEADERS: typeof V2_DOCUMENT_REVIEW_HEADERS !== 'undefined',
+    V2_DOCUMENT_LABELS: typeof V2_DOCUMENT_LABELS !== 'undefined',
+    OPENAI_API_KEY: !!String(PropertiesService.getScriptProperties().getProperty('OPENAI_API_KEY') || '').trim()
+  };
+  Logger.log(JSON.stringify(checks, null, 2));
+  const missing = Object.keys(checks).filter(function(key) { return checks[key] !== true; });
+  if (missing.length) throw new Error('COMPLIANCE_DEPENDENCY_MISSING: ' + missing.join(', '));
+  Logger.log('COMPLIANCE DEPENDENCIES READY');
+  return checks;
 }
