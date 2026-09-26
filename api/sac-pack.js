@@ -30,7 +30,10 @@ function cleanErrorText(text = '') {
 }
 
 async function callV2(action, data, password) {
-  const token = process.env.V2_ADMIN_API_PASSWORD || password;
+  // Use the live password that was just validated for this request. This avoids
+  // stale Vercel environment values causing false "Invalid V2 admin password" errors.
+  const token = String(password || process.env.V2_ADMIN_API_PASSWORD || '').trim();
+  if (!token) throw new Error('V2 admin password is not available.');
   const response = await fetch(V2_WEB_APP, {
     method: 'POST',
     headers: { 'Content-Type': 'text/plain;charset=utf-8' },
