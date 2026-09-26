@@ -19,6 +19,7 @@ permissions:
 # Deployment trigger: Marketing-owned prospect flow confirmed 2026-09-20.
 # Deployment trigger: four required admission documents + Adiy/Huzaifah new-application notification 2026-09-23.
 # Deployment trigger: BOD SOP submission COL + welcome email + one-COL IA/PREQ rule 2026-09-23.
+# Deployment trigger: synced cloud HEAD for controlled agentic UAT 2026-09-27.
 jobs:
   push-head:
     runs-on: ubuntu-latest
