@@ -1,0 +1,65 @@
+name: Optimize SAC Pack Preparation
+
+on:
+  push:
+    branches:
+      - apps-script-v2-dev
+    paths:
+      - '.github/scripts/optimize_sac_pack_prepare.py'
+      - '.github/workflows/optimize-sac-pack-prepare.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  optimize:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: apps-script-v2-dev
+          fetch-depth: 0
+
+      - name: Apply SAC pack optimization
+        run: python3 .github/scripts/optimize_sac_pack_prepare.py
+
+      - name: Syntax-check SAC Pack source
+        run: node --check apps-script-v2/SacPackV2.js
+
+      - name: Commit optimized source
+        run: |
+          if git diff --quiet -- apps-script-v2/SacPackV2.js; then
+            echo 'No SAC Pack source change required.'
+          else
+            git config user.name 'github-actions[bot]'
+            git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+            git add apps-script-v2/SacPackV2.js
+            git commit -m 'Reuse existing PG-ADM-01 in SAC print pack preparation'
+            git push origin apps-script-v2-dev
+          fi
+
+      - name: Verify clasp credential
+        env:
+          CLASPRC_JSON: ${{ secrets.CLASPRC_JSON }}
+        run: |
+          test -n "$CLASPRC_JSON"
+          printf '%s' "$CLASPRC_JSON" > "$HOME/.clasprc.json"
+          chmod 600 "$HOME/.clasprc.json"
+
+      - name: Install clasp
+        run: npm install --global @google/clasp@3.4.1
+
+      - name: Verify locked V2 target
+        run: node tools/verify-clasp-target.mjs
+
+      - name: Push latest V2 and redeploy existing web app
+        env:
+          V2_DEPLOYMENT_ID: AKfycbxasT_HgtRSvTbR_bsa8p17Cm-C2PKn20Ok1kU-AyJmxiKX8kX5EGOtRLwVwNlAL7JB
+        run: |
+          clasp push --force
+          clasp create-deployment --deploymentId "$V2_DEPLOYMENT_ID" --description "Admission V2 SAC pack preparation optimization"
+
+      - name: Remove clasp credential
+        if: always()
+        run: rm -f "$HOME/.clasprc.json"
