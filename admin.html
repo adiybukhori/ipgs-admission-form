@@ -1116,7 +1116,7 @@
 
         <section class="sac-session-section"><h4>2. Panel / Committee</h4><div class="hint">Panel names and roles are matched against SAC_COMMITTEE_MASTER. Update the panel list before sending invitation.</div><div class="sac-panel-list">${panelHtml}</div>${!isFinal?`<div class="field" style="margin-top:10px"><label>Panel / Committee Emails</label><textarea id="sacDetailCommittee" rows="3" style="width:100%;border:1px solid #d7dce6;border-radius:12px;padding:12px 13px;resize:vertical">${esc(session['Committee Emails']||'')}</textarea></div><button class="ghost" type="button" onclick="saveSacSessionPanel()">Save Panel</button>`:''}</section>
 
-        <section class="sac-session-section"><h4>3. Participants</h4><div class="hint">Candidate count is derived from the actual V2_SAC_CANDIDATES records for this session.</div><div class="sac-participant-list">${participantHtml}</div>${!isFinal?`<div class="sac-workspace-actions" style="margin-top:10px"><select id="sacAddParticipant" class="compact"><option value="">Select Ready for SAC applicant</option>${eligibleOptions}</select><button class="primary" type="button" onclick="addSacParticipantFromDetail()" ${eligibleOptions?'':'disabled'}>+ Add Participant</button></div>`:''}</section>
+        <section class="sac-session-section"><h4>3. Participants</h4><div class="hint">Candidate count is derived from the actual V2_SAC_CANDIDATES records for this session.</div><div class="sac-participant-list">${participantHtml}</div>${!isFinal?`<div class="sac-workspace-actions" style="margin-top:10px"><select id="sacAddParticipant" class="compact"><option value="">Select Ready for SAC applicant</option>${eligibleOptions}</select><button class="primary" type="button" onclick="addSacParticipantFromDetail(false)" ${eligibleOptions?'':'disabled'}>+ Add Participant</button><button class="ghost" type="button" onclick="addSacParticipantFromDetail(true)" ${eligibleOptions?'':'disabled'}>Proceed with Pending Document</button></div>`:''}</section>
 
         <section class="sac-session-section"><h4>4. Invitation</h4><div class="sac-detail-grid"><div><span class="badge ${cal==='INVITED'?'green':'amber'}">${esc(pretty(cal))}</span><div class="subline">Invitation mode: ${esc(pretty(inviteMode))}</div></div><div class="subline">Sent at: ${esc(formatDate(session['Invitation Sent At']||'')||'-')}</div></div><div class="sac-workspace-actions" style="margin-top:10px"><button class="ghost" type="button" onclick="sendSacInviteFromDetail()" ${cal==='INVITED'||isFinal?'disabled':''}>Send SAC Invitation</button>${inviteMode==='DISABLED'?'<span class="badge amber">Invite engine currently DISABLED</span>':''}</div></section>
 
@@ -1134,11 +1134,21 @@
       const result=await runSacPageAction('v2UpdateSacSessionManual',{sessionId:sacDetailSessionId,committeeEmails},'Save this SAC panel / committee list?');
       if(!result)return;sacDetailMsg('Panel list saved. Refreshing…','ok');setTimeout(()=>location.reload(),450);
     }
-    async function addSacParticipantFromDetail(){
+    async function addSacParticipantFromDetail(proceedWithPending=false){
       const referenceNo=document.getElementById('sacAddParticipant')?.value||'';
       if(!referenceNo)return sacDetailMsg('Select an applicant first.','error');
-      const result=await runSacPageAction('v2AssignSacCandidate',{referenceNo,sessionId:sacDetailSessionId},'Add this applicant to the SAC session?');
-      if(!result)return;sacDetailMsg('Participant added. Refreshing…','ok');setTimeout(()=>location.reload(),450);
+      const data={referenceNo,sessionId:sacDetailSessionId};
+      let confirmText='Add this applicant to the SAC session?';
+      if(proceedWithPending){
+        data.proceedWithPendingDocuments=true;
+        data.confirmed=true;
+        data.overrideBy='Admin Portal V2';
+        confirmText='AUTHORISE SAC EXCEPTION: proceed with this applicant even though document/compliance items may still be pending? This action is audited and the pending items remain visible for follow-up.';
+      }
+      const result=await runSacPageAction('v2AssignSacCandidate',data,confirmText);
+      if(!result)return;
+      sacDetailMsg(proceedWithPending?'Participant added with authorised pending-document exception. Refreshing…':'Participant added. Refreshing…','ok');
+      setTimeout(()=>location.reload(),450);
     }
     async function sendSacInviteFromDetail(){
       const result=await runSacPageAction('v2SendSacCalendarInvitationManual',{sessionId:sacDetailSessionId},'Send the SAC calendar invitation to the configured panel members?');
