@@ -1,4 +1,4 @@
-name: Repair SAC Stranded Participant Recovery
+name: Fix SAC Authorised Participant Insert
 
 on:
   push:
@@ -20,19 +20,27 @@ jobs:
           ref: main
           fetch-depth: 0
 
-      - name: Patch SAC participant recovery logic
+      - name: Patch SAC authorised assignment payload
         run: |
           python - <<'PY'
           from pathlib import Path
           p=Path('admin.html')
           s=p.read_text()
-          old="const eligible=records.filter(r=>r.source==='V2'&&stage(r)==='READY_FOR_SAC').filter(r=>!candidates.some(c=>String(c['Reference No']||'')===r.ref));"
-          new="""const allSacCandidates=(db.V2_SAC_CANDIDATES||[]);\n      const eligible=records.filter(r=>{\n        if(r.source!=='V2')return false;\n        const st=stage(r);\n        if(st!=='READY_FOR_SAC'&&st!=='SAC_REVIEW')return false;\n        const assignedAnywhere=allSacCandidates.some(c=>String(c['Reference No']||'')===String(r.ref));\n        return !assignedAnywhere;\n      });"""
-          if old not in s and "st!=='READY_FOR_SAC'&&st!=='SAC_REVIEW'" not in s:
-              raise SystemExit('eligible SAC anchor not found')
+
+          old="const added=await runSacPageAction('v2AssignSacCandidate',{referenceNo,sessionId:sacDetailSessionId},null);"
+          new="const added=await runSacPageAction('v2AssignSacCandidate',{referenceNo,sessionId:sacDetailSessionId,proceedWithPendingDocuments:true,confirmed:true,overrideBy:'Admin Portal V2'},null);"
+          if old not in s and "sessionId:sacDetailSessionId,proceedWithPendingDocuments:true" not in s:
+              raise SystemExit('SAC detail authorised insert anchor not found')
           s=s.replace(old,new)
-          s=s.replace('No candidates assigned yet. Complete Qualification Screening first so the applicant reaches Ready for SAC, then add the applicant here.','No candidates assigned yet. Applicants that are Ready for SAC — including stranded SAC Review cases not yet linked to an actual SAC participant record — can be added here.')
-          s=s.replace('<option value="">Select Ready for SAC applicant</option>${eligibleOptions}','<option value="">Select applicant for SAC</option>${eligibleOptions}')
+
+          # Application drawer: after human confirmation, make the final assignment carry the same authorised exception.
+          marker="const resolved=await runAdminAction('v2ResolveHumanTask',{taskId,decision:'APPROVE',notes:reason,resolution:{documentQualityDecision:'APPROVED_TO_PROCEED',qualityNotes:reason}},'');\n        if(!resolved)return;\n      }\n      return runAdminAction('v2AssignSacCandidate',{referenceNo:selected.ref,sessionId},`Assign ${selected.app['Student Name']||selected.ref} to the selected SAC session?`);"
+          replacement="const resolved=await runAdminAction('v2ResolveHumanTask',{taskId,decision:'APPROVE',notes:reason,resolution:{documentQualityDecision:'APPROVED_TO_PROCEED',qualityNotes:reason}},'');\n        if(!resolved)return;\n        return runAdminAction('v2AssignSacCandidate',{referenceNo:selected.ref,sessionId,proceedWithPendingDocuments:true,confirmed:true,overrideBy:'Admin Portal V2'},`Assign ${selected.app['Student Name']||selected.ref} to the selected SAC session?`);\n      }\n      return runAdminAction('v2AssignSacCandidate',{referenceNo:selected.ref,sessionId},`Assign ${selected.app['Student Name']||selected.ref} to the selected SAC session?`);"
+          if marker in s:
+              s=s.replace(marker,replacement)
+          elif "referenceNo:selected.ref,sessionId,proceedWithPendingDocuments:true" not in s:
+              raise SystemExit('application authorised insert anchor not found')
+
           p.write_text(s)
           PY
 
@@ -43,9 +51,9 @@ jobs:
           const html=fs.readFileSync('admin.html','utf8');
           const blocks=[...html.matchAll(/<script(?:\s[^>]*)?>([\s\S]*?)<\/script>/gi)].map(m=>m[1]).filter(s=>s.trim());
           for(const block of blocks)new Function(block);
-          if(!html.includes("st!=='READY_FOR_SAC'&&st!=='SAC_REVIEW'")) throw new Error('recovery filter missing');
-          if(!html.includes('Select applicant for SAC')) throw new Error('selector label missing');
-          console.log('SAC_RECOVERY_OK');
+          if(!html.includes("sessionId:sacDetailSessionId,proceedWithPendingDocuments:true,confirmed:true,overrideBy:'Admin Portal V2'")) throw new Error('SAC detail override payload missing');
+          if(!html.includes("referenceNo:selected.ref,sessionId,proceedWithPendingDocuments:true,confirmed:true,overrideBy:'Admin Portal V2'")) throw new Error('application override payload missing');
+          console.log('SAC_AUTHORISED_INSERT_OK');
           NODE
 
       - name: Commit patch
@@ -53,5 +61,5 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add admin.html
-          git diff --cached --quiet || git commit -m "Recover stranded SAC_REVIEW applicants into SAC participant selector"
+          git diff --cached --quiet || git commit -m "Pass authorised document exception when creating SAC participant"
           git push origin main
