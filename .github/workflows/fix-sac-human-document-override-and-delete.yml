@@ -24,51 +24,24 @@ jobs:
         run: |
           python - <<'PY'
           from pathlib import Path
-          import re
           p=Path('admin.html')
           s=p.read_text()
 
           if "action==='v2AssignSacCandidate'&&result&&result.candidate" not in s:
-              replacement = r'''    async function runSacPageAction(action,data,confirmText){
-      if(confirmText&&!confirm(confirmText))return null;
-      const showMsg=(text,type='info')=>{
-        if(document.getElementById('sacSessionModal')?.classList.contains('open'))sacDetailMsg(text,type);
-        else sacPageMsg(text,type);
-      };
-      showMsg('Processing…','info');
-      try{
-        const res=await fetch(ACTION_API,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({password,action,data,updatedBy:'Admin Portal V2'})});
-        const out=await res.json().catch(()=>({ok:false,message:'Invalid response from action service.'}));
-        if(!res.ok||!out.ok)throw new Error(out.message||'Unable to complete SAC action.');
-        const result=out.result||out;
-        if(action==='v2AssignSacCandidate'&&result&&result.candidate){
-          const list=db.V2_SAC_CANDIDATES||(db.V2_SAC_CANDIDATES=[]);
-          const candidate=result.candidate;
-          const sid=String(candidate['SAC Session ID']||data?.sessionId||'');
-          const ref=String(candidate['Reference No']||data?.referenceNo||'');
-          const idx=list.findIndex(c=>String(c['SAC Session ID']||c['Session ID']||'')===sid&&String(c['Reference No']||'')===ref);
-          if(idx>=0)list[idx]=candidate;else list.push(candidate);
-          buildRecords();
-          renderSac();
-          if(sacDetailSessionId)renderSacSessionDetail();
-          document.getElementById('freshness').textContent='Updated just now';
-        }else{
-          await loadData(true);
-        }
-        return result;
-      }catch(e){showMsg(e.message||'Unable to complete SAC action.','error');return null}
-    }
-'''
-              pattern = r"    async function runSacPageAction\(action,data,confirmText\)\{[\s\S]*?\n    \}\n    async function createSacSession\(\)\{"
-              m = re.search(pattern, s)
-              if not m:
-                  raise SystemExit('runSacPageAction regex anchor not found')
-              s = s[:m.start()] + replacement + "    async function createSacSession(){" + s[m.end():]
+              start=s.find('async function runSacPageAction(action,data,confirmText)')
+              end=s.find('async function createSacSession()',start)
+              if start<0 or end<0:
+                  raise SystemExit('SAC action function boundaries not found')
+              block=s[start:end]
+              block=block.replace("sacPageMsg('Processing…','info');","const showMsg=(text,type='info')=>{if(document.getElementById('sacSessionModal')?.classList.contains('open'))sacDetailMsg(text,type);else sacPageMsg(text,type);};\n      showMsg('Processing…','info');")
+              block=block.replace("await loadData(true);\n        return out.result||out;","const result=out.result||out;\n        if(action==='v2AssignSacCandidate'&&result&&result.candidate){\n          const list=db.V2_SAC_CANDIDATES||(db.V2_SAC_CANDIDATES=[]);\n          const candidate=result.candidate;\n          const sid=String(candidate['SAC Session ID']||data?.sessionId||'');\n          const ref=String(candidate['Reference No']||data?.referenceNo||'');\n          const idx=list.findIndex(c=>String(c['SAC Session ID']||c['Session ID']||'')===sid&&String(c['Reference No']||'')===ref);\n          if(idx>=0)list[idx]=candidate;else list.push(candidate);\n          buildRecords();renderSac();if(sacDetailSessionId)renderSacSessionDetail();\n          document.getElementById('freshness').textContent='Updated just now';\n        }else{await loadData(true);}\n        return result;")
+              block=block.replace("}catch(e){sacPageMsg(e.message||'Unable to complete SAC action.','error');return null}","}catch(e){showMsg(e.message||'Unable to complete SAC action.','error');return null}")
+              if "action==='v2AssignSacCandidate'&&result&&result.candidate" not in block:
+                  raise SystemExit('SAC action replacements did not apply')
+              s=s[:start]+block+s[end:]
 
-          s=s.replace("      sacDetailMsg(proceedWithPending?'Participant added with authorised pending-document exception. Refreshing…':'Participant added. Refreshing…','ok');\n      setTimeout(()=>location.reload(),450);",
-                      "      sacDetailMsg(proceedWithPending?'Participant added with authorised pending-document exception.':'Participant added.','ok');")
-          s=s.replace("      sacDetailMsg('Documents confirmed acceptable by human review. Applicant added to SAC; original AI finding remains on record.','ok');\n      setTimeout(()=>location.reload(),650);",
-                      "      sacDetailMsg('Documents confirmed acceptable by human review. Applicant added to SAC; original AI finding remains on record.','ok');")
+          s=s.replace("      sacDetailMsg(proceedWithPending?'Participant added with authorised pending-document exception. Refreshing…':'Participant added. Refreshing…','ok');\n      setTimeout(()=>location.reload(),450);","      sacDetailMsg(proceedWithPending?'Participant added with authorised pending-document exception.':'Participant added.','ok');")
+          s=s.replace("      sacDetailMsg('Documents confirmed acceptable by human review. Applicant added to SAC; original AI finding remains on record.','ok');\n      setTimeout(()=>location.reload(),650);","      sacDetailMsg('Documents confirmed acceptable by human review. Applicant added to SAC; original AI finding remains on record.','ok');")
           p.write_text(s)
           PY
 
