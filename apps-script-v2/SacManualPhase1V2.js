@@ -175,6 +175,65 @@ function v2CreateSacSessionManual_(data, actor) {
   };
 }
 
+function v2UpdateSacSessionManual_(data, actor) {
+  assertDevIdentity_();
+  v2SacManualEnsureSchema_();
+
+  const sessionId = v2Required_(data.sessionId, 'SAC Session ID');
+  const session = v2Find_('V2_SAC_SESSIONS', 'SAC Session ID', sessionId);
+  if (!session) throw new Error('SAC session not found.');
+
+  const status = String(session.record['Status'] || '').toUpperCase();
+  if (status === 'FINALISED' || session.record['Finalised At']) {
+    throw new Error('Finalised SAC session cannot be edited.');
+  }
+
+  const calendarStatus = String(session.record['Calendar Status'] || '').toUpperCase();
+  const eventId = String(session.record['Calendar Event ID'] || '').trim();
+  const changingInviteFields =
+    Object.prototype.hasOwnProperty.call(data, 'meetingDate') ||
+    Object.prototype.hasOwnProperty.call(data, 'meetingTime') ||
+    Object.prototype.hasOwnProperty.call(data, 'venueLink') ||
+    Object.prototype.hasOwnProperty.call(data, 'venue') ||
+    Object.prototype.hasOwnProperty.call(data, 'committeeEmails');
+
+  if (eventId && calendarStatus === 'INVITED' && changingInviteFields) {
+    throw new Error('This SAC invitation has already been sent. Rescheduling an invited SAC is not enabled yet.');
+  }
+
+  const updates = {};
+  if (Object.prototype.hasOwnProperty.call(data, 'name')) {
+    updates['SAC Name'] = v2Required_(data.name, 'SAC Name');
+  }
+  if (Object.prototype.hasOwnProperty.call(data, 'meetingDate')) {
+    updates['Meeting Date'] = v2Required_(data.meetingDate, 'Meeting Date');
+  }
+  if (Object.prototype.hasOwnProperty.call(data, 'meetingTime')) {
+    updates['Meeting Time'] = String(data.meetingTime || '10:00').trim();
+  }
+  if (Object.prototype.hasOwnProperty.call(data, 'chairperson')) {
+    updates['Chairperson'] = String(data.chairperson || '').trim();
+  }
+  if (Object.prototype.hasOwnProperty.call(data, 'venueLink') || Object.prototype.hasOwnProperty.call(data, 'venue')) {
+    updates['Venue / Meeting Link'] = String(data.venueLink || data.venue || '').trim();
+  }
+  if (Object.prototype.hasOwnProperty.call(data, 'committeeEmails')) {
+    updates['Committee Emails'] = v2SacManualNormaliseEmails_(data.committeeEmails || []).join(', ');
+  }
+
+  updates['Last Updated'] = new Date().toISOString();
+  v2UpdateRow_(session.sheet, session.rowNumber, updates);
+  v2Audit_('', 'SAC', 'UPDATE_MANUAL_SESSION', session.record, updates, actor || 'Admin Portal V2', 'SUCCESS', 'SAC session details/panel updated.');
+  v2InvalidateCache_();
+
+  const refreshed = v2Find_('V2_SAC_SESSIONS', 'SAC Session ID', sessionId);
+  return {
+    ok: true,
+    session: refreshed ? refreshed.record : Object.assign({}, session.record, updates),
+    v1Touched: false
+  };
+}
+
 function v2SendSacCalendarInvitationManual_(data, actor) {
   assertDevIdentity_();
   v2SacManualEnsureSchema_();

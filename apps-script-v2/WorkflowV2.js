@@ -410,6 +410,7 @@ function handleV2Post_(payload) {
   if (action === 'v2GetSacPackFile') return v2GetSacPackFile_(payload.data || {});
   if (action === 'v2RecordSacDecision') return v2RecordSacDecision_(payload.data || {}, payload.updatedBy);
   if (action === 'v2CreateSacSessionManual') return v2CreateSacSessionManual_(payload.data || {}, payload.updatedBy);
+  if (action === 'v2UpdateSacSessionManual') return v2UpdateSacSessionManual_(payload.data || {}, payload.updatedBy);
   if (action === 'v2SendSacCalendarInvitationManual') return v2SendSacCalendarInvitationManual_(payload.data || {}, payload.updatedBy);
   if (action === 'v2RecordSacDecisionManual') return v2RecordSacDecisionManual_(payload.data || {}, payload.updatedBy);
   if (action === 'v2FinalizeSacSessionManual') return v2FinalizeSacSessionManual_(payload.data || {}, payload.updatedBy);
