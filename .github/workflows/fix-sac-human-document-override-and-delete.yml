@@ -1,4 +1,4 @@
-name: Fix SAC Human Document Override and Delete
+name: Repair SAC Stranded Participant Recovery
 
 on:
   push:
@@ -20,48 +20,19 @@ jobs:
           ref: main
           fetch-depth: 0
 
-      - name: Align application and SAC participant assignment
+      - name: Patch SAC participant recovery logic
         run: |
           python - <<'PY'
           from pathlib import Path
           p=Path('admin.html')
           s=p.read_text()
-
-          old="    function assignSacSession(){if(!selected)return;const el=document.getElementById('opsSacSession'),sessionId=el?.value||'';if(!sessionId)return opsMsg('Select a SAC session first.','error');runAdminAction('v2AssignSacCandidate',{referenceNo:selected.ref,sessionId},`Assign ${selected.app['Student Name']||selected.ref} to the selected SAC session?`)}"
-          new=r'''    async function assignSacSession(){
-      if(!selected)return;
-      const el=document.getElementById('opsSacSession'),sessionId=el?.value||'';
-      if(!sessionId)return opsMsg('Select a SAC session first.','error');
-      const aiQuality=String(selected.doc?.['AI Quality Status']||'').toUpperCase();
-      const replacement=String(selected.doc?.['Replacement Request Status']||'').toUpperCase();
-      const humanDecision=String(selected.doc?.['Human Quality Decision']||'').toUpperCase();
-      const workflowQuality=String(selected.workflow?.['Document Quality Status']||'').toUpperCase();
-      const humanApproved=humanDecision==='APPROVED_TO_PROCEED'||workflowQuality==='HUMAN_OVERRIDE_APPROVED';
-      const needsHuman=!humanApproved&&(['HUMAN_REVIEW_REQUIRED','FOLLOW_UP_REQUIRED'].includes(aiQuality)||replacement==='AWAITING_STUDENT');
-      if(needsHuman){
-        const reasonRaw=prompt('Human Document Confirmation\n\nAI has flagged a document issue. If you have checked the documents and they are acceptable for SAC, enter the reason / confirmation note. This will be audited.');
-        if(reasonRaw===null)return;
-        const reason=String(reasonRaw||'').trim();
-        if(reason.length<8)return opsMsg('Enter a clear confirmation reason (minimum 8 characters).','error');
-        if(!confirm(`Confirm documents are acceptable for ${selected.app['Student Name']||selected.ref} and assign this applicant to SAC?\n\nThe original AI finding remains recorded.`))return;
-        const listed=await runAdminAction('v2ListOpenHumanTasks',{},'');
-        if(!listed)return;
-        let task=(listed.tasks||[]).find(t=>String(t['Reference No']||'')===String(selected.ref)&&String(t['Task Type']||'').toUpperCase()==='DOCUMENT_QUALITY_REVIEW');
-        if(!task){
-          const created=await runAdminAction('v2CreateHumanTask',{referenceNo:selected.ref,taskType:'DOCUMENT_QUALITY_REVIEW',title:'Human confirmation of document acceptability for SAC',reason:'Registry reviewed the AI document-quality flag and is deciding whether the documents are acceptable for SAC.',raisedByAgent:'Admin Portal V2',agentId:'COMPLIANCE',priority:'NORMAL',assignedTo:'Registry / Authorised Reviewer',resumeEvent:'HUMAN_TASK_COMPLETED',source:'ADMIN_PORTAL_V2'},'');
-          if(!created)return;
-          task=created.task||null;
-        }
-        const taskId=task?.['Task ID']||task?.taskId||'';
-        if(!taskId)return opsMsg('Unable to create or locate the human review task.','error');
-        const resolved=await runAdminAction('v2ResolveHumanTask',{taskId,decision:'APPROVE',notes:reason,resolution:{documentQualityDecision:'APPROVED_TO_PROCEED',qualityNotes:reason}},'');
-        if(!resolved)return;
-      }
-      return runAdminAction('v2AssignSacCandidate',{referenceNo:selected.ref,sessionId},`Assign ${selected.app['Student Name']||selected.ref} to the selected SAC session?`);
-    }'''
-          if old not in s and 'async function assignSacSession()' not in s:
-              raise SystemExit('application SAC assign anchor not found')
+          old="const eligible=records.filter(r=>r.source==='V2'&&stage(r)==='READY_FOR_SAC').filter(r=>!candidates.some(c=>String(c['Reference No']||'')===r.ref));"
+          new="""const allSacCandidates=(db.V2_SAC_CANDIDATES||[]);\n      const eligible=records.filter(r=>{\n        if(r.source!=='V2')return false;\n        const st=stage(r);\n        if(st!=='READY_FOR_SAC'&&st!=='SAC_REVIEW')return false;\n        const assignedAnywhere=allSacCandidates.some(c=>String(c['Reference No']||'')===String(r.ref));\n        return !assignedAnywhere;\n      });"""
+          if old not in s and "st!=='READY_FOR_SAC'&&st!=='SAC_REVIEW'" not in s:
+              raise SystemExit('eligible SAC anchor not found')
           s=s.replace(old,new)
+          s=s.replace('No candidates assigned yet. Complete Qualification Screening first so the applicant reaches Ready for SAC, then add the applicant here.','No candidates assigned yet. Applicants that are Ready for SAC — including stranded SAC Review cases not yet linked to an actual SAC participant record — can be added here.')
+          s=s.replace('<option value="">Select Ready for SAC applicant</option>${eligibleOptions}','<option value="">Select applicant for SAC</option>${eligibleOptions}')
           p.write_text(s)
           PY
 
@@ -72,15 +43,15 @@ jobs:
           const html=fs.readFileSync('admin.html','utf8');
           const blocks=[...html.matchAll(/<script(?:\s[^>]*)?>([\s\S]*?)<\/script>/gi)].map(m=>m[1]).filter(s=>s.trim());
           for(const block of blocks)new Function(block);
-          if(!html.includes('async function assignSacSession()')) throw new Error('smart application SAC assignment missing');
-          if(!html.includes("documentQualityDecision:'APPROVED_TO_PROCEED'")) throw new Error('human document confirmation missing');
-          console.log('APPLICATION_SAC_ASSIGN_OK');
+          if(!html.includes("st!=='READY_FOR_SAC'&&st!=='SAC_REVIEW'")) throw new Error('recovery filter missing');
+          if(!html.includes('Select applicant for SAC')) throw new Error('selector label missing');
+          console.log('SAC_RECOVERY_OK');
           NODE
 
-      - name: Commit main patch
+      - name: Commit patch
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add admin.html
-          git diff --cached --quiet || git commit -m "Use smart human override when assigning SAC from application"
+          git diff --cached --quiet || git commit -m "Recover stranded SAC_REVIEW applicants into SAC participant selector"
           git push origin main
