@@ -1212,6 +1212,8 @@
 
       const canRun=String(r.doc?.['Review Status']||r.workflow?.['Document Review Status']||'').toUpperCase()==='COMPLETE'&&String(stage(r)).toUpperCase()==='DOCUMENT_REVIEW';
       const runButton=canRun?'<button class="ops-btn" onclick="runComplianceQualityReview()">'+(status==='NOT_RUN'?'Run AI Document Quality Review':'Re-run AI Document Quality Review')+'</button>':'';
+      const canOverride=canRun&&['HUMAN_REVIEW_REQUIRED','FOLLOW_UP_REQUIRED'].includes(status);
+      const overrideButton=canOverride?'<button class="ops-btn primary" onclick="approveDocumentQualityHumanOverride()">Human Override → Next Stage</button>':'';
 
       return '<div class="screening-section">'+
         '<div class="screening-result"><div><div class="screening-title">Compliance & Records AI · Document Quality</div>'+
@@ -1225,7 +1227,7 @@
         '</div>'+
         (flags.length?'<div class="screening-help" style="margin-top:9px"><b>Flags:</b> '+esc(flags.join('; '))+'</div>':'')+
         issueRows+followRows+
-        '<div class="screening-actions">'+runButton+'</div>'+
+        '<div class="screening-actions">'+runButton+overrideButton+'</div>'+
       '</div>';
     }
 
@@ -1544,6 +1546,54 @@
     }
     function runDocumentReview(){if(!selected)return;runAdminAction('v2RunDocumentReview',{referenceNo:selected.ref,remarks:''},`Run document review for ${selected.app['Student Name']||selected.ref}?`)}
     function runComplianceQualityReview(){if(!selected)return;runAdminAction('v2RunComplianceDocumentQuality',{referenceNo:selected.ref},`Run Compliance & Records AI document-quality inspection for ${selected.app['Student Name']||selected.ref}? This checks document usability and does not make an academic admission decision.`)}
+    async function approveDocumentQualityHumanOverride(){
+      if(!selected)return;
+      const ref=selected.ref;
+      const name=selected.app?.['Student Name']||ref;
+      const reasonRaw=prompt('Authorised Human Override\n\nEnter the reason this case may proceed despite the AI document-quality finding. The reason will be stored in the audit trail.');
+      if(reasonRaw===null)return;
+      const reason=String(reasonRaw||'').trim();
+      if(reason.length<8)return opsMsg('Enter a clear override reason (minimum 8 characters).','error');
+      if(!confirm(`AUTHORISE EXCEPTION for ${name}?\n\nThe original AI document-quality finding will remain recorded. Your decision, reason, date/time and reviewer will be audited. Deterministic required-document completeness cannot be bypassed.\n\nProceed to Academic Screening?`))return;
+
+      const listed=await runAdminAction('v2ListOpenHumanTasks',{},'');
+      if(!listed)return;
+      let task=(listed.tasks||[]).find(t=>String(t['Reference No']||'')===String(ref)&&String(t['Task Type']||'').toUpperCase()==='DOCUMENT_QUALITY_REVIEW');
+
+      if(!task){
+        const created=await runAdminAction('v2CreateHumanTask',{
+          referenceNo:ref,
+          taskType:'DOCUMENT_QUALITY_REVIEW',
+          title:'Authorised document-quality exception review',
+          reason:'Admin requested a governed human exception after reviewing the AI document-quality finding.',
+          raisedByAgent:'Admin Portal V2',
+          agentId:'COMPLIANCE',
+          priority:'NORMAL',
+          assignedTo:'Registry / Authorised Reviewer',
+          resumeEvent:'HUMAN_TASK_COMPLETED',
+          source:'ADMIN_PORTAL_V2'
+        },'');
+        if(!created)return;
+        task=created.task||null;
+      }
+
+      const taskId=task?.['Task ID']||task?.taskId||'';
+      if(!taskId)return opsMsg('Unable to create or locate the human-review task. Refresh and try again.','error');
+
+      const resolved=await runAdminAction('v2ResolveHumanTask',{
+        taskId,
+        decision:'APPROVE',
+        notes:reason,
+        resolution:{
+          documentQualityDecision:'APPROVED_TO_PROCEED',
+          qualityNotes:reason
+        }
+      },'');
+      if(!resolved)return;
+      opsMsg('Human override approved. AI finding preserved; case progressed to Academic Screening.','ok');
+      await refreshSelectedApplicantTargeted(ref).catch(()=>null);
+      renderSelectedApplicant();
+    }
     function retryAutoAiScreening(){if(!selected)return;runAdminAction('v2RunAutoAiScreening',{referenceNo:selected.ref},`Retry AI Auto screening for ${selected.app['Student Name']||selected.ref}? Manual Screening remains available if AI cannot complete it.`)}
     function generateAiScreeningReport(){if(!selected)return;runAdminAction('v2GenerateAiScreeningReport',{referenceNo:selected.ref,finalize:true},`Generate or refresh the official AI Admission Screening Report for ${selected.app['Student Name']||selected.ref}? The backend will keep it pending if a human exception is still required.`)}
     async function runQualificationScreening(){if(!selected)return;const field=document.getElementById('opsFieldClassification')?.value||'',exp=document.getElementById('opsWorkExperience')?.value||'';if(!field||!exp)return opsMsg('Select Field Relationship and Relevant Work Experience first.','error');const btn=document.getElementById('manualScreeningBtn');if(btn){btn.disabled=true;btn.textContent='Checking…'}const started=performance.now();try{const result=await runAdminAction('v2RunQualificationScreening',{referenceNo:selected.ref,fieldClassification:field,relevantWorkExperience:exp,remarks:'Manual second-layer screening from Admin Portal'},`Run MANUAL qualification screening for ${selected.app['Student Name']||selected.ref}? If AI has already completed screening, the resolved stage will be preserved.`);if(result){const totalMs=Math.round(performance.now()-started);const backendMs=Number(result.performanceMs||0);opsMsg(`Screening saved in ${(totalMs/1000).toFixed(1)}s${backendMs? ` · backend ${(backendMs/1000).toFixed(1)}s`:''}.`,'ok')}}finally{const current=document.getElementById('manualScreeningBtn');if(current){current.disabled=false;current.textContent='Run Manual Screening'}}}
