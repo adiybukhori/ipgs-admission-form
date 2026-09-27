@@ -1094,13 +1094,20 @@
       const inviteMode=String(session['Invitation Mode']||'DISABLED').toUpperCase();
       const isFinal=status==='FINALISED'||!!session['Finalised At'];
       const pending=candidates.filter(c=>!String(c['Decision']||'').trim()||String(c['Decision']||'').toUpperCase()==='PENDING').length;
-      const eligible=records.filter(r=>r.source==='V2'&&stage(r)==='READY_FOR_SAC').filter(r=>!candidates.some(c=>String(c['Reference No']||'')===r.ref));
+      const allSacCandidates=(db.V2_SAC_CANDIDATES||[]);
+      const eligible=records.filter(r=>{
+        if(r.source!=='V2')return false;
+        const st=stage(r);
+        if(st!=='READY_FOR_SAC'&&st!=='SAC_REVIEW')return false;
+        const assignedAnywhere=allSacCandidates.some(c=>String(c['Reference No']||'')===String(r.ref));
+        return !assignedAnywhere;
+      });
 
       document.getElementById('sacSessionTitle').textContent=session['SAC Name']||sacDetailSessionId;
       document.getElementById('sacSessionSubtitle').textContent=`${sacDetailSessionId} · ${pretty(status)} · Manual physical SAC`;
 
       const panelHtml=panel.length?panel.map(m=>`<div class="sac-panel-item"><div><div class="name">${esc(m.name)}</div><div class="meta">${esc(m.role)} · ${esc(m.email)}</div></div><span class="badge ${m.active?'green':'amber'}">${m.active?'Active':'Inactive'}</span></div>`).join(''):'<div class="empty" style="padding:16px!important">No panel members configured yet.</div>';
-      const participantHtml=candidates.length?candidates.map(c=>{const ref=c['Reference No']||'',decision=c['Decision']||'PENDING';return`<div class="sac-participant-item"><div><div class="name">${esc(c['Student Name']||ref)}</div><div class="meta">${esc(c['Programme']||'')} · ${esc(ref)}</div></div><div style="display:flex;gap:7px;align-items:center;flex-wrap:wrap"><span class="badge ${classifyBadge(decision)}">${esc(pretty(decision))}</span><button class="ghost" type="button" onclick="closeSacSessionDetail();openRecord('${esc(ref)}')">Open Applicant</button></div></div>`}).join(''):'<div class="empty" style="padding:16px!important">No candidates assigned yet. Complete Qualification Screening first so the applicant reaches Ready for SAC, then add the applicant here.</div>';
+      const participantHtml=candidates.length?candidates.map(c=>{const ref=c['Reference No']||'',decision=c['Decision']||'PENDING';return`<div class="sac-participant-item"><div><div class="name">${esc(c['Student Name']||ref)}</div><div class="meta">${esc(c['Programme']||'')} · ${esc(ref)}</div></div><div style="display:flex;gap:7px;align-items:center;flex-wrap:wrap"><span class="badge ${classifyBadge(decision)}">${esc(pretty(decision))}</span><button class="ghost" type="button" onclick="closeSacSessionDetail();openRecord('${esc(ref)}')">Open Applicant</button></div></div>`}).join(''):'<div class="empty" style="padding:16px!important">No candidates assigned yet. Applicants that are Ready for SAC — including stranded SAC Review cases not yet linked to an actual SAC participant record — can be added here.</div>';
       const eligibleOptions=eligible.map(r=>`<option value="${esc(r.ref)}">${esc(r.app['Student Name']||r.ref)} · ${esc(r.app['Programme']||'')}</option>`).join('');
 
       document.getElementById('sacSessionBody').innerHTML=`
@@ -1116,7 +1123,7 @@
 
         <section class="sac-session-section"><h4>2. Panel / Committee</h4><div class="hint">Panel names and roles are matched against SAC_COMMITTEE_MASTER. Update the panel list before sending invitation.</div><div class="sac-panel-list">${panelHtml}</div>${!isFinal?`<div class="field" style="margin-top:10px"><label>Panel / Committee Emails</label><textarea id="sacDetailCommittee" rows="3" style="width:100%;border:1px solid #d7dce6;border-radius:12px;padding:12px 13px;resize:vertical">${esc(session['Committee Emails']||'')}</textarea></div><button class="ghost" type="button" onclick="saveSacSessionPanel()">Save Panel</button>`:''}</section>
 
-        <section class="sac-session-section"><h4>3. Participants</h4><div class="hint">Candidate count is derived from the actual V2_SAC_CANDIDATES records for this session.</div><div class="sac-participant-list">${participantHtml}</div>${!isFinal?`<div class="sac-workspace-actions" style="margin-top:10px"><select id="sacAddParticipant" class="compact"><option value="">Select Ready for SAC applicant</option>${eligibleOptions}</select><button class="primary" type="button" onclick="smartAddSacParticipant()" ${eligibleOptions?'':'disabled'}>+ Add Participant</button></div>`:''}</section>
+        <section class="sac-session-section"><h4>3. Participants</h4><div class="hint">Candidate count is derived from the actual V2_SAC_CANDIDATES records for this session.</div><div class="sac-participant-list">${participantHtml}</div>${!isFinal?`<div class="sac-workspace-actions" style="margin-top:10px"><select id="sacAddParticipant" class="compact"><option value="">Select applicant for SAC</option>${eligibleOptions}</select><button class="primary" type="button" onclick="smartAddSacParticipant()" ${eligibleOptions?'':'disabled'}>+ Add Participant</button></div>`:''}</section>
 
         <section class="sac-session-section"><h4>4. Invitation</h4><div class="sac-detail-grid"><div><span class="badge ${cal==='INVITED'?'green':'amber'}">${esc(pretty(cal))}</span><div class="subline">Invitation mode: ${esc(pretty(inviteMode))}</div></div><div class="subline">Sent at: ${esc(formatDate(session['Invitation Sent At']||'')||'-')}</div></div><div class="sac-workspace-actions" style="margin-top:10px"><button class="ghost" type="button" onclick="sendSacInviteFromDetail()" ${cal==='INVITED'||isFinal?'disabled':''}>Send SAC Invitation</button>${inviteMode==='DISABLED'?'<span class="badge amber">Invite engine currently DISABLED</span>':''}</div></section>
 
