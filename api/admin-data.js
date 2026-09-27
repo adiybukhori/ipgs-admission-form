@@ -2,6 +2,7 @@ const SPREADSHEET_ID = '1O-Y-q7_q78xKM1p5e2C3EWyQfYr5rXvhO0oWbVaw5Mw';
 const V1_SPREADSHEET_ID = '1RqRfq9savLdoi_A640A4lS-FPcD1TqmQ8zBgS_MeQuI';
 const V1_MASTER_SHEET = 'MASTER_DATABASE';
 const AUTH_WEB_APP = 'https://script.google.com/macros/s/AKfycbw22-UOsHkaap3dzU16aOjA6XFr7jWGr9qQPfp8F1CQrXboP7YdRZJKKJhHijC3us4/exec';
+const ADMIN_BRIDGE = 'https://anasbukhori.app.n8n.cloud/webhook/iuc-admission-v2-admin-bridge';
 
 const SHEETS = [
   'V2_APPLICATIONS',
@@ -162,6 +163,21 @@ async function fetchSheet(sheet) {
   return toObjects(await response.text());
 }
 
+async function fetchLiveSacCandidates(password) {
+  const response = await fetch(ADMIN_BRIDGE, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ password: String(password || ''), action: 'v2ListSacCandidates', data: {}, updatedBy: 'Admin Data Live SAC Fallback' }),
+    redirect: 'follow'
+  });
+  const text = await response.text();
+  let parsed;
+  try { parsed = JSON.parse(text); } catch (_) { throw new Error('SAC live fallback returned HTTP ' + response.status + '.'); }
+  if (!response.ok || !parsed || parsed.ok === false) throw new Error((parsed && parsed.message) || ('SAC live fallback returned HTTP ' + response.status + '.'));
+  const payload = (parsed && parsed.result && parsed.result.result) || (parsed && parsed.result) || parsed;
+  return Array.isArray(payload && payload.candidates) ? payload.candidates : [];
+}
+
 async function fetchLegacyMasterSheet() {
   const url = `https://docs.google.com/spreadsheets/d/${V1_SPREADSHEET_ID}/gviz/tq?tqx=out:csv&sheet=${encodeURIComponent(V1_MASTER_SHEET)}&_=${Date.now()}`;
   const response = await fetch(url, { redirect: 'follow' });
@@ -211,6 +227,19 @@ export default async function handler(req, res) {
     });
     ADMIN_DATA_CACHE.v2 = cloneCached(data);
     ADMIN_DATA_CACHE.v2At = nowMs;
+  }
+
+  // LIVE_SAC_CANDIDATE_FALLBACK_V1
+  if (Array.isArray(data.V2_SAC_SESSIONS) && data.V2_SAC_SESSIONS.length && (!Array.isArray(data.V2_SAC_CANDIDATES) || data.V2_SAC_CANDIDATES.length === 0)) {
+    try {
+      const liveCandidates = await fetchLiveSacCandidates(body.password);
+      if (liveCandidates.length) {
+        data.V2_SAC_CANDIDATES = liveCandidates;
+        if (ADMIN_DATA_CACHE.v2) ADMIN_DATA_CACHE.v2.V2_SAC_CANDIDATES = cloneCached(liveCandidates);
+      }
+    } catch (error) {
+      warnings.push('V2_SAC_CANDIDATES live fallback: ' + ((error && error.message) || 'Unable to load'));
+    }
   }
 
   // V1 has been migrated into the unified V2 operational tables.
