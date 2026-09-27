@@ -140,8 +140,8 @@ function v2RunDocumentReview(referenceNo, reviewer, remarks) {
   ).trim();
 
   if (
-    currentStage !== 'APPLICATION_RECEIVED' &&
-    currentStage !== 'DOCUMENT_REVIEW'
+    ['APPLICATION_RECEIVED','DOCUMENT_REVIEW','QUALIFICATION_SCREENING','READY_FOR_SAC','SAC_REVIEW']
+      .indexOf(currentStage) < 0
   ) {
     throw new Error(
       'Document review is not available at current stage: ' +
@@ -175,13 +175,15 @@ function v2RunDocumentReview(referenceNo, reviewer, remarks) {
     return submittedKeys.indexOf(doc.key) === -1;
   });
 
-  // Current operational rule: every required item blocks Stage 2.
-  // PhD Preliminary Research Intent is an additional mandatory document.
+  // SAC-only hard-gate policy:
+  // missing required items are followed up in parallel, but they do not block
+  // document review / academic screening. The unresolved items are carried
+  // forward and enforced only when the applicant is assigned into SAC.
   const outstandingDocuments = [];
   const missingDocuments = allMissingDocuments;
 
   const status =
-    missingDocuments.length === 0 ? 'COMPLETE' : 'INCOMPLETE';
+    missingDocuments.length === 0 ? 'COMPLETE' : 'COMPLETE_WITH_FLAGS';
 
   const now = new Date().toISOString();
 
@@ -267,7 +269,30 @@ function v2RunDocumentReview(referenceNo, reviewer, remarks) {
   // auto-screening behaviour as a safe fallback.
   let autoAiScreening = null;
   let agenticHandoff = null;
-  if (status === 'COMPLETE') {
+
+  // Missing-document follow-up is parallel work, not a pre-SAC stop.
+  if (missingDocuments.length && typeof v2EmitAgentEvent_ === 'function') {
+    try {
+      v2EmitAgentEvent_({
+        referenceNo:reference,
+        eventType:'DOCUMENT_MISSING_REQUIRED',
+        agentId:'ORCHESTRATOR',
+        agentName:'AI Orchestrator',
+        action:'ROUTE_STUDENT_CONCIERGE',
+        status:'QUEUED',
+        fromStage:currentStage,
+        toStage:currentStage,
+        requiresHuman:false,
+        source:'ADMISSION_V2',
+        summary:'Required document(s) are pending. Student follow-up continues in parallel while screening proceeds to the SAC gate.',
+        data:{missingDocuments:missingDocuments, missingCount:missingDocuments.length}
+      });
+    } catch (followUpEventError) {
+      Logger.log('Missing-document follow-up event failed non-blocking: ' + String(followUpEventError));
+    }
+  }
+
+  if (status === 'COMPLETE' || status === 'COMPLETE_WITH_FLAGS') {
     try {
       if (typeof v2AgenticEnabled_ === 'function' && v2AgenticEnabled_()) {
         agenticHandoff = v2EmitAgentEvent_({
@@ -348,7 +373,7 @@ function v2RunDocumentReview(referenceNo, reviewer, remarks) {
     outstandingDocuments: outstandingDocuments,
 
     nextAction:
-      status === 'COMPLETE'
+      (status === 'COMPLETE' || status === 'COMPLETE_WITH_FLAGS')
         ? (
             agenticHandoff && agenticHandoff.sent
               ? 'COMPLIANCE_DOCUMENT_QUALITY'
@@ -368,10 +393,10 @@ function v2RunDocumentReview(referenceNo, reviewer, remarks) {
           )
         : 'REQUEST_MISSING_DOCUMENTS',
 
-    applicationStage: 'DOCUMENT_REVIEW',
+    applicationStage: currentStage === 'APPLICATION_RECEIVED' ? 'DOCUMENT_REVIEW' : currentStage,
     autoAiScreening: autoAiScreening,
     agenticHandoff: agenticHandoff,
-    manualScreeningAvailable: status === 'COMPLETE',
+    manualScreeningAvailable: status === 'COMPLETE' || status === 'COMPLETE_WITH_FLAGS',
 
     emailSent: false,
     v1Touched: false

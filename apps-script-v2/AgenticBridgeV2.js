@@ -293,7 +293,7 @@ function v2AgentActionGateway_(data, actor) {
       if (agentId !== 'ORCHESTRATOR') {
         throw new Error('RUN_DOCUMENT_COMPLETENESS is restricted to ORCHESTRATOR.');
       }
-      if (['APPLICATION_RECEIVED','DOCUMENT_REVIEW'].indexOf(currentStage) < 0) {
+      if (['APPLICATION_RECEIVED','DOCUMENT_REVIEW','QUALIFICATION_SCREENING','READY_FOR_SAC','SAC_REVIEW'].indexOf(currentStage) < 0) {
         throw new Error('Document completeness check is not available at current stage: ' + currentStage);
       }
       result = v2RunDocumentReview(
@@ -302,7 +302,7 @@ function v2AgentActionGateway_(data, actor) {
         'Deterministic completeness check started automatically after application submission.'
       );
 
-      if (String(result.status||'').toUpperCase()==='INCOMPLETE' && typeof v2EmitAgentEvent_==='function') {
+      if (Number(result.missingCount||0)>0 && typeof v2EmitAgentEvent_==='function') {
         v2EmitAgentEvent_({
           referenceNo:reference,
           eventType:'DOCUMENT_MISSING_REQUIRED',
@@ -343,10 +343,11 @@ function v2AgentActionGateway_(data, actor) {
       if (agentId !== 'COMPLIANCE') {
         throw new Error('RUN_COMPLIANCE_DOCUMENT_QUALITY is restricted to COMPLIANCE.');
       }
-      if (!doc || String(doc.record['Review Status'] || '') !== 'COMPLETE') {
-        throw new Error('Compliance review blocked: deterministic document completeness is not COMPLETE.');
+      const documentReviewStatus = String(doc && doc.record['Review Status'] || '').toUpperCase();
+      if (!doc || ['COMPLETE','COMPLETE_WITH_FLAGS'].indexOf(documentReviewStatus) < 0) {
+        throw new Error('Compliance review blocked: deterministic document review has not completed.');
       }
-      if (currentStage !== 'DOCUMENT_REVIEW') {
+      if (['DOCUMENT_REVIEW','QUALIFICATION_SCREENING','READY_FOR_SAC','SAC_REVIEW'].indexOf(currentStage) < 0) {
         throw new Error('Compliance review is not available at current stage: ' + currentStage);
       }
       result = v2RunComplianceDocumentQuality_({
@@ -357,19 +358,14 @@ function v2AgentActionGateway_(data, actor) {
       if (agentId !== 'ADMISSION_INTELLIGENCE') {
         throw new Error('RUN_ADMISSION_INTELLIGENCE is restricted to ADMISSION_INTELLIGENCE.');
       }
-      if (!doc || String(doc.record['Review Status'] || '') !== 'COMPLETE') {
-        throw new Error('Admission Intelligence blocked: document review is not COMPLETE.');
+      const documentReviewStatus = String(doc && doc.record['Review Status'] || '').toUpperCase();
+      if (!doc || ['COMPLETE','COMPLETE_WITH_FLAGS'].indexOf(documentReviewStatus) < 0) {
+        throw new Error('Admission Intelligence blocked: document review has not completed.');
       }
-      if (v2AgenticEnabled_()) {
-        const qualityStatus = String(
-          doc.record['AI Quality Status'] ||
-          workflow.record['Document Quality Status'] || ''
-        ).toUpperCase();
-        if (qualityStatus !== 'PASS') {
-          throw new Error('Admission Intelligence blocked: Compliance & Records quality status is not PASS.');
-        }
-      }
-      if (['DOCUMENT_REVIEW','QUALIFICATION_SCREENING'].indexOf(currentStage) < 0) {
+      // SAC-only hard-gate policy: Compliance flags (including
+      // FOLLOW_UP_REQUIRED) are carried into screening and the official report.
+      // Student follow-up continues independently; only SAC may hard-block.
+      if (['DOCUMENT_REVIEW','QUALIFICATION_SCREENING','READY_FOR_SAC','SAC_REVIEW'].indexOf(currentStage) < 0) {
         throw new Error('Admission Intelligence is not available at current stage: ' + currentStage);
       }
       result = v2TryAutoAiScreening_(reference, 'Admission Intelligence Agent via n8n');
@@ -385,12 +381,14 @@ function v2AgentActionGateway_(data, actor) {
       if (agentId !== 'STUDENT_CONCIERGE') {
         throw new Error('SEND_MISSING_DOCUMENT_REQUEST is restricted to STUDENT_CONCIERGE.');
       }
-      const reviewStatus=String(
-        doc && doc.record['Review Status'] ||
-        workflow.record['Document Review Status'] || ''
-      ).toUpperCase();
-      if (reviewStatus !== 'INCOMPLETE') {
-        throw new Error('Missing-document request blocked: Document Review Status is not INCOMPLETE.');
+      let missingDocuments=[];
+      try { missingDocuments=JSON.parse(String(doc && doc.record['Missing Documents JSON'] || '[]')); } catch (_) { missingDocuments=[]; }
+      const missingCount=Math.max(
+        Number(workflow.record['Missing Document Count']||0),
+        Array.isArray(missingDocuments) ? missingDocuments.length : 0
+      );
+      if (missingCount <= 0) {
+        throw new Error('Missing-document request blocked: no pending required document was found.');
       }
       result=v2SendMissingDocumentRequest_({
         referenceNo:reference,
