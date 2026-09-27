@@ -1,4 +1,4 @@
-name: Fix SAC Authorised Participant Insert
+name: Fix SAC Participant UI Sync
 
 on:
   push:
@@ -20,17 +20,65 @@ jobs:
           ref: main
           fetch-depth: 0
 
-      - name: Patch SAC authorised assignment payload
+      - name: Patch SAC participant UI consistency
         run: |
           python - <<'PY'
           from pathlib import Path
           p=Path('admin.html')
           s=p.read_text()
-          old="const added=await runSacPageAction('v2AssignSacCandidate',{referenceNo,sessionId:sacDetailSessionId},null);"
-          new="const added=await runSacPageAction('v2AssignSacCandidate',{referenceNo,sessionId:sacDetailSessionId,proceedWithPendingDocuments:true,confirmed:true,overrideBy:'Admin Portal V2'},null);"
-          if old not in s and "sessionId:sacDetailSessionId,proceedWithPendingDocuments:true" not in s:
-              raise SystemExit('SAC detail authorised insert anchor not found')
+
+          old="""    async function runSacPageAction(action,data,confirmText){
+      if(confirmText&&!confirm(confirmText))return null;
+      sacPageMsg('Processing…','info');
+      try{
+        const res=await fetch(ACTION_API,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({password,action,data,updatedBy:'Admin Portal V2'})});
+        const out=await res.json().catch(()=>({ok:false,message:'Invalid response from action service.'}));
+        if(!res.ok||!out.ok)throw new Error(out.message||'Unable to complete SAC action.');
+        await loadData(true);
+        return out.result||out;
+      }catch(e){sacPageMsg(e.message||'Unable to complete SAC action.','error');return null}
+    }"""
+
+          new="""    async function runSacPageAction(action,data,confirmText){
+      if(confirmText&&!confirm(confirmText))return null;
+      const showMsg=(text,type='info')=>{
+        if(document.getElementById('sacSessionModal')?.classList.contains('open'))sacDetailMsg(text,type);
+        else sacPageMsg(text,type);
+      };
+      showMsg('Processing…','info');
+      try{
+        const res=await fetch(ACTION_API,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({password,action,data,updatedBy:'Admin Portal V2'})});
+        const out=await res.json().catch(()=>({ok:false,message:'Invalid response from action service.'}));
+        if(!res.ok||!out.ok)throw new Error(out.message||'Unable to complete SAC action.');
+        const result=out.result||out;
+        if(action==='v2AssignSacCandidate'&&result&&result.candidate){
+          const list=db.V2_SAC_CANDIDATES||(db.V2_SAC_CANDIDATES=[]);
+          const candidate=result.candidate;
+          const sid=String(candidate['SAC Session ID']||data?.sessionId||'');
+          const ref=String(candidate['Reference No']||data?.referenceNo||'');
+          const idx=list.findIndex(c=>String(c['SAC Session ID']||c['Session ID']||'')===sid&&String(c['Reference No']||'')===ref);
+          if(idx>=0)list[idx]=candidate;else list.push(candidate);
+          buildRecords();
+          renderSac();
+          if(sacDetailSessionId)renderSacSessionDetail();
+          document.getElementById('freshness').textContent='Updated just now';
+        }else{
+          await loadData(true);
+        }
+        return result;
+      }catch(e){showMsg(e.message||'Unable to complete SAC action.','error');return null}
+    }"""
+
+          if old not in s and "action==='v2AssignSacCandidate'&&result&&result.candidate" not in s:
+              raise SystemExit('runSacPageAction anchor not found')
           s=s.replace(old,new)
+
+          s=s.replace("      sacDetailMsg(proceedWithPending?'Participant added with authorised pending-document exception. Refreshing…':'Participant added. Refreshing…','ok');\n      setTimeout(()=>location.reload(),450);",
+                      "      sacDetailMsg(proceedWithPending?'Participant added with authorised pending-document exception.':'Participant added.','ok');")
+
+          s=s.replace("      sacDetailMsg('Documents confirmed acceptable by human review. Applicant added to SAC; original AI finding remains on record.','ok');\n      setTimeout(()=>location.reload(),650);",
+                      "      sacDetailMsg('Documents confirmed acceptable by human review. Applicant added to SAC; original AI finding remains on record.','ok');")
+
           p.write_text(s)
           PY
 
@@ -41,8 +89,9 @@ jobs:
           const html=fs.readFileSync('admin.html','utf8');
           const blocks=[...html.matchAll(/<script(?:\s[^>]*)?>([\s\S]*?)<\/script>/gi)].map(m=>m[1]).filter(s=>s.trim());
           for(const block of blocks)new Function(block);
-          if(!html.includes("sessionId:sacDetailSessionId,proceedWithPendingDocuments:true,confirmed:true,overrideBy:'Admin Portal V2'")) throw new Error('SAC detail override payload missing');
-          console.log('SAC_AUTHORISED_INSERT_OK');
+          if(!html.includes("action==='v2AssignSacCandidate'&&result&&result.candidate")) throw new Error('optimistic SAC candidate sync missing');
+          if(!html.includes("document.getElementById('sacSessionModal')?.classList.contains('open')")) throw new Error('modal action messaging missing');
+          console.log('SAC_PARTICIPANT_UI_SYNC_OK');
           NODE
 
       - name: Commit patch
@@ -50,5 +99,5 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add admin.html
-          git diff --cached --quiet || git commit -m "Pass authorised document exception when creating SAC participant"
+          git diff --cached --quiet || git commit -m "Keep SAC participant UI in sync after assignment"
           git push origin main
