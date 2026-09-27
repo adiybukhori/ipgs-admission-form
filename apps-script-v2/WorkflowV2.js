@@ -408,6 +408,7 @@ function handleV2Post_(payload) {
   if (action === 'v2AssignSacCandidate') return v2AssignSacCandidate_(payload.data || {}, payload.updatedBy);
   if (action === 'v2PrepareSacPack') return v2PrepareSacPack_(payload.data || {}, payload.updatedBy);
   if (action === 'v2GetSacPackFile') return v2GetSacPackFile_(payload.data || {});
+  if (action === 'v2ListSacCandidates') return v2ListSacCandidates_();
   if (action === 'v2SaveSacPackPdf') return v2SaveSacPackPdf_(payload.data || {}, payload.updatedBy);
   if (action === 'v2RecordSacDecision') return v2RecordSacDecision_(payload.data || {}, payload.updatedBy);
   if (action === 'v2CreateSacSessionManual') return v2CreateSacSessionManual_(payload.data || {}, payload.updatedBy);

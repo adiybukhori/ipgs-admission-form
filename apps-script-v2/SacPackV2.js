@@ -531,3 +531,14 @@ function v2SaveSacPackPdf_(data, actor) {
   v2InvalidateCache_();
   return {ok:true,sessionId:sessionId,folderUrl:folderUrl,fileUrl:fileUrl,fileId:file.getId(),fileName:fileName,savedAt:now};
 }
+
+
+function v2ListSacCandidates_() {
+  assertDevIdentity_();
+  const candidates = v2Rows_('V2_SAC_CANDIDATES').map(function(row) {
+    const out = {};
+    Object.keys(row || {}).forEach(function(key) { out[key] = row[key]; });
+    return out;
+  });
+  return {ok:true,candidateCount:candidates.length,candidates:candidates,v1Touched:false};
+}
