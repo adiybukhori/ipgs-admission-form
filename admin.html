@@ -1154,8 +1154,7 @@
       }
       const result=await runSacPageAction('v2AssignSacCandidate',data,confirmText);
       if(!result)return;
-      sacDetailMsg(proceedWithPending?'Participant added with authorised pending-document exception. Refreshing…':'Participant added. Refreshing…','ok');
-      setTimeout(()=>location.reload(),450);
+      sacDetailMsg(proceedWithPending?'Participant added with authorised pending-document exception.':'Participant added.','ok');
     }
     async function smartAddSacParticipant(){
       const referenceNo=document.getElementById('sacAddParticipant')?.value||'';
@@ -1197,7 +1196,6 @@
       const added=await runSacPageAction('v2AssignSacCandidate',{referenceNo,sessionId:sacDetailSessionId,proceedWithPendingDocuments:true,confirmed:true,overrideBy:'Admin Portal V2'},null);
       if(!added)return;
       sacDetailMsg('Documents confirmed acceptable by human review. Applicant added to SAC; original AI finding remains on record.','ok');
-      setTimeout(()=>location.reload(),650);
     }
 
     async function deleteSacSession(){
@@ -1664,14 +1662,25 @@
     function sacPageMsg(text,type='info'){const el=document.getElementById('sacCreateMessage');if(!el)return;el.style.display='block';el.className='message '+(type==='error'?'error':'');el.style.background=type==='ok'?'var(--greenSoft)':type==='error'?'var(--redSoft)':'var(--blueSoft)';el.style.color=type==='ok'?'var(--green)':type==='error'?'var(--red)':'var(--blue)';el.textContent=text}
     async function runSacPageAction(action,data,confirmText){
       if(confirmText&&!confirm(confirmText))return null;
-      sacPageMsg('Processing…','info');
+      const showMsg=(text,type='info')=>{if(document.getElementById('sacSessionModal')?.classList.contains('open'))sacDetailMsg(text,type);else sacPageMsg(text,type);};
+      showMsg('Processing…','info');
       try{
         const res=await fetch(ACTION_API,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({password,action,data,updatedBy:'Admin Portal V2'})});
         const out=await res.json().catch(()=>({ok:false,message:'Invalid response from action service.'}));
         if(!res.ok||!out.ok)throw new Error(out.message||'Unable to complete SAC action.');
-        await loadData(true);
-        return out.result||out;
-      }catch(e){sacPageMsg(e.message||'Unable to complete SAC action.','error');return null}
+        const result=out.result||out;
+        if(action==='v2AssignSacCandidate'&&result&&result.candidate){
+          const list=db.V2_SAC_CANDIDATES||(db.V2_SAC_CANDIDATES=[]);
+          const candidate=result.candidate;
+          const sid=String(candidate['SAC Session ID']||data?.sessionId||'');
+          const ref=String(candidate['Reference No']||data?.referenceNo||'');
+          const idx=list.findIndex(c=>String(c['SAC Session ID']||c['Session ID']||'')===sid&&String(c['Reference No']||'')===ref);
+          if(idx>=0)list[idx]=candidate;else list.push(candidate);
+          buildRecords();renderSac();if(sacDetailSessionId)renderSacSessionDetail();
+          document.getElementById('freshness').textContent='Updated just now';
+        }else{await loadData(true);}
+        return result;
+      }catch(e){showMsg(e.message||'Unable to complete SAC action.','error');return null}
     }
     function openSacCreatePanel(){
       const panel=document.getElementById('sacCreatePanel');
