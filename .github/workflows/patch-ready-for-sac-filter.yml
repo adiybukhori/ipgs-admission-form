@@ -1,0 +1,65 @@
+name: Patch Ready for SAC Filter
+
+on:
+  push:
+    branches: [main]
+    paths: ['.github/workflows/patch-ready-for-sac-filter.yml']
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+
+      - name: Patch application stage filter and SAC empty-state help
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          p=Path('admin.html')
+          s=p.read_text(encoding='utf-8')
+
+          old="function populateFilters(){fillSelect('intakeFilter',[...new Set(records.map(r=>r.app['Intake']).filter(Boolean))].sort());fillSelect('programmeFilter',[...new Set(records.map(r=>r.app['Programme']).filter(Boolean))].sort());fillSelect('stageFilter',[...new Set(records.map(stage).filter(Boolean))].sort(),true)}"
+          new="function populateFilters(){fillSelect('intakeFilter',[...new Set(records.map(r=>r.app['Intake']).filter(Boolean))].sort());fillSelect('programmeFilter',[...new Set(records.map(r=>r.app['Programme']).filter(Boolean))].sort());const canonicalStages=['APPLICATION_RECEIVED','DOCUMENT_REVIEW','QUALIFICATION_SCREENING','READY_FOR_SAC','SAC_REVIEW','INTERNAL_ASSESSMENT','PREREQUISITE','ELIGIBLE_FOR_OFFER','OFFER_ISSUED','ACCEPTED','SKY_ACTIVATED','ORIENTATION','ACADEMIC_HANDOVER','ACTIVE_STUDENT','MANUAL_REVIEW'];const actualStages=records.map(stage).filter(Boolean);fillSelect('stageFilter',[...new Set([...canonicalStages,...actualStages])],true)}"
+          if old in s:
+              s=s.replace(old,new,1)
+          elif 'const canonicalStages=' not in s:
+              raise SystemExit('populateFilters anchor not found')
+
+          old_empty="No candidates assigned yet."
+          new_empty="No candidates assigned yet. Complete Qualification Screening first so the applicant reaches Ready for SAC, then add the applicant here."
+          if old_empty in s:
+              s=s.replace(old_empty,new_empty,1)
+
+          p.write_text(s,encoding='utf-8')
+          PY
+
+      - name: Validate admin JavaScript
+        run: |
+          grep -q "READY_FOR_SAC" admin.html
+          grep -q "const canonicalStages=" admin.html
+          python3 - <<'PY'
+          from pathlib import Path
+          import re
+          html=Path('admin.html').read_text(encoding='utf-8')
+          blocks=re.findall(r'<script(?:\s[^>]*)?>(.*?)</script>',html,flags=re.S|re.I)
+          Path('/tmp/admin-inline.js').write_text('\n'.join(blocks),encoding='utf-8')
+          PY
+          node --check /tmp/admin-inline.js
+
+      - name: Commit patch
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add admin.html
+          if git diff --cached --quiet; then
+            echo "No change required"
+          else
+            git commit -m "Keep Ready for SAC visible in stage filter"
+            git push origin main
+          fi
