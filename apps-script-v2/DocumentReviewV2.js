@@ -175,15 +175,10 @@ function v2RunDocumentReview(referenceNo, reviewer, remarks) {
     return submittedKeys.indexOf(doc.key) === -1;
   });
 
-  // PhD Preliminary Research Intent may be submitted after the initial application.
-  // It is tracked as OUTSTANDING during document review and does not block
-  // qualification screening, SAC assignment or subsequent admission processing.
-  const outstandingDocuments = allMissingDocuments.filter(function(doc) {
-    return doc.key === 'preliminaryResearchIntent';
-  });
-  const missingDocuments = allMissingDocuments.filter(function(doc) {
-    return doc.key !== 'preliminaryResearchIntent';
-  });
+  // Current operational rule: every required item blocks Stage 2.
+  // PhD Preliminary Research Intent is an additional mandatory document.
+  const outstandingDocuments = [];
+  const missingDocuments = allMissingDocuments;
 
   const status =
     missingDocuments.length === 0 ? 'COMPLETE' : 'INCOMPLETE';
@@ -406,10 +401,6 @@ function v2GetRequiredDocuments_(application) {
   const applicantType =
     String(application['Applicant Type'] || '').toUpperCase();
 
-  const entryType =
-    String(application['Entry Qualification Type'] || '')
-      .toUpperCase();
-
   const programme =
     String(application['Programme'] || '');
 
@@ -417,53 +408,19 @@ function v2GetRequiredDocuments_(application) {
     applicantType.indexOf('INTERNATIONAL') > -1 ||
     applicantType.indexOf('NON-MALAYSIAN') > -1;
 
-  // --------------------------------------------------
-  // Applicant identity
-  // --------------------------------------------------
-
-  add('passportPhoto');
-
+  // Latest operational rule: four core documents are mandatory.
+  // Local identity = IC/NRIC. International identity = passport copy.
   if (international) {
     add('passportCopyInternational');
-    add('completedAdmissionForm');
-    add('completedHealthDeclaration');
-    add('emgsPaymentReceipt');
   } else {
     add('identityDocument');
   }
 
-  // --------------------------------------------------
-  // Entry qualification pathway
-  // --------------------------------------------------
+  add('transcript');
+  add('certificate');
+  add('cvResume');
 
-  if (entryType.indexOf('APEL') > -1) {
-    add('apelCertificate');
-    add('cvResume');
-
-  } else if (
-    entryType.indexOf('SKM') > -1 ||
-    entryType.indexOf('TVET') > -1 ||
-    entryType.indexOf('SKILLS') > -1
-  ) {
-    add('certificate');
-
-  } else if (
-    entryType.indexOf('PROFESSIONAL') > -1 ||
-    entryType.indexOf('OTHER QUALIFICATION') > -1
-  ) {
-    add('otherSupportingDocument');
-    add('cvResume');
-
-  } else {
-    // Academic / Normal Entry / safe default.
-    add('transcript');
-    add('certificate');
-  }
-
-  // --------------------------------------------------
-  // PhD additional requirement
-  // --------------------------------------------------
-
+  // PhD has one additional mandatory document.
   if (
     /^PHD\b/i.test(programme) ||
     /DOCTOR OF PHILOSOPHY/i.test(programme)
@@ -527,19 +484,14 @@ function v2DocumentReviewControlledTest() {
   const completeRef = 'V2-DOC-COMPLETE-' + stamp;
   const incompleteRef = 'V2-DOC-INCOMPLETE-' + stamp;
 
-  // Local + Academic pathway requires:
-  // identityDocument, passportPhoto, transcript, certificate
+  // Local core requirement:
+  // identityDocument, transcript, certificate, cvResume
 
   const completeFiles = [
     {
       field: 'identityDocument',
       fileName: 'TEST_IC.pdf',
       url: 'TEST://identity'
-    },
-    {
-      field: 'passportPhoto',
-      fileName: 'TEST_PHOTO.jpg',
-      url: 'TEST://photo'
     },
     {
       field: 'transcript',
@@ -550,6 +502,11 @@ function v2DocumentReviewControlledTest() {
       field: 'certificate',
       fileName: 'TEST_CERTIFICATE.pdf',
       url: 'TEST://certificate'
+    },
+    {
+      field: 'cvResume',
+      fileName: 'TEST_CV.pdf',
+      url: 'TEST://cv'
     }
   ];
 
@@ -561,14 +518,14 @@ function v2DocumentReviewControlledTest() {
       url: 'TEST://identity'
     },
     {
-      field: 'passportPhoto',
-      fileName: 'TEST_PHOTO.jpg',
-      url: 'TEST://photo'
-    },
-    {
       field: 'transcript',
       fileName: 'TEST_TRANSCRIPT.pdf',
       url: 'TEST://transcript'
+    },
+    {
+      field: 'cvResume',
+      fileName: 'TEST_CV.pdf',
+      url: 'TEST://cv'
     }
   ];
 
