@@ -1,0 +1,130 @@
+name: Fix V2 Document Requirements
+
+on:
+  push:
+    branches: [apps-script-v2-dev]
+    paths:
+      - '.github/workflows/fix-document-requirements-v2.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  patch-deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: apps-script-v2-dev
+          fetch-depth: 0
+
+      - name: Patch mandatory document rules
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          import re
+
+          p = Path('apps-script-v2/DocumentReviewV2.js')
+          text = p.read_text(encoding='utf-8')
+
+          old = """  // PhD Preliminary Research Intent may be submitted after the initial application.\n  // It is tracked as OUTSTANDING during document review and does not block\n  // qualification screening, SAC assignment or subsequent admission processing.\n  const outstandingDocuments = allMissingDocuments.filter(function(doc) {\n    return doc.key === 'preliminaryResearchIntent';\n  });\n  const missingDocuments = allMissingDocuments.filter(function(doc) {\n    return doc.key !== 'preliminaryResearchIntent';\n  });\n"""
+          new = """  // Current BOD document rule: every required item is blocking at Stage 2.\n  // For PhD applicants, Preliminary Research Intent is an additional mandatory\n  // document and must be present before qualification screening can proceed.\n  const outstandingDocuments = [];\n  const missingDocuments = allMissingDocuments;\n"""
+          if old not in text:
+              raise SystemExit('Research-intent defer block not found')
+          text = text.replace(old, new, 1)
+
+          pattern = re.compile(r"function v2GetRequiredDocuments_\(application\) \{.*?\n\}\n\n\nfunction v2GetSubmittedDocuments_", re.S)
+          replacement = r'''function v2GetRequiredDocuments_(application) {
+  const required = [];
+
+  function add(key) {
+    if (!V2_DOCUMENT_LABELS[key]) return;
+    if (!required.some(function(item) { return item.key === key; })) {
+      required.push({ key:key, label:V2_DOCUMENT_LABELS[key] });
+    }
+  }
+
+  const applicantType = String(application['Applicant Type'] || '').toUpperCase();
+  const programme = String(application['Programme'] || '');
+  const international =
+    applicantType.indexOf('INTERNATIONAL') > -1 ||
+    applicantType.indexOf('NON-MALAYSIAN') > -1;
+
+  // Latest operational rule: only four core documents are mandatory.
+  // Local applicants use IC/NRIC; international applicants use passport copy
+  // as the equivalent identity document.
+  if (international) add('passportCopyInternational');
+  else add('identityDocument');
+
+  add('transcript');
+  add('certificate');
+  add('cvResume');
+
+  // PhD has one additional mandatory document.
+  if (/^PHD\b/i.test(programme) || /DOCTOR OF PHILOSOPHY/i.test(programme)) {
+    add('preliminaryResearchIntent');
+  }
+
+  return required;
+}
+
+
+function v2GetSubmittedDocuments_'''
+          text, n = pattern.subn(replacement, text, count=1)
+          if n != 1:
+              raise SystemExit(f'Required-doc function replacement count: {n}')
+
+          old_test = """  // Local + Academic pathway requires:\n  // identityDocument, passportPhoto, transcript, certificate\n\n  const completeFiles = [\n    {\n      field: 'identityDocument',\n      fileName: 'TEST_IC.pdf',\n      url: 'TEST://identity'\n    },\n    {\n      field: 'passportPhoto',\n      fileName: 'TEST_PHOTO.jpg',\n      url: 'TEST://photo'\n    },\n    {\n      field: 'transcript',\n      fileName: 'TEST_TRANSCRIPT.pdf',\n      url: 'TEST://transcript'\n    },\n    {\n      field: 'certificate',\n      fileName: 'TEST_CERTIFICATE.pdf',\n      url: 'TEST://certificate'\n    }\n  ];\n\n  // Certificate intentionally missing.\n  const incompleteFiles = [\n    {\n      field: 'identityDocument',\n      fileName: 'TEST_IC.pdf',\n      url: 'TEST://identity'\n    },\n    {\n      field: 'passportPhoto',\n      fileName: 'TEST_PHOTO.jpg',\n      url: 'TEST://photo'\n    },\n    {\n      field: 'transcript',\n      fileName: 'TEST_TRANSCRIPT.pdf',\n      url: 'TEST://transcript'\n    }\n  ];\n"""
+          new_test = """  // Local core requirement:\n  // identityDocument, transcript, certificate, cvResume\n\n  const completeFiles = [\n    {field:'identityDocument',fileName:'TEST_IC.pdf',url:'TEST://identity'},\n    {field:'transcript',fileName:'TEST_TRANSCRIPT.pdf',url:'TEST://transcript'},\n    {field:'certificate',fileName:'TEST_CERTIFICATE.pdf',url:'TEST://certificate'},\n    {field:'cvResume',fileName:'TEST_CV.pdf',url:'TEST://cv'}\n  ];\n\n  // Certificate intentionally missing.\n  const incompleteFiles = [\n    {field:'identityDocument',fileName:'TEST_IC.pdf',url:'TEST://identity'},\n    {field:'transcript',fileName:'TEST_TRANSCRIPT.pdf',url:'TEST://transcript'},\n    {field:'cvResume',fileName:'TEST_CV.pdf',url:'TEST://cv'}\n  ];\n"""
+          if old_test not in text:
+              raise SystemExit('Controlled test fixture block not found')
+          text = text.replace(old_test, new_test, 1)
+
+          p.write_text(text, encoding='utf-8')
+          PY
+
+      - name: Validate JavaScript
+        run: node --check apps-script-v2/DocumentReviewV2.js
+
+      - name: Commit patched source
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add apps-script-v2/DocumentReviewV2.js
+          if git diff --cached --quiet; then
+            echo 'No source changes required.'
+          else
+            git commit -m 'Apply four core documents plus PhD research intent rule'
+            git push origin apps-script-v2-dev
+          fi
+
+      - name: Verify clasp credential
+        env:
+          CLASPRC_JSON: ${{ secrets.CLASPRC_JSON }}
+        run: |
+          test -n "$CLASPRC_JSON"
+
+      - name: Install clasp
+        run: npm install --global @google/clasp@3.4.1
+
+      - name: Restore clasp credential
+        env:
+          CLASPRC_JSON: ${{ secrets.CLASPRC_JSON }}
+        run: |
+          printf '%s' "$CLASPRC_JSON" > "$HOME/.clasprc.json"
+          chmod 600 "$HOME/.clasprc.json"
+
+      - name: Verify V2 target
+        run: node tools/verify-clasp-target.mjs
+
+      - name: Push complete V2 source
+        run: clasp push --force
+
+      - name: Redeploy existing V2 web app
+        env:
+          V2_DEPLOYMENT_ID: AKfycbxasT_HgtRSvTbR_bsa8p17Cm-C2PKn20Ok1kU-AyJmxiKX8kX5EGOtRLwVwNlAL7JB
+        run: clasp create-deployment --deploymentId "$V2_DEPLOYMENT_ID" --description "Admission V2 four core documents plus mandatory PhD research intent"
+
+      - name: Cleanup
+        if: always()
+        run: rm -f "$HOME/.clasprc.json"
