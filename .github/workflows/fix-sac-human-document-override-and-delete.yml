@@ -1,0 +1,276 @@
+name: Fix SAC Human Document Override and Delete
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/fix-sac-human-document-override-and-delete.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout main
+        uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+
+      - name: Patch Admin UI and API
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+
+          p=Path('api/admin-action.js')
+          s=p.read_text()
+          old="'v2CreateSacSessionManual','v2UpdateSacSessionManual','v2SendSacCalendarInvitationManual'"
+          new="'v2CreateSacSessionManual','v2UpdateSacSessionManual','v2DeleteSacSessionManual','v2SendSacCalendarInvitationManual'"
+          if old not in s and 'v2DeleteSacSessionManual' not in s:
+              raise SystemExit('admin-action anchor not found')
+          s=s.replace(old,new)
+          p.write_text(s)
+
+          p=Path('admin.html')
+          s=p.read_text()
+
+          old="${!isFinal?'<div style=\"margin-top:10px\"><button class=\"ghost\" type=\"button\" onclick=\"saveSacSessionDetails()\">Save SAC Details</button></div>':''}</section>"
+          new="${!isFinal?`<div style=\"margin-top:10px;display:flex;gap:8px;flex-wrap:wrap\"><button class=\"ghost\" type=\"button\" onclick=\"saveSacSessionDetails()\">Save SAC Details</button>${candidates.length===0&&cal!=='INVITED'?'<button class=\"ghost\" type=\"button\" style=\"color:#b42318;border-color:#f0b8b3\" onclick=\"deleteSacSession()\">Delete Session</button>':''}</div>`:''}</section>"
+          if old not in s and 'onclick=\"deleteSacSession()\"' not in s:
+              raise SystemExit('SAC details UI anchor not found')
+          s=s.replace(old,new)
+
+          old="<button class=\"primary\" type=\"button\" onclick=\"addSacParticipantFromDetail(false)\" ${eligibleOptions?'':'disabled'}>+ Add Participant</button><button class=\"ghost\" type=\"button\" onclick=\"addSacParticipantFromDetail(true)\" ${eligibleOptions?'':'disabled'}>Proceed with Pending Document</button>"
+          new="<button class=\"primary\" type=\"button\" onclick=\"addSacParticipantFromDetail(false)\" ${eligibleOptions?'':'disabled'}>+ Add Participant</button><button class=\"ghost\" type=\"button\" onclick=\"confirmDocumentsAndAddSacParticipant()\" ${eligibleOptions?'':'disabled'}>Confirm Documents Acceptable & Add</button>"
+          if old in s:
+              s=s.replace(old,new)
+          elif 'Confirm Documents Acceptable & Add' not in s:
+              # Older deployed UI may only have Add Participant. Add the human-confirmation button.
+              old2="<button class=\"primary\" type=\"button\" onclick=\"addSacParticipantFromDetail(false)\" ${eligibleOptions?'':'disabled'}>+ Add Participant</button>"
+              if old2 not in s: raise SystemExit('participant button anchor not found')
+              s=s.replace(old2,old2+"<button class=\"ghost\" type=\"button\" onclick=\"confirmDocumentsAndAddSacParticipant()\" ${eligibleOptions?'':'disabled'}>Confirm Documents Acceptable & Add</button>")
+
+          anchor="    async function sendSacInviteFromDetail(){\n"
+          if 'async function confirmDocumentsAndAddSacParticipant()' not in s:
+              fn=r'''    async function confirmDocumentsAndAddSacParticipant(){
+      const referenceNo=document.getElementById('sacAddParticipant')?.value||'';
+      if(!referenceNo)return sacDetailMsg('Select an applicant first.','error');
+      const applicant=records.find(r=>String(r.ref)===String(referenceNo));
+      const name=applicant?.app?.['Student Name']||referenceNo;
+      const reasonRaw=prompt('Human Document Confirmation\n\nAI has flagged a document issue. If you have checked the documents and they are acceptable for SAC, enter the reason / confirmation note. This will be audited.');
+      if(reasonRaw===null)return;
+      const reason=String(reasonRaw||'').trim();
+      if(reason.length<8)return sacDetailMsg('Enter a clear confirmation reason (minimum 8 characters).','error');
+      if(!confirm(`Confirm documents are acceptable for ${name} and add this applicant to SAC?\n\nThe original AI finding remains recorded. Human confirmation, reason, reviewer and timestamp will be audited.`))return;
+
+      let listed=await runSacPageAction('v2ListOpenHumanTasks',{},null);
+      if(!listed)return;
+      let task=(listed.tasks||[]).find(t=>String(t['Reference No']||'')===String(referenceNo)&&String(t['Task Type']||'').toUpperCase()==='DOCUMENT_QUALITY_REVIEW');
+      if(!task){
+        const created=await runSacPageAction('v2CreateHumanTask',{
+          referenceNo,
+          taskType:'DOCUMENT_QUALITY_REVIEW',
+          title:'Human confirmation of document acceptability for SAC',
+          reason:'Registry reviewed the AI document-quality flag and is deciding whether the documents are acceptable for SAC.',
+          raisedByAgent:'Admin Portal V2',
+          agentId:'COMPLIANCE',
+          priority:'NORMAL',
+          assignedTo:'Registry / Authorised Reviewer',
+          resumeEvent:'HUMAN_TASK_COMPLETED',
+          source:'ADMIN_PORTAL_V2'
+        },null);
+        if(!created)return;
+        task=created.task||null;
+      }
+      const taskId=task?.['Task ID']||task?.taskId||'';
+      if(!taskId)return sacDetailMsg('Unable to create or locate the human review task.','error');
+      const resolved=await runSacPageAction('v2ResolveHumanTask',{
+        taskId,
+        decision:'APPROVE',
+        notes:reason,
+        resolution:{documentQualityDecision:'APPROVED_TO_PROCEED',qualityNotes:reason}
+      },null);
+      if(!resolved)return;
+      const added=await runSacPageAction('v2AssignSacCandidate',{referenceNo,sessionId:sacDetailSessionId},null);
+      if(!added)return;
+      sacDetailMsg('Documents confirmed acceptable by human review. Applicant added to SAC; original AI finding remains on record.','ok');
+      setTimeout(()=>location.reload(),650);
+    }
+
+    async function deleteSacSession(){
+      if(!sacDetailSessionId)return;
+      if(!confirm('Delete this SAC session?\n\nOnly an empty, non-finalised session with no sent calendar invitation can be deleted. This action is audited.'))return;
+      const result=await runSacPageAction('v2DeleteSacSessionManual',{sessionId:sacDetailSessionId},null);
+      if(!result)return;
+      closeSacSessionDetail();
+      sacPageMsg('SAC session deleted.','ok');
+      setTimeout(()=>location.reload(),450);
+    }
+
+'''
+              if anchor not in s: raise SystemExit('function insertion anchor not found')
+              s=s.replace(anchor,fn+anchor)
+          p.write_text(s)
+          PY
+
+      - name: Validate Admin patch
+        run: |
+          node --check api/admin-action.js
+          node - <<'NODE'
+          const fs=require('fs');
+          const html=fs.readFileSync('admin.html','utf8');
+          const blocks=[...html.matchAll(/<script(?:\s[^>]*)?>([\s\S]*?)<\/script>/gi)].map(m=>m[1]).filter(s=>s.trim());
+          for(const block of blocks)new Function(block);
+          for(const token of ['v2DeleteSacSessionManual','Confirm Documents Acceptable & Add','confirmDocumentsAndAddSacParticipant','deleteSacSession']) if(!html.includes(token)&&token!=='v2DeleteSacSessionManual') throw new Error(token+' missing');
+          if(!fs.readFileSync('api/admin-action.js','utf8').includes('v2DeleteSacSessionManual')) throw new Error('API allow-list missing delete action');
+          console.log('ADMIN_PATCH_OK');
+          NODE
+
+      - name: Commit main patch
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add admin.html api/admin-action.js
+          git diff --cached --quiet || git commit -m "Fix SAC document override and add delete session UI"
+          git push origin main
+
+      - name: Checkout Apps Script V2 branch
+        run: |
+          git fetch origin apps-script-v2-dev
+          git checkout -B apps-script-v2-dev origin/apps-script-v2-dev
+
+      - name: Patch Apps Script SAC logic
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+
+          p=Path('apps-script-v2/WorkflowV2.js')
+          s=p.read_text()
+          old="""    const qualityStatus = String(dr['AI Quality Status'] || 'NOT_REVIEWED').toUpperCase();
+    const replacementStatus = String(dr['Replacement Request Status'] || '').toUpperCase();
+    let missing = [];
+"""
+          new="""    const qualityStatus = String(dr['AI Quality Status'] || 'NOT_REVIEWED').toUpperCase();
+    const humanQualityDecision = String(dr['Human Quality Decision'] || '').toUpperCase();
+    const workflowQualityStatus = String(w['Document Quality Status'] || '').toUpperCase();
+    const humanQualityApproved = humanQualityDecision === 'APPROVED_TO_PROCEED' || workflowQualityStatus === 'HUMAN_OVERRIDE_APPROVED';
+    const replacementStatus = String(dr['Replacement Request Status'] || '').toUpperCase();
+    let missing = [];
+"""
+          if old not in s and 'humanQualityApproved' not in s: raise SystemExit('quality variables anchor not found')
+          s=s.replace(old,new)
+          old="""    if (qualityStatus && qualityStatus !== 'PASS' && qualityStatus !== 'NOT_REVIEWED') {
+      sacGateIssues.push('DOCUMENT_QUALITY_' + qualityStatus);
+    }
+    if (replacementStatus === 'AWAITING_STUDENT') {
+      sacGateIssues.push('AWAITING_STUDENT_DOCUMENT');
+    }
+"""
+          new="""    if (!humanQualityApproved && qualityStatus && qualityStatus !== 'PASS' && qualityStatus !== 'NOT_REVIEWED') {
+      sacGateIssues.push('DOCUMENT_QUALITY_' + qualityStatus);
+    }
+    if (!humanQualityApproved && replacementStatus === 'AWAITING_STUDENT') {
+      sacGateIssues.push('AWAITING_STUDENT_DOCUMENT');
+    }
+"""
+          if old not in s and '!humanQualityApproved && qualityStatus' not in s: raise SystemExit('quality gate anchor not found')
+          s=s.replace(old,new)
+
+          old="  if (action === 'v2UpdateSacSessionManual') return v2UpdateSacSessionManual_(payload.data || {}, payload.updatedBy);\n"
+          new=old+"  if (action === 'v2DeleteSacSessionManual') return v2DeleteSacSessionManual_(payload.data || {}, payload.updatedBy || 'Admin Portal V2');\n"
+          if old not in s and 'v2DeleteSacSessionManual' not in s: raise SystemExit('dispatcher anchor not found')
+          s=s.replace(old,new)
+          p.write_text(s)
+
+          p=Path('apps-script-v2/SacManualPhase1V2.js')
+          s=p.read_text()
+          anchor="function v2SendSacCalendarInvitationManual_(data, actor) {\n"
+          if 'function v2DeleteSacSessionManual_' not in s:
+              fn=r'''function v2DeleteSacSessionManual_(data, actor) {
+  assertDevIdentity_();
+  v2SacManualEnsureSchema_();
+
+  const sessionId = v2Required_(data.sessionId, 'SAC Session ID');
+  const session = v2Find_('V2_SAC_SESSIONS', 'SAC Session ID', sessionId);
+  if (!session) throw new Error('SAC session not found.');
+
+  const status = String(session.record['Status'] || '').toUpperCase();
+  if (status === 'FINALISED' || status === 'FINALIZED' || session.record['Finalised At']) {
+    throw new Error('Finalised SAC session cannot be deleted.');
+  }
+
+  const candidates = v2Rows_('V2_SAC_CANDIDATES').filter(function(row){
+    return String(row['SAC Session ID'] || row['Session ID'] || '') === sessionId;
+  });
+  if (candidates.length) {
+    throw new Error('Remove all SAC candidates before deleting this session.');
+  }
+
+  const calendarStatus = String(session.record['Calendar Status'] || '').toUpperCase();
+  const eventId = String(session.record['Calendar Event ID'] || '').trim();
+  if (eventId || calendarStatus === 'INVITED') {
+    throw new Error('This SAC session already has a calendar invitation/event and cannot be deleted automatically.');
+  }
+
+  const previous = session.record;
+  v2Audit_('', 'SAC', 'DELETE_MANUAL_SESSION', previous, {sessionId:sessionId, deleted:true}, actor || 'Admin Portal V2', 'SUCCESS', 'Empty non-finalised SAC session deleted.');
+  session.sheet.deleteRow(session.rowNumber);
+  v2InvalidateCache_();
+  return {ok:true, deleted:true, sessionId:sessionId, v1Touched:false};
+}
+
+'''
+              if anchor not in s: raise SystemExit('delete function anchor not found')
+              s=s.replace(anchor,fn+anchor)
+          p.write_text(s)
+          PY
+
+      - name: Validate Apps Script patch
+        run: |
+          node --check apps-script-v2/WorkflowV2.js
+          node --check apps-script-v2/SacManualPhase1V2.js
+          grep -F "humanQualityApproved" apps-script-v2/WorkflowV2.js
+          grep -F "function v2DeleteSacSessionManual_" apps-script-v2/SacManualPhase1V2.js
+          grep -F "v2DeleteSacSessionManual" apps-script-v2/WorkflowV2.js
+
+      - name: Commit Apps Script patch
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add apps-script-v2/WorkflowV2.js apps-script-v2/SacManualPhase1V2.js
+          git diff --cached --quiet || git commit -m "Respect human document confirmation at SAC and allow safe session deletion"
+          git push origin apps-script-v2-dev
+
+      - name: Verify clasp credential
+        env:
+          CLASPRC_JSON: ${{ secrets.CLASPRC_JSON }}
+        run: |
+          test -n "$CLASPRC_JSON" || (echo 'CLASPRC_JSON secret is not configured.' && exit 1)
+
+      - name: Install clasp
+        run: npm install --global @google/clasp@3.4.1
+
+      - name: Restore clasp credential
+        env:
+          CLASPRC_JSON: ${{ secrets.CLASPRC_JSON }}
+        run: |
+          printf '%s' "$CLASPRC_JSON" > "$HOME/.clasprc.json"
+          chmod 600 "$HOME/.clasprc.json"
+
+      - name: Verify locked V2 target
+        run: node tools/verify-clasp-target.mjs
+
+      - name: Push Apps Script source
+        run: clasp push -f
+
+      - name: Redeploy existing V2 web app
+        env:
+          V2_DEPLOYMENT_ID: AKfycbxasT_HgtRSvTbR_bsa8p17Cm-C2PKn20Ok1kU-AyJmxiKX8kX5EGOtRLwVwNlAL7JB
+        run: clasp create-deployment --deploymentId "$V2_DEPLOYMENT_ID" --description "SAC human doc confirmation and safe session delete"
+
+      - name: Remove clasp credential
+        if: always()
+        run: rm -f "$HOME/.clasprc.json"
