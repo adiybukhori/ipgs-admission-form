@@ -587,7 +587,47 @@ function v2AssignSacCandidate_(data, actor) {
   if (!workflow) throw new Error('V2 workflow record not found.');
   const w = workflow.record;
 
-  // Preliminary Research Intent is tracked for PhD applications but is NON-BLOCKING.
+  // SAC-ONLY HARD GATE POLICY:
+  // Missing documents / quality follow-up may continue through screening,
+  // but assignment into SAC is blocked until resolved or explicitly overridden.
+  const documentReview = v2Find_('V2_DOCUMENT_REVIEW','Reference No',reference);
+  const sacGateIssues = [];
+  if (!documentReview) {
+    sacGateIssues.push('DOCUMENT_REVIEW_NOT_FOUND');
+  } else {
+    const dr = documentReview.record || {};
+    const reviewStatus = String(dr['Review Status'] || 'NOT_REVIEWED').toUpperCase();
+    const qualityStatus = String(dr['AI Quality Status'] || 'NOT_REVIEWED').toUpperCase();
+    const replacementStatus = String(dr['Replacement Request Status'] || '').toUpperCase();
+    let missing = [];
+    try { missing = JSON.parse(String(dr['Missing Documents JSON'] || '[]')); } catch (_) { missing = []; }
+    if (reviewStatus !== 'COMPLETE' || (Array.isArray(missing) && missing.length)) {
+      if (Array.isArray(missing) && missing.length) {
+        missing.forEach(function(item){
+          sacGateIssues.push('MISSING: ' + String((item && (item.label || item.key)) || 'Required Document'));
+        });
+      } else {
+        sacGateIssues.push('DOCUMENT_REVIEW_' + reviewStatus);
+      }
+    }
+    if (qualityStatus && qualityStatus !== 'PASS' && qualityStatus !== 'NOT_REVIEWED') {
+      sacGateIssues.push('DOCUMENT_QUALITY_' + qualityStatus);
+    }
+    if (replacementStatus === 'AWAITING_STUDENT') {
+      sacGateIssues.push('AWAITING_STUDENT_DOCUMENT');
+    }
+  }
+
+  const overrideActor = String(data.overrideBy || actor || '').trim();
+  const proceedWithPending = data.proceedWithPendingDocuments === true && data.confirmed === true && !!overrideActor;
+  if (sacGateIssues.length && !proceedWithPending) {
+    throw new Error('SAC gate blocked: ' + sacGateIssues.join(' | ') + '. Resolve pending documents or use authorised Proceed with Pending Document.');
+  }
+  const sacGateRemark = sacGateIssues.length
+    ? ('SAC DOCUMENT EXCEPTION APPROVED by ' + overrideActor + ': ' + sacGateIssues.join(' | '))
+    : '';
+
+  // Preliminary Research Intent is tracked for PhD applications and is enforced at the SAC gate.
   // The applicant may proceed to SAC and subsequent admission stages while Registry
   // continues follow-up. Keep the outstanding status visible as a reviewer remark.
   const application = v2Find_('V2_APPLICATIONS','Reference No',reference);
@@ -602,21 +642,21 @@ function v2AssignSacCandidate_(data, actor) {
       researchIntentReceived = !!v2ResearchIntentExistingFile_(application.record);
     }
     if (!researchIntentReceived) {
-      researchIntentRemark = 'Preliminary Research Intent: OUTSTANDING - follow up after SAC / during admission processing. Non-blocking.';
+      researchIntentRemark = 'Preliminary Research Intent: OUTSTANDING - SAC exception required to proceed.';
     }
   }
 
   const row = {'SAC Session ID':sessionId,'Reference No':reference,'Student Name':w['Student Name'],
     'Programme':w['Programme'],'Form 01 URL':data.form01Url || '','Transcript URL':data.transcriptUrl || '',
     'Certificate URL':data.certificateUrl || '','Screening Recommendation':w['Screening Recommendation'] || '',
-    'Decision':'PENDING','Priority':data.priority || 'NORMAL','Reviewer Remarks':researchIntentRemark,'Decision At':'',
+    'Decision':'PENDING','Priority':data.priority || 'NORMAL','Reviewer Remarks':[researchIntentRemark,sacGateRemark].filter(Boolean).join(' | '),'Decision At':'',
     'Decision By':'','Letter Action':'NONE','Letter Issued At':''};
   const saved = v2UpsertComposite_('V2_SAC_CANDIDATES',['SAC Session ID','Reference No'],[sessionId,reference],row);
   v2UpdateRow_(workflow.sheet,workflow.rowNumber,{'SAC Session ID':sessionId,'Application Stage':'SAC_REVIEW','Last Updated':new Date().toISOString(),'Updated By':actor || 'Admin Portal'});
   v2RecountSac_(sessionId);
-  v2Audit_(reference,'SAC','ASSIGN_CANDIDATE',saved.previous,row,actor || 'Admin Portal','SUCCESS','');
+  v2Audit_(reference,'SAC','ASSIGN_CANDIDATE',saved.previous,row,actor || 'Admin Portal','SUCCESS',sacGateRemark);
   v2InvalidateCache_();
-  return {ok:true, created:saved.created, candidate:row};
+  return {ok:true, created:saved.created, candidate:row, sacGateIssues:sacGateIssues, proceededWithPendingDocuments:proceedWithPending};
 }
 
 function v2RecordSacVote_(data, actor) {

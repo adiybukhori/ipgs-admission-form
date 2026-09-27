@@ -471,9 +471,9 @@ function v2RunQualificationScreening(referenceNo, screeningInput) {
 
   if (!application) throw new Error('V2 application record not found.');
   if (!workflow) throw new Error('V2 workflow record not found.');
-  if (!documentReview || String(documentReview.record['Review Status'] || '') !== 'COMPLETE') {
-    throw new Error('Qualification screening blocked: document review is not COMPLETE.');
-  }
+  if (!documentReview) throw new Error('V2 document review record not found.');
+  const documentReviewStatus = String(documentReview.record['Review Status'] || 'NOT_REVIEWED').toUpperCase();
+  const documentQualityStatus = String(documentReview.record['AI Quality Status'] || 'NOT_REVIEWED').toUpperCase();
 
   const currentStage = String(workflow.record['Application Stage'] || '').trim();
   if (currentStage !== 'DOCUMENT_REVIEW' && currentStage !== 'QUALIFICATION_SCREENING') {
@@ -481,20 +481,10 @@ function v2RunQualificationScreening(referenceNo, screeningInput) {
   }
 
   const programme = v2QualificationNormalizeProgramme_(application.record['Programme']);
-  const qualificationLevel = v2QualificationResolveLevel_(application.record['Highest Qualification']);
-  const fieldClassification = v2QualificationNormalizeField_(input.fieldClassification);
-  const relevantWorkExperience = v2QualificationNormalizeWorkExperience_(input.relevantWorkExperience);
+  const qualificationLevel = v2QualificationResolveLevel_(application.record['Highest Qualification']) || 'UNKNOWN';
+  const fieldClassification = v2QualificationNormalizeField_(input.fieldClassification) || 'UNKNOWN';
+  const relevantWorkExperience = v2QualificationNormalizeWorkExperience_(input.relevantWorkExperience) || 'UNKNOWN';
   const cgpa = v2QualificationParseCgpa_(application.record['Academic Result / CGPA / Grade']);
-
-  if (!fieldClassification) {
-    throw new Error('Field Classification is required: RELATED, PARTIALLY_RELATED or NON_RELATED.');
-  }
-  if (!relevantWorkExperience) {
-    throw new Error('Relevant Work Experience is required: YES or NO.');
-  }
-  if (!qualificationLevel) {
-    throw new Error('Qualification level could not be determined from Highest Qualification.');
-  }
 
   // Rules are stable master data, so cache them briefly instead of re-reading the full rule sheet per applicant.
   const rules = v2QualificationCachedRules_(ss).filter(function(rule) {
@@ -523,8 +513,9 @@ function v2RunQualificationScreening(referenceNo, screeningInput) {
   const screeningResult = matchedRule
     ? (manualReviewRequired ? 'RULE_MATCHED_MANUAL_REVIEW' : 'RULE_MATCHED')
     : 'NO_MATCHING_RULE';
-  const screeningStatus = manualReviewRequired ? 'MANUAL_REVIEW_REQUIRED' : 'COMPLETED';
-  const nextStage = manualReviewRequired ? 'QUALIFICATION_SCREENING' : 'READY_FOR_SAC';
+  const screeningStatus = manualReviewRequired ? 'COMPLETED_WITH_FLAGS' : 'COMPLETED';
+  // Operational policy: screening flags are carried forward. SAC is the only hard gate.
+  const nextStage = 'READY_FOR_SAC';
   const now = new Date().toISOString();
 
   const screeningValues = {
@@ -539,7 +530,11 @@ function v2RunQualificationScreening(referenceNo, screeningInput) {
     'Screening Result': screeningResult,
     'Recommended Route': recommendedRoute,
     'Rule Code': ruleCode,
-    'Screening Remarks': remarks,
+    'Screening Remarks': [
+      remarks,
+      documentReviewStatus !== 'COMPLETE' ? 'DOCUMENTS_PENDING_AT_SAC_GATE' : '',
+      documentQualityStatus && documentQualityStatus !== 'PASS' ? ('DOCUMENT_QUALITY_' + documentQualityStatus) : ''
+    ].filter(Boolean).join(' | '),
     'Screened At': now,
     'Screened By': screenedBy,
     'Manual Review Required': manualReviewRequired ? 'YES' : 'NO',
@@ -612,7 +607,8 @@ function v2RunQualificationScreening(referenceNo, screeningInput) {
     manualReviewRequired: manualReviewRequired,
     applicationStage: nextStage,
     nextStage: nextStage,
-    nextAction: manualReviewRequired ? 'MANUAL_ACADEMIC_REVIEW' : 'SAC_PREPARATION',
+    nextAction: 'SAC_PREPARATION',
+    sacReviewRequired: manualReviewRequired || documentReviewStatus !== 'COMPLETE' || (documentQualityStatus && documentQualityStatus !== 'PASS'),
     performanceMs: Date.now() - startedAt,
     fastPath: true,
     emailSent: false,
@@ -764,7 +760,8 @@ function v2QualificationNormalizeField_(value) {
   if (
     normal === 'RELATED' ||
     normal === 'PARTIALLY_RELATED' ||
-    normal === 'NON_RELATED'
+    normal === 'NON_RELATED' ||
+    normal === 'UNKNOWN'
   ) {
     return normal;
   }
@@ -795,6 +792,8 @@ function v2QualificationNormalizeWorkExperience_(value) {
   ) {
     return 'NO';
   }
+
+  if (normal === 'UNKNOWN') return 'UNKNOWN';
 
   return '';
 }
