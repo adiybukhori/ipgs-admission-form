@@ -1,0 +1,71 @@
+name: Fix Document Follow-up UI
+
+on:
+  push:
+    branches: [apps-script-v2-dev]
+    paths:
+      - '.github/workflows/fix-document-followup-ui.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  patch-main:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          ref: apps-script-v2-dev
+          fetch-depth: 0
+
+      - name: Patch Admin document follow-up behaviour
+        run: |
+          git checkout -B main origin/main
+          python3 - <<'PY'
+          from pathlib import Path
+
+          p = Path('admin.html')
+          s = p.read_text(encoding='utf-8')
+
+          old_fn = "    function runDocumentReview(){if(!selected)return;runAdminAction('v2RunDocumentReview',{referenceNo:selected.ref,remarks:''},`Run document review for ${selected.app['Student Name']||selected.ref}?`)}"
+          new_fn = "    function runDocumentReview(){if(!selected)return;const executionId='ADMIN-DOC-'+selected.ref+'-'+Date.now();runAdminAction('v2AgentActionGateway',{executionId:executionId,referenceNo:selected.ref,agentId:'ORCHESTRATOR',requestedAction:'RUN_DOCUMENT_COMPLETENESS'},`Run the full automated document check and follow-up route for ${selected.app['Student Name']||selected.ref}?`)}"
+          if old_fn not in s:
+            raise SystemExit('runDocumentReview anchor not found')
+          s = s.replace(old_fn, new_fn, 1)
+
+          old_block = """          let missing=[];try{missing=JSON.parse(r.doc?.['Missing Documents JSON']||'[]')}catch(_){}const labels=Array.isArray(missing)?missing.map(x=>x?.label||x?.key||x).filter(Boolean):[];
+          copy=docStatus==='INCOMPLETE'?(labels.length?`Documents incomplete: ${labels.join(', ')}. Upload the missing document(s) to the student folder/application record, then re-run the check.`:'Documents are incomplete. Upload the missing document(s), then re-run the check.'):'Document Review is ready to run.';
+          actions='<button class=\"ops-btn primary\" onclick=\"runDocumentReview()\">'+(docStatus==='INCOMPLETE'?'Re-run Auto Check':'Auto Document Check')+'</button><button class=\"ops-btn\" onclick=\"openManualDocumentReview()\">Manual Document Review</button>'+manualDocumentReviewPanel(r);
+"""
+          new_block = """          let missing=[];try{missing=JSON.parse(r.doc?.['Missing Documents JSON']||'[]')}catch(_){}const labels=Array.isArray(missing)?missing.map(x=>x?.label||x?.key||x).filter(Boolean):[];
+          const followStatus=String(r.doc?.['Replacement Request Status']||'').toUpperCase();
+          const followType=String(r.doc?.['Replacement Request Type']||'').toUpperCase();
+          const waitingLearner=docStatus==='INCOMPLETE'&&followStatus==='AWAITING_STUDENT'&&followType==='MISSING_REQUIRED_DOCUMENT';
+          if(waitingLearner){
+            copy=labels.length?`Missing document follow-up is active: ${labels.join(', ')}. Student Concierge is waiting for the learner upload. Access to the next stage remains locked until the required document is received. You do not need to re-run the check manually; the secure upload will trigger the automated re-check.`:'Missing document follow-up is active. Student Concierge is waiting for the learner upload. Access to the next stage remains locked until the required document is received. You do not need to re-run the check manually; the secure upload will trigger the automated re-check.';
+            actions='<span class=\"badge amber\">Awaiting learner document</span><button class=\"ops-btn\" onclick=\"openManualDocumentReview()\">Manual Document Review</button>'+manualDocumentReviewPanel(r);
+          }else{
+            copy=docStatus==='INCOMPLETE'?(labels.length?`Documents incomplete: ${labels.join(', ')}. Run the automated route once to hand the case to Student Concierge for learner follow-up.`:'Documents are incomplete. Run the automated route once to hand the case to Student Concierge for learner follow-up.'):'Document Review is ready to run.';
+            actions='<button class=\"ops-btn primary\" onclick=\"runDocumentReview()\">'+(docStatus==='INCOMPLETE'?'Start Auto Follow-up':'Auto Document Check')+'</button><button class=\"ops-btn\" onclick=\"openManualDocumentReview()\">Manual Document Review</button>'+manualDocumentReviewPanel(r);
+          }
+"""
+          if old_block not in s:
+            raise SystemExit('operations document block anchor not found')
+          s = s.replace(old_block, new_block, 1)
+
+          p.write_text(s, encoding='utf-8')
+          PY
+
+      - name: Commit and push main
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add admin.html
+          if git diff --cached --quiet; then
+            echo 'No UI changes required.'
+          else
+            git commit -m 'Make missing document follow-up agentic and non-manual'
+            git push origin HEAD:main
+          fi
