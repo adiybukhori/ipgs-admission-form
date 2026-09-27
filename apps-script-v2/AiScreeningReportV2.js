@@ -79,13 +79,21 @@ function v2GenerateAiScreeningReport_(data, actor) {
   }) : [];
 
   const screeningResult = String(qs['Screening Result'] || '').toUpperCase();
-  // SAC-only hard-gate policy: once the deterministic screening route exists,
-  // the official AI report may be finalised even when it carries unresolved flags.
-  // Those flags are preserved for SAC review rather than creating a pre-SAC human block.
+  const qualificationScreeningStatus = String(
+    wf['Qualification Screening Status'] || ''
+  ).toUpperCase();
+  // SAC-only hard-gate policy: a deterministic route is resolved when either
+  // the rule-engine result is conclusive OR the workflow has explicitly
+  // completed screening with retained SAC flags. NO_MATCHING_RULE is therefore
+  // a completed screening outcome, not a pre-SAC blocker.
   const screeningResolved =
     !!screening &&
     !!recommendation &&
-    /RULE_MATCHED|MANUAL_SCREENING_COMPLETED|COMPLETED|COMPLETED_WITH_FLAGS/.test(screeningResult);
+    (
+      /RULE_MATCHED|MANUAL_SCREENING_COMPLETED|COMPLETED|COMPLETED_WITH_FLAGS/.test(screeningResult) ||
+      qualificationScreeningStatus === 'COMPLETED' ||
+      qualificationScreeningStatus === 'COMPLETED_WITH_FLAGS'
+    );
 
   const finalised = requestedFinal && screeningResolved;
   const reportHasFlags = manualRequired || unresolvedFlags.length > 0;
