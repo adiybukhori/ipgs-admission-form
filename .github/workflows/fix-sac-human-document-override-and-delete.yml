@@ -75,3 +75,5 @@ jobs:
           git add admin.html
           git diff --cached --quiet || git commit -m "Use one smart SAC add participant button"
           git push origin main
+
+# trigger-20260927-smart-sac-add
