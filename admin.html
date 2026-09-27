@@ -1112,11 +1112,11 @@
           <div class="field"><label>Meeting Time</label><input id="sacDetailTime" type="time" value="${esc(session['Meeting Time']||'10:00')}" ${isFinal?'disabled':''}></div>
           <div class="field"><label>Chairperson</label><input id="sacDetailChair" value="${esc(session['Chairperson']||'')}" ${isFinal?'disabled':''}></div>
           <div class="field"><label>Venue / Meeting Link</label><input id="sacDetailVenue" value="${esc(session['Venue / Meeting Link']||'')}" ${isFinal?'disabled':''}></div>
-        </div>${!isFinal?'<div style="margin-top:10px"><button class="ghost" type="button" onclick="saveSacSessionDetails()">Save SAC Details</button></div>':''}</section>
+        </div>${!isFinal?`<div style="margin-top:10px;display:flex;gap:8px;flex-wrap:wrap"><button class="ghost" type="button" onclick="saveSacSessionDetails()">Save SAC Details</button>${candidates.length===0&&cal!=='INVITED'?'<button class="ghost" type="button" style="color:#b42318;border-color:#f0b8b3" onclick="deleteSacSession()">Delete Session</button>':''}</div>`:''}</section>
 
         <section class="sac-session-section"><h4>2. Panel / Committee</h4><div class="hint">Panel names and roles are matched against SAC_COMMITTEE_MASTER. Update the panel list before sending invitation.</div><div class="sac-panel-list">${panelHtml}</div>${!isFinal?`<div class="field" style="margin-top:10px"><label>Panel / Committee Emails</label><textarea id="sacDetailCommittee" rows="3" style="width:100%;border:1px solid #d7dce6;border-radius:12px;padding:12px 13px;resize:vertical">${esc(session['Committee Emails']||'')}</textarea></div><button class="ghost" type="button" onclick="saveSacSessionPanel()">Save Panel</button>`:''}</section>
 
-        <section class="sac-session-section"><h4>3. Participants</h4><div class="hint">Candidate count is derived from the actual V2_SAC_CANDIDATES records for this session.</div><div class="sac-participant-list">${participantHtml}</div>${!isFinal?`<div class="sac-workspace-actions" style="margin-top:10px"><select id="sacAddParticipant" class="compact"><option value="">Select Ready for SAC applicant</option>${eligibleOptions}</select><button class="primary" type="button" onclick="addSacParticipantFromDetail(false)" ${eligibleOptions?'':'disabled'}>+ Add Participant</button><button class="ghost" type="button" onclick="addSacParticipantFromDetail(true)" ${eligibleOptions?'':'disabled'}>Proceed with Pending Document</button></div>`:''}</section>
+        <section class="sac-session-section"><h4>3. Participants</h4><div class="hint">Candidate count is derived from the actual V2_SAC_CANDIDATES records for this session.</div><div class="sac-participant-list">${participantHtml}</div>${!isFinal?`<div class="sac-workspace-actions" style="margin-top:10px"><select id="sacAddParticipant" class="compact"><option value="">Select Ready for SAC applicant</option>${eligibleOptions}</select><button class="primary" type="button" onclick="addSacParticipantFromDetail(false)" ${eligibleOptions?'':'disabled'}>+ Add Participant</button><button class="ghost" type="button" onclick="confirmDocumentsAndAddSacParticipant()" ${eligibleOptions?'':'disabled'}>Confirm Documents Acceptable & Add</button></div>`:''}</section>
 
         <section class="sac-session-section"><h4>4. Invitation</h4><div class="sac-detail-grid"><div><span class="badge ${cal==='INVITED'?'green':'amber'}">${esc(pretty(cal))}</span><div class="subline">Invitation mode: ${esc(pretty(inviteMode))}</div></div><div class="subline">Sent at: ${esc(formatDate(session['Invitation Sent At']||'')||'-')}</div></div><div class="sac-workspace-actions" style="margin-top:10px"><button class="ghost" type="button" onclick="sendSacInviteFromDetail()" ${cal==='INVITED'||isFinal?'disabled':''}>Send SAC Invitation</button>${inviteMode==='DISABLED'?'<span class="badge amber">Invite engine currently DISABLED</span>':''}</div></section>
 
@@ -1150,6 +1150,44 @@
       sacDetailMsg(proceedWithPending?'Participant added with authorised pending-document exception. Refreshing…':'Participant added. Refreshing…','ok');
       setTimeout(()=>location.reload(),450);
     }
+    async function confirmDocumentsAndAddSacParticipant(){
+      const referenceNo=document.getElementById('sacAddParticipant')?.value||'';
+      if(!referenceNo)return sacDetailMsg('Select an applicant first.','error');
+      const applicant=records.find(r=>String(r.ref)===String(referenceNo));
+      const name=applicant?.app?.['Student Name']||referenceNo;
+      const reasonRaw=prompt('Human Document Confirmation\n\nAI has flagged a document issue. If you have checked the documents and they are acceptable for SAC, enter the reason / confirmation note. This will be audited.');
+      if(reasonRaw===null)return;
+      const reason=String(reasonRaw||'').trim();
+      if(reason.length<8)return sacDetailMsg('Enter a clear confirmation reason (minimum 8 characters).','error');
+      if(!confirm(`Confirm documents are acceptable for ${name} and add this applicant to SAC?\n\nThe original AI finding remains recorded. Human confirmation, reason, reviewer and timestamp will be audited.`))return;
+      let listed=await runSacPageAction('v2ListOpenHumanTasks',{},null);
+      if(!listed)return;
+      let task=(listed.tasks||[]).find(t=>String(t['Reference No']||'')===String(referenceNo)&&String(t['Task Type']||'').toUpperCase()==='DOCUMENT_QUALITY_REVIEW');
+      if(!task){
+        const created=await runSacPageAction('v2CreateHumanTask',{referenceNo,taskType:'DOCUMENT_QUALITY_REVIEW',title:'Human confirmation of document acceptability for SAC',reason:'Registry reviewed the AI document-quality flag and is deciding whether the documents are acceptable for SAC.',raisedByAgent:'Admin Portal V2',agentId:'COMPLIANCE',priority:'NORMAL',assignedTo:'Registry / Authorised Reviewer',resumeEvent:'HUMAN_TASK_COMPLETED',source:'ADMIN_PORTAL_V2'},null);
+        if(!created)return;
+        task=created.task||null;
+      }
+      const taskId=task?.['Task ID']||task?.taskId||'';
+      if(!taskId)return sacDetailMsg('Unable to create or locate the human review task.','error');
+      const resolved=await runSacPageAction('v2ResolveHumanTask',{taskId,decision:'APPROVE',notes:reason,resolution:{documentQualityDecision:'APPROVED_TO_PROCEED',qualityNotes:reason}},null);
+      if(!resolved)return;
+      const added=await runSacPageAction('v2AssignSacCandidate',{referenceNo,sessionId:sacDetailSessionId},null);
+      if(!added)return;
+      sacDetailMsg('Documents confirmed acceptable by human review. Applicant added to SAC; original AI finding remains on record.','ok');
+      setTimeout(()=>location.reload(),650);
+    }
+
+    async function deleteSacSession(){
+      if(!sacDetailSessionId)return;
+      if(!confirm('Delete this SAC session?\n\nOnly an empty, non-finalised session with no sent calendar invitation can be deleted. This action is audited.'))return;
+      const result=await runSacPageAction('v2DeleteSacSessionManual',{sessionId:sacDetailSessionId},null);
+      if(!result)return;
+      closeSacSessionDetail();
+      sacPageMsg('SAC session deleted.','ok');
+      setTimeout(()=>location.reload(),450);
+    }
+
     async function sendSacInviteFromDetail(){
       const result=await runSacPageAction('v2SendSacCalendarInvitationManual',{sessionId:sacDetailSessionId},'Send the SAC calendar invitation to the configured panel members?');
       if(!result)return;
