@@ -24,44 +24,46 @@ jobs:
           python3 - <<'PY'
           from pathlib import Path
 
-          # ---------- api/sac-pack.js ----------
-          p=Path('api/sac-pack.js')
-          s=p.read_text(encoding='utf-8')
-          old="""    const fileName = `${safe}_SAC-Print-Pack.pdf`;\n\n    res.setHeader('Content-Type', 'application/pdf');"""
-          new="""    const fileName = `${safe}_SAC-Print-Pack.pdf`;\n\n    // Persist the merged pack in the session's Drive folder before returning it.\n    const savedResponse = await callV2('v2SaveSacPackPdf', {\n      sessionId,\n      fileName,\n      base64: Buffer.from(bytes).toString('base64')\n    }, password);\n    const saved = savedResponse?.result || savedResponse || {};\n\n    res.setHeader('X-SAC-Pack-URL', String(saved.fileUrl || ''));\n    res.setHeader('X-SAC-Folder-URL', String(saved.folderUrl || ''));\n    res.setHeader('Content-Type', 'application/pdf');"""
-          if old not in s and "v2SaveSacPackPdf" not in s:
+          p = Path('api/sac-pack.js')
+          s = p.read_text(encoding='utf-8')
+          old = "    const fileName = `${safe}_SAC-Print-Pack.pdf`;\n\n    res.setHeader('Content-Type', 'application/pdf');"
+          new = "    const fileName = `${safe}_SAC-Print-Pack.pdf`;\n\n    // Persist the merged pack in the session's Drive folder before returning it.\n    const savedResponse = await callV2('v2SaveSacPackPdf', {\n      sessionId,\n      fileName,\n      base64: Buffer.from(bytes).toString('base64')\n    }, password);\n    const saved = savedResponse?.result || savedResponse || {};\n\n    res.setHeader('X-SAC-Pack-URL', String(saved.fileUrl || ''));\n    res.setHeader('X-SAC-Folder-URL', String(saved.folderUrl || ''));\n    res.setHeader('Content-Type', 'application/pdf');"
+          if old in s:
+              s = s.replace(old, new, 1)
+          elif "v2SaveSacPackPdf" not in s:
               raise SystemExit('sac-pack API anchor not found')
-          s=s.replace(old,new,1)
-          p.write_text(s,encoding='utf-8')
+          p.write_text(s, encoding='utf-8')
 
-          # ---------- admin.html ----------
-          p=Path('admin.html')
-          s=p.read_text(encoding='utf-8')
+          p = Path('admin.html')
+          s = p.read_text(encoding='utf-8')
 
-          # Do not reload stale GViz data after PREPARE_PRINT_PACK. Keep current participant rows intact.
-          old="""        if(action==='v2AssignSacCandidate'&&result&&result.candidate){"""
-          new="""        if(action==='v2PrepareSacPack'){\n          // PREPARE_PRINT_PACK writes pack metadata but must not replace the live participant list\n          // with a temporarily stale GViz snapshot.\n          return result;\n        }\n        if(action==='v2AssignSacCandidate'&&result&&result.candidate){"""
-          if old in s and "action==='v2PrepareSacPack'" not in s:
-              s=s.replace(old,new,1)
+          assign_anchor = "        if(action==='v2AssignSacCandidate'&&result&&result.candidate){"
+          prepare_guard = "        if(action==='v2PrepareSacPack'){\n          // Keep live participant rows intact; GViz can lag immediately after pack preparation.\n          return result;\n        }\n"
+          if "action==='v2PrepareSacPack'" not in s:
+              if assign_anchor not in s:
+                  raise SystemExit('runSacPageAction anchor not found')
+              s = s.replace(assign_anchor, prepare_guard + assign_anchor, 1)
 
-          # Add progress bar styling if missing.
-          css_anchor=".sac-pack-card{width:min(760px,96vw);"
+          css_anchor = ".sac-pack-card{width:min(760px,96vw);"
           if 'sac-pack-progress-track' not in s:
-              css=""".sac-pack-progress-wrap{margin:10px 0 2px}.sac-pack-progress-track{height:10px;background:#eceff4;border-radius:999px;overflow:hidden}.sac-pack-progress-bar{height:100%;width:0%;background:linear-gradient(90deg,var(--purple),#765fcc);transition:width .35s ease}.sac-pack-progress-label{font-size:11px;color:var(--muted);margin-top:6px;font-weight:700}\n    """
-              s=s.replace(css_anchor,css+css_anchor,1)
+              css = ".sac-pack-progress-wrap{margin:10px 0 2px}.sac-pack-progress-track{height:10px;background:#eceff4;border-radius:999px;overflow:hidden}.sac-pack-progress-bar{height:100%;width:0%;background:linear-gradient(90deg,var(--purple),#765fcc);transition:width .35s ease}.sac-pack-progress-label{font-size:11px;color:var(--muted);margin-top:6px;font-weight:700}\n    "
+              if css_anchor not in s:
+                  raise SystemExit('SAC pack CSS anchor not found')
+              s = s.replace(css_anchor, css + css_anchor, 1)
 
-          # Replace generation status block with progress-aware version.
-          old="""      const btn=document.getElementById('sacPackGenerateBtn');if(btn){btn.disabled=true;btn.textContent='Generating merged PDF…'}\n      sacPackModalMsg(`Preparing one merged PDF for ${selectedCount} candidate(s)…`,'info');\n      try{\n        const res=await fetch(SAC_PACK_API,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({password,sessionId:sacPackState.sessionId,choices})});\n        if(!res.ok){const err=await res.json().catch(()=>({message:'Unable to generate SAC pack.'}));throw new Error(err.message||'Unable to generate SAC pack.')}\n        const blob=await res.blob(),url=URL.createObjectURL(blob);let w=null;try{w=window.open(url,'_blank')}catch(_){}\n        if(!w){const a=document.createElement('a');a.href=url;a.target='_blank';a.rel='noopener';a.click()}\n        sacPackModalMsg('Merged SAC Pack generated. The PDF has opened for printing.','ok');"""
-          new="""      const btn=document.getElementById('sacPackGenerateBtn');if(btn){btn.disabled=true;btn.textContent='Generating merged PDF…'}\n      const msg=document.getElementById('sacPackMessage');\n      if(msg){msg.innerHTML=`<div class=\"sac-pack-progress-wrap\"><div class=\"sac-pack-progress-track\"><div id=\"sacPackProgressBar\" class=\"sac-pack-progress-bar\"></div></div><div id=\"sacPackProgressLabel\" class=\"sac-pack-progress-label\">Starting…</div></div>`;msg.style.display='block';}\n      const setProgress=(pct,label)=>{const bar=document.getElementById('sacPackProgressBar'),lab=document.getElementById('sacPackProgressLabel');if(bar)bar.style.width=Math.max(0,Math.min(100,pct))+'%';if(lab)lab.textContent=label||''};\n      setProgress(8,'Preparing candidate manifest…');\n      let progressTimer=setInterval(()=>{const bar=document.getElementById('sacPackProgressBar');if(!bar)return;const cur=parseInt(bar.style.width||'8',10)||8;if(cur<82)setProgress(cur+4,cur<30?'Collecting documents…':cur<58?'Merging PDF documents…':'Saving SAC pack to Drive…')},550);\n      try{\n        const res=await fetch(SAC_PACK_API,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({password,sessionId:sacPackState.sessionId,choices})});\n        clearInterval(progressTimer);progressTimer=null;\n        if(!res.ok){const err=await res.json().catch(()=>({message:'Unable to generate SAC pack.'}));throw new Error(err.message||'Unable to generate SAC pack.')}\n        setProgress(92,'Finalising PDF and Drive record…');\n        const packUrl=res.headers.get('X-SAC-Pack-URL')||'';\n        const folderUrl=res.headers.get('X-SAC-Folder-URL')||'';\n        const blob=await res.blob(),url=URL.createObjectURL(blob);let w=null;try{w=window.open(url,'_blank')}catch(_){}\n        if(!w){const a=document.createElement('a');a.href=url;a.target='_blank';a.rel='noopener';a.click()}\n        setProgress(100,'Completed');\n        const links=[packUrl?`<a class=\"link\" target=\"_blank\" href=\"${esc(packUrl)}\">Open saved SAC Pack</a>`:'',folderUrl?`<a class=\"link\" target=\"_blank\" href=\"${esc(folderUrl)}\">Open SAC Folder</a>`:''].filter(Boolean).join(' · ');\n        sacPackModalMsg(`Merged SAC Pack generated and saved to Drive.${links?' '+links:''}`,'ok');"""
-          if old not in s and 'Open saved SAC Pack' not in s:
+          old_gen = "      const btn=document.getElementById('sacPackGenerateBtn');if(btn){btn.disabled=true;btn.textContent='Generating merged PDF…'}\n      sacPackModalMsg(`Preparing one merged PDF for ${selectedCount} candidate(s)…`,'info');\n      try{\n        const res=await fetch(SAC_PACK_API,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({password,sessionId:sacPackState.sessionId,choices})});\n        if(!res.ok){const err=await res.json().catch(()=>({message:'Unable to generate SAC pack.'}));throw new Error(err.message||'Unable to generate SAC pack.')}\n        const blob=await res.blob(),url=URL.createObjectURL(blob);let w=null;try{w=window.open(url,'_blank')}catch(_){}\n        if(!w){const a=document.createElement('a');a.href=url;a.target='_blank';a.rel='noopener';a.click()}\n        sacPackModalMsg('Merged SAC Pack generated. The PDF has opened for printing.','ok');"
+          new_gen = "      const btn=document.getElementById('sacPackGenerateBtn');if(btn){btn.disabled=true;btn.textContent='Generating merged PDF…'}\n      const msg=document.getElementById('sacPackMessage');\n      if(msg){msg.innerHTML=`<div class=\"sac-pack-progress-wrap\"><div class=\"sac-pack-progress-track\"><div id=\"sacPackProgressBar\" class=\"sac-pack-progress-bar\"></div></div><div id=\"sacPackProgressLabel\" class=\"sac-pack-progress-label\">Starting…</div></div>`;msg.style.display='block';}\n      const setProgress=(pct,label)=>{const bar=document.getElementById('sacPackProgressBar'),lab=document.getElementById('sacPackProgressLabel');if(bar)bar.style.width=Math.max(0,Math.min(100,pct))+'%';if(lab)lab.textContent=label||''};\n      setProgress(8,'Preparing candidate manifest…');\n      let progressTimer=setInterval(()=>{const bar=document.getElementById('sacPackProgressBar');if(!bar)return;const cur=parseInt(bar.style.width||'8',10)||8;if(cur<82)setProgress(cur+4,cur<30?'Collecting documents…':cur<58?'Merging PDF documents…':'Saving SAC pack to Drive…')},550);\n      try{\n        const res=await fetch(SAC_PACK_API,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({password,sessionId:sacPackState.sessionId,choices})});\n        clearInterval(progressTimer);progressTimer=null;\n        if(!res.ok){const err=await res.json().catch(()=>({message:'Unable to generate SAC pack.'}));throw new Error(err.message||'Unable to generate SAC pack.')}\n        setProgress(92,'Finalising PDF and Drive record…');\n        const packUrl=res.headers.get('X-SAC-Pack-URL')||'';\n        const folderUrl=res.headers.get('X-SAC-Folder-URL')||'';\n        const blob=await res.blob(),url=URL.createObjectURL(blob);let w=null;try{w=window.open(url,'_blank')}catch(_){}\n        if(!w){const a=document.createElement('a');a.href=url;a.target='_blank';a.rel='noopener';a.click()}\n        setProgress(100,'Completed');\n        const links=[packUrl?`<a class=\"link\" target=\"_blank\" href=\"${esc(packUrl)}\">Open saved SAC Pack</a>`:'',folderUrl?`<a class=\"link\" target=\"_blank\" href=\"${esc(folderUrl)}\">Open SAC Folder</a>`:''].filter(Boolean).join(' · ');\n        sacPackModalMsg(`Merged SAC Pack generated and saved to Drive.${links?' '+links:''}`,'ok');"
+          if old_gen in s:
+              s = s.replace(old_gen, new_gen, 1)
+          elif 'Open saved SAC Pack' not in s:
               raise SystemExit('SAC generate block anchor not found')
-          s=s.replace(old,new,1)
 
-          # Ensure timer is cleared on error/finally.
-          s=s.replace("      }catch(e){sacPackModalMsg(e.message||'Unable to generate SAC pack.','error')}\n      finally{if(btn){btn.disabled=false;btn.textContent='Generate & Print SAC Pack'}}",
-                      "      }catch(e){if(progressTimer){clearInterval(progressTimer);progressTimer=null} sacPackModalMsg(e.message||'Unable to generate SAC pack.','error')}\n      finally{if(btn){btn.disabled=false;btn.textContent='Generate & Print SAC Pack'}}",1)
+          old_catch = "      }catch(e){sacPackModalMsg(e.message||'Unable to generate SAC pack.','error')}\n      finally{if(btn){btn.disabled=false;btn.textContent='Generate & Print SAC Pack'}}"
+          new_catch = "      }catch(e){if(progressTimer){clearInterval(progressTimer);progressTimer=null} sacPackModalMsg(e.message||'Unable to generate SAC pack.','error')}\n      finally{if(btn){btn.disabled=false;btn.textContent='Generate & Print SAC Pack'}}"
+          if old_catch in s:
+              s = s.replace(old_catch, new_catch, 1)
 
-          p.write_text(s,encoding='utf-8')
+          p.write_text(s, encoding='utf-8')
           PY
 
       - name: Validate main JavaScript
@@ -102,68 +104,50 @@ jobs:
           p=Path('apps-script-v2/SacPackV2.js')
           s=p.read_text(encoding='utf-8')
           if 'function v2SaveSacPackPdf_' not in s:
-              s += r'''
-
-function v2SaveSacPackPdf_(data, actor) {
-  assertDevIdentity_();
-  const sessionId = String(data && data.sessionId || '').trim();
-  const fileName = String(data && data.fileName || (sessionId + '_SAC-Print-Pack.pdf')).trim();
-  const base64 = String(data && data.base64 || '').trim();
-  if (!sessionId) throw new Error('SAC Session ID is required.');
-  if (!base64) throw new Error('Merged SAC Pack PDF data is required.');
-
-  const session = v2Find_('V2_SAC_SESSIONS','SAC Session ID',sessionId);
-  if (!session) throw new Error('SAC session not found.');
-
-  const sessionName = String(session.record['SAC Name'] || sessionId).trim();
-  const safeFolderName = (sessionId + ' - ' + sessionName).replace(/[\\/:*?\"<>|]+/g,'-').slice(0,140);
-  const root = DriveApp.getFolderById(CONFIG.rootFolderId);
-  let folder;
-  const folders = root.getFoldersByName(safeFolderName);
-  folder = folders.hasNext() ? folders.next() : root.createFolder(safeFolderName);
-
-  const existing = folder.getFilesByName(fileName);
-  while (existing.hasNext()) existing.next().setTrashed(true);
-
-  const bytes = Utilities.base64Decode(base64);
-  const blob = Utilities.newBlob(bytes, MimeType.PDF, fileName);
-  const file = folder.createFile(blob);
-  const now = new Date().toISOString();
-
-  const headers = V2_HEADERS.V2_SAC_SESSIONS.concat(V2_SAC_PACK_SESSION_HEADERS).concat([
-    'SAC Folder URL','SAC Pack URL','SAC Pack File ID','SAC Pack Generated At'
-  ]);
-  v2EnsureHeaders_(session.sheet, headers);
-  const folderUrl = 'https://drive.google.com/drive/folders/' + folder.getId();
-  const fileUrl = file.getUrl();
-  v2UpdateRow_(session.sheet, session.rowNumber, {
-    'SAC Folder URL': folderUrl,
-    'SAC Pack URL': fileUrl,
-    'SAC Pack File ID': file.getId(),
-    'SAC Pack Generated At': now,
-    'Last Updated': now
-  });
-
-  v2Audit_('', 'SAC', 'SAVE_PRINT_PACK', {}, {
-    sessionId: sessionId,
-    folderUrl: folderUrl,
-    fileUrl: fileUrl,
-    fileId: file.getId(),
-    fileName: fileName
-  }, actor || 'Admin Portal V2 - SAC Pack', 'SUCCESS', 'Merged SAC pack saved in dedicated SAC session folder.');
-  v2InvalidateCache_();
-  return {ok:true,sessionId:sessionId,folderUrl:folderUrl,fileUrl:fileUrl,fileId:file.getId(),fileName:fileName,savedAt:now};
-}
-'''
-              p.write_text(s,encoding='utf-8')
+              lines = [
+                  '',
+                  'function v2SaveSacPackPdf_(data, actor) {',
+                  '  assertDevIdentity_();',
+                  "  const sessionId = String(data && data.sessionId || '').trim();",
+                  "  const fileName = String(data && data.fileName || (sessionId + '_SAC-Print-Pack.pdf')).trim();",
+                  "  const base64 = String(data && data.base64 || '').trim();",
+                  "  if (!sessionId) throw new Error('SAC Session ID is required.');",
+                  "  if (!base64) throw new Error('Merged SAC Pack PDF data is required.');",
+                  "  const session = v2Find_('V2_SAC_SESSIONS','SAC Session ID',sessionId);",
+                  "  if (!session) throw new Error('SAC session not found.');",
+                  "  const sessionName = String(session.record['SAC Name'] || sessionId).trim();",
+                  "  const safeFolderName = (sessionId + ' - ' + sessionName).replace(/[\\\\/:*?\\\"<>|]+/g,'-').slice(0,140);",
+                  '  const root = DriveApp.getFolderById(CONFIG.rootFolderId);',
+                  '  const folders = root.getFoldersByName(safeFolderName);',
+                  '  const folder = folders.hasNext() ? folders.next() : root.createFolder(safeFolderName);',
+                  '  const existing = folder.getFilesByName(fileName);',
+                  '  while (existing.hasNext()) existing.next().setTrashed(true);',
+                  '  const bytes = Utilities.base64Decode(base64);',
+                  '  const blob = Utilities.newBlob(bytes, MimeType.PDF, fileName);',
+                  '  const file = folder.createFile(blob);',
+                  '  const now = new Date().toISOString();',
+                  "  const headers = V2_HEADERS.V2_SAC_SESSIONS.concat(V2_SAC_PACK_SESSION_HEADERS).concat(['SAC Folder URL','SAC Pack URL','SAC Pack File ID','SAC Pack Generated At']);",
+                  '  v2EnsureHeaders_(session.sheet, headers);',
+                  "  const folderUrl = 'https://drive.google.com/drive/folders/' + folder.getId();",
+                  '  const fileUrl = file.getUrl();',
+                  "  v2UpdateRow_(session.sheet, session.rowNumber, {'SAC Folder URL':folderUrl,'SAC Pack URL':fileUrl,'SAC Pack File ID':file.getId(),'SAC Pack Generated At':now,'Last Updated':now});",
+                  "  v2Audit_('', 'SAC', 'SAVE_PRINT_PACK', {}, {sessionId:sessionId,folderUrl:folderUrl,fileUrl:fileUrl,fileId:file.getId(),fileName:fileName}, actor || 'Admin Portal V2 - SAC Pack', 'SUCCESS', 'Merged SAC pack saved in dedicated SAC session folder.');",
+                  '  v2InvalidateCache_();',
+                  '  return {ok:true,sessionId:sessionId,folderUrl:folderUrl,fileUrl:fileUrl,fileId:file.getId(),fileName:fileName,savedAt:now};',
+                  '}',
+                  ''
+              ]
+              s += '\n'.join(lines)
+              p.write_text(s, encoding='utf-8')
 
           p=Path('apps-script-v2/WorkflowV2.js')
           s=p.read_text(encoding='utf-8')
           anchor="  if (action === 'v2GetSacPackFile') return v2GetSacPackFile_(payload.data || {});"
           if "v2SaveSacPackPdf" not in s:
-              if anchor not in s: raise SystemExit('Workflow dispatch anchor not found')
+              if anchor not in s:
+                  raise SystemExit('Workflow dispatch anchor not found')
               s=s.replace(anchor, anchor+"\n  if (action === 'v2SaveSacPackPdf') return v2SaveSacPackPdf_(payload.data || {}, payload.updatedBy);",1)
-              p.write_text(s,encoding='utf-8')
+              p.write_text(s, encoding='utf-8')
           PY
 
       - name: Validate Apps Script JavaScript
