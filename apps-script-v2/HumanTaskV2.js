@@ -140,13 +140,14 @@ function v2ResolveHumanTask_(data,actor){
     const wf=v2Find_('V2_WORKFLOW','Reference No',reference);
     if (!doc || !wf) throw new Error('Document review/workflow record not found for human quality resolution.');
 
-    const qualityDecision=String(
+    let qualityDecision=String(
       resolution.documentQualityDecision ||
-      (['APPROVE','CONFIRM','RESOLVED'].indexOf(decision)>-1 ? 'PASS' : 'FOLLOW_UP_REQUIRED')
+      (['APPROVE','CONFIRM','RESOLVED'].indexOf(decision)>-1 ? 'APPROVED_TO_PROCEED' : 'FOLLOW_UP_REQUIRED')
     ).toUpperCase();
-
-    if (['PASS','FOLLOW_UP_REQUIRED'].indexOf(qualityDecision)<0) {
-      throw new Error('Document quality resolution must be PASS or FOLLOW_UP_REQUIRED.');
+    // Backward compatibility for older callers that used PASS as the human decision.
+    if (qualityDecision==='PASS') qualityDecision='APPROVED_TO_PROCEED';
+    if (['APPROVED_TO_PROCEED','FOLLOW_UP_REQUIRED'].indexOf(qualityDecision)<0) {
+      throw new Error('Document quality human resolution must be APPROVED_TO_PROCEED or FOLLOW_UP_REQUIRED.');
     }
 
     const qualityNotes=String(
@@ -155,9 +156,26 @@ function v2ResolveHumanTask_(data,actor){
       input.notes ||
       input.resolutionNotes || ''
     ).trim();
+    if (!qualityNotes) throw new Error('Human document-quality resolution requires a reason / note.');
 
+    const originalAiStatus=String(doc.record['AI Quality Status']||'NOT_RUN').toUpperCase();
+    const currentStage=String(wf.record['Application Stage']||'').toUpperCase();
+    const reviewStatus=String(doc.record['Review Status']||wf.record['Document Review Status']||'').toUpperCase();
+    const approved=qualityDecision==='APPROVED_TO_PROCEED';
+
+    if (approved) {
+      if (reviewStatus!=='COMPLETE') {
+        throw new Error('Human quality override cannot bypass deterministic document completeness. Complete the required document review first.');
+      }
+      if (currentStage==='DOCUMENT_REVIEW') {
+        // Preflight the governed transition before writing any resolution fields.
+        v2AssertStageGate_(reference,'QUALIFICATION_SCREENING');
+      }
+    }
+
+    const workflowQualityStatus=approved ? 'HUMAN_OVERRIDE_APPROVED' : 'FOLLOW_UP_REQUIRED';
     v2UpdateRow_(doc.sheet,doc.rowNumber,{
-      'AI Quality Status':qualityDecision,
+      // Preserve AI Quality Status as the original AI finding. Human authority is recorded separately.
       'Human Quality Decision':qualityDecision,
       'Human Quality Notes':qualityNotes,
       'Human Quality Reviewed At':now,
@@ -165,36 +183,48 @@ function v2ResolveHumanTask_(data,actor){
       'Last Updated':now
     });
     v2UpdateRow_(wf.sheet,wf.rowNumber,{
-      'Document Quality Status':qualityDecision,
+      'Document Quality Status':workflowQualityStatus,
       'Document Quality Reviewed At':now,
       'Document Quality Reviewed By':resolvedBy,
       'Last Updated':now,
       'Updated By':resolvedBy
     });
 
+    let stageTransition=null;
+    if (approved && currentStage==='DOCUMENT_REVIEW') {
+      stageTransition=v2UpdateStage_({
+        referenceNo:reference,
+        stage:'QUALIFICATION_SCREENING',
+        remarks:'Authorised human document-quality exception. AI finding preserved; human reason: '+qualityNotes
+      },resolvedBy);
+    }
+
     documentQualityResolution={
-      status:qualityDecision,
+      status:workflowQualityStatus,
+      humanDecision:qualityDecision,
+      aiStatus:originalAiStatus,
       notes:qualityNotes,
-      nextAction:qualityDecision==='PASS' ? 'ADMISSION_INTELLIGENCE' : 'STUDENT_DOCUMENT_REPLACEMENT'
+      stageTransition:stageTransition,
+      nextAction:approved ? 'ADMISSION_INTELLIGENCE' : 'STUDENT_DOCUMENT_REPLACEMENT'
     };
 
     if (typeof v2EmitAgentEvent_==='function') {
       v2EmitAgentEvent_({
         referenceNo:reference,
-        eventType:qualityDecision==='PASS' ? 'DOCUMENT_QUALITY_PASSED' : 'DOCUMENT_REPLACEMENT_REQUIRED',
+        eventType:approved ? 'DOCUMENT_QUALITY_HUMAN_OVERRIDE_APPROVED' : 'DOCUMENT_REPLACEMENT_REQUIRED',
         agentId:'COMPLIANCE',
         agentName:'Compliance & Records Agent',
-        action:qualityDecision==='PASS' ? 'ROUTE_ADMISSION_INTELLIGENCE' : 'STUDENT_DOCUMENT_REPLACEMENT',
-        status:qualityDecision==='PASS' ? 'COMPLETED' : 'WAITING',
+        action:approved ? 'ROUTE_ADMISSION_INTELLIGENCE' : 'STUDENT_DOCUMENT_REPLACEMENT',
+        status:approved ? 'COMPLETED' : 'WAITING',
         fromStage:'DOCUMENT_REVIEW',
-        toStage:qualityDecision==='PASS' ? 'QUALIFICATION_SCREENING' : 'DOCUMENT_REVIEW',
+        toStage:approved ? 'QUALIFICATION_SCREENING' : 'DOCUMENT_REVIEW',
         requiresHuman:false,
         executionId:String(found.record['Related Execution ID']||''),
         source:'HUMAN_DECISION_DESK',
-        summary:qualityDecision==='PASS'
-          ? 'Authorised human review confirmed document quality. Route to Admission Intelligence.'
+        summary:approved
+          ? 'Authorised human exception approved progression to academic screening while preserving the AI document-quality finding.'
           : 'Authorised human review requires replacement document(s) before academic screening.',
-        data:{taskId:taskId,decision:decision,qualityDecision:qualityDecision,notes:qualityNotes}
+        data:{taskId:taskId,decision:decision,qualityDecision:qualityDecision,aiStatus:originalAiStatus,notes:qualityNotes}
       });
     }
   }
