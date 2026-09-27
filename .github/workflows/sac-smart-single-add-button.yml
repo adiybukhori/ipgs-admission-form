@@ -1,0 +1,87 @@
+name: SAC Smart Single Add Button
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/sac-smart-single-add-button.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+
+      - name: Patch SAC participant UI
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          p=Path('admin.html')
+          s=p.read_text()
+
+          old='''<button class="primary" type="button" onclick="addSacParticipantFromDetail(false)" ${eligibleOptions?'':'disabled'}>+ Add Participant</button><button class="ghost" type="button" onclick="confirmDocumentsAndAddSacParticipant()" ${eligibleOptions?'':'disabled'}>Confirm Documents Acceptable & Add</button>'''
+          new='''<button class="primary" type="button" onclick="smartAddSacParticipant()" ${eligibleOptions?'':'disabled'}>+ Add Participant</button>'''
+          if old not in s and 'onclick="smartAddSacParticipant()"' not in s:
+              raise SystemExit('participant button anchor not found')
+          s=s.replace(old,new)
+
+          anchor='''    async function confirmDocumentsAndAddSacParticipant(){\n'''
+          if 'async function smartAddSacParticipant()' not in s:
+              fn=r'''    async function smartAddSacParticipant(){
+      const referenceNo=document.getElementById('sacAddParticipant')?.value||'';
+      if(!referenceNo)return sacDetailMsg('Select an applicant first.','error');
+      const applicant=records.find(r=>String(r.ref)===String(referenceNo));
+      if(!applicant)return sacDetailMsg('Applicant record not found. Refresh and try again.','error');
+
+      const aiQuality=String(applicant.doc?.['AI Quality Status']||'').toUpperCase();
+      const replacement=String(applicant.doc?.['Replacement Request Status']||'').toUpperCase();
+      const humanDecision=String(applicant.doc?.['Human Quality Decision']||'').toUpperCase();
+      const workflowQuality=String(applicant.workflow?.['Document Quality Status']||'').toUpperCase();
+      const humanApproved=humanDecision==='APPROVED_TO_PROCEED'||workflowQuality==='HUMAN_OVERRIDE_APPROVED';
+      const needsHuman=!humanApproved&&(
+        ['HUMAN_REVIEW_REQUIRED','FOLLOW_UP_REQUIRED'].includes(aiQuality)||
+        replacement==='AWAITING_STUDENT'
+      );
+
+      if(needsHuman){
+        return confirmDocumentsAndAddSacParticipant();
+      }
+      return addSacParticipantFromDetail(false);
+    }
+
+'''
+              if anchor not in s:
+                  raise SystemExit('smart function insertion anchor not found')
+              s=s.replace(anchor,fn+anchor)
+
+          p.write_text(s)
+          PY
+
+      - name: Validate
+        run: |
+          node - <<'NODE'
+          const fs=require('fs');
+          const html=fs.readFileSync('admin.html','utf8');
+          const blocks=[...html.matchAll(/<script(?:\s[^>]*)?>([\s\S]*?)<\/script>/gi)].map(m=>m[1]).filter(s=>s.trim());
+          for(const block of blocks)new Function(block);
+          if(!html.includes('onclick="smartAddSacParticipant()"')) throw new Error('smart button missing');
+          if(!html.includes('async function smartAddSacParticipant()')) throw new Error('smart function missing');
+          if(html.includes('>Confirm Documents Acceptable & Add</button>')) throw new Error('duplicate override button still visible');
+          console.log('SMART_SAC_BUTTON_OK');
+          NODE
+
+      - name: Commit patch
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add admin.html
+          git diff --cached --quiet || git commit -m "Use one smart SAC add participant button"
+          git push origin main
