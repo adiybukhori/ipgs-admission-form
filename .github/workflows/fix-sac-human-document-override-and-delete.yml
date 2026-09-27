@@ -20,41 +20,48 @@ jobs:
           ref: main
           fetch-depth: 0
 
-      - name: Patch single smart SAC add button
+      - name: Align application and SAC participant assignment
         run: |
           python - <<'PY'
           from pathlib import Path
           p=Path('admin.html')
           s=p.read_text()
-          old='<button class="primary" type="button" onclick="addSacParticipantFromDetail(false)" ${eligibleOptions?\'\':\'disabled\'}>+ Add Participant</button><button class="ghost" type="button" onclick="confirmDocumentsAndAddSacParticipant()" ${eligibleOptions?\'\':\'disabled\'}>Confirm Documents Acceptable & Add</button>'
-          new='<button class="primary" type="button" onclick="smartAddSacParticipant()" ${eligibleOptions?\'\':\'disabled\'}>+ Add Participant</button>'
-          if old not in s and 'onclick="smartAddSacParticipant()"' not in s:
-              raise SystemExit('participant button anchor not found')
+
+          old="    function assignSacSession(){if(!selected)return;const el=document.getElementById('opsSacSession'),sessionId=el?.value||'';if(!sessionId)return opsMsg('Select a SAC session first.','error');runAdminAction('v2AssignSacCandidate',{referenceNo:selected.ref,sessionId},`Assign ${selected.app['Student Name']||selected.ref} to the selected SAC session?`)}"
+          new=r'''    async function assignSacSession(){
+      if(!selected)return;
+      const el=document.getElementById('opsSacSession'),sessionId=el?.value||'';
+      if(!sessionId)return opsMsg('Select a SAC session first.','error');
+      const aiQuality=String(selected.doc?.['AI Quality Status']||'').toUpperCase();
+      const replacement=String(selected.doc?.['Replacement Request Status']||'').toUpperCase();
+      const humanDecision=String(selected.doc?.['Human Quality Decision']||'').toUpperCase();
+      const workflowQuality=String(selected.workflow?.['Document Quality Status']||'').toUpperCase();
+      const humanApproved=humanDecision==='APPROVED_TO_PROCEED'||workflowQuality==='HUMAN_OVERRIDE_APPROVED';
+      const needsHuman=!humanApproved&&(['HUMAN_REVIEW_REQUIRED','FOLLOW_UP_REQUIRED'].includes(aiQuality)||replacement==='AWAITING_STUDENT');
+      if(needsHuman){
+        const reasonRaw=prompt('Human Document Confirmation\n\nAI has flagged a document issue. If you have checked the documents and they are acceptable for SAC, enter the reason / confirmation note. This will be audited.');
+        if(reasonRaw===null)return;
+        const reason=String(reasonRaw||'').trim();
+        if(reason.length<8)return opsMsg('Enter a clear confirmation reason (minimum 8 characters).','error');
+        if(!confirm(`Confirm documents are acceptable for ${selected.app['Student Name']||selected.ref} and assign this applicant to SAC?\n\nThe original AI finding remains recorded.`))return;
+        const listed=await runAdminAction('v2ListOpenHumanTasks',{},'');
+        if(!listed)return;
+        let task=(listed.tasks||[]).find(t=>String(t['Reference No']||'')===String(selected.ref)&&String(t['Task Type']||'').toUpperCase()==='DOCUMENT_QUALITY_REVIEW');
+        if(!task){
+          const created=await runAdminAction('v2CreateHumanTask',{referenceNo:selected.ref,taskType:'DOCUMENT_QUALITY_REVIEW',title:'Human confirmation of document acceptability for SAC',reason:'Registry reviewed the AI document-quality flag and is deciding whether the documents are acceptable for SAC.',raisedByAgent:'Admin Portal V2',agentId:'COMPLIANCE',priority:'NORMAL',assignedTo:'Registry / Authorised Reviewer',resumeEvent:'HUMAN_TASK_COMPLETED',source:'ADMIN_PORTAL_V2'},'');
+          if(!created)return;
+          task=created.task||null;
+        }
+        const taskId=task?.['Task ID']||task?.taskId||'';
+        if(!taskId)return opsMsg('Unable to create or locate the human review task.','error');
+        const resolved=await runAdminAction('v2ResolveHumanTask',{taskId,decision:'APPROVE',notes:reason,resolution:{documentQualityDecision:'APPROVED_TO_PROCEED',qualityNotes:reason}},'');
+        if(!resolved)return;
+      }
+      return runAdminAction('v2AssignSacCandidate',{referenceNo:selected.ref,sessionId},`Assign ${selected.app['Student Name']||selected.ref} to the selected SAC session?`);
+    }'''
+          if old not in s and 'async function assignSacSession()' not in s:
+              raise SystemExit('application SAC assign anchor not found')
           s=s.replace(old,new)
-          anchor="    async function confirmDocumentsAndAddSacParticipant(){\n"
-          if 'async function smartAddSacParticipant()' not in s:
-              lines=[
-                  "    async function smartAddSacParticipant(){",
-                  "      const referenceNo=document.getElementById('sacAddParticipant')?.value||'';",
-                  "      if(!referenceNo)return sacDetailMsg('Select an applicant first.','error');",
-                  "      const applicant=records.find(r=>String(r.ref)===String(referenceNo));",
-                  "      if(!applicant)return sacDetailMsg('Applicant record not found. Refresh and try again.','error');",
-                  "      const aiQuality=String(applicant.doc?.['AI Quality Status']||'').toUpperCase();",
-                  "      const replacement=String(applicant.doc?.['Replacement Request Status']||'').toUpperCase();",
-                  "      const humanDecision=String(applicant.doc?.['Human Quality Decision']||'').toUpperCase();",
-                  "      const workflowQuality=String(applicant.workflow?.['Document Quality Status']||'').toUpperCase();",
-                  "      const humanApproved=humanDecision==='APPROVED_TO_PROCEED'||workflowQuality==='HUMAN_OVERRIDE_APPROVED';",
-                  "      const needsHuman=!humanApproved&&(['HUMAN_REVIEW_REQUIRED','FOLLOW_UP_REQUIRED'].includes(aiQuality)||replacement==='AWAITING_STUDENT');",
-                  "      if(needsHuman)return confirmDocumentsAndAddSacParticipant();",
-                  "      return addSacParticipantFromDetail(false);",
-                  "    }",
-                  "",
-                  ""
-              ]
-              fn="\n".join(lines)
-              if anchor not in s:
-                  raise SystemExit('smart function anchor not found')
-              s=s.replace(anchor,fn+anchor)
           p.write_text(s)
           PY
 
@@ -65,10 +72,9 @@ jobs:
           const html=fs.readFileSync('admin.html','utf8');
           const blocks=[...html.matchAll(/<script(?:\s[^>]*)?>([\s\S]*?)<\/script>/gi)].map(m=>m[1]).filter(s=>s.trim());
           for(const block of blocks)new Function(block);
-          if(!html.includes('onclick="smartAddSacParticipant()"')) throw new Error('smart button missing');
-          if(!html.includes('async function smartAddSacParticipant()')) throw new Error('smart function missing');
-          if(html.includes('>Confirm Documents Acceptable & Add</button>')) throw new Error('second visible add button remains');
-          console.log('SMART_SAC_ADD_OK');
+          if(!html.includes('async function assignSacSession()')) throw new Error('smart application SAC assignment missing');
+          if(!html.includes("documentQualityDecision:'APPROVED_TO_PROCEED'")) throw new Error('human document confirmation missing');
+          console.log('APPLICATION_SAC_ASSIGN_OK');
           NODE
 
       - name: Commit main patch
@@ -76,5 +82,5 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add admin.html
-          git diff --cached --quiet || git commit -m "Use one smart SAC add participant button"
+          git diff --cached --quiet || git commit -m "Use smart human override when assigning SAC from application"
           git push origin main
