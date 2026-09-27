@@ -89,7 +89,7 @@ function v2SendDocumentReplacementRequest_(data,actor) {
   const subject='[IUC IPGS] Document Replacement Required - '+reference;
   const textBody=
     'Dear '+student+',\n\n'+
-    'During the quality review of your admission documents, one or more files require replacement before academic screening can continue.\n\n'+
+    'During the quality review of your admission documents, one or more files require replacement. Academic screening may continue in parallel, but the pending document must be resolved before SAC unless an authorised SAC exception is recorded.\n\n'+
     requested.map(function(item){return '- '+item.label+': '+item.instruction;}).join('\n')+
     '\n\nSecure upload link:\n'+uploadUrl+
     '\n\nReference: '+reference+'\nProgramme: '+programme+'\n\nIPGS Registry\nInnovative University College';
@@ -97,7 +97,7 @@ function v2SendDocumentReplacementRequest_(data,actor) {
   const htmlBody='<div style="font-family:Arial,sans-serif;max-width:680px;margin:auto;border:1px solid #e5e7eb;border-radius:16px;overflow:hidden">'+
     '<div style="background:#2d2363;color:#fff;padding:22px"><h2 style="margin:0">Document Replacement Required</h2></div>'+
     '<div style="padding:24px"><p>Dear <strong>'+v2Html_(student)+'</strong>,</p>'+
-    '<p>During the quality review of your admission documents, one or more files need to be replaced before academic screening can continue.</p>'+
+    '<p>During the quality review of your admission documents, one or more files need to be replaced. Academic screening may continue in parallel, but the pending document must be resolved before SAC unless an authorised SAC exception is recorded.</p>'+
     requestHtml+
     '<div style="margin:20px 0"><a href="'+v2Html_(uploadUrl)+'" style="display:inline-block;background:#2d2363;color:#fff;text-decoration:none;padding:12px 18px;border-radius:10px;font-weight:700">Upload Replacement Document(s)</a></div>'+
     '<p style="font-size:12px;color:#6f7581"><strong>Reference:</strong> '+v2Html_(reference)+'<br><strong>Programme:</strong> '+v2Html_(programme)+'</p>'+
@@ -172,9 +172,6 @@ function v2SendMissingDocumentRequest_(data,actor) {
   if(!app||!wf||!doc)throw new Error('Application/workflow/document review record not found.');
 
   const reviewStatus=String(doc.record['Review Status']||wf.record['Document Review Status']||'').toUpperCase();
-  if(reviewStatus!=='INCOMPLETE'){
-    throw new Error('Missing-document request is only available when Document Review Status is INCOMPLETE.');
-  }
 
   let missing=[];
   try{missing=JSON.parse(String(doc.record['Missing Documents JSON']||'[]'));}catch(_){missing=[];}
@@ -211,7 +208,7 @@ function v2SendMissingDocumentRequest_(data,actor) {
   const subject='[IUC IPGS] Missing Admission Document(s) Required - '+reference;
   const textBody=
     'Dear '+student+',\n\n'+
-    'Your admission application was received successfully. Before academic screening can continue, please provide the required document(s) listed below.\n\n'+
+    'Your admission application was received successfully. Please provide the required document(s) listed below. Academic screening may continue in parallel, but the pending document must be resolved before SAC unless an authorised SAC exception is recorded.\n\n'+
     requested.map(function(item){return '- '+item.label+': '+item.instruction;}).join('\n')+
     '\n\nSecure upload link:\n'+uploadUrl+
     '\n\nReference: '+reference+'\nProgramme: '+programme+'\n\nIPGS Registry\nInnovative University College';
@@ -219,7 +216,7 @@ function v2SendMissingDocumentRequest_(data,actor) {
   const htmlBody='<div style="font-family:Arial,sans-serif;max-width:680px;margin:auto;border:1px solid #e5e7eb;border-radius:16px;overflow:hidden">'+
     '<div style="background:#2d2363;color:#fff;padding:22px"><h2 style="margin:0">Missing Admission Document(s)</h2></div>'+
     '<div style="padding:24px"><p>Dear <strong>'+v2Html_(student)+'</strong>,</p>'+
-    '<p>Your application has been received. Before academic screening can continue, please provide the required document(s) below.</p>'+
+    '<p>Your application has been received. Please provide the required document(s) below. Academic screening may continue in parallel, but the pending document must be resolved before SAC unless an authorised SAC exception is recorded.</p>'+
     requestHtml+
     '<div style="margin:20px 0"><a href="'+v2Html_(uploadUrl)+'" style="display:inline-block;background:#2d2363;color:#fff;text-decoration:none;padding:12px 18px;border-radius:10px;font-weight:700">Upload Required Document(s)</a></div>'+
     '<p style="font-size:12px;color:#6f7581"><strong>Reference:</strong> '+v2Html_(reference)+'<br><strong>Programme:</strong> '+v2Html_(programme)+'</p>'+
