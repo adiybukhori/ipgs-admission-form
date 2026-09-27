@@ -61,7 +61,32 @@ function v2PrepareSacPack_(data, actor) {
     const reference = String(candidate.record['Reference No'] || '').trim();
     if (!reference) throw new Error('SAC candidate is missing Reference No.');
 
-    const form = v2GeneratePgEligibilityPdf_(reference, sessionId, preparedBy);
+    // V2_SAC_PACK_REUSE_EXISTING_FORM_V1
+    // Reuse the already-prepared controlled PG-ADM-01 when it is still present
+    // and on the current form version. Re-generating this Google Doc/PDF on
+    // every Print Pack click was the main avoidable delay in SAC preparation.
+    let form = null;
+    const existingFormUrl = String(candidate.record['Form 01 URL'] || '').trim();
+    const existingFormId = v2SacPackExtractDriveId_(existingFormUrl);
+    const existingFormVersion = String(candidate.record['PG Eligibility Form Version'] || '').trim();
+    let canReuseForm = false;
+
+    if (existingFormId && existingFormVersion === V2_PG_ELIGIBILITY_FORM_VERSION) {
+      try {
+        const existingFormFile = DriveApp.getFileById(existingFormId);
+        canReuseForm = !existingFormFile.isTrashed();
+      } catch (ignore) {
+        canReuseForm = false;
+      }
+    }
+
+    if (canReuseForm) {
+      form = {url: existingFormUrl, reused: true};
+    } else {
+      form = v2GeneratePgEligibilityPdf_(reference, sessionId, preparedBy);
+      form.reused = false;
+    }
+
     const manifest = v2BuildSacCandidateManifest_(sessionId, reference, false);
 
     v2UpdateRow_(candidate.sheet, candidate.rowNumber, {
@@ -107,7 +132,7 @@ function v2PrepareSacPack_(data, actor) {
     candidateCount: resultCandidates.length,
     completeCount: completeCount,
     incompleteCount: incompleteCount
-  }, preparedBy, 'SUCCESS', 'PG-ADM-01 generated into student folders. No SAC decision recorded.');
+  }, preparedBy, 'SUCCESS', 'PG-ADM-01 prepared/reused in student folders. No SAC decision recorded.');
 
   v2InvalidateCache_();
 
