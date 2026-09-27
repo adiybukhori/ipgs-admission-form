@@ -58,6 +58,10 @@ jobs:
         continue-on-error: true
         run: clasp run-function v2OfferAcceptanceEndToEndControlledTest --json
 
+      - name: Acceptance pack controlled test
+        continue-on-error: true
+        run: clasp run-function v2AcceptancePackControlledTest --json
+
       - name: SAC pack controlled test
         continue-on-error: true
         run: clasp run-function v2SacPackControlledTest --json
