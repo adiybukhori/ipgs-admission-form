@@ -3,7 +3,8 @@ name: Patch SAC Session Management
 on:
   push:
     branches: [apps-script-v2-dev]
-    paths: ['.github/workflows/patch-sac-session-management.yml']
+    paths:
+      - '.github/workflows/patch-sac-session-management.yml'
 
 permissions:
   contents: write
@@ -17,100 +18,23 @@ jobs:
           ref: apps-script-v2-dev
           fetch-depth: 0
 
-      - name: Add manual SAC session update action
-        run: |
-          python3 - <<'PY'
-          from pathlib import Path
+      - name: Patch SAC session backend
+        run: python3 tools/patch-sac-session-backend.py
 
-          p = Path('apps-script-v2/SacManualPhase1V2.js')
-          text = p.read_text(encoding='utf-8')
-          if 'function v2UpdateSacSessionManual_' not in text:
-              anchor = "function v2SendSacCalendarInvitationManual_(data, actor) {"
-              if anchor not in text:
-                  raise SystemExit('SAC invitation function anchor not found')
-              fn = r'''function v2UpdateSacSessionManual_(data, actor) {
-  assertDevIdentity_();
-  v2SacManualEnsureSchema_();
-
-  const sessionId = v2Required_(data.sessionId, 'SAC Session ID');
-  const session = v2Find_('V2_SAC_SESSIONS', 'SAC Session ID', sessionId);
-  if (!session) throw new Error('SAC session not found.');
-
-  const status = String(session.record['Status'] || '').toUpperCase();
-  if (status === 'FINALISED' || session.record['Finalised At']) {
-    throw new Error('Finalised SAC session cannot be edited.');
-  }
-
-  const calendarStatus = String(session.record['Calendar Status'] || '').toUpperCase();
-  const eventId = String(session.record['Calendar Event ID'] || '').trim();
-  const changingScheduleOrPanel =
-    Object.prototype.hasOwnProperty.call(data, 'meetingDate') ||
-    Object.prototype.hasOwnProperty.call(data, 'meetingTime') ||
-    Object.prototype.hasOwnProperty.call(data, 'venueLink') ||
-    Object.prototype.hasOwnProperty.call(data, 'venue') ||
-    Object.prototype.hasOwnProperty.call(data, 'committeeEmails');
-
-  if (eventId && calendarStatus === 'INVITED' && changingScheduleOrPanel) {
-    throw new Error('This SAC calendar invitation has already been sent. Update/reschedule of an invited meeting is not enabled yet.');
-  }
-
-  const updates = {};
-  if (Object.prototype.hasOwnProperty.call(data, 'name')) {
-    updates['SAC Name'] = v2Required_(data.name, 'SAC Name');
-  }
-  if (Object.prototype.hasOwnProperty.call(data, 'meetingDate')) {
-    updates['Meeting Date'] = v2Required_(data.meetingDate, 'Meeting Date');
-  }
-  if (Object.prototype.hasOwnProperty.call(data, 'meetingTime')) {
-    updates['Meeting Time'] = String(data.meetingTime || '10:00').trim();
-  }
-  if (Object.prototype.hasOwnProperty.call(data, 'chairperson')) {
-    updates['Chairperson'] = String(data.chairperson || '').trim();
-  }
-  if (Object.prototype.hasOwnProperty.call(data, 'venueLink') || Object.prototype.hasOwnProperty.call(data, 'venue')) {
-    updates['Venue / Meeting Link'] = String(data.venueLink || data.venue || '').trim();
-  }
-  if (Object.prototype.hasOwnProperty.call(data, 'committeeEmails')) {
-    updates['Committee Emails'] = v2SacManualNormaliseEmails_(data.committeeEmails || []).join(', ');
-  }
-
-  updates['Last Updated'] = new Date().toISOString();
-  v2UpdateRow_(session.sheet, session.rowNumber, updates);
-  v2Audit_('', 'SAC', 'UPDATE_MANUAL_SESSION', session.record, updates, actor || 'Admin Portal V2', 'SUCCESS', 'SAC session details/panel updated.');
-  v2InvalidateCache_();
-
-  const refreshed = v2Find_('V2_SAC_SESSIONS', 'SAC Session ID', sessionId);
-  return {ok:true, session:refreshed ? refreshed.record : Object.assign({}, session.record, updates), v1Touched:false};
-}
-
-'''
-              text = text.replace(anchor, fn + anchor, 1)
-              p.write_text(text, encoding='utf-8')
-
-          p = Path('apps-script-v2/WorkflowV2.js')
-          text = p.read_text(encoding='utf-8')
-          if "action === 'v2UpdateSacSessionManual'" not in text:
-              anchor = "  if (action === 'v2CreateSacSessionManual') return v2CreateSacSessionManual_(payload.data || {}, payload.updatedBy);\n"
-              if anchor not in text:
-                  raise SystemExit('Workflow manual SAC dispatch anchor not found')
-              text = text.replace(anchor, anchor + "  if (action === 'v2UpdateSacSessionManual') return v2UpdateSacSessionManual_(payload.data || {}, payload.updatedBy);\n", 1)
-              p.write_text(text, encoding='utf-8')
-          PY
-
-      - name: Syntax check
+      - name: Validate Apps Script JavaScript
         run: |
           node --check apps-script-v2/SacManualPhase1V2.js
           node --check apps-script-v2/WorkflowV2.js
 
-      - name: Commit backend changes
+      - name: Commit patched backend
         run: |
-          if git diff --quiet -- apps-script-v2/SacManualPhase1V2.js apps-script-v2/WorkflowV2.js; then
-            echo 'No source changes required.'
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add apps-script-v2/SacManualPhase1V2.js apps-script-v2/WorkflowV2.js
+          if git diff --cached --quiet; then
+            echo "No backend source changes required."
           else
-            git config user.name 'github-actions[bot]'
-            git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
-            git add apps-script-v2/SacManualPhase1V2.js apps-script-v2/WorkflowV2.js
-            git commit -m 'Add SAC session detail and panel update action'
+            git commit -m "Add SAC session detail and panel update action"
             git push origin apps-script-v2-dev
           fi
 
@@ -125,7 +49,7 @@ jobs:
           printf '%s' "$CLASPRC_JSON" > "$HOME/.clasprc.json"
           chmod 600 "$HOME/.clasprc.json"
 
-      - name: Verify target and deploy
+      - name: Verify target and redeploy existing V2 app
         env:
           V2_DEPLOYMENT_ID: AKfycbxasT_HgtRSvTbR_bsa8p17Cm-C2PKn20Ok1kU-AyJmxiKX8kX5EGOtRLwVwNlAL7JB
         run: |
@@ -133,6 +57,6 @@ jobs:
           clasp push --force
           clasp create-deployment --deploymentId "$V2_DEPLOYMENT_ID" --description "Admission V2 SAC session workspace management"
 
-      - name: Cleanup
+      - name: Cleanup clasp credential
         if: always()
         run: rm -f "$HOME/.clasprc.json"
