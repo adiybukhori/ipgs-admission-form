@@ -1,0 +1,75 @@
+name: Fix SAC Session Membership From Workflow
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/fix-sac-session-membership-from-workflow.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+      - name: Patch authoritative SAC membership merge
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          p=Path('api/admin-data.js')
+          s=p.read_text(encoding='utf-8')
+          marker="  // V1 has been migrated into the unified V2 operational tables."
+          block="""  // SAC_WORKFLOW_MEMBERSHIP_REPAIR_V1
+  // A candidate can already be in SAC_REVIEW with a SAC Session ID even when
+  // an eventually-consistent candidate feed is behind. Merge those workflow
+  // memberships into the candidate list so session counts never fall to zero.
+  if (Array.isArray(data.V2_WORKFLOW)) {
+    const current = Array.isArray(data.V2_SAC_CANDIDATES) ? data.V2_SAC_CANDIDATES.slice() : [];
+    const apps = Array.isArray(data.V2_APPLICATIONS) ? data.V2_APPLICATIONS : [];
+    const existing = new Set(current.map(r => String(r['Reference No'] || '').trim()).filter(Boolean));
+    for (const w of data.V2_WORKFLOW) {
+      const sessionId = String(w['SAC Session ID'] || w['Session ID'] || '').trim();
+      const ref = String(w['Reference No'] || '').trim();
+      const stage = String(w['Application Stage'] || w['Stage'] || '').trim().toUpperCase();
+      if (!sessionId || !ref || existing.has(ref)) continue;
+      if (stage !== 'SAC_REVIEW' && stage !== 'READY_FOR_SAC') continue;
+      const app = apps.find(a => String(a['Reference No'] || '').trim() === ref) || {};
+      current.push({
+        'SAC Session ID': sessionId,
+        'Reference No': ref,
+        'Student Name': String(app['Student Name'] || app['Name'] || w['Student Name'] || '').trim(),
+        'Programme': String(app['Programme'] || w['Programme'] || '').trim(),
+        'Screening Recommendation': String(w['Screening Recommendation'] || 'MANUAL_ACADEMIC_REVIEW'),
+        'Decision': 'PENDING',
+        'Priority': 'NORMAL',
+        'Document Pack Status': String(w['Document Pack Status'] || '')
+      });
+      existing.add(ref);
+    }
+    data.V2_SAC_CANDIDATES = current;
+    if (ADMIN_DATA_CACHE.v2) ADMIN_DATA_CACHE.v2.V2_SAC_CANDIDATES = cloneCached(current);
+  }
+
+"""
+          if 'SAC_WORKFLOW_MEMBERSHIP_REPAIR_V1' not in s:
+              if marker not in s: raise SystemExit('marker missing')
+              s=s.replace(marker,block+marker,1)
+              p.write_text(s,encoding='utf-8')
+          PY
+      - name: Validate
+        run: |
+          node --check api/admin-data.js
+          grep -q 'SAC_WORKFLOW_MEMBERSHIP_REPAIR_V1' api/admin-data.js
+      - name: Commit
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add api/admin-data.js
+          git diff --cached --quiet || git commit -m 'Keep SAC session membership aligned with workflow state'
+          git push origin main
