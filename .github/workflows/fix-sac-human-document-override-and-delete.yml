@@ -20,72 +20,58 @@ jobs:
           ref: main
           fetch-depth: 0
 
-      - name: Patch Admin UI and API
-        run: python tools/fix-sac-admin-ui.py
-
-      - name: Validate Admin patch
+      - name: Patch single smart SAC add button
         run: |
-          node --check api/admin-action.js
-          node -e "const fs=require('fs');const h=fs.readFileSync('admin.html','utf8');for(const t of ['Confirm Documents Acceptable & Add','confirmDocumentsAndAddSacParticipant','deleteSacSession'])if(!h.includes(t))throw new Error(t+' missing');if(!fs.readFileSync('api/admin-action.js','utf8').includes('v2DeleteSacSessionManual'))throw new Error('delete action missing');"
+          python - <<'PY'
+          from pathlib import Path
+          p=Path('admin.html')
+          s=p.read_text()
+          old='''<button class="primary" type="button" onclick="addSacParticipantFromDetail(false)" ${eligibleOptions?'':'disabled'}>+ Add Participant</button><button class="ghost" type="button" onclick="confirmDocumentsAndAddSacParticipant()" ${eligibleOptions?'':'disabled'}>Confirm Documents Acceptable & Add</button>'''
+          new='''<button class="primary" type="button" onclick="smartAddSacParticipant()" ${eligibleOptions?'':'disabled'}>+ Add Participant</button>'''
+          if old not in s and 'onclick="smartAddSacParticipant()"' not in s:
+              raise SystemExit('participant button anchor not found')
+          s=s.replace(old,new)
+
+          anchor="    async function confirmDocumentsAndAddSacParticipant(){\n"
+          if 'async function smartAddSacParticipant()' not in s:
+              fn='''    async function smartAddSacParticipant(){
+      const referenceNo=document.getElementById('sacAddParticipant')?.value||'';
+      if(!referenceNo)return sacDetailMsg('Select an applicant first.','error');
+      const applicant=records.find(r=>String(r.ref)===String(referenceNo));
+      if(!applicant)return sacDetailMsg('Applicant record not found. Refresh and try again.','error');
+      const aiQuality=String(applicant.doc?.['AI Quality Status']||'').toUpperCase();
+      const replacement=String(applicant.doc?.['Replacement Request Status']||'').toUpperCase();
+      const humanDecision=String(applicant.doc?.['Human Quality Decision']||'').toUpperCase();
+      const workflowQuality=String(applicant.workflow?.['Document Quality Status']||'').toUpperCase();
+      const humanApproved=humanDecision==='APPROVED_TO_PROCEED'||workflowQuality==='HUMAN_OVERRIDE_APPROVED';
+      const needsHuman=!humanApproved&&(['HUMAN_REVIEW_REQUIRED','FOLLOW_UP_REQUIRED'].includes(aiQuality)||replacement==='AWAITING_STUDENT');
+      if(needsHuman)return confirmDocumentsAndAddSacParticipant();
+      return addSacParticipantFromDetail(false);
+    }
+
+'''
+              if anchor not in s: raise SystemExit('smart function anchor not found')
+              s=s.replace(anchor,fn+anchor)
+          p.write_text(s)
+          PY
+
+      - name: Validate admin
+        run: |
+          node - <<'NODE'
+          const fs=require('fs');
+          const html=fs.readFileSync('admin.html','utf8');
+          const blocks=[...html.matchAll(/<script(?:\s[^>]*)?>([\s\S]*?)<\/script>/gi)].map(m=>m[1]).filter(s=>s.trim());
+          for(const block of blocks)new Function(block);
+          if(!html.includes('onclick="smartAddSacParticipant()"')) throw new Error('smart button missing');
+          if(!html.includes('async function smartAddSacParticipant()')) throw new Error('smart function missing');
+          if(html.includes('>Confirm Documents Acceptable & Add</button>')) throw new Error('second visible add button remains');
+          console.log('SMART_SAC_ADD_OK');
+          NODE
 
       - name: Commit main patch
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add admin.html api/admin-action.js
-          git diff --cached --quiet || git commit -m "Fix SAC document override and add delete session UI"
+          git add admin.html
+          git diff --cached --quiet || git commit -m "Use one smart SAC add participant button"
           git push origin main
-
-      - name: Checkout Apps Script V2 branch
-        run: |
-          git fetch origin apps-script-v2-dev
-          git checkout -B apps-script-v2-dev origin/apps-script-v2-dev
-
-      - name: Patch Apps Script SAC logic
-        run: python tools/fix-sac-backend-human-doc-delete.py
-
-      - name: Validate Apps Script patch
-        run: |
-          node --check apps-script-v2/WorkflowV2.js
-          node --check apps-script-v2/SacManualPhase1V2.js
-          grep -F "humanQualityApproved" apps-script-v2/WorkflowV2.js
-          grep -F "function v2DeleteSacSessionManual_" apps-script-v2/SacManualPhase1V2.js
-          grep -F "v2DeleteSacSessionManual" apps-script-v2/WorkflowV2.js
-
-      - name: Commit Apps Script patch
-        run: |
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add apps-script-v2/WorkflowV2.js apps-script-v2/SacManualPhase1V2.js
-          git diff --cached --quiet || git commit -m "Respect human document confirmation at SAC and allow safe session deletion"
-          git push origin apps-script-v2-dev
-
-      - name: Verify clasp credential
-        env:
-          CLASPRC_JSON: ${{ secrets.CLASPRC_JSON }}
-        run: test -n "$CLASPRC_JSON"
-
-      - name: Install clasp
-        run: npm install --global @google/clasp@3.4.1
-
-      - name: Restore clasp credential
-        env:
-          CLASPRC_JSON: ${{ secrets.CLASPRC_JSON }}
-        run: |
-          printf '%s' "$CLASPRC_JSON" > "$HOME/.clasprc.json"
-          chmod 600 "$HOME/.clasprc.json"
-
-      - name: Verify locked V2 target
-        run: node tools/verify-clasp-target.mjs
-
-      - name: Push Apps Script source
-        run: clasp push -f
-
-      - name: Redeploy existing V2 web app
-        env:
-          V2_DEPLOYMENT_ID: AKfycbxasT_HgtRSvTbR_bsa8p17Cm-C2PKn20Ok1kU-AyJmxiKX8kX5EGOtRLwVwNlAL7JB
-        run: clasp create-deployment --deploymentId "$V2_DEPLOYMENT_ID" --description "SAC human doc confirmation and safe session delete"
-
-      - name: Remove clasp credential
-        if: always()
-        run: rm -f "$HOME/.clasprc.json"
