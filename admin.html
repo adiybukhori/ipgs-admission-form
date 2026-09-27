@@ -144,6 +144,7 @@
     @media(max-width:720px){.sac-detail-grid{grid-template-columns:1fr}.sac-detail-grid .full{grid-column:auto}.sac-session-modal{padding:0}.sac-session-card{width:100vw;max-height:100dvh;border-radius:0}}
     .sac-pack-modal{position:fixed;inset:0;z-index:80;background:rgba(18,24,38,.48);display:none;align-items:center;justify-content:center;padding:18px}
     .sac-pack-modal.open{display:flex}
+    .sac-pack-progress-wrap{margin:10px 0 2px}.sac-pack-progress-track{height:10px;background:#eceff4;border-radius:999px;overflow:hidden}.sac-pack-progress-bar{height:100%;width:0%;background:linear-gradient(90deg,var(--purple),#765fcc);transition:width .35s ease}.sac-pack-progress-label{font-size:11px;color:var(--muted);margin-top:6px;font-weight:700}
     .sac-pack-card{width:min(760px,96vw);max-height:90dvh;overflow:auto;background:#fff;border-radius:20px;box-shadow:0 20px 70px rgba(18,24,38,.25);border:1px solid var(--line)}
     .sac-pack-head{position:sticky;top:0;z-index:2;background:#fff;border-bottom:1px solid var(--line);padding:16px 18px;display:flex;align-items:flex-start;justify-content:space-between;gap:12px}
     .sac-pack-head h3{margin:0;font-size:17px}.sac-pack-head p{margin:4px 0 0;color:var(--muted);font-size:11px}
@@ -1669,6 +1670,10 @@
         const out=await res.json().catch(()=>({ok:false,message:'Invalid response from action service.'}));
         if(!res.ok||!out.ok)throw new Error(out.message||'Unable to complete SAC action.');
         const result=out.result||out;
+        if(action==='v2PrepareSacPack'){
+          // Keep live participant rows intact; GViz can lag immediately after pack preparation.
+          return result;
+        }
         if(action==='v2AssignSacCandidate'&&result&&result.candidate){
           const list=db.V2_SAC_CANDIDATES||(db.V2_SAC_CANDIDATES=[]);
           const candidate=result.candidate;
@@ -1749,16 +1754,26 @@
       const selectedCount=candidates.filter(c=>c.complete).length+choices.filter(x=>x.action==='PROCEED').length;
       if(!selectedCount)return sacPackModalMsg('No candidates selected for printing. Choose Proceed for at least one incomplete candidate or include a complete candidate.','error');
       const btn=document.getElementById('sacPackGenerateBtn');if(btn){btn.disabled=true;btn.textContent='Generating merged PDF…'}
-      sacPackModalMsg(`Preparing one merged PDF for ${selectedCount} candidate(s)…`,'info');
+      const msg=document.getElementById('sacPackMessage');
+      if(msg){msg.innerHTML=`<div class="sac-pack-progress-wrap"><div class="sac-pack-progress-track"><div id="sacPackProgressBar" class="sac-pack-progress-bar"></div></div><div id="sacPackProgressLabel" class="sac-pack-progress-label">Starting…</div></div>`;msg.style.display='block';}
+      const setProgress=(pct,label)=>{const bar=document.getElementById('sacPackProgressBar'),lab=document.getElementById('sacPackProgressLabel');if(bar)bar.style.width=Math.max(0,Math.min(100,pct))+'%';if(lab)lab.textContent=label||''};
+      setProgress(8,'Preparing candidate manifest…');
+      let progressTimer=setInterval(()=>{const bar=document.getElementById('sacPackProgressBar');if(!bar)return;const cur=parseInt(bar.style.width||'8',10)||8;if(cur<82)setProgress(cur+4,cur<30?'Collecting documents…':cur<58?'Merging PDF documents…':'Saving SAC pack to Drive…')},550);
       try{
         const res=await fetch(SAC_PACK_API,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({password,sessionId:sacPackState.sessionId,choices})});
+        clearInterval(progressTimer);progressTimer=null;
         if(!res.ok){const err=await res.json().catch(()=>({message:'Unable to generate SAC pack.'}));throw new Error(err.message||'Unable to generate SAC pack.')}
+        setProgress(92,'Finalising PDF and Drive record…');
+        const packUrl=res.headers.get('X-SAC-Pack-URL')||'';
+        const folderUrl=res.headers.get('X-SAC-Folder-URL')||'';
         const blob=await res.blob(),url=URL.createObjectURL(blob);let w=null;try{w=window.open(url,'_blank')}catch(_){}
         if(!w){const a=document.createElement('a');a.href=url;a.target='_blank';a.rel='noopener';a.click()}
-        sacPackModalMsg('Merged SAC Pack generated. The PDF has opened for printing.','ok');
+        setProgress(100,'Completed');
+        const links=[packUrl?`<a class="link" target="_blank" href="${esc(packUrl)}">Open saved SAC Pack</a>`:'',folderUrl?`<a class="link" target="_blank" href="${esc(folderUrl)}">Open SAC Folder</a>`:''].filter(Boolean).join(' · ');
+        sacPackModalMsg(`Merged SAC Pack generated and saved to Drive.${links?' '+links:''}`,'ok');
         setTimeout(()=>{try{if(w&&!w.closed){w.focus();w.print()}}catch(_){}},1400);
         setTimeout(()=>URL.revokeObjectURL(url),120000);
-      }catch(e){sacPackModalMsg(e.message||'Unable to generate SAC pack.','error')}
+      }catch(e){if(progressTimer){clearInterval(progressTimer);progressTimer=null} sacPackModalMsg(e.message||'Unable to generate SAC pack.','error')}
       finally{if(btn){btn.disabled=false;btn.textContent='Generate & Print SAC Pack'}}
     }
     function recordAssessmentResult(panelResult){if(!selected)return;runAdminAction('v2UpdateAssessment',{referenceNo:selected.ref,assessmentType:'INTERNAL_ASSESSMENT',sequence:1,component:'OVERALL',status:'COMPLETED',panelResult},`Confirm IA panel result: ${pretty(panelResult)}?`)}

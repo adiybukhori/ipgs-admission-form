@@ -161,6 +161,16 @@ export default async function handler(req, res) {
       .slice(0, 80) || 'SAC';
     const fileName = `${safe}_SAC-Print-Pack.pdf`;
 
+    // Persist the merged pack in the session's Drive folder before returning it.
+    const savedResponse = await callV2('v2SaveSacPackPdf', {
+      sessionId,
+      fileName,
+      base64: Buffer.from(bytes).toString('base64')
+    }, password);
+    const saved = savedResponse?.result || savedResponse || {};
+
+    res.setHeader('X-SAC-Pack-URL', String(saved.fileUrl || ''));
+    res.setHeader('X-SAC-Folder-URL', String(saved.folderUrl || ''));
     res.setHeader('Content-Type', 'application/pdf');
     res.setHeader('Content-Disposition', `inline; filename="${fileName}"`);
     res.setHeader('X-SAC-Candidate-Count', String(selected.length));
