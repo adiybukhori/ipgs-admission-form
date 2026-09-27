@@ -501,3 +501,33 @@ function v2SacPackSafeFileName_(value) {
     .replace(/^-|-$/g, '')
     .slice(0, 80) || 'STUDENT';
 }
+
+function v2SaveSacPackPdf_(data, actor) {
+  assertDevIdentity_();
+  const sessionId = String(data && data.sessionId || '').trim();
+  const fileName = String(data && data.fileName || (sessionId + '_SAC-Print-Pack.pdf')).trim();
+  const base64 = String(data && data.base64 || '').trim();
+  if (!sessionId) throw new Error('SAC Session ID is required.');
+  if (!base64) throw new Error('Merged SAC Pack PDF data is required.');
+  const session = v2Find_('V2_SAC_SESSIONS','SAC Session ID',sessionId);
+  if (!session) throw new Error('SAC session not found.');
+  const sessionName = String(session.record['SAC Name'] || sessionId).trim();
+  const safeFolderName = (sessionId + ' - ' + sessionName).replace(/[\\/:*?\"<>|]+/g,'-').slice(0,140);
+  const root = DriveApp.getFolderById(CONFIG.rootFolderId);
+  const folders = root.getFoldersByName(safeFolderName);
+  const folder = folders.hasNext() ? folders.next() : root.createFolder(safeFolderName);
+  const existing = folder.getFilesByName(fileName);
+  while (existing.hasNext()) existing.next().setTrashed(true);
+  const bytes = Utilities.base64Decode(base64);
+  const blob = Utilities.newBlob(bytes, MimeType.PDF, fileName);
+  const file = folder.createFile(blob);
+  const now = new Date().toISOString();
+  const headers = V2_HEADERS.V2_SAC_SESSIONS.concat(V2_SAC_PACK_SESSION_HEADERS).concat(['SAC Folder URL','SAC Pack URL','SAC Pack File ID','SAC Pack Generated At']);
+  v2EnsureHeaders_(session.sheet, headers);
+  const folderUrl = 'https://drive.google.com/drive/folders/' + folder.getId();
+  const fileUrl = file.getUrl();
+  v2UpdateRow_(session.sheet, session.rowNumber, {'SAC Folder URL':folderUrl,'SAC Pack URL':fileUrl,'SAC Pack File ID':file.getId(),'SAC Pack Generated At':now,'Last Updated':now});
+  v2Audit_('', 'SAC', 'SAVE_PRINT_PACK', {}, {sessionId:sessionId,folderUrl:folderUrl,fileUrl:fileUrl,fileId:file.getId(),fileName:fileName}, actor || 'Admin Portal V2 - SAC Pack', 'SUCCESS', 'Merged SAC pack saved in dedicated SAC session folder.');
+  v2InvalidateCache_();
+  return {ok:true,sessionId:sessionId,folderUrl:folderUrl,fileUrl:fileUrl,fileId:file.getId(),fileName:fileName,savedAt:now};
+}
