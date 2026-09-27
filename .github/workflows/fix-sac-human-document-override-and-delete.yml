@@ -26,21 +26,11 @@ jobs:
           from pathlib import Path
           p=Path('admin.html')
           s=p.read_text()
-
           old="const added=await runSacPageAction('v2AssignSacCandidate',{referenceNo,sessionId:sacDetailSessionId},null);"
           new="const added=await runSacPageAction('v2AssignSacCandidate',{referenceNo,sessionId:sacDetailSessionId,proceedWithPendingDocuments:true,confirmed:true,overrideBy:'Admin Portal V2'},null);"
           if old not in s and "sessionId:sacDetailSessionId,proceedWithPendingDocuments:true" not in s:
               raise SystemExit('SAC detail authorised insert anchor not found')
           s=s.replace(old,new)
-
-          # Application drawer: after human confirmation, make the final assignment carry the same authorised exception.
-          marker="const resolved=await runAdminAction('v2ResolveHumanTask',{taskId,decision:'APPROVE',notes:reason,resolution:{documentQualityDecision:'APPROVED_TO_PROCEED',qualityNotes:reason}},'');\n        if(!resolved)return;\n      }\n      return runAdminAction('v2AssignSacCandidate',{referenceNo:selected.ref,sessionId},`Assign ${selected.app['Student Name']||selected.ref} to the selected SAC session?`);"
-          replacement="const resolved=await runAdminAction('v2ResolveHumanTask',{taskId,decision:'APPROVE',notes:reason,resolution:{documentQualityDecision:'APPROVED_TO_PROCEED',qualityNotes:reason}},'');\n        if(!resolved)return;\n        return runAdminAction('v2AssignSacCandidate',{referenceNo:selected.ref,sessionId,proceedWithPendingDocuments:true,confirmed:true,overrideBy:'Admin Portal V2'},`Assign ${selected.app['Student Name']||selected.ref} to the selected SAC session?`);\n      }\n      return runAdminAction('v2AssignSacCandidate',{referenceNo:selected.ref,sessionId},`Assign ${selected.app['Student Name']||selected.ref} to the selected SAC session?`);"
-          if marker in s:
-              s=s.replace(marker,replacement)
-          elif "referenceNo:selected.ref,sessionId,proceedWithPendingDocuments:true" not in s:
-              raise SystemExit('application authorised insert anchor not found')
-
           p.write_text(s)
           PY
 
@@ -52,7 +42,6 @@ jobs:
           const blocks=[...html.matchAll(/<script(?:\s[^>]*)?>([\s\S]*?)<\/script>/gi)].map(m=>m[1]).filter(s=>s.trim());
           for(const block of blocks)new Function(block);
           if(!html.includes("sessionId:sacDetailSessionId,proceedWithPendingDocuments:true,confirmed:true,overrideBy:'Admin Portal V2'")) throw new Error('SAC detail override payload missing');
-          if(!html.includes("referenceNo:selected.ref,sessionId,proceedWithPendingDocuments:true,confirmed:true,overrideBy:'Admin Portal V2'")) throw new Error('application override payload missing');
           console.log('SAC_AUTHORISED_INSERT_OK');
           NODE
 
