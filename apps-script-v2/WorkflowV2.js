@@ -411,6 +411,7 @@ function handleV2Post_(payload) {
   if (action === 'v2RecordSacDecision') return v2RecordSacDecision_(payload.data || {}, payload.updatedBy);
   if (action === 'v2CreateSacSessionManual') return v2CreateSacSessionManual_(payload.data || {}, payload.updatedBy);
   if (action === 'v2UpdateSacSessionManual') return v2UpdateSacSessionManual_(payload.data || {}, payload.updatedBy);
+  if (action === 'v2DeleteSacSessionManual') return v2DeleteSacSessionManual_(payload.data || {}, payload.updatedBy || 'Admin Portal V2');
   if (action === 'v2SendSacCalendarInvitationManual') return v2SendSacCalendarInvitationManual_(payload.data || {}, payload.updatedBy);
   if (action === 'v2RecordSacDecisionManual') return v2RecordSacDecisionManual_(payload.data || {}, payload.updatedBy);
   if (action === 'v2FinalizeSacSessionManual') return v2FinalizeSacSessionManual_(payload.data || {}, payload.updatedBy);
@@ -598,6 +599,9 @@ function v2AssignSacCandidate_(data, actor) {
     const dr = documentReview.record || {};
     const reviewStatus = String(dr['Review Status'] || 'NOT_REVIEWED').toUpperCase();
     const qualityStatus = String(dr['AI Quality Status'] || 'NOT_REVIEWED').toUpperCase();
+    const humanQualityDecision = String(dr['Human Quality Decision'] || '').toUpperCase();
+    const workflowQualityStatus = String(w['Document Quality Status'] || '').toUpperCase();
+    const humanQualityApproved = humanQualityDecision === 'APPROVED_TO_PROCEED' || workflowQualityStatus === 'HUMAN_OVERRIDE_APPROVED';
     const replacementStatus = String(dr['Replacement Request Status'] || '').toUpperCase();
     let missing = [];
     try { missing = JSON.parse(String(dr['Missing Documents JSON'] || '[]')); } catch (_) { missing = []; }
@@ -610,10 +614,10 @@ function v2AssignSacCandidate_(data, actor) {
         sacGateIssues.push('DOCUMENT_REVIEW_' + reviewStatus);
       }
     }
-    if (qualityStatus && qualityStatus !== 'PASS' && qualityStatus !== 'NOT_REVIEWED') {
+    if (!humanQualityApproved && qualityStatus && qualityStatus !== 'PASS' && qualityStatus !== 'NOT_REVIEWED') {
       sacGateIssues.push('DOCUMENT_QUALITY_' + qualityStatus);
     }
-    if (replacementStatus === 'AWAITING_STUDENT') {
+    if (!humanQualityApproved && replacementStatus === 'AWAITING_STUDENT') {
       sacGateIssues.push('AWAITING_STUDENT_DOCUMENT');
     }
   }
