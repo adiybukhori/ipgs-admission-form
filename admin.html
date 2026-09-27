@@ -1194,7 +1194,7 @@
       if(!taskId)return sacDetailMsg('Unable to create or locate the human review task.','error');
       const resolved=await runSacPageAction('v2ResolveHumanTask',{taskId,decision:'APPROVE',notes:reason,resolution:{documentQualityDecision:'APPROVED_TO_PROCEED',qualityNotes:reason}},null);
       if(!resolved)return;
-      const added=await runSacPageAction('v2AssignSacCandidate',{referenceNo,sessionId:sacDetailSessionId},null);
+      const added=await runSacPageAction('v2AssignSacCandidate',{referenceNo,sessionId:sacDetailSessionId,proceedWithPendingDocuments:true,confirmed:true,overrideBy:'Admin Portal V2'},null);
       if(!added)return;
       sacDetailMsg('Documents confirmed acceptable by human review. Applicant added to SAC; original AI finding remains on record.','ok');
       setTimeout(()=>location.reload(),650);
