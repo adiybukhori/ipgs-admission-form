@@ -1,0 +1,55 @@
+name: Fix Document Quality Override Refresh
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/fix-document-quality-override-refresh.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  fix:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+      - name: Fix targeted refresh function name
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          p=Path('admin.html')
+          s=p.read_text(encoding='utf-8')
+          old='await refreshSelectedApplicantTargeted(ref).catch(()=>null);'
+          new='await refreshApplicantRecord(ref).catch(()=>null);'
+          if old not in s:
+              if new in s:
+                  print('Already fixed')
+              else:
+                  raise SystemExit('Expected refresh call not found')
+          else:
+              s=s.replace(old,new,1)
+              p.write_text(s,encoding='utf-8')
+          PY
+      - name: Validate Admin UI
+        run: |
+          node - <<'NODE'
+          const fs=require('fs');
+          const html=fs.readFileSync('admin.html','utf8');
+          const blocks=[...html.matchAll(/<script(?:\s[^>]*)?>([\s\S]*?)<\/script>/gi)].map(m=>m[1]).filter(s=>s.trim());
+          for(const block of blocks)new Function(block);
+          if(!html.includes('Human Override → Next Stage')) throw new Error('Override UI missing');
+          if(!html.includes('await refreshApplicantRecord(ref).catch(()=>null);')) throw new Error('Refresh fix missing');
+          console.log('OVERRIDE_UI_REFRESH_OK');
+          NODE
+      - name: Commit fix
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add admin.html
+          git diff --cached --quiet && exit 0
+          git commit -m "Fix human override applicant refresh"
+          git push origin main
