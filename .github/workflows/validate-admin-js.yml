@@ -13,7 +13,9 @@ on:
       - 'ai-operations-center.html'
       - 'ai-agent-office.js'
       - 'ai-agent-office.css'
+      - 'api/admin-action.js'
       - 'api/admin-data.js'
+      - 'api/sac-pack.js'
       - 'api/agent-runtime-state.js'
       - 'n8n/*.json'
       - 'tools/validate-n8n-agentic-workflows.mjs'
@@ -27,7 +29,9 @@ jobs:
       - uses: actions/checkout@v4
       - name: Check admin APIs syntax
         run: |
+          node --check api/admin-action.js
           node --check api/admin-data.js
+          node --check api/sac-pack.js
           node --check api/agent-runtime-state.js
       - name: Validate n8n workflow architecture
         run: node tools/validate-n8n-agentic-workflows.mjs
