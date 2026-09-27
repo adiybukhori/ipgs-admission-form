@@ -1116,7 +1116,7 @@
 
         <section class="sac-session-section"><h4>2. Panel / Committee</h4><div class="hint">Panel names and roles are matched against SAC_COMMITTEE_MASTER. Update the panel list before sending invitation.</div><div class="sac-panel-list">${panelHtml}</div>${!isFinal?`<div class="field" style="margin-top:10px"><label>Panel / Committee Emails</label><textarea id="sacDetailCommittee" rows="3" style="width:100%;border:1px solid #d7dce6;border-radius:12px;padding:12px 13px;resize:vertical">${esc(session['Committee Emails']||'')}</textarea></div><button class="ghost" type="button" onclick="saveSacSessionPanel()">Save Panel</button>`:''}</section>
 
-        <section class="sac-session-section"><h4>3. Participants</h4><div class="hint">Candidate count is derived from the actual V2_SAC_CANDIDATES records for this session.</div><div class="sac-participant-list">${participantHtml}</div>${!isFinal?`<div class="sac-workspace-actions" style="margin-top:10px"><select id="sacAddParticipant" class="compact"><option value="">Select Ready for SAC applicant</option>${eligibleOptions}</select><button class="primary" type="button" onclick="addSacParticipantFromDetail(false)" ${eligibleOptions?'':'disabled'}>+ Add Participant</button><button class="ghost" type="button" onclick="confirmDocumentsAndAddSacParticipant()" ${eligibleOptions?'':'disabled'}>Confirm Documents Acceptable & Add</button></div>`:''}</section>
+        <section class="sac-session-section"><h4>3. Participants</h4><div class="hint">Candidate count is derived from the actual V2_SAC_CANDIDATES records for this session.</div><div class="sac-participant-list">${participantHtml}</div>${!isFinal?`<div class="sac-workspace-actions" style="margin-top:10px"><select id="sacAddParticipant" class="compact"><option value="">Select Ready for SAC applicant</option>${eligibleOptions}</select><button class="primary" type="button" onclick="smartAddSacParticipant()" ${eligibleOptions?'':'disabled'}>+ Add Participant</button></div>`:''}</section>
 
         <section class="sac-session-section"><h4>4. Invitation</h4><div class="sac-detail-grid"><div><span class="badge ${cal==='INVITED'?'green':'amber'}">${esc(pretty(cal))}</span><div class="subline">Invitation mode: ${esc(pretty(inviteMode))}</div></div><div class="subline">Sent at: ${esc(formatDate(session['Invitation Sent At']||'')||'-')}</div></div><div class="sac-workspace-actions" style="margin-top:10px"><button class="ghost" type="button" onclick="sendSacInviteFromDetail()" ${cal==='INVITED'||isFinal?'disabled':''}>Send SAC Invitation</button>${inviteMode==='DISABLED'?'<span class="badge amber">Invite engine currently DISABLED</span>':''}</div></section>
 
@@ -1150,6 +1150,21 @@
       sacDetailMsg(proceedWithPending?'Participant added with authorised pending-document exception. Refreshing…':'Participant added. Refreshing…','ok');
       setTimeout(()=>location.reload(),450);
     }
+    async function smartAddSacParticipant(){
+      const referenceNo=document.getElementById('sacAddParticipant')?.value||'';
+      if(!referenceNo)return sacDetailMsg('Select an applicant first.','error');
+      const applicant=records.find(r=>String(r.ref)===String(referenceNo));
+      if(!applicant)return sacDetailMsg('Applicant record not found. Refresh and try again.','error');
+      const aiQuality=String(applicant.doc?.['AI Quality Status']||'').toUpperCase();
+      const replacement=String(applicant.doc?.['Replacement Request Status']||'').toUpperCase();
+      const humanDecision=String(applicant.doc?.['Human Quality Decision']||'').toUpperCase();
+      const workflowQuality=String(applicant.workflow?.['Document Quality Status']||'').toUpperCase();
+      const humanApproved=humanDecision==='APPROVED_TO_PROCEED'||workflowQuality==='HUMAN_OVERRIDE_APPROVED';
+      const needsHuman=!humanApproved&&(['HUMAN_REVIEW_REQUIRED','FOLLOW_UP_REQUIRED'].includes(aiQuality)||replacement==='AWAITING_STUDENT');
+      if(needsHuman)return confirmDocumentsAndAddSacParticipant();
+      return addSacParticipantFromDetail(false);
+    }
+
     async function confirmDocumentsAndAddSacParticipant(){
       const referenceNo=document.getElementById('sacAddParticipant')?.value||'';
       if(!referenceNo)return sacDetailMsg('Select an applicant first.','error');
