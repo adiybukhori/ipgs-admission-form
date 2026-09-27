@@ -1,0 +1,76 @@
+name: Fix SAC Authoritative Candidate Loading
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/fix-sac-authoritative-candidates.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  patch-main:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+
+      - name: Always use authoritative SAC candidate list
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          p=Path('api/admin-data.js')
+          s=p.read_text(encoding='utf-8')
+          old="""  // LIVE_SAC_CANDIDATE_FALLBACK_V1
+  // Google GViz may briefly return an empty SAC candidate tab even when the
+  // operational sheet already contains rows. When that happens, obtain the
+  // authoritative candidate records from the protected Apps Script backend.
+  if (Array.isArray(data.V2_SAC_SESSIONS) && data.V2_SAC_SESSIONS.length &&
+      (!Array.isArray(data.V2_SAC_CANDIDATES) || data.V2_SAC_CANDIDATES.length === 0)) {
+    try {
+      const liveCandidates = await fetchLiveSacCandidates(body.password);
+      if (liveCandidates.length) {
+        data.V2_SAC_CANDIDATES = liveCandidates;
+        if (ADMIN_DATA_CACHE.v2) ADMIN_DATA_CACHE.v2.V2_SAC_CANDIDATES = cloneCached(liveCandidates);
+      }
+    } catch (error) {
+      warnings.push(`V2_SAC_CANDIDATES live fallback: ${error?.message || 'Unable to load'}`);
+    }
+  }
+"""
+          new="""  // AUTHORITATIVE_SAC_CANDIDATES_V2
+  // SAC session membership is operational state and must not depend on GViz
+  // eventual consistency. Always replace the GViz snapshot with the protected
+  // Apps Script candidate list whenever SAC sessions exist.
+  if (Array.isArray(data.V2_SAC_SESSIONS) && data.V2_SAC_SESSIONS.length) {
+    try {
+      const liveCandidates = await fetchLiveSacCandidates(body.password);
+      data.V2_SAC_CANDIDATES = Array.isArray(liveCandidates) ? liveCandidates : [];
+      if (ADMIN_DATA_CACHE.v2) ADMIN_DATA_CACHE.v2.V2_SAC_CANDIDATES = cloneCached(data.V2_SAC_CANDIDATES);
+    } catch (error) {
+      warnings.push(`V2_SAC_CANDIDATES authoritative load: ${error?.message || 'Unable to load'}`);
+    }
+  }
+"""
+          if old not in s:
+              raise SystemExit('Old SAC fallback block not found')
+          s=s.replace(old,new,1)
+          p.write_text(s,encoding='utf-8')
+          PY
+
+      - name: Validate
+        run: |
+          node --check api/admin-data.js
+          grep -q "AUTHORITATIVE_SAC_CANDIDATES_V2" api/admin-data.js
+
+      - name: Commit patch
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add api/admin-data.js
+          git diff --cached --quiet || git commit -m "Use authoritative SAC candidate membership on every load"
+          git push origin main
