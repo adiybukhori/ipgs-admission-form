@@ -25,57 +25,44 @@ jobs:
           from pathlib import Path
           p=Path('api/admin-data.js')
           s=p.read_text(encoding='utf-8')
-          if "const ADMIN_BRIDGE = 'https://anasbukhori.app.n8n.cloud/webhook/iuc-admission-v2-admin-bridge';" not in s:
-              s=s.replace("const AUTH_WEB_APP = 'https://script.google.com/macros/s/AKfycbw22-UOsHkaap3dzU16aOjA6XFr7jWGr9qQPfp8F1CQrXboP7YdRZJKKJhHijC3us4/exec';",
-                          "const AUTH_WEB_APP = 'https://script.google.com/macros/s/AKfycbw22-UOsHkaap3dzU16aOjA6XFr7jWGr9qQPfp8F1CQrXboP7YdRZJKKJhHijC3us4/exec';\nconst ADMIN_BRIDGE = 'https://anasbukhori.app.n8n.cloud/webhook/iuc-admission-v2-admin-bridge';")
+          auth="const AUTH_WEB_APP = 'https://script.google.com/macros/s/AKfycbw22-UOsHkaap3dzU16aOjA6XFr7jWGr9qQPfp8F1CQrXboP7YdRZJKKJhHijC3us4/exec';"
+          bridge="const ADMIN_BRIDGE = 'https://anasbukhori.app.n8n.cloud/webhook/iuc-admission-v2-admin-bridge';"
+          if bridge not in s:
+              s=s.replace(auth, auth+'\n'+bridge, 1)
           if 'async function fetchLiveSacCandidates' not in s:
               anchor='async function fetchLegacyMasterSheet() {'
-              helper=r'''async function fetchLiveSacCandidates(password) {
-  const response = await fetch(ADMIN_BRIDGE, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      password: String(password || ''),
-      action: 'v2ListSacCandidates',
-      data: {},
-      updatedBy: 'Admin Data Live SAC Fallback'
-    }),
-    redirect: 'follow'
-  });
-  const text = await response.text();
-  let parsed;
-  try { parsed = JSON.parse(text); }
-  catch (_) { throw new Error(`SAC live fallback returned HTTP ${response.status}.`); }
-  if (!response.ok || !parsed || parsed.ok === false) throw new Error(parsed?.message || `SAC live fallback returned HTTP ${response.status}.`);
-  const payload = parsed?.result?.result || parsed?.result || parsed;
-  return Array.isArray(payload?.candidates) ? payload.candidates : [];
-}
-
-'''
+              helper=("async function fetchLiveSacCandidates(password) {\n"
+                      "  const response = await fetch(ADMIN_BRIDGE, {\n"
+                      "    method: 'POST',\n"
+                      "    headers: { 'Content-Type': 'application/json' },\n"
+                      "    body: JSON.stringify({ password: String(password || ''), action: 'v2ListSacCandidates', data: {}, updatedBy: 'Admin Data Live SAC Fallback' }),\n"
+                      "    redirect: 'follow'\n"
+                      "  });\n"
+                      "  const text = await response.text();\n"
+                      "  let parsed;\n"
+                      "  try { parsed = JSON.parse(text); } catch (_) { throw new Error('SAC live fallback returned HTTP ' + response.status + '.'); }\n"
+                      "  if (!response.ok || !parsed || parsed.ok === false) throw new Error((parsed && parsed.message) || ('SAC live fallback returned HTTP ' + response.status + '.'));\n"
+                      "  const payload = (parsed && parsed.result && parsed.result.result) || (parsed && parsed.result) || parsed;\n"
+                      "  return Array.isArray(payload && payload.candidates) ? payload.candidates : [];\n"
+                      "}\n\n")
               if anchor not in s: raise SystemExit('admin-data helper anchor missing')
-              s=s.replace(anchor,helper+anchor,1)
+              s=s.replace(anchor, helper+anchor, 1)
           marker='  // V1 has been migrated into the unified V2 operational tables.'
           if 'LIVE_SAC_CANDIDATE_FALLBACK_V1' not in s:
-              block=r'''  // LIVE_SAC_CANDIDATE_FALLBACK_V1
-  // Google GViz may briefly return an empty SAC candidate tab even when the
-  // operational sheet already contains rows. When that happens, obtain the
-  // authoritative candidate records from the protected Apps Script backend.
-  if (Array.isArray(data.V2_SAC_SESSIONS) && data.V2_SAC_SESSIONS.length &&
-      (!Array.isArray(data.V2_SAC_CANDIDATES) || data.V2_SAC_CANDIDATES.length === 0)) {
-    try {
-      const liveCandidates = await fetchLiveSacCandidates(body.password);
-      if (liveCandidates.length) {
-        data.V2_SAC_CANDIDATES = liveCandidates;
-        if (ADMIN_DATA_CACHE.v2) ADMIN_DATA_CACHE.v2.V2_SAC_CANDIDATES = cloneCached(liveCandidates);
-      }
-    } catch (error) {
-      warnings.push(`V2_SAC_CANDIDATES live fallback: ${error?.message || 'Unable to load'}`);
-    }
-  }
-
-'''
+              block=("  // LIVE_SAC_CANDIDATE_FALLBACK_V1\n"
+                     "  if (Array.isArray(data.V2_SAC_SESSIONS) && data.V2_SAC_SESSIONS.length && (!Array.isArray(data.V2_SAC_CANDIDATES) || data.V2_SAC_CANDIDATES.length === 0)) {\n"
+                     "    try {\n"
+                     "      const liveCandidates = await fetchLiveSacCandidates(body.password);\n"
+                     "      if (liveCandidates.length) {\n"
+                     "        data.V2_SAC_CANDIDATES = liveCandidates;\n"
+                     "        if (ADMIN_DATA_CACHE.v2) ADMIN_DATA_CACHE.v2.V2_SAC_CANDIDATES = cloneCached(liveCandidates);\n"
+                     "      }\n"
+                     "    } catch (error) {\n"
+                     "      warnings.push('V2_SAC_CANDIDATES live fallback: ' + ((error && error.message) || 'Unable to load'));\n"
+                     "    }\n"
+                     "  }\n\n")
               if marker not in s: raise SystemExit('admin-data insertion anchor missing')
-              s=s.replace(marker,block+marker,1)
+              s=s.replace(marker, block+marker, 1)
           p.write_text(s,encoding='utf-8')
           PY
 
@@ -107,27 +94,24 @@ jobs:
           p=Path('apps-script-v2/SacPackV2.js')
           s=p.read_text(encoding='utf-8')
           if 'function v2ListSacCandidates_' not in s:
-              s += r'''
-
-function v2ListSacCandidates_() {
-  assertDevIdentity_();
-  const candidates = v2Rows_('V2_SAC_CANDIDATES').map(function(row) {
-    const out = {};
-    Object.keys(row || {}).forEach(function(key) { out[key] = row[key]; });
-    return out;
-  });
-  return {ok:true,candidateCount:candidates.length,candidates:candidates,v1Touched:false};
-}
-'''
+              addition=("\n\nfunction v2ListSacCandidates_() {\n"
+                        "  assertDevIdentity_();\n"
+                        "  const candidates = v2Rows_('V2_SAC_CANDIDATES').map(function(row) {\n"
+                        "    const out = {};\n"
+                        "    Object.keys(row || {}).forEach(function(key) { out[key] = row[key]; });\n"
+                        "    return out;\n"
+                        "  });\n"
+                        "  return {ok:true,candidateCount:candidates.length,candidates:candidates,v1Touched:false};\n"
+                        "}\n")
+              s += addition
               p.write_text(s,encoding='utf-8')
-
           p=Path('apps-script-v2/WorkflowV2.js')
           s=p.read_text(encoding='utf-8')
           anchor="  if (action === 'v2GetSacPackFile') return v2GetSacPackFile_(payload.data || {});"
           line="  if (action === 'v2ListSacCandidates') return v2ListSacCandidates_();"
           if line not in s:
               if anchor not in s: raise SystemExit('workflow SAC dispatch anchor missing')
-              s=s.replace(anchor,anchor+'\n'+line,1)
+              s=s.replace(anchor, anchor+'\n'+line, 1)
               p.write_text(s,encoding='utf-8')
           PY
 
