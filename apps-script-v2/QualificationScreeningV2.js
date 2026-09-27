@@ -476,7 +476,11 @@ function v2RunQualificationScreening(referenceNo, screeningInput) {
   const documentQualityStatus = String(documentReview.record['AI Quality Status'] || 'NOT_REVIEWED').toUpperCase();
 
   const currentStage = String(workflow.record['Application Stage'] || '').trim();
-  if (currentStage !== 'DOCUMENT_REVIEW' && currentStage !== 'QUALIFICATION_SCREENING') {
+  if (
+    currentStage !== 'DOCUMENT_REVIEW' &&
+    currentStage !== 'QUALIFICATION_SCREENING' &&
+    currentStage !== 'READY_FOR_SAC'
+  ) {
     throw new Error('Qualification screening is not available at current stage: ' + currentStage);
   }
 
