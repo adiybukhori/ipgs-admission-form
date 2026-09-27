@@ -1,0 +1,72 @@
+name: Deploy Document Quality Human Override
+
+on:
+  push:
+    branches: [apps-script-v2-dev]
+    paths:
+      - '.github/workflows/document-quality-human-override.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  patch-and-deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: apps-script-v2-dev
+          fetch-depth: 0
+
+      - name: Apply governed human override patch
+        run: python3 tools/patch-document-quality-human-override.py
+
+      - name: Validate backend syntax and policy markers
+        run: |
+          node --check apps-script-v2/HumanTaskV2.js
+          grep -F "APPROVED_TO_PROCEED" apps-script-v2/HumanTaskV2.js
+          grep -F "HUMAN_OVERRIDE_APPROVED" apps-script-v2/HumanTaskV2.js
+          grep -F "cannot bypass deterministic document completeness" apps-script-v2/HumanTaskV2.js
+
+      - name: Commit backend patch
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add apps-script-v2/HumanTaskV2.js
+          if git diff --cached --quiet; then
+            echo "Backend already patched."
+          else
+            git commit -m "Add governed document quality human override"
+            git push origin apps-script-v2-dev
+          fi
+
+      - name: Verify clasp credential
+        env:
+          CLASPRC_JSON: ${{ secrets.CLASPRC_JSON }}
+        run: test -n "$CLASPRC_JSON" || (echo 'CLASPRC_JSON secret is not configured.' && exit 1)
+
+      - name: Install clasp
+        run: npm install --global @google/clasp@3.4.1
+
+      - name: Restore clasp credential
+        env:
+          CLASPRC_JSON: ${{ secrets.CLASPRC_JSON }}
+        run: |
+          printf '%s' "$CLASPRC_JSON" > "$HOME/.clasprc.json"
+          chmod 600 "$HOME/.clasprc.json"
+
+      - name: Verify locked V2 target
+        run: node tools/verify-clasp-target.mjs
+
+      - name: Push Apps Script source
+        run: clasp push -f
+
+      - name: Redeploy existing V2 web app
+        env:
+          V2_DEPLOYMENT_ID: AKfycbxasT_HgtRSvTbR_bsa8p17Cm-C2PKn20Ok1kU-AyJmxiKX8kX5EGOtRLwVwNlAL7JB
+        run: clasp create-deployment --deploymentId "$V2_DEPLOYMENT_ID" --description "Governed document quality human override"
+
+      - name: Remove clasp credential
+        if: always()
+        run: rm -f "$HOME/.clasprc.json"
