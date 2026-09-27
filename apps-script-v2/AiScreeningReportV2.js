@@ -79,18 +79,19 @@ function v2GenerateAiScreeningReport_(data, actor) {
   }) : [];
 
   const screeningResult = String(qs['Screening Result'] || '').toUpperCase();
+  // SAC-only hard-gate policy: once the deterministic screening route exists,
+  // the official AI report may be finalised even when it carries unresolved flags.
+  // Those flags are preserved for SAC review rather than creating a pre-SAC human block.
   const screeningResolved =
     !!screening &&
     !!recommendation &&
-    !manualRequired &&
-    /RULE_MATCHED|MANUAL_SCREENING_COMPLETED|COMPLETED/.test(screeningResult);
+    /RULE_MATCHED|MANUAL_SCREENING_COMPLETED|COMPLETED|COMPLETED_WITH_FLAGS/.test(screeningResult);
 
-  // A PDF may be generated at any point for review, but FINAL is reserved for
-  // a case whose deterministic qualification screening route is already resolved.
   const finalised = requestedFinal && screeningResolved;
+  const reportHasFlags = manualRequired || unresolvedFlags.length > 0;
   const reportStatus = finalised
-    ? 'FINAL'
-    : (manualRequired ? 'PENDING_HUMAN_REVIEW' : (!screeningResolved ? 'PENDING_RULE_ENGINE' : 'SCREENED'));
+    ? (reportHasFlags ? 'FINAL_WITH_FLAGS' : 'FINAL')
+    : (!screeningResolved ? 'PENDING_RULE_ENGINE' : 'SCREENED');
   const previousVersion = parseInt(String(aiRecord['Report Version'] || '0').replace(/\D+/g, ''), 10) || 0;
   const version = previousVersion + 1;
   const now = new Date().toISOString();
@@ -224,21 +225,21 @@ function v2GenerateAiScreeningReport_(data, actor) {
   v2AiReportStyleRoute_(routeTable, manualRequired);
 
   if (manualRequired || unresolvedFlags.length) {
-    v2AiReportSection_(body, '6. Human Confirmation / Exception');
+    v2AiReportSection_(body, '6. SAC Review Flags / Exceptions');
     const humanRows = [['ITEM', 'STATUS / ACTION']];
     if (unresolvedFlags.length) {
       unresolvedFlags.forEach(function(flag) {
-        humanRows.push([String(flag), 'Human confirmation or additional evidence required before the screening route is finalised.']);
+        humanRows.push([String(flag), 'Flag retained for SAC review. Student follow-up may continue in parallel.']);
       });
     }
     if (String(qs['Manual Review Required'] || wf['Manual Review Required'] || '').toUpperCase() === 'YES') {
-      humanRows.push(['Qualification rule exception', 'Authorised manual academic review is required.']);
+      humanRows.push(['Qualification rule exception', 'Flag retained for authorised SAC consideration; screening progression is not blocked.']);
     }
     const humanTable = body.appendTable(humanRows);
     v2AiReportStyleGrid_(humanTable, [0]);
   }
 
-  v2AiReportSection_(body, manualRequired ? '7. AI Screening Declaration' : '6. AI Screening Declaration');
+  v2AiReportSection_(body, (manualRequired || unresolvedFlags.length) ? '7. AI Screening Declaration' : '6. AI Screening Declaration');
   const declaration = body.appendTable([[
     'This screening was performed by the IUC Admission Intelligence Agent. ' +
     'The AI reviewed the submitted academic certificate, transcript and CV/resume to extract academic facts, ' +
@@ -294,6 +295,7 @@ function v2GenerateAiScreeningReport_(data, actor) {
       template: V2_AI_SCREENING_REPORT_TEMPLATE,
       reportStatus: reportStatus,
       reportVersion: version,
+      sacReviewRequired: reportHasFlags,
       fileName: fileName,
       fileId: pdf.getId(),
       recommendedRoute: recommendation,
@@ -312,6 +314,7 @@ function v2GenerateAiScreeningReport_(data, actor) {
     reportStatus: reportStatus,
     reportVersion: version,
     finalised: finalised,
+    sacReviewRequired: reportHasFlags,
     fileName: fileName,
     fileId: pdf.getId(),
     url: pdf.getUrl(),
