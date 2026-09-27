@@ -26,9 +26,8 @@ jobs:
           s=p.read_text(encoding='utf-8')
           marker="  // V1 has been migrated into the unified V2 operational tables."
           block="""  // SAC_WORKFLOW_MEMBERSHIP_REPAIR_V1
-  // A candidate can already be in SAC_REVIEW with a SAC Session ID even when
-  // an eventually-consistent candidate feed is behind. Merge those workflow
-  // memberships into the candidate list so session counts never fall to zero.
+  // Merge SAC_REVIEW workflow membership into SAC candidates so the UI never
+  // shows zero when the participant row is already linked to a SAC session.
   if (Array.isArray(data.V2_WORKFLOW)) {
     const current = Array.isArray(data.V2_SAC_CANDIDATES) ? data.V2_SAC_CANDIDATES.slice() : [];
     const apps = Array.isArray(data.V2_APPLICATIONS) ? data.V2_APPLICATIONS : [];
