@@ -1,0 +1,34 @@
+name: Add SAC Pending Document Override UI
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/add-sac-pending-document-override-ui.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+
+      - name: Patch SAC workspace UI
+        run: python3 tools/add-sac-pending-document-override-ui.py
+
+      - name: Commit UI patch
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add admin.html
+          if git diff --cached --quiet; then
+            echo "No UI changes required."
+          else
+            git commit -m "Add authorised pending-document SAC override"
+            git push origin main
+          fi
