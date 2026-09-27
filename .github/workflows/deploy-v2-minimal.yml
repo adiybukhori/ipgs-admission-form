@@ -1,0 +1,49 @@
+name: Deploy Apps Script V2 Minimal
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [apps-script-v2-dev]
+    paths:
+      - '.github/workflows/deploy-v2-minimal.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: apps-script-v2-dev
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+      - name: Verify source
+        run: |
+          node tools/verify-clasp-target.mjs
+          node --check apps-script-v2/DocumentReviewV2.js
+      - name: Verify clasp credential exists
+        env:
+          CLASPRC_JSON: ${{ secrets.CLASPRC_JSON }}
+        run: |
+          if [ -z "$CLASPRC_JSON" ]; then
+            echo "CLASPRC_JSON is missing"
+            exit 1
+          fi
+      - name: Install clasp
+        run: npm install --global @google/clasp@3.4.1
+      - name: Restore clasp auth
+        env:
+          CLASPRC_JSON: ${{ secrets.CLASPRC_JSON }}
+        run: |
+          printf '%s' "$CLASPRC_JSON" > "$HOME/.clasprc.json"
+          chmod 600 "$HOME/.clasprc.json"
+      - name: Push Apps Script source
+        run: clasp push --force
+      - name: Redeploy existing web app
+        run: clasp create-deployment --deploymentId AKfycbxasT_HgtRSvTbR_bsa8p17Cm-C2PKn20Ok1kU-AyJmxiKX8kX5EGOtRLwVwNlAL7JB --description "Stage 2 document requirements fix"
+      - name: Cleanup
+        if: always()
+        run: rm -f "$HOME/.clasprc.json"
