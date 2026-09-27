@@ -2,6 +2,7 @@ import { PDFDocument } from 'pdf-lib';
 
 const AUTH_WEB_APP = 'https://script.google.com/macros/s/AKfycbw22-UOsHkaap3dzU16aOjA6XFr7jWGr9qQPfp8F1CQrXboP7YdRZJKKJhHijC3us4/exec';
 const ADMIN_BRIDGE = 'https://anasbukhori.app.n8n.cloud/webhook/iuc-admission-v2-admin-bridge';
+const FILE_FETCH_CONCURRENCY = 6;
 
 async function validateAdminPassword(password) {
   if (!password) return false;
@@ -36,6 +37,25 @@ async function callV2(action, data, password) {
     throw new Error(parsed?.message || `Admin bridge returned HTTP ${response.status}.`);
   }
   return parsed;
+}
+
+async function mapWithConcurrency(items, concurrency, worker) {
+  const source = Array.isArray(items) ? items : [];
+  const results = new Array(source.length);
+  let nextIndex = 0;
+
+  async function runWorker() {
+    while (true) {
+      const index = nextIndex;
+      nextIndex += 1;
+      if (index >= source.length) return;
+      results[index] = await worker(source[index], index);
+    }
+  }
+
+  const workerCount = Math.max(1, Math.min(Number(concurrency) || 1, source.length || 1));
+  await Promise.all(Array.from({ length: workerCount }, () => runWorker()));
+  return results;
 }
 
 async function appendPdf(target, bytes) {
@@ -94,29 +114,42 @@ export default async function handler(req, res) {
 
     if (!selected.length) return res.status(400).json({ ok: false, message: 'No candidates were selected for printing.' });
 
+    const jobs = [];
+    for (const candidate of selected) {
+      const docs = Array.isArray(candidate.documents) ? candidate.documents : [];
+      for (const doc of docs) {
+        jobs.push({ candidate, doc });
+      }
+    }
+
+    const files = await mapWithConcurrency(jobs, FILE_FETCH_CONCURRENCY, async ({ candidate, doc }) => {
+      const response = await callV2('v2GetSacPackFile', {
+        sessionId,
+        referenceNo: candidate.referenceNo,
+        documentKey: doc.key
+      }, password);
+      const file = response?.result || response;
+      if (!file?.base64) {
+        throw new Error(`Unable to retrieve ${doc.label || doc.key} for ${candidate.studentName || candidate.referenceNo}.`);
+      }
+      return { candidate, doc, file };
+    });
+
     const merged = await PDFDocument.create();
     merged.setTitle(`${pack.sessionName || sessionId} - SAC Print Pack`);
     merged.setSubject('IPGS SAC physical meeting print pack');
     merged.setCreator('IUC IPGS Admission V2');
     merged.setProducer('IUC IPGS Admission V2');
 
-    for (const candidate of selected) {
-      const docs = Array.isArray(candidate.documents) ? candidate.documents : [];
-      for (const doc of docs) {
-        const response = await callV2('v2GetSacPackFile', {
-          sessionId,
-          referenceNo: candidate.referenceNo,
-          documentKey: doc.key
-        }, password);
-        const file = response?.result || response;
-        if (!file?.base64) throw new Error(`Unable to retrieve ${doc.label || doc.key} for ${candidate.studentName || candidate.referenceNo}.`);
-
-        const bytes = Buffer.from(file.base64, 'base64');
-        const mime = String(file.mimeType || '').toLowerCase();
-        if (mime === 'application/pdf') await appendPdf(merged, bytes);
-        else if (/^image\/(png|jpeg|jpg)$/.test(mime)) await appendImage(merged, bytes, mime);
-        else throw new Error(`Unsupported printable file type for ${file.fileName || doc.label}: ${mime || 'unknown'}.`);
-      }
+    // Retrieval is concurrent for speed, but append in original job order so
+    // candidate/document order remains exactly as prepared by the SAC backend.
+    for (const item of files) {
+      const file = item.file;
+      const bytes = Buffer.from(file.base64, 'base64');
+      const mime = String(file.mimeType || '').toLowerCase();
+      if (mime === 'application/pdf') await appendPdf(merged, bytes);
+      else if (/^image\/(png|jpeg|jpg)$/.test(mime)) await appendImage(merged, bytes, mime);
+      else throw new Error(`Unsupported printable file type for ${file.fileName || item.doc.label}: ${mime || 'unknown'}.`);
     }
 
     const bytes = await merged.save({ useObjectStreams: true });
@@ -131,6 +164,7 @@ export default async function handler(req, res) {
     res.setHeader('Content-Type', 'application/pdf');
     res.setHeader('Content-Disposition', `inline; filename="${fileName}"`);
     res.setHeader('X-SAC-Candidate-Count', String(selected.length));
+    res.setHeader('X-SAC-Document-Count', String(files.length));
     return res.status(200).send(Buffer.from(bytes));
   } catch (error) {
     return res.status(502).json({ ok: false, message: error?.message || 'Unable to generate SAC print pack.' });
