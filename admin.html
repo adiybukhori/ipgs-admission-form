@@ -1591,7 +1591,7 @@
       },'');
       if(!resolved)return;
       opsMsg('Human override approved. AI finding preserved; case progressed to Academic Screening.','ok');
-      await refreshSelectedApplicantTargeted(ref).catch(()=>null);
+      await refreshApplicantRecord(ref).catch(()=>null);
       renderSelectedApplicant();
     }
     function retryAutoAiScreening(){if(!selected)return;runAdminAction('v2RunAutoAiScreening',{referenceNo:selected.ref},`Retry AI Auto screening for ${selected.app['Student Name']||selected.ref}? Manual Screening remains available if AI cannot complete it.`)}
