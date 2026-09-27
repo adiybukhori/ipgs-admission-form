@@ -1,0 +1,210 @@
+name: Patch SAC Workspace UI
+
+on:
+  push:
+    branches: [main]
+    paths: ['.github/workflows/patch-sac-workspace-ui.yml']
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+
+      - name: Patch ACC SAC workspace
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          import re
+
+          p = Path('api/admin-action.js')
+          text = p.read_text(encoding='utf-8')
+          if "'v2UpdateSacSessionManual'" not in text:
+              old = "'v2CreateSacSessionManual','v2SendSacCalendarInvitationManual'"
+              new = "'v2CreateSacSessionManual','v2UpdateSacSessionManual','v2SendSacCalendarInvitationManual'"
+              if old not in text:
+                  raise SystemExit('admin-action SAC allowlist anchor not found')
+              text = text.replace(old, new, 1)
+              p.write_text(text, encoding='utf-8')
+
+          p = Path('admin.html')
+          text = p.read_text(encoding='utf-8')
+
+          # 1) Add SAC session workspace styles.
+          if '.sac-session-modal{' not in text:
+              anchor = '    .sac-pack-modal{'
+              if anchor not in text:
+                  raise SystemExit('SAC pack CSS anchor not found')
+              css = r'''    .sac-session-modal{position:fixed;inset:0;z-index:78;background:rgba(18,24,38,.48);display:none;align-items:center;justify-content:center;padding:18px}
+    .sac-session-modal.open{display:flex}
+    .sac-session-card{width:min(980px,97vw);max-height:92dvh;overflow:auto;background:#fff;border-radius:20px;box-shadow:0 20px 70px rgba(18,24,38,.25);border:1px solid var(--line)}
+    .sac-session-head{position:sticky;top:0;z-index:3;background:#fff;border-bottom:1px solid var(--line);padding:16px 18px;display:flex;justify-content:space-between;gap:14px;align-items:flex-start}
+    .sac-session-head h3{margin:0;font-size:18px}.sac-session-head p{margin:4px 0 0;color:var(--muted);font-size:11px}
+    .sac-session-body{padding:18px;display:grid;gap:14px}
+    .sac-session-section{border:1px solid var(--line);border-radius:15px;padding:14px;background:#fff}
+    .sac-session-section h4{margin:0 0 10px;font-size:13px}.sac-session-section .hint{font-size:10px;color:var(--muted);margin-top:-5px;margin-bottom:10px}
+    .sac-detail-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}.sac-detail-grid .full{grid-column:1/-1}
+    .sac-panel-list,.sac-participant-list{display:grid;gap:8px}.sac-panel-item,.sac-participant-item{border:1px solid #eef0f4;border-radius:11px;padding:10px 11px;display:flex;justify-content:space-between;gap:12px;align-items:center;background:#fafbfc}
+    .sac-panel-item .name,.sac-participant-item .name{font-size:11px;font-weight:850}.sac-panel-item .meta,.sac-participant-item .meta{font-size:10px;color:var(--muted);margin-top:2px}
+    .sac-workspace-actions{display:flex;gap:8px;flex-wrap:wrap;align-items:center}.sac-workspace-actions select{min-width:260px;max-width:100%}
+    .sac-session-footer{position:sticky;bottom:0;background:#fff;border-top:1px solid var(--line);padding:13px 18px;display:flex;justify-content:flex-end;gap:8px;flex-wrap:wrap}
+    @media(max-width:720px){.sac-detail-grid{grid-template-columns:1fr}.sac-detail-grid .full{grid-column:auto}.sac-session-modal{padding:0}.sac-session-card{width:100vw;max-height:100dvh;border-radius:0}}
+'''
+              text = text.replace(anchor, css + anchor, 1)
+
+          # 2) Add SAC session workspace modal before SAC pack modal.
+          if 'id="sacSessionModal"' not in text:
+              anchor = '  <div id="sacPackModal"'
+              if anchor not in text:
+                  raise SystemExit('SAC pack modal HTML anchor not found')
+              modal = r'''  <div id="sacSessionModal" class="sac-session-modal" onclick="if(event.target===this)closeSacSessionDetail()">
+    <div class="sac-session-card">
+      <div class="sac-session-head">
+        <div><h3 id="sacSessionTitle">SAC Session</h3><p id="sacSessionSubtitle">Session workspace</p></div>
+        <button class="ghost" type="button" onclick="closeSacSessionDetail()">Close</button>
+      </div>
+      <div id="sacSessionBody" class="sac-session-body"></div>
+      <div class="sac-session-footer"><button class="ghost" type="button" onclick="closeSacSessionDetail()">Close</button></div>
+    </div>
+  </div>
+
+'''
+              text = text.replace(anchor, modal + anchor, 1)
+
+          # 3) Creating a session must not auto-send invitation. Invitation is a separate human action.
+          text = text.replace("committeeEmails,sendInvitation:true}", "committeeEmails,sendInvitation:false}")
+
+          # 4) Replace SAC rendering and add the full session workspace.
+          pattern = r"    function renderSac\(\)\{.*?\n    function renderAssessment\(\)\{"
+          match = re.search(pattern, text, flags=re.S)
+          if not match:
+              raise SystemExit('renderSac block not found')
+
+          replacement = r'''    function sacCandidatesForSession(sessionId){
+      const id=String(sessionId||'');
+      return (db.V2_SAC_CANDIDATES||[]).filter(x=>String(x['SAC Session ID']||x['Session ID']||'')===id);
+    }
+    function sacDecisionIsFinal(x){return /DIRECT_ENTRY|INTERNAL_ASSESSMENT|REJECTED/.test(String(x?.['Decision']||x?.['Final Decision']||x?.['SAC Decision']||'').toUpperCase())}
+    function renderSac(){
+      const sessions=db.V2_SAC_SESSIONS||[],candidates=db.V2_SAC_CANDIDATES||[];
+      document.getElementById('sacSessionsKpi').textContent=sessions.length;
+      document.getElementById('sacCandidatesKpi').textContent=candidates.length;
+      const final=candidates.filter(sacDecisionIsFinal).length;
+      document.getElementById('sacFinalKpi').textContent=final;
+      document.getElementById('sacPendingKpi').textContent=Math.max(0,candidates.length-final);
+      const views=sessions.map(s=>{
+        const id=s['SAC Session ID']||s['Session ID']||'',sessionCandidates=sacCandidatesForSession(id),n=sessionCandidates.length,pending=sessionCandidates.filter(x=>!sacDecisionIsFinal(x)).length;
+        const mode=s['Meeting Mode']||'MANUAL',cal=String(s['Calendar Status']||'NOT_CREATED').toUpperCase(),inviteMode=String(s['Invitation Mode']||'DISABLED').toUpperCase(),status=String(s['Status']||'DRAFT').toUpperCase(),isFinal=status==='FINALISED'||!!s['Finalised At'];
+        const min=s['Minutes URL']||'',end=s['Endorsement URL']||'';
+        const packComplete=sessionCandidates.filter(c=>String(c['Document Pack Status']||'').toUpperCase()==='COMPLETE').length;
+        const packIncomplete=sessionCandidates.filter(c=>String(c['Document Pack Status']||'').toUpperCase()==='INCOMPLETE').length;
+        const packPrepared=packComplete+packIncomplete>0;
+        const packMeta=packPrepared?`${packComplete} complete · ${packIncomplete} incomplete`:'Not prepared';
+        const documents=min||end?`${min?`<a class="link" target="_blank" href="${esc(min)}">Minutes</a>`:''}${min&&end?' · ':''}${end?`<a class="link" target="_blank" href="${esc(end)}">Endorsement</a>`:''}`:'-';
+        return {s,id,n,pending,mode,cal,inviteMode,status,isFinal,packMeta,documents};
+      });
+      document.getElementById('sacBody').innerHTML=views.map(v=>`<tr><td><div class="student">${esc(v.s['SAC Name']||v.id||'-')}</div><div class="subline">${esc(v.id)}</div></td><td>${esc([v.s['Meeting Date'],v.s['Meeting Time']].filter(Boolean).join(' · ')||'-')}</td><td><span class="badge purple">${esc(pretty(v.mode))}</span><div class="subline">Portal OFF</div></td><td><span class="badge ${classifyBadge(v.status)}">${esc(pretty(v.status))}</span></td><td>${esc(v.s['Chairperson']||'-')}</td><td>${v.n}<div class="subline">${v.pending} pending</div></td><td><span class="badge ${v.cal==='INVITED'?'green':'amber'}">${esc(pretty(v.cal))}</span><div class="subline">Mode: ${esc(pretty(v.inviteMode))}</div></td><td>${v.documents}<div class="subline">Print pack: ${esc(v.packMeta)}</div></td><td><div style="display:flex;gap:7px;flex-wrap:wrap"><button class="primary" onclick="openSacSessionDetail('${esc(v.id)}')">Open SAC</button>${v.n&&PHASE2_BACKEND_READY?`<button class="ghost" onclick="prepareSacPack('${esc(v.id)}')">Print Pack</button>`:''}</div></td></tr>`).join('')||'<tr><td colspan="9" class="empty">No SAC sessions yet. Create the first Phase 1 manual SAC session above.</td></tr>';
+      const mobile=document.getElementById('sacMobileCards');
+      if(mobile) mobile.innerHTML=views.map(v=>`<article class="sac-mobile-card"><div class="sac-mobile-head"><div><div class="sac-mobile-title">${esc(v.s['SAC Name']||v.id||'-')}</div><div class="sac-mobile-id">${esc(v.id)}</div></div><span class="badge ${classifyBadge(v.status)}">${esc(pretty(v.status))}</span></div><div class="sac-mobile-meta">${esc([v.s['Meeting Date'],v.s['Meeting Time']].filter(Boolean).join(' · ')||'Date / time not set')} · ${esc(pretty(v.mode))} · Portal OFF</div><div class="sac-mobile-grid"><div class="sac-mobile-field"><div class="label">Chairperson</div><div class="value">${esc(v.s['Chairperson']||'-')}</div></div><div class="sac-mobile-field"><div class="label">Candidates</div><div class="value">${v.n} candidate${v.n===1?'':'s'} · ${v.pending} pending</div></div><div class="sac-mobile-field"><div class="label">Invitation</div><div class="value">${esc(pretty(v.cal))}<br><span class="subline">Mode: ${esc(pretty(v.inviteMode))}</span></div></div><div class="sac-mobile-field"><div class="label">Print Pack</div><div class="value">${esc(v.packMeta)}</div></div></div><div class="sac-mobile-actions"><button class="primary" onclick="openSacSessionDetail('${esc(v.id)}')">Open SAC</button>${v.n&&PHASE2_BACKEND_READY?`<button class="ghost" onclick="prepareSacPack('${esc(v.id)}')">Print Pack</button>`:''}</div></article>`).join('')||'<div class="empty">No SAC sessions yet.</div>';
+    }
+
+    let sacDetailSessionId='';
+    function sacPanelMembers(session){
+      const emails=String(session?.['Committee Emails']||'').split(/[;,\n]+/).map(x=>x.trim().toLowerCase()).filter(Boolean);
+      const master=db.SAC_COMMITTEE_MASTER||[];
+      return emails.map(email=>{
+        const m=master.find(x=>String(x['Email']||'').trim().toLowerCase()===email)||{};
+        return {email,name:m['Name']||email,role:m['Role']||'Panel Member',active:String(m['Active']||'YES').toUpperCase()!=='NO'};
+      });
+    }
+    function sacSessionMessage(text,type='info'){
+      const el=document.getElementById('sacSessionMessage');if(!el)return;
+      el.style.display='block';el.className='message '+(type==='error'?'error':'');
+      el.style.background=type==='ok'?'var(--greenSoft)':type==='error'?'var(--redSoft)':'var(--blueSoft)';
+      el.style.color=type==='ok'?'var(--green)':type==='error'?'var(--red)':'var(--blue)';el.textContent=text;
+    }
+    function openSacSessionDetail(sessionId){
+      sacDetailSessionId=String(sessionId||'');renderSacSessionDetail();document.getElementById('sacSessionModal')?.classList.add('open');
+    }
+    function closeSacSessionDetail(){document.getElementById('sacSessionModal')?.classList.remove('open');sacDetailSessionId=''}
+    function renderSacSessionDetail(){
+      const session=(db.V2_SAC_SESSIONS||[]).find(s=>String(s['SAC Session ID']||s['Session ID']||'')===sacDetailSessionId);
+      if(!session)return;
+      const candidates=sacCandidatesForSession(sacDetailSessionId),panel=sacPanelMembers(session),status=String(session['Status']||'DRAFT').toUpperCase(),cal=String(session['Calendar Status']||'NOT_CREATED').toUpperCase(),inviteMode=String(session['Invitation Mode']||'DISABLED').toUpperCase();
+      const eligible=records.filter(r=>r.source==='V2'&&stage(r)==='READY_FOR_SAC').filter(r=>!candidates.some(c=>String(c['Reference No']||'')===r.ref));
+      const pending=candidates.filter(x=>!sacDecisionIsFinal(x)).length;
+      const isFinal=status==='FINALISED'||!!session['Finalised At'];
+      document.getElementById('sacSessionTitle').textContent=session['SAC Name']||sacDetailSessionId;
+      document.getElementById('sacSessionSubtitle').textContent=`${sacDetailSessionId} · ${pretty(status)} · Manual physical SAC`;
+      const panelHtml=panel.length?panel.map(m=>`<div class="sac-panel-item"><div><div class="name">${esc(m.name)}</div><div class="meta">${esc(m.role)} · ${esc(m.email)}</div></div><span class="badge ${m.active?'green':'amber'}">${m.active?'Active':'Inactive'}</span></div>`).join(''):'<div class="empty" style="padding:16px!important">No panel members configured for this session.</div>';
+      const participantHtml=candidates.length?candidates.map(c=>{const ref=c['Reference No']||'',decision=c['Decision']||'PENDING';return`<div class="sac-participant-item"><div><div class="name">${esc(c['Student Name']||ref)}</div><div class="meta">${esc(c['Programme']||'')} · ${esc(ref)}</div></div><div style="display:flex;gap:7px;align-items:center"><span class="badge ${classifyBadge(decision)}">${esc(pretty(decision))}</span><button class="ghost" type="button" onclick="closeSacSessionDetail();openRecord('${esc(ref)}')">Open</button></div></div>`}).join(''):'<div class="empty" style="padding:16px!important">No candidates assigned yet.</div>';
+      const eligibleOptions=eligible.map(r=>`<option value="${esc(r.ref)}">${esc(r.app['Student Name']||r.ref)} · ${esc(r.app['Programme']||'')}</option>`).join('');
+      const packReady=candidates.length>0&&PHASE2_BACKEND_READY;
+      document.getElementById('sacSessionBody').innerHTML=`
+        <div id="sacSessionMessage" class="message" style="display:none"></div>
+        <section class="sac-session-section"><h4>1. SAC Details</h4><div class="sac-detail-grid">
+          <div class="field"><label>SAC Name</label><input id="sacDetailName" value="${esc(session['SAC Name']||'')}" ${isFinal?'disabled':''}></div>
+          <div class="field"><label>Status</label><input value="${esc(pretty(status))}" disabled></div>
+          <div class="field"><label>Meeting Date</label><input id="sacDetailDate" type="date" value="${esc(String(session['Meeting Date']||'').slice(0,10))}" ${isFinal?'disabled':''}></div>
+          <div class="field"><label>Meeting Time</label><input id="sacDetailTime" type="time" value="${esc(session['Meeting Time']||'10:00')}" ${isFinal?'disabled':''}></div>
+          <div class="field"><label>Chairperson</label><input id="sacDetailChair" value="${esc(session['Chairperson']||'')}" ${isFinal?'disabled':''}></div>
+          <div class="field"><label>Venue / Meeting Link</label><input id="sacDetailVenue" value="${esc(session['Venue / Meeting Link']||'')}" ${isFinal?'disabled':''}></div>
+        </div>${!isFinal?'<div style="margin-top:10px"><button class="ghost" type="button" onclick="saveSacSessionDetails()">Save SAC Details</button></div>':''}</section>
+
+        <section class="sac-session-section"><h4>2. Panel / Committee</h4><div class="hint">Panel names and roles are resolved from SAC_COMMITTEE_MASTER. Edit the session recipient emails below before invitation is sent.</div><div class="sac-panel-list">${panelHtml}</div>${!isFinal?`<div class="field" style="margin-top:10px"><label>Panel / Committee Emails</label><textarea id="sacDetailCommittee" rows="3" style="width:100%;border:1px solid #d7dce6;border-radius:12px;padding:12px 13px;resize:vertical">${esc(session['Committee Emails']||'')}</textarea></div><button class="ghost" type="button" onclick="saveSacSessionPanel()">Save Panel</button>`:''}</section>
+
+        <section class="sac-session-section"><h4>3. Participants</h4><div class="hint">Assigned candidates are derived from V2_SAC_CANDIDATES, not the stored session counter.</div><div class="sac-participant-list">${participantHtml}</div>${!isFinal?`<div class="sac-workspace-actions" style="margin-top:10px"><select id="sacAddParticipant" class="compact"><option value="">Select Ready for SAC applicant</option>${eligibleOptions}</select><button class="primary" type="button" onclick="addSacParticipantFromDetail()" ${eligibleOptions?'':'disabled'}>+ Add Participant</button></div>`:''}</section>
+
+        <section class="sac-session-section"><h4>4. Invitation</h4><div class="sac-detail-grid"><div><span class="badge ${cal==='INVITED'?'green':'amber'}">${esc(pretty(cal))}</span><div class="subline">Invitation mode: ${esc(pretty(inviteMode))}</div></div><div class="subline">Sent at: ${esc(formatDate(session['Invitation Sent At']||'' )||'-')}</div></div><div class="sac-workspace-actions" style="margin-top:10px"><button class="ghost" type="button" onclick="sendSacInviteFromDetail()" ${cal==='INVITED'||isFinal?'disabled':''}>Send Invitation</button>${inviteMode==='DISABLED'?'<span class="badge amber">Backend invite mode is DISABLED</span>':''}</div></section>
+
+        <section class="sac-session-section"><h4>5. SAC Print Pack</h4><div class="hint">One merged printable PDF: PG-ADM-01 → AI Screening Report → Admission Form → supporting documents.</div><div class="sac-workspace-actions"><button class="primary" type="button" onclick="prepareSacPack('${esc(sacDetailSessionId)}')" ${packReady?'':'disabled'}>Generate & Print SAC Pack</button><span class="badge ${candidates.length?'blue':'amber'}">${candidates.length} candidate${candidates.length===1?'':'s'}</span></div></section>
+
+        <section class="sac-session-section"><h4>6. SAC Result / Finalisation</h4><div class="hint">Decisions are recorded from each applicant record. Finalise the session only when no candidate remains pending.</div><div class="sac-workspace-actions"><span class="badge ${pending?'amber':'green'}">${pending} pending decision${pending===1?'':'s'}</span>${!isFinal&&candidates.length&&pending===0?`<button class="primary" type="button" onclick="finalizeSacSession('${esc(sacDetailSessionId)}')">Finalize SAC Session</button>`:''}${isFinal?'<span class="badge green">Finalised</span>':''}</div></section>`;
+    }
+    async function saveSacSessionDetails(){
+      const data={sessionId:sacDetailSessionId,name:document.getElementById('sacDetailName')?.value.trim()||'',meetingDate:document.getElementById('sacDetailDate')?.value||'',meetingTime:document.getElementById('sacDetailTime')?.value||'10:00',chairperson:document.getElementById('sacDetailChair')?.value.trim()||'',venueLink:document.getElementById('sacDetailVenue')?.value.trim()||''};
+      const result=await runSacPageAction('v2UpdateSacSessionManual',data,'Save changes to this SAC session?');if(!result)return;sacSessionMessage('SAC details saved. Refreshing…','ok');setTimeout(()=>location.reload(),450);
+    }
+    async function saveSacSessionPanel(){
+      const committeeEmails=document.getElementById('sacDetailCommittee')?.value||'';
+      const result=await runSacPageAction('v2UpdateSacSessionManual',{sessionId:sacDetailSessionId,committeeEmails},'Save the SAC panel / committee list?');if(!result)return;sacSessionMessage('Panel list saved. Refreshing…','ok');setTimeout(()=>location.reload(),450);
+    }
+    async function addSacParticipantFromDetail(){
+      const referenceNo=document.getElementById('sacAddParticipant')?.value||'';if(!referenceNo)return sacSessionMessage('Select an applicant first.','error');
+      const result=await runSacPageAction('v2AssignSacCandidate',{referenceNo,sessionId:sacDetailSessionId},'Add this applicant to the SAC session?');if(!result)return;sacSessionMessage('Participant added. Refreshing…','ok');setTimeout(()=>location.reload(),450);
+    }
+    async function sendSacInviteFromDetail(){
+      const result=await runSacPageAction('v2SendSacCalendarInvitationManual',{sessionId:sacDetailSessionId},'Send the SAC calendar invitation to the configured panel members?');if(!result)return;
+      if(result.sent){sacSessionMessage(`Invitation sent to ${result.guestCount||0} panel member(s).`,'ok');setTimeout(()=>location.reload(),700)}else{sacSessionMessage(`Invitation not sent: ${pretty(result.reason||result.mode||'safety gate')}.`,'info')}
+    }
+
+    function renderAssessment(){'''
+          text = text[:match.start()] + replacement + text[match.end():]
+          p.write_text(text, encoding='utf-8')
+          PY
+
+      - name: Validate patch anchors and JS fragments
+        run: |
+          grep -q 'id="sacSessionModal"' admin.html
+          grep -q 'function openSacSessionDetail' admin.html
+          grep -q 'v2UpdateSacSessionManual' admin.html
+          grep -q "'v2UpdateSacSessionManual'" api/admin-action.js
+          grep -q 'sendInvitation:false' admin.html
+
+      - name: Commit ACC SAC workspace
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add admin.html api/admin-action.js
+          if git diff --cached --quiet; then
+            echo 'No UI changes required.'
+          else
+            git commit -m 'Build SAC session workspace with panels participants invitations and print pack'
+            git push origin main
+          fi
