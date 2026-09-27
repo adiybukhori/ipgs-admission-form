@@ -1,0 +1,63 @@
+name: Allow Qualification Refresh at READY_FOR_SAC
+
+on:
+  push:
+    branches: [apps-script-v2-dev]
+    paths:
+      - '.github/workflows/allow-qualification-refresh-at-ready-for-sac.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  patch-and-deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: apps-script-v2-dev
+          fetch-depth: 0
+
+      - name: Allow READY_FOR_SAC qualification refresh
+        run: python3 tools/allow-qualification-refresh-at-ready-for-sac.py
+
+      - name: Validate JavaScript
+        run: node --check apps-script-v2/QualificationScreeningV2.js
+
+      - name: Commit source patch
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add apps-script-v2/QualificationScreeningV2.js
+          if git diff --cached --quiet; then
+            echo "No source changes required."
+          else
+            git commit -m "Allow qualification refresh at READY_FOR_SAC"
+            git push origin apps-script-v2-dev
+          fi
+
+      - name: Install clasp
+        run: npm install --global @google/clasp@3.4.1
+
+      - name: Restore clasp credential
+        env:
+          CLASPRC_JSON: ${{ secrets.CLASPRC_JSON }}
+        run: |
+          test -n "$CLASPRC_JSON"
+          printf '%s' "$CLASPRC_JSON" > "$HOME/.clasprc.json"
+          chmod 600 "$HOME/.clasprc.json"
+
+      - name: Verify target
+        run: node tools/verify-clasp-target.mjs
+
+      - name: Push complete V2 source
+        run: clasp push --force
+
+      - name: Redeploy existing V2 web app
+        env:
+          V2_DEPLOYMENT_ID: AKfycbxasT_HgtRSvTbR_bsa8p17Cm-C2PKn20Ok1kU-AyJmxiKX8kX5EGOtRLwVwNlAL7JB
+        run: clasp create-deployment --deploymentId "$V2_DEPLOYMENT_ID" --description "Admission V2 READY_FOR_SAC qualification refresh"
+
+      - name: Cleanup clasp credential
+        if: always()
+        run: rm -f "$HOME/.clasprc.json"
