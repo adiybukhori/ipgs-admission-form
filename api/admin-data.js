@@ -167,13 +167,13 @@ async function fetchLiveSacCandidates(password) {
   const response = await fetch(ADMIN_BRIDGE, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ password: String(password || ''), action: 'v2ListSacCandidates', data: {}, updatedBy: 'Admin Data Live SAC Fallback' }),
+    body: JSON.stringify({ password: String(password || ''), action: 'v2ListSacCandidates', data: {}, updatedBy: 'Admin Data Live SAC Authoritative Read' }),
     redirect: 'follow'
   });
   const text = await response.text();
   let parsed;
-  try { parsed = JSON.parse(text); } catch (_) { throw new Error('SAC live fallback returned HTTP ' + response.status + '.'); }
-  if (!response.ok || !parsed || parsed.ok === false) throw new Error((parsed && parsed.message) || ('SAC live fallback returned HTTP ' + response.status + '.'));
+  try { parsed = JSON.parse(text); } catch (_) { throw new Error('SAC live read returned HTTP ' + response.status + '.'); }
+  if (!response.ok || !parsed || parsed.ok === false) throw new Error((parsed && parsed.message) || ('SAC live read returned HTTP ' + response.status + '.'));
   const payload = (parsed && parsed.result && parsed.result.result) || (parsed && parsed.result) || parsed;
   return Array.isArray(payload && payload.candidates) ? payload.candidates : [];
 }
@@ -229,16 +229,17 @@ export default async function handler(req, res) {
     ADMIN_DATA_CACHE.v2At = nowMs;
   }
 
-  // LIVE_SAC_CANDIDATE_FALLBACK_V1
-  if (Array.isArray(data.V2_SAC_SESSIONS) && data.V2_SAC_SESSIONS.length && (!Array.isArray(data.V2_SAC_CANDIDATES) || data.V2_SAC_CANDIDATES.length === 0)) {
+  // AUTHORITATIVE_SAC_CANDIDATES_V2
+  // SAC membership must not depend on GViz eventual consistency. Whenever SAC
+  // sessions exist, replace the candidate snapshot with the protected Apps
+  // Script list. This keeps session counts and participant detail consistent.
+  if (Array.isArray(data.V2_SAC_SESSIONS) && data.V2_SAC_SESSIONS.length) {
     try {
       const liveCandidates = await fetchLiveSacCandidates(body.password);
-      if (liveCandidates.length) {
-        data.V2_SAC_CANDIDATES = liveCandidates;
-        if (ADMIN_DATA_CACHE.v2) ADMIN_DATA_CACHE.v2.V2_SAC_CANDIDATES = cloneCached(liveCandidates);
-      }
+      data.V2_SAC_CANDIDATES = Array.isArray(liveCandidates) ? liveCandidates : [];
+      if (ADMIN_DATA_CACHE.v2) ADMIN_DATA_CACHE.v2.V2_SAC_CANDIDATES = cloneCached(data.V2_SAC_CANDIDATES);
     } catch (error) {
-      warnings.push('V2_SAC_CANDIDATES live fallback: ' + ((error && error.message) || 'Unable to load'));
+      warnings.push('V2_SAC_CANDIDATES authoritative load: ' + ((error && error.message) || 'Unable to load'));
     }
   }
 
