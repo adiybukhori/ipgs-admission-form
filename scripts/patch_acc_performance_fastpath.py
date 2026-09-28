@@ -15,6 +15,12 @@ if first!=-1 and second!=-1:
 # Use a slightly longer background reconcile window so GViz has time to expose the committed row.
 s=s.replace('function scheduleApplicantRefresh(referenceNo,delay=650){','function scheduleApplicantRefresh(referenceNo,delay=1200){')
 
+# Fast targeted refresh must merge persisted internal remarks/case tags too.
+old_targets="const targetSheets=['V2_APPLICATIONS','V2_WORKFLOW','V2_DOCUMENT_REVIEW','V2_AI_SCREENING','V2_QUALIFICATION_SCREENING','V2_SAC_CANDIDATES','V2_ASSESSMENT_PROGRESS','V2_AUDIT_LOG'];"
+new_targets="const targetSheets=['V2_APPLICATIONS','V2_WORKFLOW','V2_DOCUMENT_REVIEW','V2_AI_SCREENING','V2_QUALIFICATION_SCREENING','V2_SAC_CANDIDATES','V2_ASSESSMENT_PROGRESS','V2_AUDIT_LOG','V2_AGENT_EVENTS'];"
+if old_targets in s:
+    s=s.replace(old_targets,new_targets,1);changed=True
+
 # Base fast-path may already be installed. Add it only when absent.
 if "let adminSessionId = sessionStorage.getItem('ipgsAdminSessionId')" not in s:
     old="""    let password = sessionStorage.getItem('ipgsAdminPassword') || '';
@@ -63,32 +69,17 @@ if 'function scheduleSacRefresh(' not in s:
 """
     s=s[:idx]+helper+s[idx:];changed=True
 
-# Targeted applicant refresh: light mode for normal reconciliation.
 if "async function refreshApplicantRecord(referenceNo,mode='light')" not in s:
-    s=s.replace("async function refreshApplicantRecord(referenceNo){","async function refreshApplicantRecord(referenceNo,mode='light'){")
-    changed=True
+    s=s.replace("async function refreshApplicantRecord(referenceNo){","async function refreshApplicantRecord(referenceNo,mode='light'){");changed=True
 if "JSON.stringify({password,referenceNo:ref,mode})" not in s:
-    s=s.replace("JSON.stringify({password,referenceNo:ref})","JSON.stringify({password,referenceNo:ref,mode})")
-    changed=True
-
-# Reusable bridge session for admin actions.
+    s=s.replace("JSON.stringify({password,referenceNo:ref})","JSON.stringify({password,referenceNo:ref,mode})");changed=True
 if "sessionId:adminSessionId,action,data" not in s:
-    s=s.replace("JSON.stringify({password,action,data,updatedBy:'Admin Portal V2'})","JSON.stringify({password,sessionId:adminSessionId,action,data,updatedBy:'Admin Portal V2'})")
-    changed=True
+    s=s.replace("JSON.stringify({password,action,data,updatedBy:'Admin Portal V2'})","JSON.stringify({password,sessionId:adminSessionId,action,data,updatedBy:'Admin Portal V2'})");changed=True
+old_load="body:JSON.stringify({password,force})";new_load="body:JSON.stringify({password,sessionId:adminSessionId,force})"
+if old_load in s:s=s.replace(old_load,new_load,1);changed=True
+old_logout="function logout(){sessionStorage.removeItem('ipgsAdminPassword');password='';";new_logout="function logout(){sessionStorage.removeItem('ipgsAdminPassword');sessionStorage.removeItem('ipgsAdminSessionId');adminSessionId='';password='';"
+if old_logout in s:s=s.replace(old_logout,new_logout,1);changed=True
 
-# Full data loads also pass sessionId, allowing authoritative SAC reads to use the same session.
-old_load="body:JSON.stringify({password,force})"
-new_load="body:JSON.stringify({password,sessionId:adminSessionId,force})"
-if old_load in s:
-    s=s.replace(old_load,new_load,1);changed=True
-
-# Logout must invalidate the browser-side session key too.
-old_logout="function logout(){sessionStorage.removeItem('ipgsAdminPassword');password='';"
-new_logout="function logout(){sessionStorage.removeItem('ipgsAdminPassword');sessionStorage.removeItem('ipgsAdminSessionId');adminSessionId='';password='';"
-if old_logout in s:
-    s=s.replace(old_logout,new_logout,1);changed=True
-
-# Normal applicant saves: UI returns immediately; one debounced reconciliation follows.
 old_refresh="""        if(ref){
           refreshApplicantRecord(ref)
             .then(()=>opsMsg('Saved successfully.','ok'))
@@ -102,13 +93,10 @@ new_refresh="""        if(ref){
         }else{
           opsMsg('Saved successfully.','ok');
         }"""
-if old_refresh in s:
-    s=s.replace(old_refresh,new_refresh,1);changed=True
+if old_refresh in s:s=s.replace(old_refresh,new_refresh,1);changed=True
 
-# Add a quiet keepalive action helper for secondary/audit writes that should not block the user.
 if 'async function runAdminActionBackground(' not in s:
-    anchor='    function runDocumentReview(){'
-    idx=s.find(anchor)
+    anchor='    function runDocumentReview(){';idx=s.find(anchor)
     if idx==-1: raise SystemExit('runDocumentReview anchor not found')
     helper="""    async function runAdminActionBackground(action,data){
       try{
@@ -117,16 +105,11 @@ if 'async function runAdminActionBackground(' not in s:
         if(!res.ok||!out.ok)throw new Error(out.message||'Background save failed.');
         const ref=data?.referenceNo||'';if(ref)scheduleApplicantRefresh(ref,1600);
         return out.result||out;
-      }catch(e){
-        console.warn('ACC background action failed',action,e);
-        if(selected?.ref&&selected.ref===data?.referenceNo)opsMsg('Main save completed, but a background follow-up sync needs retry. Use Refresh if the status does not update.','error');
-        return null;
-      }
+      }catch(e){console.warn('ACC background action failed',action,e);if(selected?.ref&&selected.ref===data?.referenceNo)opsMsg('Main save completed, but a background follow-up sync needs retry. Use Refresh if the status does not update.','error');return null}
     }
 """
     s=s[:idx]+helper+s[idx:];changed=True
 
-# Document review: wait only for the primary checklist save. Audit + stage follow-up run concurrently in background.
 old_doc="""    async function completeManualDocumentReview(){
       if(!selected)return;const controls=[...document.querySelectorAll('.manual-doc-status')];if(!controls.length)return opsMsg('No manual document checklist is available.','error');
       const decisions=controls.map(x=>({key:x.dataset.key,label:x.dataset.label,status:x.value==='VERIFIED'?'VERIFIED':'MISSING'}));const remarks=document.getElementById('manualDocRemarks')?.value||'';
@@ -149,10 +132,8 @@ new_doc="""    async function completeManualDocumentReview(){
       Promise.allSettled(jobs).then(()=>scheduleApplicantRefresh(ref,1800));
       opsMsg(missing.length?`Review saved. ${missing.length} missing document(s) moved to follow-up; screening may continue.`:'Review saved. All documents verified; screening may continue.','ok');
     }"""
-if old_doc in s:
-    s=s.replace(old_doc,new_doc,1);changed=True
+if old_doc in s:s=s.replace(old_doc,new_doc,1);changed=True
 
-# Replace any background full SAC reload from the first performance pass with SAC-only refresh.
 old_bg="""        }else{
           loadData(true).catch(()=>null);
           showMsg('Saved successfully. Syncing latest SAC data…','ok');
@@ -163,17 +144,11 @@ new_bg="""        }else{
           showMsg('Saved successfully. Syncing latest SAC data…','ok');
         }
         return result;"""
-if old_bg in s:
-    s=s.replace(old_bg,new_bg,1);changed=True
+if old_bg in s:s=s.replace(old_bg,new_bg,1);changed=True
 old_sac="""        }else{await loadData(true);}
         return result;"""
-if old_sac in s:
-    s=s.replace(old_sac,new_bg,1);changed=True
-
-# Deliberate exception verification remains full.
-if "await refreshApplicantRecord(ref).catch(()=>null);" in s:
-    s=s.replace("await refreshApplicantRecord(ref).catch(()=>null);","await refreshApplicantRecord(ref,'full').catch(()=>null);")
-    changed=True
+if old_sac in s:s=s.replace(old_sac,new_bg,1);changed=True
+if "await refreshApplicantRecord(ref).catch(()=>null);" in s:s=s.replace("await refreshApplicantRecord(ref).catch(()=>null);","await refreshApplicantRecord(ref,'full').catch(()=>null);");changed=True
 
 p.write_text(s,encoding='utf-8')
 print('ACC_PERFORMANCE_FASTPATH_PATCHED' if changed else 'ACC_PERFORMANCE_FASTPATH_ALREADY_CURRENT')
