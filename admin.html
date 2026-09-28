@@ -1202,35 +1202,14 @@
       const result=await runSacPageAction('v2UpdateSacSessionManual',{sessionId:sacDetailSessionId,committeeEmails},'Save this SAC panel / committee list?');
       if(!result)return;sacDetailMsg('Panel list saved. Refreshing…','ok');setTimeout(()=>location.reload(),450);
     }
-    async function addSacParticipantFromDetail(proceedWithPending=false){
+    async function addSacParticipantFromDetail(){
       const referenceNo=document.getElementById('sacAddParticipant')?.value||'';
       if(!referenceNo)return sacDetailMsg('Select an applicant first.','error');
-      const data={referenceNo,sessionId:sacDetailSessionId};
-      let confirmText='Add this applicant to the SAC session?';
-      if(proceedWithPending){
-        data.proceedWithPendingDocuments=true;
-        data.confirmed=true;
-        data.overrideBy='Admin Portal V2';
-        confirmText='AUTHORISE SAC EXCEPTION: proceed with this applicant even though document/compliance items may still be pending? This action is audited and the pending items remain visible for follow-up.';
-      }
-      const result=await runSacPageAction('v2AssignSacCandidate',data,confirmText);
+      const result=await runSacPageAction('v2AssignSacCandidate',{referenceNo,sessionId:sacDetailSessionId,proceedWithPendingDocuments:true,confirmed:true,overrideBy:'Admin Portal V2 - nonblocking document policy'},'Add this applicant to the SAC session? Pending documents remain follow-up only.');
       if(!result)return;
-      sacDetailMsg(proceedWithPending?'Participant added with authorised pending-document exception.':'Participant added.','ok');
+      sacDetailMsg('Participant added. Pending documents, if any, remain follow-up only.','ok');
     }
-    async function smartAddSacParticipant(){
-      const referenceNo=document.getElementById('sacAddParticipant')?.value||'';
-      if(!referenceNo)return sacDetailMsg('Select an applicant first.','error');
-      const applicant=records.find(r=>String(r.ref)===String(referenceNo));
-      if(!applicant)return sacDetailMsg('Applicant record not found. Refresh and try again.','error');
-      const aiQuality=String(applicant.doc?.['AI Quality Status']||'').toUpperCase();
-      const replacement=String(applicant.doc?.['Replacement Request Status']||'').toUpperCase();
-      const humanDecision=String(applicant.doc?.['Human Quality Decision']||'').toUpperCase();
-      const workflowQuality=String(applicant.workflow?.['Document Quality Status']||'').toUpperCase();
-      const humanApproved=humanDecision==='APPROVED_TO_PROCEED'||workflowQuality==='HUMAN_OVERRIDE_APPROVED';
-      const needsHuman=!humanApproved&&(['HUMAN_REVIEW_REQUIRED','FOLLOW_UP_REQUIRED'].includes(aiQuality)||replacement==='AWAITING_STUDENT');
-      if(needsHuman)return confirmDocumentsAndAddSacParticipant();
-      return addSacParticipantFromDetail(false);
-    }
+    async function smartAddSacParticipant(){return addSacParticipantFromDetail()}
 
     async function confirmDocumentsAndAddSacParticipant(){
       const referenceNo=document.getElementById('sacAddParticipant')?.value||'';
