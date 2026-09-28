@@ -1,0 +1,45 @@
+name: Apply Application Remark Indicator
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'scripts/patch_application_remark_indicator.py'
+      - '.github/workflows/apply-application-remark-indicator.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+      - name: Apply remark indicator patch
+        run: python scripts/patch_application_remark_indicator.py
+      - name: Validate remark indicator UI
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          s=Path('admin.html').read_text(encoding='utf-8')
+          assert 'function internalRemarksFor(r)' in s
+          assert 'openApplicantRemarks' in s
+          assert 'remark-indicator-btn' in s
+          assert '📝 Remark' in s
+          print('Application remark indicator validation passed')
+          PY
+      - name: Commit patched admin
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add admin.html
+          if git diff --cached --quiet; then
+            echo 'No admin changes required.'
+            exit 0
+          fi
+          git commit -m 'Show remark indicator in Applications list'
+          git push origin main
