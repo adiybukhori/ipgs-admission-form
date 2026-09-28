@@ -469,6 +469,10 @@
     .internal-remark-textarea{width:100%;min-height:96px;resize:vertical;border:1px solid #d7dce6;border-radius:12px;padding:11px 12px;font:inherit;color:var(--ink);background:#fff;outline:none}
     .internal-remark-textarea:focus{border-color:#9688d1;box-shadow:0 0 0 3px rgba(75,53,162,.09)}
     .internal-remark-item{border-left:4px solid var(--purple);background:#faf9ff}
+  
+    .application-row-actions{display:flex;gap:6px;align-items:center;justify-content:flex-end;flex-wrap:wrap}
+    .remark-indicator-btn{border-color:#d9d2f4;background:#f7f5ff;color:var(--purple);white-space:nowrap}
+    .remark-indicator-btn:hover{background:var(--purpleSoft);border-color:#c9bff1}
   </style>
 </head>
 <body>
@@ -1027,7 +1031,30 @@
     function populateFilters(){fillSelect('intakeFilter',[...new Set(records.map(r=>r.app['Intake']).filter(Boolean))].sort());fillSelect('programmeFilter',[...new Set(records.map(r=>r.app['Programme']).filter(Boolean))].sort());const canonicalStages=['APPLICATION_RECEIVED','DOCUMENT_REVIEW','QUALIFICATION_SCREENING','READY_FOR_SAC','SAC_REVIEW','INTERNAL_ASSESSMENT','PREREQUISITE','ELIGIBLE_FOR_OFFER','OFFER_ISSUED','ACCEPTED','SKY_ACTIVATED','ORIENTATION','ACADEMIC_HANDOVER','ACTIVE_STUDENT','MANUAL_REVIEW'];const actualStages=records.map(stage).filter(Boolean);fillSelect('stageFilter',[...new Set([...canonicalStages,...actualStages])],true)}
     function fillSelect(id,values,prettify=false){const el=document.getElementById(id),keep=el.value,first=el.options[0].outerHTML;el.innerHTML=first+values.map(v=>`<option value="${esc(v)}">${esc(prettify?pretty(v):v)}</option>`).join('');if(values.includes(keep))el.value=keep}
     function filteredApplications(){const q=document.getElementById('searchInput')?.value.toLowerCase().trim()||'',source=document.getElementById('sourceFilter')?.value||'',intake=document.getElementById('intakeFilter')?.value||'',programme=document.getElementById('programmeFilter')?.value||'',st=document.getElementById('stageFilter')?.value||'';return records.filter(r=>{if(String(r.workflow?.['Application Status']||r.app?.['Application Status']||'').toUpperCase()==='TEST')return false;const hay=[r.ref,r.app['Student Name'],r.app['ID / Passport No'],r.app['Personal Email'],r.app['Programme']].join(' ').toLowerCase();return(!q||hay.includes(q))&&(!source||r.source===source)&&(!intake||r.app['Intake']===intake)&&(!programme||r.app['Programme']===programme)&&(!st||stage(r)===st)})}
-    function renderApplications(){const body=document.getElementById('applicationsBody');if(!body)return;const list=filteredApplications();body.innerHTML=list.map(r=>{return`<tr><td><div class="student">${esc(r.app['Student Name']||'-')}</div><div class="subline">${esc(r.ref)}</div></td><td>${esc(r.app['Programme']||'-')}<div class="subline">${esc(r.app['Study Mode']||'')}</div></td><td>${esc(r.app['Intake']||'-')}</td><td><span class="badge ${classifyBadge(stage(r))}">${esc(pretty(stage(r)))}</span></td><td>${decision(r)?`<span class="badge ${classifyBadge(decision(r))}">${esc(pretty(decision(r)))}</span>`:'-'}</td><td><span class="badge ${classifyBadge(status(r))}">${esc(pretty(status(r)))}</span></td><td>${esc(formatDate(val(r,'Last Updated',r.app['Last Updated']||r.app['Submitted At']||'')))}</td><td><button class="ghost" onclick="openRecord('${esc(r.ref)}')">Open</button></td></tr>`}).join('')||'<tr><td colspan="8" class="empty">No applications match the selected filters.</td></tr>'}
+    function internalRemarksFor(r){
+      return (r?.audit||[]).filter(a=>{
+        const action=String(a?.['Action']||a?.['Event']||a?.['Activity']||'').toUpperCase();
+        const type=String(a?.['Type']||'').toUpperCase();
+        return action.includes('INTERNAL_REMARK')||type==='INTERNAL_REMARK';
+      });
+    }
+    function latestInternalRemark(r){
+      const rows=internalRemarksFor(r);
+      if(!rows.length)return null;
+      return rows.slice().sort((a,b)=>{
+        const ta=Date.parse(a?.['Timestamp']||a?.['Created At']||a?.['Updated At']||'')||0;
+        const tb=Date.parse(b?.['Timestamp']||b?.['Created At']||b?.['Updated At']||'')||0;
+        return tb-ta;
+      })[0];
+    }
+    function openApplicantRemarks(ref){
+      openRecord(ref);
+      requestAnimationFrame(()=>{
+        const btn=[...document.querySelectorAll('.tabs button')].find(x=>x.textContent.includes('Activity / Remarks'));
+        if(btn)detailTab('activity',btn);
+      });
+    }
+    function renderApplications(){const body=document.getElementById('applicationsBody');if(!body)return;const list=filteredApplications();body.innerHTML=list.map(r=>{return`<tr><td><div class="student">${esc(r.app['Student Name']||'-')}</div><div class="subline">${esc(r.ref)}</div></td><td>${esc(r.app['Programme']||'-')}<div class="subline">${esc(r.app['Study Mode']||'')}</div></td><td>${esc(r.app['Intake']||'-')}</td><td><span class="badge ${classifyBadge(stage(r))}">${esc(pretty(stage(r)))}</span></td><td>${decision(r)?`<span class="badge ${classifyBadge(decision(r))}">${esc(pretty(decision(r)))}</span>`:'-'}</td><td><span class="badge ${classifyBadge(status(r))}">${esc(pretty(status(r)))}</span></td><td>${esc(formatDate(val(r,'Last Updated',r.app['Last Updated']||r.app['Submitted At']||'')))}</td><td><div class="application-row-actions"><button class="ghost" onclick="openRecord('${esc(r.ref)}')">Open</button>${latestInternalRemark(r)?`<button class="ghost remark-indicator-btn" title="${esc(latestInternalRemark(r)['Remark']||latestInternalRemark(r)['Details']||latestInternalRemark(r)['Message']||latestInternalRemark(r)['Note']||'Internal remark available')}" onclick="openApplicantRemarks('${esc(r.ref)}')">📝 Remark</button>`:''}</div></td></tr>`}).join('')||'<tr><td colspan="8" class="empty">No applications match the selected filters.</td></tr>'}
     function renderSac(){
       const sessions=db.V2_SAC_SESSIONS||[],candidates=db.V2_SAC_CANDIDATES||[];
       document.getElementById('sacSessionsKpi').textContent=sessions.length;
@@ -1841,6 +1868,7 @@
         if(!out)return;
         selected.audit=selected.audit||[];
         selected.audit.unshift({'Action':'INTERNAL_REMARK','Type':'INTERNAL_REMARK','Remark':remark,'Timestamp':now,'Updated By':'Admin Portal V2'});
+        renderApplications();
         if(input)input.value='';
         renderDetailTabs(selected);
         const tab=document.getElementById('tab-activity');if(tab)tab.classList.add('active');
