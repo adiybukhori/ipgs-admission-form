@@ -107,8 +107,12 @@ export default async function handler(req, res) {
   const choiceMap = new Map(choices.map(item => [String(item.referenceNo || ''), String(item.action || '').toUpperCase()]));
 
   try {
-    const prepared = await callV2('v2PrepareSacPack', { sessionId }, password);
-    const pack = prepared?.result || prepared;
+    const preparedStatus = await callV2('v2GetSacPackPrepareStatus', { sessionId }, password);
+    const status = preparedStatus?.result || preparedStatus;
+    if (String(status?.status || '').toUpperCase() !== 'COMPLETED' || !status?.payload) {
+      return res.status(409).json({ ok: false, message: 'SAC pack preparation is not complete. Please prepare the SAC pack first.' });
+    }
+    const pack = status.payload?.result || status.payload;
     const candidates = Array.isArray(pack?.candidates) ? pack.candidates : [];
     const selected = candidates.filter(candidate => candidate.complete || choiceMap.get(String(candidate.referenceNo || '')) === 'PROCEED');
 
