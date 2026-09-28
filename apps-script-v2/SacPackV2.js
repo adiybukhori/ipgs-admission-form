@@ -87,6 +87,17 @@ function v2PrepareSacPack_(data, actor) {
       form.reused = false;
     }
 
+    // Existing candidates may pre-date the document-quality PDF feature.
+    // Backfill the report at SAC-pack time without changing the admission stage.
+    try {
+      const docReviewForReport = v2Find_('V2_DOCUMENT_REVIEW', 'Reference No', reference);
+      if (docReviewForReport && !String(docReviewForReport.record['Document Quality Report PDF URL'] || '').trim() && String(docReviewForReport.record['AI Quality Status'] || '').trim()) {
+        v2GenerateDocumentQualityReport_({referenceNo:reference}, preparedBy);
+      }
+    } catch (documentReportError) {
+      v2Audit_(reference,'SAC','BACKFILL_DOCUMENT_QUALITY_REPORT',{},{error:String(documentReportError && documentReportError.message || documentReportError)},preparedBy,'WARNING','SAC pack remains available with missing-document handling if document-quality report backfill fails.');
+    }
+
     const manifest = v2BuildSacCandidateManifest_(sessionId, reference, false);
 
     v2UpdateRow_(candidate.sheet, candidate.rowNumber, {
