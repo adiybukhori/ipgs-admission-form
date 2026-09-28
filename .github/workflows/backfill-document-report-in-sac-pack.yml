@@ -1,0 +1,72 @@
+name: Backfill Document Report in SAC Pack
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/backfill-document-report-in-sac-pack.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: apps-script-v2-dev
+          fetch-depth: 0
+
+      - name: Add report backfill before SAC manifest
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          p=Path('apps-script-v2/SacPackV2.js')
+          s=p.read_text()
+          old="""    const manifest = v2BuildSacCandidateManifest_(sessionId, reference, false);"""
+          new="""    // Existing candidates may pre-date the document-quality PDF feature.\n    // Backfill the report at SAC-pack time without changing the admission stage.\n    try {\n      const docReviewForReport = v2Find_('V2_DOCUMENT_REVIEW', 'Reference No', reference);\n      if (docReviewForReport && !String(docReviewForReport.record['Document Quality Report PDF URL'] || '').trim() && String(docReviewForReport.record['AI Quality Status'] || '').trim()) {\n        v2GenerateDocumentQualityReport_({referenceNo:reference}, preparedBy);\n      }\n    } catch (documentReportError) {\n      v2Audit_(reference,'SAC','BACKFILL_DOCUMENT_QUALITY_REPORT',{},{error:String(documentReportError && documentReportError.message || documentReportError)},preparedBy,'WARNING','SAC pack remains available with missing-document handling if document-quality report backfill fails.');\n    }\n\n    const manifest = v2BuildSacCandidateManifest_(sessionId, reference, false);"""
+          if 'BACKFILL_DOCUMENT_QUALITY_REPORT' not in s:
+              if old not in s:
+                  raise SystemExit('SAC manifest anchor not found')
+              s=s.replace(old,new,1)
+          p.write_text(s)
+          PY
+          node --check apps-script-v2/SacPackV2.js
+          grep -F "BACKFILL_DOCUMENT_QUALITY_REPORT" apps-script-v2/SacPackV2.js
+
+      - name: Commit Apps Script source
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add apps-script-v2/SacPackV2.js
+          git diff --cached --quiet || git commit -m "Backfill document report during SAC pack"
+          git push origin apps-script-v2-dev
+
+      - name: Verify clasp credential
+        env:
+          CLASPRC_JSON: ${{ secrets.CLASPRC_JSON }}
+        run: test -n "$CLASPRC_JSON" || (echo 'CLASPRC_JSON secret is not configured.' && exit 1)
+
+      - name: Install clasp
+        run: npm install --global @google/clasp@3.4.1
+
+      - name: Restore clasp credential
+        env:
+          CLASPRC_JSON: ${{ secrets.CLASPRC_JSON }}
+        run: |
+          printf '%s' "$CLASPRC_JSON" > "$HOME/.clasprc.json"
+          chmod 600 "$HOME/.clasprc.json"
+
+      - name: Verify target and redeploy
+        env:
+          V2_DEPLOYMENT_ID: AKfycbxasT_HgtRSvTbR_bsa8p17Cm-C2PKn20Ok1kU-AyJmxiKX8kX5EGOtRLwVwNlAL7JB
+        run: |
+          node tools/verify-clasp-target.mjs
+          clasp push -f
+          clasp create-deployment --deploymentId "$V2_DEPLOYMENT_ID" --description "Backfill document report in SAC pack"
+
+      - name: Remove clasp credential
+        if: always()
+        run: rm -f "$HOME/.clasprc.json"
