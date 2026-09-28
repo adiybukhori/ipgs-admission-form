@@ -32,7 +32,7 @@ function v2ComplianceEnsureFoundation_() {
   const ss = SpreadsheetApp.openById(CONFIG.spreadsheetId);
   const sheet = ss.getSheetByName(V2_DOCUMENT_REVIEW_SHEET);
   if (!sheet) throw new Error('V2_DOCUMENT_REVIEW sheet is missing.');
-  v2EnsureHeaders_(sheet, V2_DOCUMENT_REVIEW_HEADERS.concat(V2_COMPLIANCE_REVIEW_HEADERS));
+  v2EnsureHeaders_(sheet, V2_DOCUMENT_REVIEW_HEADERS.concat(V2_COMPLIANCE_REVIEW_HEADERS).concat(typeof V2_DOCUMENT_QUALITY_REPORT_HEADERS !== 'undefined' ? V2_DOCUMENT_QUALITY_REPORT_HEADERS : []));
 
   const workflow = ss.getSheetByName('V2_WORKFLOW');
   if (workflow) {
@@ -125,6 +125,15 @@ function v2RunComplianceDocumentQuality_(data, actor) {
     documents:normalized.documents
   },reviewedBy,'SUCCESS','AI-assisted document quality review completed.');
 
+  let documentQualityReport = null;
+  try {
+    if (typeof v2GenerateDocumentQualityReport_ === 'function') {
+      documentQualityReport = v2GenerateDocumentQualityReport_({referenceNo:reference}, reviewedBy);
+    }
+  } catch (reportError) {
+    v2Audit_(reference,'DOCUMENT_REVIEW','GENERATE_DOCUMENT_QUALITY_REPORT',{},{error:String(reportError && reportError.message || reportError)},reviewedBy,'WARNING','Document review progression remains non-blocking if report generation fails.');
+  }
+
   let humanTask = null;
   if (status === 'HUMAN_REVIEW_REQUIRED' && typeof v2CreateHumanTask_ === 'function') {
     humanTask = v2CreateHumanTask_({
@@ -154,6 +163,7 @@ function v2RunComplianceDocumentQuality_(data, actor) {
     findings:normalized.documents,
     followUpDocuments:followUp,
     flags:normalized.flags,
+    documentQualityReport:documentQualityReport,
     humanTask:humanTask,
     nextAction:
       status === 'PASS' ? 'ADMISSION_INTELLIGENCE' :
