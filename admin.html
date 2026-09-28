@@ -1665,7 +1665,7 @@
       if(confirmText&&!confirm(confirmText))return null;
       opsMsg('Processing…','info');
       try{
-        const res=await fetch(ACTION_API,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({password,action,data,updatedBy:'Admin Portal V2'})});
+        const res=await fetch(ACTION_API,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({password,sessionId:adminSessionId,action,data,updatedBy:'Admin Portal V2'})});
         const out=await res.json().catch(()=>({ok:false,message:'Invalid response from action service.'}));
         if(!res.ok||!out.ok)throw new Error(out.message||'Unable to complete action.');
         const result=out.result||out;
