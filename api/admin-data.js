@@ -1,7 +1,4 @@
-import { createHash } from 'crypto';
-
 const SPREADSHEET_ID = '1O-Y-q7_q78xKM1p5e2C3EWyQfYr5rXvhO0oWbVaw5Mw';
-const AUTH_WEB_APP = 'https://script.google.com/macros/s/AKfycbw22-UOsHkaap3dzU16aOjA6XFr7jWGr9qQPfp8F1CQrXboP7YdRZJKKJhHijC3us4/exec';
 const ADMIN_BRIDGE = 'https://anasbukhori.app.n8n.cloud/webhook/iuc-admission-v2-admin-bridge';
 
 const SHEETS = [
@@ -11,77 +8,42 @@ const SHEETS = [
   'V2_INTAKE_MASTER','V2_ORIENTATION_SESSIONS','V2_ORIENTATION_TRACKING','V2_ORIENTATION_WALKINS',
   'V2_HANDOVER_BATCHES','V2_HANDOVER_STUDENTS','V2_PROVISIONING','V2_ACADEMIC_PORTAL','V2_AUDIT_LOG'
 ];
-const SAC_SHEETS = ['V2_SAC_SESSIONS','SAC_COMMITTEE_MASTER'];
+const SAC_SHEETS=['V2_SAC_SESSIONS','SAC_COMMITTEE_MASTER'];
+const ADMIN_DATA_CACHE=globalThis.__IPGS_ADMIN_DATA_CACHE__||(globalThis.__IPGS_ADMIN_DATA_CACHE__={v2:null,v2At:0,sacCandidates:null,sacCandidatesAt:0});
+const V2_DATA_CACHE_MS=30*1000,SAC_LIVE_CACHE_MS=5*1000;
 
-const ADMIN_DATA_CACHE = globalThis.__IPGS_ADMIN_DATA_CACHE__ || (globalThis.__IPGS_ADMIN_DATA_CACHE__ = {
-  v2: null,
-  v2At: 0,
-  sacCandidates: null,
-  sacCandidatesAt: 0
-});
-const AUTH_CACHE = globalThis.__IPGS_ADMIN_DATA_AUTH_CACHE__ || (globalThis.__IPGS_ADMIN_DATA_AUTH_CACHE__ = new Map());
-const V2_DATA_CACHE_MS = 30 * 1000;
-const SAC_LIVE_CACHE_MS = 5 * 1000;
-const AUTH_CACHE_MS = 20 * 60 * 1000;
-
-function cloneCached(value) { return JSON.parse(JSON.stringify(value)); }
-function authKey(password) { return createHash('sha256').update(String(password || '')).digest('hex'); }
-function parseCsv(text) {
-  const rows=[]; let row=[], field='', quoted=false;
-  for(let i=0;i<text.length;i++){
-    const ch=text[i], next=text[i+1];
-    if(ch==='"'){ if(quoted&&next==='"'){field+='"';i++;} else quoted=!quoted; continue; }
-    if(ch===','&&!quoted){row.push(field);field='';continue;}
-    if((ch==='\n'||ch==='\r')&&!quoted){if(ch==='\r'&&next==='\n')i++;row.push(field);if(row.some(v=>String(v||'').trim()!==''))rows.push(row);row=[];field='';continue;}
-    field+=ch;
-  }
-  row.push(field);if(row.some(v=>String(v||'').trim()!==''))rows.push(row);return rows;
-}
+function cloneCached(value){return JSON.parse(JSON.stringify(value));}
+function parseCsv(text){const rows=[];let row=[],field='',quoted=false;for(let i=0;i<text.length;i++){const ch=text[i],next=text[i+1];if(ch==='"'){if(quoted&&next==='"'){field+='"';i++;}else quoted=!quoted;continue;}if(ch===','&&!quoted){row.push(field);field='';continue;}if((ch==='\n'||ch==='\r')&&!quoted){if(ch==='\r'&&next==='\n')i++;row.push(field);if(row.some(v=>String(v||'').trim()!==''))rows.push(row);row=[];field='';continue;}field+=ch;}row.push(field);if(row.some(v=>String(v||'').trim()!==''))rows.push(row);return rows;}
 function toObjects(csv){const rows=parseCsv(csv);if(!rows.length)return[];const headers=rows[0].map(v=>String(v||'').trim());return rows.slice(1).filter(row=>row.some(v=>String(v||'').trim()!=='')).map(row=>{const obj={};headers.forEach((h,i)=>{if(h)obj[h]=row[i]??''});return obj});}
 function sacSessionSortValue(row){const meetingValue=Date.parse([String(row?.['Meeting Date']||'').trim(),String(row?.['Meeting Time']||'').trim()].filter(Boolean).join(' '));if(Number.isFinite(meetingValue))return meetingValue;const createdValue=Date.parse(String(row?.['Created At']||'').trim());return Number.isFinite(createdValue)?createdValue:0;}
 function sortSacSessions(data){if(Array.isArray(data.V2_SAC_SESSIONS))data.V2_SAC_SESSIONS.sort((a,b)=>{const d=sacSessionSortValue(b)-sacSessionSortValue(a);if(d!==0)return d;return(Date.parse(String(b?.['Created At']||''))||0)-(Date.parse(String(a?.['Created At']||''))||0)});}
 
-async function fetchAdminAuth(password){
-  if(!password)return false;const key=authKey(password),now=Date.now(),expiry=Number(AUTH_CACHE.get(key)||0);if(expiry>now)return true;if(expiry)AUTH_CACHE.delete(key);
-  const url=`${AUTH_WEB_APP}?action=applications&token=${encodeURIComponent(password)}&_=${now}`;const response=await fetch(url,{redirect:'follow'});const text=await response.text();let valid=false;
-  try{const data=JSON.parse(text);valid=response.ok&&data&&data.ok===true;}catch(_){}
-  if(valid){AUTH_CACHE.set(key,now+AUTH_CACHE_MS);if(AUTH_CACHE.size>100){const first=AUTH_CACHE.keys().next().value;if(first)AUTH_CACHE.delete(first);}}return valid;
+async function validateAdminSession(password,sessionId){
+  if(!password)return false;
+  const response=await fetch(ADMIN_BRIDGE,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({password:String(password||''),sessionId:String(sessionId||''),action:'__AUTH_SESSION__',data:{},updatedBy:'ACC admin data auth'}),redirect:'follow'});
+  const text=await response.text();let parsed;try{parsed=JSON.parse(text)}catch(_){return false}
+  return response.ok&&parsed&&parsed.ok===true&&parsed.authenticated===true;
 }
 async function fetchSheet(sheet){const url=`https://docs.google.com/spreadsheets/d/${SPREADSHEET_ID}/gviz/tq?tqx=out:csv&sheet=${encodeURIComponent(sheet)}&_=${Date.now()}`;const response=await fetch(url,{redirect:'follow'});if(!response.ok)throw new Error(`${sheet} returned HTTP ${response.status}`);return toObjects(await response.text());}
 async function fetchSheets(names,warnings){const data={};const settled=await Promise.allSettled(names.map(async sheet=>[sheet,await fetchSheet(sheet)]));settled.forEach((result,index)=>{const sheet=names[index];if(result.status==='fulfilled'){const[name,rows]=result.value;data[name]=rows}else{data[sheet]=[];warnings.push(`${sheet}: ${result.reason?.message||'Unable to load'}`)}});return data;}
-async function fetchLiveSacCandidates(password,sessionId,force=false){
-  const now=Date.now();if(!force&&ADMIN_DATA_CACHE.sacCandidates&&(now-ADMIN_DATA_CACHE.sacCandidatesAt)<SAC_LIVE_CACHE_MS)return cloneCached(ADMIN_DATA_CACHE.sacCandidates);
-  const response=await fetch(ADMIN_BRIDGE,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({password:String(password||''),sessionId:String(sessionId||''),action:'v2ListSacCandidates',data:{},updatedBy:'Admin Data Live SAC Authoritative Read'}),redirect:'follow'});
-  const text=await response.text();let parsed;try{parsed=JSON.parse(text)}catch(_){throw new Error('SAC live read returned HTTP '+response.status+'.')}
-  if(!response.ok||!parsed||parsed.ok===false)throw new Error(parsed?.message||('SAC live read returned HTTP '+response.status+'.'));
-  const payload=parsed?.result?.result||parsed?.result||parsed;const rows=Array.isArray(payload?.candidates)?payload.candidates:[];ADMIN_DATA_CACHE.sacCandidates=cloneCached(rows);ADMIN_DATA_CACHE.sacCandidatesAt=now;return rows;
-}
+async function fetchLiveSacCandidates(password,sessionId,force=false){const now=Date.now();if(!force&&ADMIN_DATA_CACHE.sacCandidates&&(now-ADMIN_DATA_CACHE.sacCandidatesAt)<SAC_LIVE_CACHE_MS)return cloneCached(ADMIN_DATA_CACHE.sacCandidates);const response=await fetch(ADMIN_BRIDGE,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({password:String(password||''),sessionId:String(sessionId||''),action:'v2ListSacCandidates',data:{},updatedBy:'Admin Data Live SAC Authoritative Read'}),redirect:'follow'});const text=await response.text();let parsed;try{parsed=JSON.parse(text)}catch(_){throw new Error('SAC live read returned HTTP '+response.status+'.')}if(!response.ok||!parsed||parsed.ok===false)throw new Error(parsed?.message||('SAC live read returned HTTP '+response.status+'.'));const payload=parsed?.result?.result||parsed?.result||parsed;const rows=Array.isArray(payload?.candidates)?payload.candidates:[];ADMIN_DATA_CACHE.sacCandidates=cloneCached(rows);ADMIN_DATA_CACHE.sacCandidatesAt=now;return rows;}
 
 export default async function handler(req,res){
   res.setHeader('Cache-Control','no-store, max-age=0');
-  if(req.method==='GET'&&String(req.query?.health||'')==='1')return res.status(200).json({ok:true,service:'IPGS Unified Admission Admin Data',build:'ADMIN_DATA_FAST_SCOPED_20260928'});
+  if(req.method==='GET'&&String(req.query?.health||'')==='1')return res.status(200).json({ok:true,service:'IPGS Unified Admission Admin Data',build:'ADMIN_DATA_SESSION_FAST_20260928'});
   if(req.method!=='POST')return res.status(405).json({ok:false,message:'Method not allowed.'});
   const startedAt=Date.now();let body=req.body||{};if(typeof body==='string'){try{body=JSON.parse(body)}catch(_){body={}}}
-  const authStarted=Date.now();if(!(await fetchAdminAuth(body.password)))return res.status(401).json({ok:false,message:'Invalid admin password.'});const authMs=Date.now()-authStarted;
+  const authStarted=Date.now();if(!(await validateAdminSession(body.password,body.sessionId)))return res.status(401).json({ok:false,message:'Invalid admin password.'});const authMs=Date.now()-authStarted;
   const force=body.force===true,scope=String(body.scope||'full').toLowerCase(),now=Date.now();let data={},warnings=[],v2CacheHit=false;
-
   const sheetsStarted=Date.now();
-  if(scope==='sac'){
-    data=await fetchSheets(SAC_SHEETS,warnings);
-  }else if(!force&&ADMIN_DATA_CACHE.v2&&(now-ADMIN_DATA_CACHE.v2At)<V2_DATA_CACHE_MS){data=cloneCached(ADMIN_DATA_CACHE.v2);v2CacheHit=true;}
+  if(scope==='sac')data=await fetchSheets(SAC_SHEETS,warnings);
+  else if(!force&&ADMIN_DATA_CACHE.v2&&(now-ADMIN_DATA_CACHE.v2At)<V2_DATA_CACHE_MS){data=cloneCached(ADMIN_DATA_CACHE.v2);v2CacheHit=true;}
   else{data=await fetchSheets(SHEETS,warnings);ADMIN_DATA_CACHE.v2=cloneCached(data);ADMIN_DATA_CACHE.v2At=now;}
   const sheetsMs=Date.now()-sheetsStarted;
-
-  const sacStarted=Date.now();
-  const hasSacSessions=Array.isArray(data.V2_SAC_SESSIONS)&&data.V2_SAC_SESSIONS.length;
-  if(scope==='sac'||hasSacSessions){
-    try{data.V2_SAC_CANDIDATES=await fetchLiveSacCandidates(body.password,body.sessionId,scope==='sac'&&force);if(ADMIN_DATA_CACHE.v2)ADMIN_DATA_CACHE.v2.V2_SAC_CANDIDATES=cloneCached(data.V2_SAC_CANDIDATES);}
-    catch(error){warnings.push('V2_SAC_CANDIDATES authoritative load: '+(error?.message||'Unable to load'));}
-  }
+  const sacStarted=Date.now();const hasSacSessions=Array.isArray(data.V2_SAC_SESSIONS)&&data.V2_SAC_SESSIONS.length;
+  if(scope==='sac'||hasSacSessions){try{data.V2_SAC_CANDIDATES=await fetchLiveSacCandidates(body.password,body.sessionId,scope==='sac'&&force);if(ADMIN_DATA_CACHE.v2)ADMIN_DATA_CACHE.v2.V2_SAC_CANDIDATES=cloneCached(data.V2_SAC_CANDIDATES);}catch(error){warnings.push('V2_SAC_CANDIDATES authoritative load: '+(error?.message||'Unable to load'));}}
   const sacMs=Date.now()-sacStarted;
-
   if(scope!=='sac'){data.V1_MASTER_DATABASE=[];data.V1_LEGACY_META=[{source:'ARCHIVED_AFTER_UNIFIED_MIGRATION',count:0,readOnly:true,cacheHit:false}];}
-  sortSacSessions(data);
-  const totalMs=Date.now()-startedAt;res.setHeader('Server-Timing',`auth;dur=${authMs}, sheets;dur=${sheetsMs}, sac;dur=${sacMs}, total;dur=${totalMs}`);
-  return res.status(200).json({ok:true,build:'ADMIN_DATA_FAST_SCOPED_20260928',scope,loadedAt:new Date().toISOString(),warnings,cache:{unifiedHit:v2CacheHit,ttlSeconds:30,forced:force},performance:{authMs,sheetsMs,sacMs,totalMs},data});
+  sortSacSessions(data);const totalMs=Date.now()-startedAt;res.setHeader('Server-Timing',`auth;dur=${authMs}, sheets;dur=${sheetsMs}, sac;dur=${sacMs}, total;dur=${totalMs}`);
+  return res.status(200).json({ok:true,build:'ADMIN_DATA_SESSION_FAST_20260928',scope,loadedAt:new Date().toISOString(),warnings,cache:{unifiedHit:v2CacheHit,ttlSeconds:30,forced:force},performance:{authMs,sheetsMs,sacMs,totalMs},data});
 }
