@@ -1318,6 +1318,8 @@
       const confidence=Number.isFinite(confidenceRaw)&&confidenceRaw>0?Math.round((confidenceRaw<=1?confidenceRaw*100:confidenceRaw))+'%':'—';
       const replacementStatus=String(r.doc?.['Replacement Request Status']||'').toUpperCase();
       const notificationStatus=String(r.doc?.['Replacement Notification Status']||'').toUpperCase();
+      const qualityReportUrl=String(r.doc?.['Document Quality Report PDF URL']||'');
+      const qualityReportStatus=String(r.doc?.['Document Quality Report Status']||(qualityReportUrl?'FINAL':'PENDING')).toUpperCase();
       let findings=[],followUp=[],flags=[];
       try{findings=JSON.parse(r.doc?.['AI Quality Findings JSON']||'[]')}catch(_){}
       try{followUp=JSON.parse(r.doc?.['AI Quality Follow-up JSON']||'[]')}catch(_){}
@@ -1346,6 +1348,7 @@
       const runButton=canRun?'<button class="ops-btn" onclick="runComplianceQualityReview()">'+(status==='NOT_RUN'?'Run AI Document Quality Review':'Re-run AI Document Quality Review')+'</button>':'';
       const canOverride=canRun&&['HUMAN_REVIEW_REQUIRED','FOLLOW_UP_REQUIRED'].includes(status);
       const overrideButton=canOverride?'<button class="ops-btn primary" onclick="approveDocumentQualityHumanOverride()">Human Override → Next Stage</button>':'';
+      const qualityReportButton=qualityReportUrl?'<a class="ops-btn primary" target="_blank" rel="noopener" href="'+esc(qualityReportUrl)+'">Open Document Report</a>':'<button class="ops-btn" disabled>Document Report · '+esc(pretty(qualityReportStatus))+'</button>';
 
       return '<div class="screening-section">'+
         '<div class="screening-result"><div><div class="screening-title">Compliance & Records AI · Document Quality</div>'+
@@ -1359,7 +1362,8 @@
         '</div>'+
         (flags.length?'<div class="screening-help" style="margin-top:9px"><b>Flags:</b> '+esc(flags.join('; '))+'</div>':'')+
         issueRows+followRows+
-        '<div class="screening-actions">'+runButton+overrideButton+'</div>'+
+        '<div style="margin-top:10px;padding-top:10px;border-top:1px solid var(--line)"><div class="screening-title" style="font-size:11px">Official Document Quality Report</div><div class="screening-help" style="margin-top:3px">Saved in the student folder and automatically included in the SAC print pack.</div></div>'+
+        '<div class="screening-actions">'+qualityReportButton+runButton+overrideButton+'</div>'+
       '</div>';
     }
 
@@ -1379,7 +1383,7 @@
       const workSummary=String(r.ai?.['Work Experience Summary']||'');
       const autoAction=PHASE2_BACKEND_READY?'<button class="ops-btn" onclick="retryAutoAiScreening()">Run / Retry AI Screening</button>':'<button class="ops-btn" disabled>AI Screening · backend sync pending</button>';
       const reportAction=PHASE2_BACKEND_READY?'<button class="ops-btn" onclick="generateAiScreeningReport()">Generate / Refresh Report</button>':'<button class="ops-btn" disabled>Report · backend sync pending</button>';
-      const reportLink=reportUrl?'<a class="ops-btn primary" href="'+esc(reportUrl)+'" target="_blank" rel="noopener">Open Official PDF</a>':'';
+      const reportLink=reportUrl?'<a class="ops-btn primary" href="'+esc(reportUrl)+'" target="_blank" rel="noopener">Open Screening Report</a>':'';
       const manualBlock=manualRequired?`
         <div class="screening-section">
           <div class="screening-result">
