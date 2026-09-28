@@ -4,19 +4,19 @@ p=Path('admin.html')
 s=p.read_text(encoding='utf-8')
 changed=False
 
-# Remove duplicate targeted-refresh helper block left by earlier iterative patches.
 marker='    // ADMIN_TARGETED_REFRESH_V1\n'
-first=s.find(marker)
-second=s.find(marker,first+len(marker)) if first!=-1 else -1
-if first!=-1 and second!=-1:
-    s=s[:first]+s[second:]
-    changed=True
-
+first=s.find(marker);second=s.find(marker,first+len(marker)) if first!=-1 else -1
+if first!=-1 and second!=-1:s=s[:first]+s[second:];changed=True
 s=s.replace('function scheduleApplicantRefresh(referenceNo,delay=650){','function scheduleApplicantRefresh(referenceNo,delay=1200){')
 
 old_targets="const targetSheets=['V2_APPLICATIONS','V2_WORKFLOW','V2_DOCUMENT_REVIEW','V2_AI_SCREENING','V2_QUALIFICATION_SCREENING','V2_SAC_CANDIDATES','V2_ASSESSMENT_PROGRESS','V2_AUDIT_LOG'];"
 new_targets="const targetSheets=['V2_APPLICATIONS','V2_WORKFLOW','V2_DOCUMENT_REVIEW','V2_AI_SCREENING','V2_QUALIFICATION_SCREENING','V2_SAC_CANDIDATES','V2_ASSESSMENT_PROGRESS','V2_AUDIT_LOG','V2_AGENT_EVENTS'];"
 if old_targets in s:s=s.replace(old_targets,new_targets,1);changed=True
+
+# Targeted record API now shares the same bridge-authenticated session as all other ACC calls.
+old_record_body="JSON.stringify({password,referenceNo:ref,mode})"
+new_record_body="JSON.stringify({password,sessionId:adminSessionId,referenceNo:ref,mode})"
+if old_record_body in s:s=s.replace(old_record_body,new_record_body,1);changed=True
 
 if "let adminSessionId = sessionStorage.getItem('ipgsAdminSessionId')" not in s:
     old="""    let password = sessionStorage.getItem('ipgsAdminPassword') || '';
@@ -40,12 +40,11 @@ if 'function scheduleSacRefresh(' not in s:
 """
     s=s[:idx]+helper+s[idx:];changed=True
 else:
-    old="if(selected?.ref){selected=records.find(x=>x.ref===selected.ref)||selected;renderSelectedApplicant()}\n    }"
-    new="if(selected?.ref){selected=records.find(x=>x.ref===selected.ref)||selected;renderSelectedApplicant()}if(document.getElementById('sacSessionModal')?.classList.contains('open')&&sacDetailSessionId)renderSacSessionDetail()\n    }"
+    old="if(selected?.ref){selected=records.find(x=>x.ref===selected.ref)||selected;renderSelectedApplicant()}\n    }";new="if(selected?.ref){selected=records.find(x=>x.ref===selected.ref)||selected;renderSelectedApplicant()}if(document.getElementById('sacSessionModal')?.classList.contains('open')&&sacDetailSessionId)renderSacSessionDetail()\n    }"
     if old in s:s=s.replace(old,new,1);changed=True
 
 if "async function refreshApplicantRecord(referenceNo,mode='light')" not in s:s=s.replace("async function refreshApplicantRecord(referenceNo){","async function refreshApplicantRecord(referenceNo,mode='light'){");changed=True
-if "JSON.stringify({password,referenceNo:ref,mode})" not in s:s=s.replace("JSON.stringify({password,referenceNo:ref})","JSON.stringify({password,referenceNo:ref,mode})");changed=True
+if "JSON.stringify({password,referenceNo:ref})" in s:s=s.replace("JSON.stringify({password,referenceNo:ref})",new_record_body,1);changed=True
 if "sessionId:adminSessionId,action,data" not in s:s=s.replace("JSON.stringify({password,action,data,updatedBy:'Admin Portal V2'})","JSON.stringify({password,sessionId:adminSessionId,action,data,updatedBy:'Admin Portal V2'})");changed=True
 if "body:JSON.stringify({password,force})" in s:s=s.replace("body:JSON.stringify({password,force})","body:JSON.stringify({password,sessionId:adminSessionId,force})",1);changed=True
 if "function logout(){sessionStorage.removeItem('ipgsAdminPassword');password='';" in s:s=s.replace("function logout(){sessionStorage.removeItem('ipgsAdminPassword');password='';","function logout(){sessionStorage.removeItem('ipgsAdminPassword');sessionStorage.removeItem('ipgsAdminSessionId');adminSessionId='';password='';",1);changed=True
@@ -56,8 +55,7 @@ old_refresh="""        if(ref){
             .catch(()=>opsMsg('Saved successfully. Use Refresh if you need to verify the latest backend data.','ok'));
         }else{
           opsMsg('Saved successfully.','ok');
-        }"""
-new_refresh="""        if(ref){scheduleApplicantRefresh(ref);opsMsg('Saved successfully.','ok')}else{opsMsg('Saved successfully.','ok')}"""
+        }""";new_refresh="""        if(ref){scheduleApplicantRefresh(ref);opsMsg('Saved successfully.','ok')}else{opsMsg('Saved successfully.','ok')}"""
 if old_refresh in s:s=s.replace(old_refresh,new_refresh,1);changed=True
 
 if 'async function runAdminActionBackground(' not in s:
@@ -76,7 +74,6 @@ old_bg="""        }else{
 if old_bg in s:s=s.replace(old_bg,new_bg,1);changed=True
 if "        }else{await loadData(true);}\n        return result;" in s:s=s.replace("        }else{await loadData(true);}\n        return result;",new_bg,1);changed=True
 
-# Old SAC detail handlers reloaded the whole browser after successful writes. Replace with scoped SAC sync.
 replacements={
 "if(!result)return;sacDetailMsg('SAC details saved. Refreshing…','ok');setTimeout(()=>location.reload(),450);":"if(!result)return;sacDetailMsg('SAC details saved.','ok');scheduleSacRefresh(250);",
 "if(!result)return;sacDetailMsg('Panel list saved. Refreshing…','ok');setTimeout(()=>location.reload(),450);":"if(!result)return;sacDetailMsg('Panel list saved.','ok');scheduleSacRefresh(250);",
@@ -85,7 +82,6 @@ replacements={
 }
 for old,new in replacements.items():
     if old in s:s=s.replace(old,new,1);changed=True
-
 if "await refreshApplicantRecord(ref).catch(()=>null);" in s:s=s.replace("await refreshApplicantRecord(ref).catch(()=>null);","await refreshApplicantRecord(ref,'full').catch(()=>null);");changed=True
 
 p.write_text(s,encoding='utf-8')
