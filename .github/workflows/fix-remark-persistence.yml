@@ -1,0 +1,44 @@
+name: Fix Remark Persistence
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'scripts/patch_remark_persistence.py'
+      - '.github/workflows/fix-remark-persistence.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+      - name: Apply remark persistence patch
+        run: python scripts/patch_remark_persistence.py
+      - name: Validate remark persistence
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          s=Path('admin.html').read_text(encoding='utf-8')
+          assert 'normalizedRemarkEvents' in s
+          assert 'V2_AGENT_EVENTS' in s
+          assert 'INTERNAL_REMARK' in s
+          print('Remark persistence validation passed')
+          PY
+      - name: Commit patched admin
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add admin.html
+          if git diff --cached --quiet; then
+            echo 'No admin changes required.'
+            exit 0
+          fi
+          git commit -m 'Persist internal remarks after reload'
+          git push origin main
