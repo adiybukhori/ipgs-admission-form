@@ -1,0 +1,90 @@
+name: Fix SAC Pack Open Actions V2
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/fix-sac-pack-open-actions-v2.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+
+      - name: Patch generated SAC pack actions
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          import re
+          p=Path('admin.html')
+          s=p.read_text(encoding='utf-8')
+
+          # 1) Session row: generated pack becomes Open actions, not Generate again.
+          pat=r"const packAction=n>0\?\(PHASE2_BACKEND_READY\?`<button class=\\\"ghost\\\" onclick=\\\"prepareSacPack\('\$\{esc\(id\)\}'\)\\\">Generate & Print SAC Pack</button>`:'<button class=\\\"ghost\\\" disabled>SAC Pack · backend sync pending</button>'\):'';"
+          repl="""const sacPackUrl=String(s['SAC Pack URL']||'').trim();
+        const sacFolderUrl=String(s['SAC Folder URL']||'').trim();
+        const packAction=n>0?(sacPackUrl?`<a class=\"ghost\" target=\"_blank\" rel=\"noopener\" href=\"${esc(sacPackUrl)}\">Open SAC Pack</a>${sacFolderUrl?`<a class=\"ghost\" target=\"_blank\" rel=\"noopener\" href=\"${esc(sacFolderUrl)}\">Open SAC Folder</a>`:''}`:(PHASE2_BACKEND_READY?`<button class=\"ghost\" onclick=\"prepareSacPack('${esc(id)}')\">Generate SAC Pack</button>`:'<button class=\"ghost\" disabled>SAC Pack · backend sync pending</button>')):'';"""
+          s,n1=re.subn(pat,repl,s,count=1)
+
+          # 2) SAC detail section: if URL already exists, show Open Pack + Open Folder.
+          pat2=r'<section class=\\?"sac-session-section\\?"><h4>5\. SAC Print Pack</h4><div class=\\?"hint\\?">Generate one merged PDF in the approved order: PG-ADM-01 → AI Screening Report → Admission Form → supporting documents\.</div><div class=\\?"sac-workspace-actions\\?">.*?</div></section>'
+          m=re.search(pat2,s)
+          if m:
+              new2='''<section class="sac-session-section"><h4>5. SAC Print Pack</h4><div class="hint">Generate one merged PDF in the approved order: PG-ADM-01 → AI Screening Report → Admission Form → supporting documents.</div><div class="sac-workspace-actions">${String(session['SAC Pack URL']||'').trim()?`<a class="primary" target="_blank" rel="noopener" href="${esc(session['SAC Pack URL'])}">Open SAC Pack</a>${String(session['SAC Folder URL']||'').trim()?`<a class="ghost" target="_blank" rel="noopener" href="${esc(session['SAC Folder URL'])}">Open SAC Folder</a>`:''}<span class="badge green">Generated</span>`:`<button class="primary" type="button" onclick="prepareSacPack('${esc(sacDetailSessionId)}')" ${candidates.length&&PHASE2_BACKEND_READY?'':'disabled'}>Generate SAC Pack</button><span class="badge ${candidates.length?'blue':'amber'}">${candidates.length} candidate${candidates.length===1?'':'s'}</span>`}</div></section>'''
+              s=s[:m.start()]+new2+s[m.end():]
+              n2=1
+          else:n2=0
+
+          # 3) Permit safe HTML only for our own generated Open links in message box.
+          old="function sacPackModalMsg(text,type='info'){const el=document.getElementById('sacPackMessage');if(!el)return;el.style.display='block';el.className='message '+(type==='error'?'error':'');el.style.background=type==='ok'?'var(--greenSoft)':type==='error'?'var(--redSoft)':'var(--blueSoft)';el.style.color=type==='ok'?'var(--green)':type==='error'?'var(--red)':'var(--blue)';el.textContent=text}"
+          new="function sacPackModalMsg(text,type='info',allowHtml=false){const el=document.getElementById('sacPackMessage');if(!el)return;el.style.display='block';el.className='message '+(type==='error'?'error':'');el.style.background=type==='ok'?'var(--greenSoft)':type==='error'?'var(--redSoft)':'var(--blueSoft)';el.style.color=type==='ok'?'var(--green)':type==='error'?'var(--red)':'var(--blue)';if(allowHtml)el.innerHTML=text;else el.textContent=text}"
+          if old in s:
+              s=s.replace(old,new,1); n3=1
+          else:n3=0
+
+          # 4) Make post-generation links clickable and remember URLs immediately in current session state.
+          old4="sacPackModalMsg(`Merged SAC Pack generated and saved to Drive.${links?' '+links:''}`,'ok');"
+          new4="""sacPackModalMsg(`<div style=\"display:flex;align-items:center;gap:8px;flex-wrap:wrap\"><strong>SAC Pack generated and saved.</strong>${packUrl?`<a class=\"ghost\" target=\"_blank\" rel=\"noopener\" href=\"${esc(packUrl)}\">Open SAC Pack</a>`:''}${folderUrl?`<a class=\"ghost\" target=\"_blank\" rel=\"noopener\" href=\"${esc(folderUrl)}\">Open SAC Folder</a>`:''}</div>`,'ok',true);
+        const currentSession=(db.V2_SAC_SESSIONS||[]).find(x=>String(x['SAC Session ID']||'').trim()===String(sacPackState.sessionId||'').trim());
+        if(currentSession){if(packUrl)currentSession['SAC Pack URL']=packUrl;if(folderUrl)currentSession['SAC Folder URL']=folderUrl;currentSession['SAC Pack Generated At']=new Date().toISOString();}
+        renderSac();if(sacDetailSessionId===sacPackState.sessionId)renderSacSessionDetail();"""
+          if old4 in s:
+              s=s.replace(old4,new4,1); n4=1
+          else:n4=0
+
+          # 5) After success, don't tell user to generate again.
+          s=s.replace("finally{if(btn){btn.disabled=false;btn.textContent='Generate & Print SAC Pack'}}","finally{if(btn){btn.disabled=false;btn.textContent=packUrl?'Open SAC Pack':'Generate SAC Pack';if(packUrl)btn.onclick=()=>window.open(packUrl,'_blank')}}",1)
+
+          print('patched',n1,n2,n3,n4)
+          if n2+n3+n4 < 3:
+              raise SystemExit('Required SAC pack UI anchors not found')
+          p.write_text(s,encoding='utf-8')
+          PY
+
+      - name: Validate admin JavaScript
+        run: |
+          node - <<'NODE'
+          const fs=require('fs');
+          const html=fs.readFileSync('admin.html','utf8');
+          const blocks=[...html.matchAll(/<script(?:\s[^>]*)?>([\s\S]*?)<\/script>/gi)].map(m=>m[1]).filter(Boolean);
+          for(const b of blocks)new Function(b);
+          if(!html.includes('Open SAC Pack')) throw new Error('Open SAC Pack missing');
+          if(!html.includes("session['SAC Pack URL']")) throw new Error('Session SAC Pack URL handling missing');
+          console.log('SAC_PACK_OPEN_ACTIONS_V2_OK');
+          NODE
+
+      - name: Commit changes
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '4189827+github-actions[bot]@users.noreply.github.com'
+          git add admin.html
+          git diff --cached --quiet || git commit -m 'Show saved SAC pack instead of regenerate action'
+          git push origin main
