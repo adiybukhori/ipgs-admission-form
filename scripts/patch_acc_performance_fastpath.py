@@ -13,10 +13,15 @@ old_targets="const targetSheets=['V2_APPLICATIONS','V2_WORKFLOW','V2_DOCUMENT_RE
 new_targets="const targetSheets=['V2_APPLICATIONS','V2_WORKFLOW','V2_DOCUMENT_REVIEW','V2_AI_SCREENING','V2_QUALIFICATION_SCREENING','V2_SAC_CANDIDATES','V2_ASSESSMENT_PROGRESS','V2_AUDIT_LOG','V2_AGENT_EVENTS'];"
 if old_targets in s:s=s.replace(old_targets,new_targets,1);changed=True
 
-# Targeted record API now shares the same bridge-authenticated session as all other ACC calls.
-old_record_body="JSON.stringify({password,referenceNo:ref,mode})"
-new_record_body="JSON.stringify({password,sessionId:adminSessionId,referenceNo:ref,mode})"
+old_record_body="JSON.stringify({password,referenceNo:ref,mode})";new_record_body="JSON.stringify({password,sessionId:adminSessionId,referenceNo:ref,mode})"
 if old_record_body in s:s=s.replace(old_record_body,new_record_body,1);changed=True
+
+# Every main/background admin action must carry the browser session id.
+old_action_body="body:JSON.stringify({password,action,data,updatedBy:'Admin Portal V2'})"
+new_action_body="body:JSON.stringify({password,sessionId:adminSessionId,action,data,updatedBy:'Admin Portal V2'})"
+if old_action_body in s:
+    s=s.replace(old_action_body,new_action_body)
+    changed=True
 
 if "let adminSessionId = sessionStorage.getItem('ipgsAdminSessionId')" not in s:
     old="""    let password = sessionStorage.getItem('ipgsAdminPassword') || '';
@@ -45,7 +50,6 @@ else:
 
 if "async function refreshApplicantRecord(referenceNo,mode='light')" not in s:s=s.replace("async function refreshApplicantRecord(referenceNo){","async function refreshApplicantRecord(referenceNo,mode='light'){");changed=True
 if "JSON.stringify({password,referenceNo:ref})" in s:s=s.replace("JSON.stringify({password,referenceNo:ref})",new_record_body,1);changed=True
-if "sessionId:adminSessionId,action,data" not in s:s=s.replace("JSON.stringify({password,action,data,updatedBy:'Admin Portal V2'})","JSON.stringify({password,sessionId:adminSessionId,action,data,updatedBy:'Admin Portal V2'})");changed=True
 if "body:JSON.stringify({password,force})" in s:s=s.replace("body:JSON.stringify({password,force})","body:JSON.stringify({password,sessionId:adminSessionId,force})",1);changed=True
 if "function logout(){sessionStorage.removeItem('ipgsAdminPassword');password='';" in s:s=s.replace("function logout(){sessionStorage.removeItem('ipgsAdminPassword');password='';","function logout(){sessionStorage.removeItem('ipgsAdminPassword');sessionStorage.removeItem('ipgsAdminSessionId');adminSessionId='';password='';",1);changed=True
 
