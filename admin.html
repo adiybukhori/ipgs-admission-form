@@ -1878,24 +1878,42 @@
     }
     async function prepareSacPack(sessionId){
       if(!PHASE2_BACKEND_READY)return sacPageMsg('SAC Pack backend is waiting for Apps Script sync. The UI is ready, but printing remains safety-gated until deployment tests pass.','info');
-      const result=await runSacPageAction('v2PrepareSacPack',{sessionId},null);
-      if(!result)return;
-      sacPackState=result;
-      const modal=document.getElementById('sacPackModal'),title=document.getElementById('sacPackTitle'),sub=document.getElementById('sacPackSubtitle'),summary=document.getElementById('sacPackSummary'),list=document.getElementById('sacPackCandidates'),msg=document.getElementById('sacPackMessage');
-      title.textContent=result.sessionName||result.sessionId||'SAC Print Pack';
-      sub.textContent=`${result.candidateCount||0} candidate(s) · PG-ADM-01 is the first document for each candidate and acts as the separator.`;
-      summary.innerHTML=`<span class="badge purple">${result.candidateCount||0} candidates</span><span class="badge green">${result.completeCount||0} complete</span><span class="badge ${result.incompleteCount?'amber':'green'}">${result.incompleteCount||0} incomplete</span>`;
-      const candidates=Array.isArray(result.candidates)?result.candidates:[];
-      list.innerHTML=candidates.map(c=>{
-        const missing=Array.isArray(c.missingDocuments)?c.missingDocuments:[];
-        const missingText=missing.map(x=>x.label||x.key||x).filter(Boolean).join(', ');
-        const ref=String(c.referenceNo||'');
-        const status=c.complete?'<span class="badge green">Complete · Included</span>':'<span class="badge amber">Missing file(s)</span>';
-        const choice=c.complete?'':`<div class="sac-pack-choice"><label><input type="radio" name="sacPackChoice_${esc(ref)}" value="PROCEED"> Proceed with available documents</label><label><input type="radio" name="sacPackChoice_${esc(ref)}" value="SKIP" checked> Skip this candidate</label></div>`;
-        return `<div class="sac-pack-candidate" data-reference="${esc(ref)}" data-complete="${c.complete?'YES':'NO'}"><div class="sac-pack-candidate-head"><div><div class="sac-pack-candidate-name">${esc(c.studentName||ref)}</div><div class="sac-pack-candidate-meta">${esc(c.programme||'-')} · ${esc(ref)} · ${c.documentCount||0} document(s)</div></div>${status}</div>${c.complete?'':`<div class="sac-pack-missing">Missing: ${esc(missingText||'Required document')}</div>${choice}`}</div>`;
-      }).join('')||'<div class="empty">No candidates assigned to this session.</div>';
-      if(msg){msg.style.display='none';msg.textContent=''}
+      const modal=document.getElementById('sacPackModal'),title=document.getElementById('sacPackTitle'),sub=document.getElementById('sacPackSubtitle'),summary=document.getElementById('sacPackSummary'),list=document.getElementById('sacPackCandidates'),msg=document.getElementById('sacPackMessage'),btn=document.getElementById('sacPackGenerateBtn');
+      sacPackState=null;
+      if(title)title.textContent='Preparing SAC Print Pack';
+      if(sub)sub.textContent='Checking participant documents and building the print manifest…';
+      if(summary)summary.innerHTML='';
+      if(list)list.innerHTML='<div class="empty" style="padding:24px!important">Preparing candidate documents…</div>';
+      if(btn){btn.disabled=true;btn.textContent='Preparing…'}
+      if(msg){msg.innerHTML='<div class="sac-pack-progress-wrap"><div class="sac-pack-progress-track"><div id="sacPackPrepareProgressBar" class="sac-pack-progress-bar"></div></div><div id="sacPackPrepareProgressLabel" class="sac-pack-progress-label">Starting SAC pack preparation…</div></div>';msg.style.display='block';}
       if(modal)modal.classList.add('open');
+      const setPrepareProgress=(pct,label)=>{const bar=document.getElementById('sacPackPrepareProgressBar'),lab=document.getElementById('sacPackPrepareProgressLabel');if(bar)bar.style.width=Math.max(0,Math.min(100,pct))+'%';if(lab)lab.textContent=label||''};
+      setPrepareProgress(8,'Loading SAC participants…');
+      let timer=setInterval(()=>{const bar=document.getElementById('sacPackPrepareProgressBar');if(!bar)return;const cur=parseInt(bar.style.width||'8',10)||8;if(cur<86)setPrepareProgress(cur+4,cur<32?'Checking participant records…':cur<60?'Scanning required documents…':'Preparing print manifest…')},500);
+      try{
+        const result=await runSacPageAction('v2PrepareSacPack',{sessionId},null);
+        if(!result)throw new Error('Unable to prepare SAC pack.');
+        if(timer){clearInterval(timer);timer=null}setPrepareProgress(100,'Preparation complete.');
+        sacPackState=result;
+        if(title)title.textContent=result.sessionName||result.sessionId||'SAC Print Pack';
+        if(sub)sub.textContent=`${result.candidateCount||0} candidate(s) · PG-ADM-01 is the first document for each candidate and acts as the separator.`;
+        if(summary)summary.innerHTML=`<span class="badge purple">${result.candidateCount||0} candidates</span><span class="badge green">${result.completeCount||0} complete</span><span class="badge ${result.incompleteCount?'amber':'green'}">${result.incompleteCount||0} incomplete</span>`;
+        const candidates=Array.isArray(result.candidates)?result.candidates:[];
+        if(list)list.innerHTML=candidates.map(c=>{
+          const missing=Array.isArray(c.missingDocuments)?c.missingDocuments:[];
+          const missingText=missing.map(x=>x.label||x.key||x).filter(Boolean).join(', ');
+          const ref=String(c.referenceNo||'');
+          const status=c.complete?'<span class="badge green">Complete · Included</span>':'<span class="badge amber">Missing file(s)</span>';
+          const choice=c.complete?'':`<div class="sac-pack-choice"><label><input type="radio" name="sacPackChoice_${esc(ref)}" value="PROCEED"> Proceed with available documents</label><label><input type="radio" name="sacPackChoice_${esc(ref)}" value="SKIP" checked> Skip this candidate</label></div>`;
+          return `<div class="sac-pack-candidate" data-reference="${esc(ref)}" data-complete="${c.complete?'YES':'NO'}"><div class="sac-pack-candidate-head"><div><div class="sac-pack-candidate-name">${esc(c.studentName||ref)}</div><div class="sac-pack-candidate-meta">${esc(c.programme||'-')} · ${esc(ref)} · ${c.documentCount||0} document(s)</div></div>${status}</div>${c.complete?'':`<div class="sac-pack-missing">Missing: ${esc(missingText||'Required document')}</div>${choice}`}</div>`;
+        }).join('')||'<div class="empty">No candidates assigned to this session.</div>';
+        if(msg){msg.style.display='none';msg.textContent=''}
+        if(btn){btn.disabled=false;btn.textContent='Generate & Print SAC Pack';btn.onclick=generateSacPack}
+      }catch(e){
+        if(timer){clearInterval(timer);timer=null}
+        sacPackModalMsg(e.message||'Unable to prepare SAC pack.','error');
+        if(btn){btn.disabled=true;btn.textContent='Generate & Print SAC Pack'}
+      }
     }
     function closeSacPackModal(){const modal=document.getElementById('sacPackModal');if(modal)modal.classList.remove('open')}
     function sacPackModalMsg(text,type='info',allowHtml=false){const el=document.getElementById('sacPackMessage');if(!el)return;el.style.display='block';el.className='message '+(type==='error'?'error':'');el.style.background=type==='ok'?'var(--greenSoft)':type==='error'?'var(--redSoft)':'var(--blueSoft)';el.style.color=type==='ok'?'var(--green)':type==='error'?'var(--red)':'var(--blue)';if(allowHtml)el.innerHTML=text;else el.textContent=text}
