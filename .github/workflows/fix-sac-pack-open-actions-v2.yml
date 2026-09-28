@@ -27,14 +27,12 @@ jobs:
           p=Path('admin.html')
           s=p.read_text(encoding='utf-8')
 
-          # 1) Session row: generated pack becomes Open actions, not Generate again.
           pat=r"const packAction=n>0\?\(PHASE2_BACKEND_READY\?`<button class=\\\"ghost\\\" onclick=\\\"prepareSacPack\('\$\{esc\(id\)\}'\)\\\">Generate & Print SAC Pack</button>`:'<button class=\\\"ghost\\\" disabled>SAC Pack · backend sync pending</button>'\):'';"
           repl="""const sacPackUrl=String(s['SAC Pack URL']||'').trim();
         const sacFolderUrl=String(s['SAC Folder URL']||'').trim();
         const packAction=n>0?(sacPackUrl?`<a class=\"ghost\" target=\"_blank\" rel=\"noopener\" href=\"${esc(sacPackUrl)}\">Open SAC Pack</a>${sacFolderUrl?`<a class=\"ghost\" target=\"_blank\" rel=\"noopener\" href=\"${esc(sacFolderUrl)}\">Open SAC Folder</a>`:''}`:(PHASE2_BACKEND_READY?`<button class=\"ghost\" onclick=\"prepareSacPack('${esc(id)}')\">Generate SAC Pack</button>`:'<button class=\"ghost\" disabled>SAC Pack · backend sync pending</button>')):'';"""
           s,n1=re.subn(pat,repl,s,count=1)
 
-          # 2) SAC detail section: if URL already exists, show Open Pack + Open Folder.
           pat2=r'<section class=\\?"sac-session-section\\?"><h4>5\. SAC Print Pack</h4><div class=\\?"hint\\?">Generate one merged PDF in the approved order: PG-ADM-01 → AI Screening Report → Admission Form → supporting documents\.</div><div class=\\?"sac-workspace-actions\\?">.*?</div></section>'
           m=re.search(pat2,s)
           if m:
@@ -43,14 +41,12 @@ jobs:
               n2=1
           else:n2=0
 
-          # 3) Permit safe HTML only for our own generated Open links in message box.
           old="function sacPackModalMsg(text,type='info'){const el=document.getElementById('sacPackMessage');if(!el)return;el.style.display='block';el.className='message '+(type==='error'?'error':'');el.style.background=type==='ok'?'var(--greenSoft)':type==='error'?'var(--redSoft)':'var(--blueSoft)';el.style.color=type==='ok'?'var(--green)':type==='error'?'var(--red)':'var(--blue)';el.textContent=text}"
           new="function sacPackModalMsg(text,type='info',allowHtml=false){const el=document.getElementById('sacPackMessage');if(!el)return;el.style.display='block';el.className='message '+(type==='error'?'error':'');el.style.background=type==='ok'?'var(--greenSoft)':type==='error'?'var(--redSoft)':'var(--blueSoft)';el.style.color=type==='ok'?'var(--green)':type==='error'?'var(--red)':'var(--blue)';if(allowHtml)el.innerHTML=text;else el.textContent=text}"
           if old in s:
               s=s.replace(old,new,1); n3=1
           else:n3=0
 
-          # 4) Make post-generation links clickable and remember URLs immediately in current session state.
           old4="sacPackModalMsg(`Merged SAC Pack generated and saved to Drive.${links?' '+links:''}`,'ok');"
           new4="""sacPackModalMsg(`<div style=\"display:flex;align-items:center;gap:8px;flex-wrap:wrap\"><strong>SAC Pack generated and saved.</strong>${packUrl?`<a class=\"ghost\" target=\"_blank\" rel=\"noopener\" href=\"${esc(packUrl)}\">Open SAC Pack</a>`:''}${folderUrl?`<a class=\"ghost\" target=\"_blank\" rel=\"noopener\" href=\"${esc(folderUrl)}\">Open SAC Folder</a>`:''}</div>`,'ok',true);
         const currentSession=(db.V2_SAC_SESSIONS||[]).find(x=>String(x['SAC Session ID']||'').trim()===String(sacPackState.sessionId||'').trim());
@@ -60,7 +56,6 @@ jobs:
               s=s.replace(old4,new4,1); n4=1
           else:n4=0
 
-          # 5) After success, don't tell user to generate again.
           s=s.replace("finally{if(btn){btn.disabled=false;btn.textContent='Generate & Print SAC Pack'}}","finally{if(btn){btn.disabled=false;btn.textContent=packUrl?'Open SAC Pack':'Generate SAC Pack';if(packUrl)btn.onclick=()=>window.open(packUrl,'_blank')}}",1)
 
           print('patched',n1,n2,n3,n4)
@@ -88,3 +83,5 @@ jobs:
           git add admin.html
           git diff --cached --quiet || git commit -m 'Show saved SAC pack instead of regenerate action'
           git push origin main
+
+# trigger 2026-09-28
