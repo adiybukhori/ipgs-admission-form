@@ -118,25 +118,23 @@ export default async function handler(req, res) {
     const order={pgAdm01:0,aiScreeningReport:1,certificate:2,transcript:3,resume:4};
     const essentialDocs = candidate => (Array.isArray(candidate.documents)?candidate.documents:[]).map(doc=>({doc,kind:kindOf(doc)})).filter(x=>x.kind).sort((a,b)=>order[a.kind]-order[b.kind]).filter((x,i,a)=>a.findIndex(y=>y.kind===x.kind)===i).map(x=>x.doc);
     const essentialComplete = candidate => essentialDocs(candidate).length===5;
-    const selected = candidates.filter(candidate => essentialComplete(candidate) || choiceMap.get(String(candidate.referenceNo || '')) === 'PROCEED');
+    const selected = candidates;
+    const incompleteCount = candidates.filter(candidate => !essentialComplete(candidate)).length;
 
-    if (!selected.length) return res.status(400).json({ ok: false, message: 'No candidates were selected for printing.' });
+    if (!selected.length) return res.status(400).json({ ok: false, message: 'No candidates found in this SAC session.' });
 
     const jobs = [];
     for (const candidate of selected) for (const doc of essentialDocs(candidate)) jobs.push({ candidate, doc });
 
-    const files = await mapWithConcurrency(jobs, FILE_FETCH_CONCURRENCY, async ({ candidate, doc }) => {
-      const response = await callV2('v2GetSacPackFile', {
-        sessionId,
-        referenceNo: candidate.referenceNo,
-        documentKey: doc.key
-      }, password);
-      const file = response?.result || response;
-      if (!file?.base64) {
-        throw new Error(`Unable to retrieve ${doc.label || doc.key} for ${candidate.studentName || candidate.referenceNo}.`);
-      }
-      return { candidate, doc, file };
+    const fetched = await mapWithConcurrency(jobs, FILE_FETCH_CONCURRENCY, async ({ candidate, doc }) => {
+      try {
+        const response = await callV2('v2GetSacPackFile', { sessionId, referenceNo: candidate.referenceNo, documentKey: doc.key }, password);
+        const file = response?.result || response;
+        if (!file?.base64) return { candidate, doc, error: 'FILE_NOT_AVAILABLE' };
+        return { candidate, doc, file };
+      } catch (error) { return { candidate, doc, error: error?.message || 'FILE_FETCH_FAILED' }; }
     });
+    const files = fetched.filter(item => item.file?.base64);
 
     const merged = await PDFDocument.create();
     merged.setTitle(`${pack.sessionName || sessionId} - SAC Print Pack`);
@@ -144,16 +142,20 @@ export default async function handler(req, res) {
     merged.setCreator('IUC IPGS Admission V2');
     merged.setProducer('IUC IPGS Admission V2');
 
-    // Retrieval is concurrent for speed, but append in original job order so
-    // candidate/document order remains exactly as prepared by the SAC backend.
+    // Never block the whole SAC pack because one student's file is missing/unprintable.
+    const generatedRefs = new Set();
     for (const item of files) {
-      const file = item.file;
-      const bytes = Buffer.from(file.base64, 'base64');
-      const mime = String(file.mimeType || '').toLowerCase();
-      if (mime === 'application/pdf') await appendPdf(merged, bytes);
-      else if (/^image\/(png|jpeg|jpg)$/.test(mime)) await appendImage(merged, bytes, mime);
-      else throw new Error(`Unsupported printable file type for ${file.fileName || item.doc.label}: ${mime || 'unknown'}.`);
+      try {
+        const file = item.file;
+        const bytes = Buffer.from(file.base64, 'base64');
+        const mime = String(file.mimeType || '').toLowerCase();
+        if (mime === 'application/pdf') await appendPdf(merged, bytes);
+        else if (/^image\/(png|jpeg|jpg)$/.test(mime)) await appendImage(merged, bytes, mime);
+        else continue;
+        generatedRefs.add(String(item.candidate.referenceNo || ''));
+      } catch (_) { continue; }
     }
+    if (!generatedRefs.size) return res.status(400).json({ ok: false, message: 'No printable SAC documents were available.' });
 
     const bytes = await merged.save({ useObjectStreams: true });
     const safe = String(pack.sessionName || sessionId)
@@ -176,7 +178,8 @@ export default async function handler(req, res) {
     res.setHeader('X-SAC-Folder-URL', String(saved.folderUrl || ''));
     res.setHeader('Content-Type', 'application/pdf');
     res.setHeader('Content-Disposition', `inline; filename="${fileName}"`);
-    res.setHeader('X-SAC-Candidate-Count', String(selected.length));
+    res.setHeader('X-SAC-Candidate-Count', String(generatedRefs.size));
+    res.setHeader('X-SAC-Incomplete-Count', String(incompleteCount));
     res.setHeader('X-SAC-Document-Count', String(files.length));
     return res.status(200).send(Buffer.from(bytes));
   } catch (error) {

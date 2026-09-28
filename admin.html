@@ -1947,9 +1947,8 @@
         if(list)list.innerHTML=candidates.map(c=>{
           const missing=Array.isArray(c.missingDocuments)?c.missingDocuments:[];
           const missingText=missing.map(x=>x.label||x.key||x).filter(Boolean).join(', '),ref=String(c.referenceNo||'');
-          const statusBadge=c.complete?'<span class="badge green">Complete · Included</span>':'<span class="badge amber">Missing file(s)</span>';
-          const choice=c.complete?'':`<div class="sac-pack-choice"><label><input type="radio" name="sacPackChoice_${esc(ref)}" value="PROCEED"> Proceed with available documents</label><label><input type="radio" name="sacPackChoice_${esc(ref)}" value="SKIP" checked> Skip this candidate</label></div>`;
-          return `<div class="sac-pack-candidate" data-reference="${esc(ref)}" data-complete="${c.complete?'YES':'NO'}"><div class="sac-pack-candidate-head"><div><div class="sac-pack-candidate-name">${esc(c.studentName||ref)}</div><div class="sac-pack-candidate-meta">${esc(c.programme||'-')} · ${esc(ref)} · ${c.essentialReadyCount??c.documentCount??0}/5 ready</div></div>${statusBadge}</div>${c.complete?'':`<div class="sac-pack-missing">Missing: ${esc(missingText||'Required document')}</div>${choice}`}</div>`;
+          const statusBadge=c.complete?'<span class="badge green">Complete · Included</span>':'<span class="badge amber">Incomplete · Available docs will still be included</span>';
+          return `<div class="sac-pack-candidate" data-reference="${esc(ref)}" data-complete="${c.complete?'YES':'NO'}"><div class="sac-pack-candidate-head"><div><div class="sac-pack-candidate-name">${esc(c.studentName||ref)}</div><div class="sac-pack-candidate-meta">${esc(c.programme||'-')} · ${esc(ref)} · ${c.essentialReadyCount??c.documentCount??0}/5 ready</div></div>${statusBadge}</div>${c.complete?'':`<div class="sac-pack-missing">Missing: ${esc(missingText||'Required document')}</div>`}</div>`;
         }).join('')||'<div class="empty">No candidates assigned to this session.</div>';
         if(msg){msg.style.display='none';msg.textContent=''}
         if(btn){btn.disabled=false;btn.textContent='Generate & Print SAC Pack';btn.onclick=generateSacPack}
@@ -1960,9 +1959,8 @@
     async function generateSacPack(){
       if(!sacPackState)return sacPackModalMsg('Prepare the SAC pack first.','error');
       const candidates=Array.isArray(sacPackState.candidates)?sacPackState.candidates:[];
-      const choices=candidates.filter(c=>!c.complete).map(c=>{const ref=String(c.referenceNo||''),checked=document.querySelector(`input[name="sacPackChoice_${CSS.escape(ref)}"]:checked`);return{referenceNo:ref,action:checked?checked.value:'SKIP'}});
-      const selectedCount=candidates.filter(c=>c.complete).length+choices.filter(x=>x.action==='PROCEED').length;
-      if(!selectedCount)return sacPackModalMsg('No candidates selected for printing. Choose Proceed for at least one incomplete candidate or include a complete candidate.','error');
+      const choices=[];
+      if(!candidates.length)return sacPackModalMsg('No candidates found in this SAC session.','error');
       const btn=document.getElementById('sacPackGenerateBtn');if(btn){btn.disabled=true;btn.textContent='Generating merged PDF…'}
       const msg=document.getElementById('sacPackMessage');
       if(msg){msg.innerHTML=`<div class="sac-pack-progress-wrap"><div class="sac-pack-progress-track"><div id="sacPackProgressBar" class="sac-pack-progress-bar"></div></div><div id="sacPackProgressLabel" class="sac-pack-progress-label">Starting…</div></div>`;msg.style.display='block';}
@@ -1976,11 +1974,13 @@
         setProgress(92,'Finalising PDF and Drive record…');
         const packUrl=res.headers.get('X-SAC-Pack-URL')||'';
         const folderUrl=res.headers.get('X-SAC-Folder-URL')||'';
+        const generatedCount=Number(res.headers.get('X-SAC-Candidate-Count')||0);
+        const incompleteCount=Number(res.headers.get('X-SAC-Incomplete-Count')||0);
         const blob=await res.blob(),url=URL.createObjectURL(blob);let w=null;try{w=window.open(url,'_blank')}catch(_){}
         if(!w){const a=document.createElement('a');a.href=url;a.target='_blank';a.rel='noopener';a.click()}
         setProgress(100,'Completed');
         const links=[packUrl?`<a class="ghost" target="_blank" rel="noopener" href="${esc(packUrl)}">Open SAC Pack</a>`:'',folderUrl?`<a class="ghost" target="_blank" rel="noopener" href="${esc(folderUrl)}">Open SAC Folder</a>`:''].filter(Boolean).join(' ');
-        sacPackModalMsg(`<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap"><strong>SAC Pack generated and saved.</strong>${links}</div>`,'ok',true);
+        sacPackModalMsg(`<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap"><strong>SAC Pack generated: ${generatedCount} student(s).</strong><span>${incompleteCount} student(s) incomplete; available documents were still included.</span>${links}</div>`,'ok',true);
         const currentSession=(db.V2_SAC_SESSIONS||[]).find(x=>String(x['SAC Session ID']||'').trim()===String(sacPackState.sessionId||'').trim());
         if(currentSession){if(packUrl)currentSession['SAC Pack URL']=packUrl;if(folderUrl)currentSession['SAC Folder URL']=folderUrl;currentSession['SAC Pack Generated At']=new Date().toISOString();}
         renderSac();if(sacDetailSessionId===sacPackState.sessionId)renderSacSessionDetail();
