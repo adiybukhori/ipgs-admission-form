@@ -1,0 +1,70 @@
+name: Fix SAC Pack Success Links
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/fix-sac-pack-success-links.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+
+      - name: Make SAC pack links clickable and relabel regenerate button
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          p=Path('admin.html')
+          s=p.read_text(encoding='utf-8')
+
+          old="""    function sacPackModalMsg(text,type='info'){const el=document.getElementById('sacPackMessage');if(!el)return;el.style.display='block';el.className='message '+(type==='error'?'error':'');el.style.background=type==='ok'?'var(--greenSoft)':type==='error'?'var(--redSoft)':'var(--blueSoft)';el.style.color=type==='ok'?'var(--green)':type==='error'?'var(--red)':'var(--blue)';el.textContent=text}"""
+          new="""    function sacPackModalMsg(text,type='info',allowHtml=false){const el=document.getElementById('sacPackMessage');if(!el)return;el.style.display='block';el.className='message '+(type==='error'?'error':'');el.style.background=type==='ok'?'var(--greenSoft)':type==='error'?'var(--redSoft)':'var(--blueSoft)';el.style.color=type==='ok'?'var(--green)':type==='error'?'var(--red)':'var(--blue)';if(allowHtml)el.innerHTML=text;else el.textContent=text}"""
+          if old not in s:
+              raise SystemExit('sacPackModalMsg target not found')
+          s=s.replace(old,new,1)
+
+          old2="""        const links=[packUrl?`<a class=\"link\" target=\"_blank\" href=\"${esc(packUrl)}\">Open saved SAC Pack</a>`:'',folderUrl?`<a class=\"link\" target=\"_blank\" href=\"${esc(folderUrl)}\">Open SAC Folder</a>`:''].filter(Boolean).join(' · ');
+        sacPackModalMsg(`Merged SAC Pack generated and saved to Drive.${links?' '+links:''}`,'ok');"""
+          new2="""        const links=[packUrl?`<a class=\"ghost\" style=\"display:inline-block;text-decoration:none;margin-top:10px;margin-right:8px\" target=\"_blank\" rel=\"noopener\" href=\"${esc(packUrl)}\">Open / Download SAC Pack</a>`:'',folderUrl?`<a class=\"ghost\" style=\"display:inline-block;text-decoration:none;margin-top:10px\" target=\"_blank\" rel=\"noopener\" href=\"${esc(folderUrl)}\">Open SAC Folder</a>`:''].filter(Boolean).join('');
+        sacPackModalMsg(`<div><strong>SAC Pack ready.</strong><br><span style=\"font-size:12px\">The merged PDF has been saved to Drive.</span></div>${links}`,'ok',true);
+        if(btn)btn.dataset.generated='1';"""
+          if old2 not in s:
+              raise SystemExit('completion links target not found')
+          s=s.replace(old2,new2,1)
+
+          old3="""      finally{if(btn){btn.disabled=false;btn.textContent='Generate & Print SAC Pack'}}"""
+          new3="""      finally{if(btn){btn.disabled=false;btn.textContent=btn.dataset.generated==='1'?'Regenerate SAC Pack':'Generate & Print SAC Pack'}}"""
+          if old3 not in s:
+              raise SystemExit('button reset target not found')
+          s=s.replace(old3,new3,1)
+
+          p.write_text(s,encoding='utf-8')
+          PY
+
+      - name: Validate admin inline JavaScript
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          import re
+          html=Path('admin.html').read_text(encoding='utf-8')
+          blocks=re.findall(r'<script(?:\s[^>]*)?>(.*?)</script>',html,flags=re.S|re.I)
+          Path('/tmp/admin-inline.js').write_text('\n'.join(blocks),encoding='utf-8')
+          PY
+          node --check /tmp/admin-inline.js
+
+      - name: Commit patch
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add admin.html
+          git diff --cached --quiet || git commit -m "Show clickable SAC pack download and folder buttons"
+          git push origin main
