@@ -14,13 +14,16 @@ const FULL_TARGET_SHEETS = [
   ['V2_AUDIT_LOG', 'C']
 ];
 
-// Used after normal saves. Static application data and the full audit trail are
-// already present in the browser and do not need to be re-read after every click.
+// Normal post-save reconciliation only reloads mutable case state. Application
+// metadata and the full audit trail remain in the browser until an explicit full refresh.
 const LIGHT_TARGET_SHEETS = FULL_TARGET_SHEETS.filter(([name]) => !['V2_APPLICATIONS', 'V2_AUDIT_LOG'].includes(name));
 
 const AUTH_CACHE_TTL_MS = 20 * 60 * 1000;
+const AGENT_EVENTS_CACHE_MS = 8 * 1000;
 const authCache = globalThis.__IPGS_RECORD_AUTH_CACHE__ || new Map();
 globalThis.__IPGS_RECORD_AUTH_CACHE__ = authCache;
+const agentEventsCache = globalThis.__IPGS_RECORD_AGENT_EVENTS_CACHE__ || { rows: null, at: 0 };
+globalThis.__IPGS_RECORD_AGENT_EVENTS_CACHE__ = agentEventsCache;
 
 function authKey(password) {
   return createHash('sha256').update(String(password || '')).digest('hex');
@@ -106,11 +109,30 @@ async function fetchReferenceRows(sheet, column, referenceNo) {
   return toObjects(await response.text());
 }
 
+async function fetchWholeSheet(sheet) {
+  const url = `https://docs.google.com/spreadsheets/d/${SPREADSHEET_ID}/gviz/tq?tqx=out:csv&sheet=${encodeURIComponent(sheet)}&_=${Date.now()}`;
+  const response = await fetch(url, { redirect: 'follow' });
+  if (!response.ok) throw new Error(`${sheet} returned HTTP ${response.status}`);
+  return toObjects(await response.text());
+}
+
+async function fetchAgentEventsForReference(referenceNo) {
+  const now = Date.now();
+  let rows = agentEventsCache.rows;
+  if (!Array.isArray(rows) || (now - Number(agentEventsCache.at || 0)) > AGENT_EVENTS_CACHE_MS) {
+    rows = await fetchWholeSheet('V2_AGENT_EVENTS');
+    agentEventsCache.rows = rows;
+    agentEventsCache.at = now;
+  }
+  const ref = String(referenceNo || '').trim();
+  return rows.filter(row => String(row?.['Reference No'] || row?.['Reference'] || row?.referenceNo || '').trim() === ref);
+}
+
 export default async function handler(req, res) {
   res.setHeader('Cache-Control', 'no-store, max-age=0');
 
   if (req.method === 'GET' && String(req.query?.health || '') === '1') {
-    return res.status(200).json({ ok: true, service: 'IPGS Admission targeted applicant refresh', build: 'ADMIN_RECORD_FAST_20260928' });
+    return res.status(200).json({ ok: true, service: 'IPGS Admission targeted applicant refresh', build: 'ADMIN_RECORD_FAST_REMARKS_20260928' });
   }
   if (req.method !== 'POST') return res.status(405).json({ ok: false, message: 'Method not allowed.' });
 
@@ -133,9 +155,10 @@ export default async function handler(req, res) {
   const mode = String(body.mode || 'full').toLowerCase() === 'light' ? 'light' : 'full';
   const targetSheets = mode === 'light' ? LIGHT_TARGET_SHEETS : FULL_TARGET_SHEETS;
   const dataStartedAt = Date.now();
-  const settled = await Promise.allSettled(
-    targetSheets.map(async ([sheet, column]) => [sheet, await fetchReferenceRows(sheet, column, referenceNo)])
-  );
+  const [settled, agentEventsResult] = await Promise.all([
+    Promise.allSettled(targetSheets.map(async ([sheet, column]) => [sheet, await fetchReferenceRows(sheet, column, referenceNo)])),
+    fetchAgentEventsForReference(referenceNo).then(rows => ({ ok: true, rows })).catch(error => ({ ok: false, error }))
+  ]);
 
   const data = {};
   const warnings = [];
@@ -147,18 +170,23 @@ export default async function handler(req, res) {
       warnings.push(`${sheet}: ${result.reason?.message || 'Unable to load'}`);
     }
   });
+  if (agentEventsResult.ok) data.V2_AGENT_EVENTS = agentEventsResult.rows;
+  else {
+    data.V2_AGENT_EVENTS = [];
+    warnings.push(`V2_AGENT_EVENTS: ${agentEventsResult.error?.message || 'Unable to load'}`);
+  }
 
   const dataMs = Date.now() - dataStartedAt;
   const totalMs = Date.now() - startedAt;
   res.setHeader('Server-Timing', `auth;dur=${authMs}, data;dur=${dataMs}, total;dur=${totalMs}`);
   return res.status(200).json({
     ok: true,
-    build: 'ADMIN_RECORD_FAST_20260928',
+    build: 'ADMIN_RECORD_FAST_REMARKS_20260928',
     mode,
     referenceNo,
     loadedAt: new Date().toISOString(),
     warnings,
-    performance: { authMs, dataMs, totalMs, sheets: targetSheets.length },
+    performance: { authMs, dataMs, totalMs, sheets: targetSheets.length + 1 },
     data
   });
 }
