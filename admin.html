@@ -1897,16 +1897,31 @@
       const sleep=ms=>new Promise(resolve=>setTimeout(resolve,ms));
       const startedAt=Date.now();
       try{
+        const sessionCandidates=sacDetailCandidates(sessionId);
+        const missingForms=sessionCandidates.filter(c=>!String(c['Form 01 URL']||'').trim());
+        if(missingForms.length){
+          for(let i=0;i<missingForms.length;i++){
+            const c=missingForms[i],name=String(c['Student Name']||c['Reference No']||'candidate');
+            const pct=5+Math.round(((i+1)/missingForms.length)*38);
+            setPrepareProgress(Math.max(5,pct-2),`Preparing PG-ADM-01 ${i+1} of ${missingForms.length} · ${name}`);
+            const generated=await callSacPackAsyncAction('v2RegeneratePgAdm01',{referenceNo:c['Reference No'],sessionId});
+            if(!generated||!String(generated.url||'').trim())throw new Error(`Unable to prepare PG-ADM-01 for ${name}.`);
+            c['Form 01 URL']=generated.url;
+            setPrepareProgress(pct,`PG-ADM-01 ready ${i+1} of ${missingForms.length}`);
+          }
+        }else{
+          setPrepareProgress(43,'All PG-ADM-01 forms are already ready.');
+        }
         const accepted=await callSacPackAsyncAction('v2PrepareSacPackAsync',{sessionId});
         if(!accepted?.accepted)throw new Error('Unable to start SAC pack preparation.');
-        setPrepareProgress(10,'Background preparation started…');
+        setPrepareProgress(48,'Background manifest preparation started…');
         let status=null;
         while(Date.now()-startedAt<8*60*1000){
           await sleep(2500);
           status=await callSacPackAsyncAction('v2GetSacPackPrepareStatus',{sessionId});
           const state=String(status?.status||'').toUpperCase();
           const elapsed=Math.floor((Date.now()-startedAt)/1000);
-          const pct=Math.min(92,12+Math.floor(elapsed/4));
+          const pct=Math.min(94,48+Math.floor(elapsed/6));
           const label=elapsed<30?'Checking participant records…':elapsed<90?'Scanning required documents…':elapsed<180?'Building candidate manifest…':'Finalising large SAC manifest…';
           setPrepareProgress(pct,label);
           if(state==='FAILED'){
