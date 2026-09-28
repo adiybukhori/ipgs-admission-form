@@ -1,0 +1,139 @@
+name: Apply Document and Screening Reports
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/apply-document-and-screening-reports.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout main
+        uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+
+      - name: Patch ACC report access
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          p=Path('admin.html')
+          s=p.read_text()
+          old="""      const notificationStatus=String(r.doc?.['Replacement Notification Status']||'').toUpperCase();\n      let findings=[],followUp=[],flags=[];"""
+          new="""      const notificationStatus=String(r.doc?.['Replacement Notification Status']||'').toUpperCase();\n      const qualityReportUrl=String(r.doc?.['Document Quality Report PDF URL']||'');\n      const qualityReportStatus=String(r.doc?.['Document Quality Report Status']||(qualityReportUrl?'FINAL':'PENDING')).toUpperCase();\n      let findings=[],followUp=[],flags=[];"""
+          if old not in s:
+              raise SystemExit('documentQualityPanel anchor 1 not found')
+          s=s.replace(old,new,1)
+          old2="""      const overrideButton=canOverride?'<button class=\"ops-btn primary\" onclick=\"approveDocumentQualityHumanOverride()\">Human Override → Next Stage</button>':'';\n\n      return '<div class=\"screening-section\">'+"""
+          new2="""      const overrideButton=canOverride?'<button class=\"ops-btn primary\" onclick=\"approveDocumentQualityHumanOverride()\">Human Override → Next Stage</button>':'';\n      const qualityReportButton=qualityReportUrl?'<a class=\"ops-btn primary\" target=\"_blank\" rel=\"noopener\" href=\"'+esc(qualityReportUrl)+'\">Open Document Report</a>':'<button class=\"ops-btn\" disabled>Document Report · '+esc(pretty(qualityReportStatus))+'</button>';\n\n      return '<div class=\"screening-section\">'+"""
+          if old2 not in s:
+              raise SystemExit('documentQualityPanel anchor 2 not found')
+          s=s.replace(old2,new2,1)
+          old3="""        issueRows+followRows+\n        '<div class=\"screening-actions\">'+runButton+overrideButton+'</div>'+\n      '</div>';"""
+          new3="""        issueRows+followRows+\n        '<div style=\"margin-top:10px;padding-top:10px;border-top:1px solid var(--line)\"><div class=\"screening-title\" style=\"font-size:11px\">Official Document Quality Report</div><div class=\"screening-help\" style=\"margin-top:3px\">Saved in the student folder and automatically included in the SAC print pack.</div></div>'+\n        '<div class=\"screening-actions\">'+qualityReportButton+runButton+overrideButton+'</div>'+\n      '</div>';"""
+          if old3 not in s:
+              raise SystemExit('documentQualityPanel anchor 3 not found')
+          s=s.replace(old3,new3,1)
+          s=s.replace('>Open Official PDF</a>', '>Open Screening Report</a>', 1)
+          p.write_text(s)
+          PY
+          grep -F "Open Document Report" admin.html
+          grep -F "Open Screening Report" admin.html
+
+      - name: Commit ACC UI
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add admin.html
+          git diff --cached --quiet || git commit -m "Add document and screening report access"
+          git push origin main
+
+      - name: Checkout Apps Script V2 source
+        run: |
+          git fetch origin apps-script-v2-dev
+          git checkout -B apps-script-v2-dev origin/apps-script-v2-dev
+
+      - name: Patch document report generation and SAC pack
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+
+          p=Path('apps-script-v2/ComplianceAgentV2.js')
+          s=p.read_text()
+          old="v2EnsureHeaders_(sheet, V2_DOCUMENT_REVIEW_HEADERS.concat(V2_COMPLIANCE_REVIEW_HEADERS));"
+          new="v2EnsureHeaders_(sheet, V2_DOCUMENT_REVIEW_HEADERS.concat(V2_COMPLIANCE_REVIEW_HEADERS).concat(typeof V2_DOCUMENT_QUALITY_REPORT_HEADERS !== 'undefined' ? V2_DOCUMENT_QUALITY_REPORT_HEADERS : []));"
+          if old in s:
+              s=s.replace(old,new,1)
+          anchor="""  v2Audit_(reference,'DOCUMENT_REVIEW','AI_DOCUMENT_QUALITY_REVIEW',{},{\n    status:status,\n    confidence:confidence,\n    followUpCount:followUp.length,\n    flags:normalized.flags,\n    documents:normalized.documents\n  },reviewedBy,'SUCCESS','AI-assisted document quality review completed.');\n\n  let humanTask = null;"""
+          replacement="""  v2Audit_(reference,'DOCUMENT_REVIEW','AI_DOCUMENT_QUALITY_REVIEW',{},{\n    status:status,\n    confidence:confidence,\n    followUpCount:followUp.length,\n    flags:normalized.flags,\n    documents:normalized.documents\n  },reviewedBy,'SUCCESS','AI-assisted document quality review completed.');\n\n  let documentQualityReport = null;\n  try {\n    if (typeof v2GenerateDocumentQualityReport_ === 'function') {\n      documentQualityReport = v2GenerateDocumentQualityReport_({referenceNo:reference}, reviewedBy);\n    }\n  } catch (reportError) {\n    v2Audit_(reference,'DOCUMENT_REVIEW','GENERATE_DOCUMENT_QUALITY_REPORT',{},{error:String(reportError && reportError.message || reportError)},reviewedBy,'WARNING','Document review progression remains non-blocking if report generation fails.');\n  }\n\n  let humanTask = null;"""
+          if 'let documentQualityReport = null;' not in s:
+              if anchor not in s:
+                  raise SystemExit('Compliance report anchor not found')
+              s=s.replace(anchor,replacement,1)
+          ret="""    flags:normalized.flags,\n    humanTask:humanTask,"""
+          if 'documentQualityReport:documentQualityReport' not in s:
+              if ret not in s:
+                  raise SystemExit('Compliance return anchor not found')
+              s=s.replace(ret,"""    flags:normalized.flags,\n    documentQualityReport:documentQualityReport,\n    humanTask:humanTask,""",1)
+          p.write_text(s)
+
+          p=Path('apps-script-v2/SacPackV2.js')
+          s=p.read_text()
+          anchor="""  // Official AI screening report is printed immediately after PG-ADM-01.\n  // For AI-screened cases, only the FINAL report is accepted for the SAC pack.\n  const aiScreening = v2Find_('V2_AI_SCREENING', 'Reference No', reference);"""
+          insert="""  // Official document-quality report is printed immediately after PG-ADM-01.\n  const documentReview = v2Find_('V2_DOCUMENT_REVIEW', 'Reference No', reference);\n  if (documentReview) {\n    const documentReportId = String(documentReview.record['Document Quality Report File ID'] || v2SacPackExtractDriveId_(documentReview.record['Document Quality Report PDF URL'] || '') || '').trim();\n    if (documentReportId) {\n      documents.push(v2SacPackManifestDoc_('documentQualityReport', 'Official Document Quality Review Report', documentReportId));\n    } else {\n      missing.push({key:'documentQualityReport', label:'Document Quality Review Report'});\n    }\n  }\n\n  // Official AI screening report follows the document-quality report.\n  // FINAL and FINAL_WITH_FLAGS are both official SAC-ready screening reports.\n  const aiScreening = v2Find_('V2_AI_SCREENING', 'Reference No', reference);"""
+          if 'documentQualityReport' not in s:
+              if anchor not in s:
+                  raise SystemExit('SAC report anchor not found')
+              s=s.replace(anchor,insert,1)
+          s=s.replace("if (reportId && reportStatus === 'FINAL') {", "if (reportId && (reportStatus === 'FINAL' || reportStatus === 'FINAL_WITH_FLAGS')) {", 1)
+          p.write_text(s)
+          PY
+
+          node --check apps-script-v2/DocumentQualityReportV2.js
+          node --check apps-script-v2/ComplianceAgentV2.js
+          node --check apps-script-v2/SacPackV2.js
+          grep -F "documentQualityReport" apps-script-v2/SacPackV2.js
+          grep -F "FINAL_WITH_FLAGS" apps-script-v2/SacPackV2.js
+
+      - name: Commit Apps Script source
+        run: |
+          git add apps-script-v2/DocumentQualityReportV2.js apps-script-v2/ComplianceAgentV2.js apps-script-v2/SacPackV2.js
+          git diff --cached --quiet || git commit -m "Add official document quality report"
+          git push origin apps-script-v2-dev
+
+      - name: Verify clasp credential
+        env:
+          CLASPRC_JSON: ${{ secrets.CLASPRC_JSON }}
+        run: |
+          test -n "$CLASPRC_JSON" || (echo 'CLASPRC_JSON secret is not configured.' && exit 1)
+
+      - name: Install clasp
+        run: npm install --global @google/clasp@3.4.1
+
+      - name: Restore clasp credential
+        env:
+          CLASPRC_JSON: ${{ secrets.CLASPRC_JSON }}
+        run: |
+          printf '%s' "$CLASPRC_JSON" > "$HOME/.clasprc.json"
+          chmod 600 "$HOME/.clasprc.json"
+
+      - name: Verify locked V2 target
+        run: node tools/verify-clasp-target.mjs
+
+      - name: Push and redeploy Apps Script
+        env:
+          V2_DEPLOYMENT_ID: AKfycbxasT_HgtRSvTbR_bsa8p17Cm-C2PKn20Ok1kU-AyJmxiKX8kX5EGOtRLwVwNlAL7JB
+        run: |
+          clasp push -f
+          clasp create-deployment --deploymentId "$V2_DEPLOYMENT_ID" --description "Document quality report and SAC pack update"
+
+      - name: Remove clasp credential
+        if: always()
+        run: rm -f "$HOME/.clasprc.json"
