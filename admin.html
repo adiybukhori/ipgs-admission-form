@@ -140,6 +140,18 @@
     .sac-panel-list,.sac-participant-list{display:grid;gap:8px}.sac-panel-item,.sac-participant-item{border:1px solid #eef0f4;border-radius:11px;padding:10px 11px;display:flex;justify-content:space-between;gap:12px;align-items:center;background:#fafbfc}
     .sac-panel-item .name,.sac-participant-item .name{font-size:11px;font-weight:850}.sac-panel-item .meta,.sac-participant-item .meta{font-size:10px;color:var(--muted);margin-top:2px;line-height:1.4}
     .sac-workspace-actions{display:flex;gap:8px;flex-wrap:wrap;align-items:center}.sac-workspace-actions select{min-width:260px;max-width:100%}
+    .sac-bulk-modal{position:fixed;inset:0;z-index:95;background:rgba(18,24,38,.52);display:none;align-items:center;justify-content:center;padding:18px}
+    .sac-bulk-modal.open{display:flex}
+    .sac-bulk-card{width:min(900px,96vw);max-height:90dvh;background:#fff;border-radius:18px;border:1px solid var(--line);box-shadow:0 24px 80px rgba(18,24,38,.28);display:flex;flex-direction:column;overflow:hidden}
+    .sac-bulk-head{padding:16px 18px;border-bottom:1px solid var(--line);display:flex;justify-content:space-between;gap:12px;align-items:flex-start}
+    .sac-bulk-head h3{margin:0;font-size:17px}.sac-bulk-head p{margin:4px 0 0;color:var(--muted);font-size:11px}
+    .sac-bulk-tools{padding:12px 18px;border-bottom:1px solid var(--line);display:grid;grid-template-columns:minmax(220px,1fr) minmax(180px,.45fr);gap:10px}
+    .sac-bulk-list{padding:10px 18px;overflow:auto;display:grid;gap:7px;min-height:160px}
+    .sac-bulk-row{display:grid;grid-template-columns:24px 1fr;gap:10px;align-items:start;border:1px solid #edf0f4;border-radius:11px;padding:10px 11px;background:#fff}
+    .sac-bulk-row:hover{background:#fafbfc}.sac-bulk-row input{margin-top:2px}
+    .sac-bulk-row .name{font-size:12px;font-weight:850}.sac-bulk-row .meta{font-size:10px;color:var(--muted);margin-top:3px;line-height:1.4}
+    .sac-bulk-foot{padding:12px 18px;border-top:1px solid var(--line);display:flex;justify-content:space-between;gap:10px;align-items:center;flex-wrap:wrap}
+    @media(max-width:720px){.sac-bulk-tools{grid-template-columns:1fr}.sac-bulk-modal{padding:0}.sac-bulk-card{width:100vw;max-height:100dvh;border-radius:0}}
     .sac-session-footer{position:sticky;bottom:0;background:#fff;border-top:1px solid var(--line);padding:13px 18px;display:flex;justify-content:flex-end;gap:8px;flex-wrap:wrap}
     @media(max-width:720px){.sac-detail-grid{grid-template-columns:1fr}.sac-detail-grid .full{grid-column:auto}.sac-session-modal{padding:0}.sac-session-card{width:100vw;max-height:100dvh;border-radius:0}}
     .sac-pack-modal{position:fixed;inset:0;z-index:80;background:rgba(18,24,38,.48);display:none;align-items:center;justify-content:center;padding:18px}
@@ -1218,7 +1230,7 @@
 
         <section class="sac-session-section"><h4>2. Panel / Committee</h4><div class="hint">Panel names and roles are matched against SAC_COMMITTEE_MASTER. Update the panel list before sending invitation.</div><div class="sac-panel-list">${panelHtml}</div>${!isFinal?`<div class="field" style="margin-top:10px"><label>Panel / Committee Emails</label><textarea id="sacDetailCommittee" rows="3" style="width:100%;border:1px solid #d7dce6;border-radius:12px;padding:12px 13px;resize:vertical">${esc(session['Committee Emails']||'')}</textarea></div><button class="ghost" type="button" onclick="saveSacSessionPanel()">Save Panel</button>`:''}</section>
 
-        <section class="sac-session-section"><h4>3. Participants</h4><div class="hint">Candidate count is derived from the actual V2_SAC_CANDIDATES records for this session.</div><div class="sac-participant-list">${participantHtml}</div>${!isFinal?`<div class="sac-workspace-actions" style="margin-top:10px"><select id="sacAddParticipant" class="compact"><option value="">Select applicant for SAC</option>${eligibleOptions}</select><button class="primary" type="button" onclick="smartAddSacParticipant()" ${eligibleOptions?'':'disabled'}>+ Add Participant</button></div>`:''}</section>
+        <section class="sac-session-section"><h4>3. Participants</h4><div class="hint">Candidate count is derived from the actual V2_SAC_CANDIDATES records for this session. Add multiple Ready for SAC applicants in one action.</div><div class="sac-participant-list">${participantHtml}</div>${!isFinal?`<div class="sac-workspace-actions" style="margin-top:10px"><button class="primary" type="button" onclick="openBulkSacParticipantModal()" ${eligible.length?'':'disabled'}>+ Add Participants</button><button class="ghost" type="button" onclick="addAllReadyForSac()" ${eligible.length?'':'disabled'}>+ Add All Ready for SAC</button><span class="badge ${eligible.length?'blue':'green'}">${eligible.length} eligible</span></div>`:''}</section>
 
         <section class="sac-session-section"><h4>4. Invitation</h4><div class="sac-detail-grid"><div><span class="badge ${cal==='INVITED'?'green':'amber'}">${esc(pretty(cal))}</span><div class="subline">Invitation mode: ${esc(pretty(inviteMode))}</div></div><div class="subline">Sent at: ${esc(formatDate(session['Invitation Sent At']||'')||'-')}</div></div><div class="sac-workspace-actions" style="margin-top:10px"><button class="ghost" type="button" onclick="sendSacInviteFromDetail()" ${cal==='INVITED'||isFinal?'disabled':''}>Send SAC Invitation</button>${inviteMode==='DISABLED'?'<span class="badge amber">Invite engine currently DISABLED</span>':''}</div></section>
 
@@ -1245,6 +1257,53 @@
     }
     async function smartAddSacParticipant(){return addSacParticipantFromDetail()}
 
+    function eligibleSacParticipants(){
+      const assigned=db.V2_SAC_CANDIDATES||[];
+      return records.filter(r=>r.source==='V2'&&['READY_FOR_SAC','SAC_REVIEW'].includes(stage(r))&&!assigned.some(c=>String(c['Reference No']||'')===String(r.ref)));
+    }
+    function ensureBulkSacModal(){
+      let modal=document.getElementById('sacBulkModal');if(modal)return modal;
+      modal=document.createElement('div');modal.id='sacBulkModal';modal.className='sac-bulk-modal';
+      modal.innerHTML=`<div class="sac-bulk-card"><div class="sac-bulk-head"><div><h3>Add SAC Participants</h3><p>Select multiple applicants that are ready for SAC. Existing participants are automatically excluded.</p></div><button class="ghost" type="button" onclick="closeBulkSacParticipantModal()">Close</button></div><div class="sac-bulk-tools"><input id="sacBulkSearch" class="searchbox" placeholder="Search name, reference or programme" oninput="renderBulkSacParticipantList()"><select id="sacBulkProgramme" class="compact" onchange="renderBulkSacParticipantList()"></select></div><div style="padding:10px 18px 0;display:flex;gap:8px;flex-wrap:wrap"><button class="ghost" type="button" onclick="bulkSacToggleVisible(true)">Select Visible</button><button class="ghost" type="button" onclick="bulkSacToggleVisible(false)">Clear Visible</button></div><div id="sacBulkList" class="sac-bulk-list"></div><div class="sac-bulk-foot"><div><strong id="sacBulkSelected">0 selected</strong><div class="subline" id="sacBulkEligible">0 eligible</div></div><div style="display:flex;gap:8px;flex-wrap:wrap"><button class="ghost" type="button" onclick="closeBulkSacParticipantModal()">Cancel</button><button id="sacBulkAddBtn" class="primary" type="button" onclick="bulkSacAddSelected()" disabled>Add Selected</button></div></div></div>`;
+      modal.addEventListener('click',e=>{if(e.target===modal)closeBulkSacParticipantModal()});document.body.appendChild(modal);return modal;
+    }
+    function openBulkSacParticipantModal(){
+      const modal=ensureBulkSacModal(),eligible=eligibleSacParticipants(),programmes=[...new Set(eligible.map(r=>String(r.app['Programme']||'').trim()).filter(Boolean))].sort();
+      document.getElementById('sacBulkSearch').value='';document.getElementById('sacBulkProgramme').innerHTML='<option value="">All programmes</option>'+programmes.map(x=>`<option value="${esc(x)}">${esc(x)}</option>`).join('');
+      modal.classList.add('open');renderBulkSacParticipantList();
+    }
+    function closeBulkSacParticipantModal(){document.getElementById('sacBulkModal')?.classList.remove('open')}
+    function renderBulkSacParticipantList(){
+      const eligible=eligibleSacParticipants(),q=String(document.getElementById('sacBulkSearch')?.value||'').toLowerCase().trim(),programme=String(document.getElementById('sacBulkProgramme')?.value||'');
+      const visible=eligible.filter(r=>{const text=[r.ref,r.app['Student Name'],r.app['Programme']].join(' ').toLowerCase();return(!q||text.includes(q))&&(!programme||String(r.app['Programme']||'')===programme)});
+      const list=document.getElementById('sacBulkList');
+      list.innerHTML=visible.length?visible.map(r=>`<label class="sac-bulk-row"><input class="sac-bulk-check" type="checkbox" value="${esc(r.ref)}" onchange="updateBulkSacSelectionSummary()"><div><div class="name">${esc(r.app['Student Name']||r.ref)}</div><div class="meta">${esc(r.app['Programme']||'')} · ${esc(r.ref)}</div></div></label>`).join(''):'<div class="empty" style="padding:24px!important">No eligible applicants match this filter.</div>';
+      document.getElementById('sacBulkEligible').textContent=`${eligible.length} eligible · ${visible.length} visible`;updateBulkSacSelectionSummary();
+    }
+    function updateBulkSacSelectionSummary(){
+      const n=document.querySelectorAll('#sacBulkList .sac-bulk-check:checked').length,btn=document.getElementById('sacBulkAddBtn');document.getElementById('sacBulkSelected').textContent=`${n} selected`;if(btn){btn.disabled=n===0;btn.textContent=n?`Add ${n} Participant${n===1?'':'s'}`:'Add Selected'}
+    }
+    function bulkSacToggleVisible(checked){document.querySelectorAll('#sacBulkList .sac-bulk-check').forEach(x=>x.checked=checked);updateBulkSacSelectionSummary()}
+    async function bulkAssignSacParticipants(refs,label){
+      if(!refs.length)return;
+      let success=0,failed=0;
+      for(let i=0;i<refs.length;i++){
+        sacDetailMsg(`${label}: adding ${i+1} of ${refs.length}…`,'info');
+        const result=await runSacPageAction('v2AssignSacCandidate',{referenceNo:refs[i],sessionId:sacDetailSessionId,proceedWithPendingDocuments:true,confirmed:true,overrideBy:'Admin Portal V2 - bulk SAC participant assignment'},null);
+        if(result)success++;else failed++;
+      }
+      closeBulkSacParticipantModal();renderSacSessionDetail();sacDetailMsg(`${success} participant${success===1?'':'s'} added${failed?`; ${failed} failed`:''}. Pending documents remain follow-up only.`,failed?'error':'ok');
+    }
+    async function bulkSacAddSelected(){
+      const refs=[...document.querySelectorAll('#sacBulkList .sac-bulk-check:checked')].map(x=>x.value);if(!refs.length)return;
+      if(!confirm(`Add ${refs.length} selected applicant${refs.length===1?'':'s'} to this SAC session?\n\nPending documents remain follow-up only.`))return;
+      document.getElementById('sacBulkAddBtn').disabled=true;await bulkAssignSacParticipants(refs,'Bulk add');
+    }
+    async function addAllReadyForSac(){
+      const refs=eligibleSacParticipants().map(r=>r.ref);if(!refs.length)return sacDetailMsg('No eligible Ready for SAC applicants remain.','info');
+      if(!confirm(`Add ALL ${refs.length} eligible Ready for SAC applicant${refs.length===1?'':'s'} to this session?\n\nApplicants already assigned to any SAC session are excluded automatically.`))return;
+      await bulkAssignSacParticipants(refs,'Add all');
+    }
     async function confirmDocumentsAndAddSacParticipant(){
       const referenceNo=document.getElementById('sacAddParticipant')?.value||'';
       if(!referenceNo)return sacDetailMsg('Select an applicant first.','error');
