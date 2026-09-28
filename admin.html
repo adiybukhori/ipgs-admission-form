@@ -1909,7 +1909,12 @@
           const pct=Math.min(92,12+Math.floor(elapsed/4));
           const label=elapsed<30?'Checking participant records…':elapsed<90?'Scanning required documents…':elapsed<180?'Building candidate manifest…':'Finalising large SAC manifest…';
           setPrepareProgress(pct,label);
-          if(state==='FAILED')throw new Error(status?.error||'Unable to prepare SAC pack.');
+          if(state==='FAILED'){
+            const raw=status?.error;
+            const detail=typeof raw==='string'?raw:(raw?.message||raw?.details?.message||'');
+            const friendly=/timeout|ECONNABORTED|aborted/i.test(detail)?'SAC pack preparation timed out while processing this large session. The system stopped before the manifest was complete.':(detail||'Unable to prepare SAC pack.');
+            throw new Error(friendly);
+          }
           if(state==='COMPLETED'&&status?.payload)break;
         }
         if(!status||String(status.status||'').toUpperCase()!=='COMPLETED'||!status.payload)throw new Error('SAC pack preparation exceeded 8 minutes. Please retry.');
