@@ -1,0 +1,44 @@
+name: Fix Remark Content Visibility
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'scripts/patch_remark_content_visibility.py'
+      - '.github/workflows/fix-remark-content-visibility.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+      - name: Apply remark content patch
+        run: python scripts/patch_remark_content_visibility.py
+      - name: Validate remark content persistence
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          s=Path('admin.html').read_text(encoding='utf-8')
+          assert 'summary:remark' in s
+          assert "x['Summary']" in s
+          assert "a['Summary']" in s
+          print('Remark content visibility validation passed')
+          PY
+      - name: Commit patched admin
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add admin.html
+          if git diff --cached --quiet; then
+            echo 'No admin changes required.'
+            exit 0
+          fi
+          git commit -m 'Show and persist internal remark text'
+          git push origin main
