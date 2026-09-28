@@ -1,0 +1,34 @@
+name: Fix SAC Nonblocking Detail Add
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'scripts/fix_sac_nonblocking_detail.py'
+      - '.github/workflows/fix-sac-nonblocking-detail.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+      - run: python scripts/fix_sac_nonblocking_detail.py
+      - name: Validate
+        run: |
+          grep -q "async function smartAddSacParticipant(){return addSacParticipantFromDetail()}" admin.html
+          grep -q "nonblocking document policy" admin.html
+      - name: Commit
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add admin.html
+          if git diff --cached --quiet; then exit 0; fi
+          git commit -m 'Remove SAC document blocking from detail add'
+          git push origin main
