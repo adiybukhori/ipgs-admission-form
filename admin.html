@@ -981,7 +981,22 @@
     // PHASE2_BACKEND_SYNC_GATE_V1: flip only after Apps Script deployment + controlled tests pass.
     const PHASE2_BACKEND_READY = true;
     let password = sessionStorage.getItem('ipgsAdminPassword') || '';
+    let adminSessionId = sessionStorage.getItem('ipgsAdminSessionId') || '';
+    if(!adminSessionId){
+      try{adminSessionId=crypto.randomUUID()}catch(_){adminSessionId='ACC-'+Date.now()+'-'+Math.random().toString(36).slice(2)}
+      sessionStorage.setItem('ipgsAdminSessionId',adminSessionId);
+    }
     let db = {}, records = [], selected = null, sacPackState = null;
+    const recordRefreshTimers=new Map();
+    function scheduleApplicantRefresh(referenceNo,delay=650){
+      const ref=String(referenceNo||'').trim();if(!ref)return;
+      const oldTimer=recordRefreshTimers.get(ref);if(oldTimer)clearTimeout(oldTimer);
+      const timer=setTimeout(()=>{
+        recordRefreshTimers.delete(ref);
+        refreshApplicantRecord(ref,'light').catch(()=>null);
+      },delay);
+      recordRefreshTimers.set(ref,timer);
+    }
     const stageOrder = [['APPLICATION_RECEIVED','Application'],['DOCUMENT_REVIEW','Documents'],['QUALIFICATION_SCREENING','Screening'],['SAC','SAC'],['ASSESSMENT','IA / PREREQ'],['ELIGIBLE_FOR_OFFER','Offer Ready'],['OFFER_ISSUED','Offer'],['ACCEPTED','Accepted']];
 
     window.addEventListener('load', () => {
@@ -1616,10 +1631,10 @@
       selected=records.find(x=>x.ref===ref)||selected;
       renderSelectedApplicant();
     }
-    async function refreshApplicantRecord(referenceNo){
+    async function refreshApplicantRecord(referenceNo,mode='light'){
       const ref=String(referenceNo||'').trim();
       if(!ref)return null;
-      const res=await fetch(RECORD_API,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({password,referenceNo:ref})});
+      const res=await fetch(RECORD_API,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({password,referenceNo:ref,mode})});
       const out=await res.json().catch(()=>({ok:false,message:'Invalid targeted refresh response.'}));
       if(!res.ok||!out.ok)throw new Error(out.message||'Unable to refresh applicant.');
       mergeTargetedApplicantData(ref,out.data||{});
@@ -1690,10 +1705,10 @@
       selected=records.find(x=>x.ref===ref)||selected;
       renderSelectedApplicant();
     }
-    async function refreshApplicantRecord(referenceNo){
+    async function refreshApplicantRecord(referenceNo,mode='light'){
       const ref=String(referenceNo||'').trim();
       if(!ref)return null;
-      const res=await fetch(RECORD_API,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({password,referenceNo:ref})});
+      const res=await fetch(RECORD_API,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({password,referenceNo:ref,mode})});
       const out=await res.json().catch(()=>({ok:false,message:'Invalid targeted refresh response.'}));
       if(!res.ok||!out.ok)throw new Error(out.message||'Unable to refresh applicant.');
       mergeTargetedApplicantData(ref,out.data||{});
@@ -1703,7 +1718,7 @@
       if(confirmText&&!confirm(confirmText))return null;
       opsMsg('Processing…','info');
       try{
-        const res=await fetch(ACTION_API,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({password,action,data,updatedBy:'Admin Portal V2'})});
+        const res=await fetch(ACTION_API,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({password,sessionId:adminSessionId,action,data,updatedBy:'Admin Portal V2'})});
         const out=await res.json().catch(()=>({ok:false,message:'Invalid response from action service.'}));
         if(!res.ok||!out.ok)throw new Error(out.message||'Unable to complete action.');
         const result=out.result||out;
@@ -1711,9 +1726,8 @@
         applyOptimisticActionResult(action,data,result);
         opsMsg('Saved successfully. Syncing this applicant…','ok');
         if(ref){
-          refreshApplicantRecord(ref)
-            .then(()=>opsMsg('Saved successfully.','ok'))
-            .catch(()=>opsMsg('Saved successfully. Use Refresh if you need to verify the latest backend data.','ok'));
+          scheduleApplicantRefresh(ref);
+          opsMsg('Saved successfully.','ok');
         }else{
           opsMsg('Saved successfully.','ok');
         }
@@ -1767,7 +1781,7 @@
       },'');
       if(!resolved)return;
       opsMsg('Human override approved. AI finding preserved; case progressed to Academic Screening.','ok');
-      await refreshApplicantRecord(ref).catch(()=>null);
+      await refreshApplicantRecord(ref,'full').catch(()=>null);
       renderSelectedApplicant();
     }
     function retryAutoAiScreening(){if(!selected)return;runAdminAction('v2RunAutoAiScreening',{referenceNo:selected.ref},`Retry AI Auto screening for ${selected.app['Student Name']||selected.ref}? Manual Screening remains available if AI cannot complete it.`)}
@@ -1783,7 +1797,7 @@
       const showMsg=(text,type='info')=>{if(document.getElementById('sacSessionModal')?.classList.contains('open'))sacDetailMsg(text,type);else sacPageMsg(text,type);};
       showMsg('Processing…','info');
       try{
-        const res=await fetch(ACTION_API,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({password,action,data,updatedBy:'Admin Portal V2'})});
+        const res=await fetch(ACTION_API,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({password,sessionId:adminSessionId,action,data,updatedBy:'Admin Portal V2'})});
         const out=await res.json().catch(()=>({ok:false,message:'Invalid response from action service.'}));
         if(!res.ok||!out.ok)throw new Error(out.message||'Unable to complete SAC action.');
         const result=out.result||out;
@@ -1800,7 +1814,10 @@
           if(idx>=0)list[idx]=candidate;else list.push(candidate);
           buildRecords();renderSac();if(sacDetailSessionId)renderSacSessionDetail();
           document.getElementById('freshness').textContent='Updated just now';
-        }else{await loadData(true);}
+        }else{
+          loadData(true).catch(()=>null);
+          showMsg('Saved successfully. Syncing latest SAC data…','ok');
+        }
         return result;
       }catch(e){showMsg(e.message||'Unable to complete SAC action.','error');return null}
     }
