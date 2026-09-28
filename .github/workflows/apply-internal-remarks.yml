@@ -1,0 +1,44 @@
+name: Apply Internal Remarks
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'scripts/patch_internal_remarks.py'
+      - '.github/workflows/apply-internal-remarks.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+      - name: Apply internal remarks patch
+        run: python scripts/patch_internal_remarks.py
+      - name: Validate embedded admin JavaScript
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          s=Path('admin.html').read_text(encoding='utf-8')
+          assert 'Activity / Remarks' in s
+          assert 'saveInternalRemark' in s
+          assert 'INTERNAL_REMARK' in s
+          print('Internal remarks UI validation passed')
+          PY
+      - name: Commit patched admin
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add admin.html
+          if git diff --cached --quiet; then
+            echo 'No admin changes required.'
+            exit 0
+          fi
+          git commit -m 'Add internal applicant remarks'
+          git push origin main
