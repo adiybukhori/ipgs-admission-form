@@ -1887,7 +1887,7 @@
       const modal=document.getElementById('sacPackModal'),title=document.getElementById('sacPackTitle'),sub=document.getElementById('sacPackSubtitle'),summary=document.getElementById('sacPackSummary'),list=document.getElementById('sacPackCandidates'),msg=document.getElementById('sacPackMessage'),btn=document.getElementById('sacPackGenerateBtn');
       sacPackState=null;
       if(title)title.textContent='Preparing SAC Print Pack';
-      if(sub)sub.textContent='Running in the background so large SAC sessions do not time out.';
+      if(sub)sub.textContent='Checking internal documents first. Missing student uploads will not block the SAC pack.';
       if(summary)summary.innerHTML='';
       if(list)list.innerHTML='<div class="empty" style="padding:24px!important">Preparing candidate documents…</div>';
       if(btn){btn.disabled=true;btn.textContent='Preparing…'}
@@ -1918,44 +1918,16 @@
         }
         const missingAi=sessionCandidates.filter(c=>{const r=records.find(x=>String(x.ref)===String(c['Reference No']||''));return !String(r?.ai?.['Report PDF URL']||'').trim();});
         if(missingAi.length){for(let i=0;i<missingAi.length;i++){const c=missingAi[i],name=String(c['Student Name']||c['Reference No']||'candidate');setPrepareProgress(44,`Preparing AI Screening Report ${i+1} of ${missingAi.length} · ${name}`);try{await retrySacInternal('v2GenerateAiScreeningReport',{referenceNo:c['Reference No'],finalize:true},2)}catch(e){prepWarnings.push(`AI Screening: ${name}`)}}}
-        const accepted=await callSacPackAsyncAction('v2PrepareSacPackAsync',{sessionId});
-        if(!accepted?.accepted)throw new Error('Unable to start SAC pack preparation.');
-        setPrepareProgress(48,'Background manifest preparation started…');
-        let status=null;
-        while(Date.now()-startedAt<8*60*1000){
-          await sleep(2500);
-          status=await callSacPackAsyncAction('v2GetSacPackPrepareStatus',{sessionId});
-          const state=String(status?.status||'').toUpperCase();
-          const elapsed=Math.floor((Date.now()-startedAt)/1000);
-          const pct=Math.min(94,48+Math.floor(elapsed/6));
-          const label=elapsed<30?'Checking participant records…':elapsed<90?'Scanning required documents…':elapsed<180?'Building candidate manifest…':'Finalising large SAC manifest…';
-          setPrepareProgress(pct,label);
-          if(state==='FAILED'){
-            const raw=status?.error;
-            const detail=typeof raw==='string'?raw:(raw?.message||raw?.details?.message||'');
-            const friendly=/timeout|ECONNABORTED|aborted/i.test(detail)?'SAC pack preparation timed out while processing this large session. The system stopped before the manifest was complete.':(detail||'Unable to prepare SAC pack.');
-            throw new Error(friendly);
-          }
-          if(state==='COMPLETED'&&status?.payload)break;
-        }
-        if(!status||String(status.status||'').toUpperCase()!=='COMPLETED'||!status.payload)throw new Error('SAC pack preparation exceeded 8 minutes. Please retry.');
-        const result=status.payload?.result||status.payload;
-        const essentialKinds=[['pgAdm01','PG-ADM-01'],['aiScreeningReport','AI Screening Report'],['certificate','Certificate'],['transcript','Transcript'],['resume','Resume / CV']];
-        const sacDocKind=d=>{const x=String((d?.key||'')+' '+(d?.label||'')).toLowerCase();if(/pg.?adm.?0?1|form.?0?1|eligibility/.test(x))return 'pgAdm01';if(/ai.*screen|screen.*report/.test(x))return 'aiScreeningReport';if(/transcript/.test(x))return 'transcript';if(/certificate|academic.?cert|scroll/.test(x))return 'certificate';if(/(^|\W)(cv|resume|curriculum)(\W|$)/.test(x))return 'resume';return ''};
-        const packCandidates=(Array.isArray(result.candidates)?result.candidates:[]).map(c=>{const docs=(Array.isArray(c.documents)?c.documents:[]).filter(d=>sacDocKind(d));const found=new Set(docs.map(sacDocKind));const missing=essentialKinds.filter(([k])=>!found.has(k)).map(([key,label])=>({key,label}));return {...c,documents:docs,documentCount:docs.length,missingDocuments:missing,complete:missing.length===0,essentialReadyCount:docs.length};});
-        result.candidates=packCandidates;result.candidateCount=packCandidates.length;result.completeCount=packCandidates.filter(c=>c.complete).length;result.incompleteCount=packCandidates.length-result.completeCount;
-        setPrepareProgress(100,'Preparation complete.');
+        setPrepareProgress(72,'Building lightweight candidate list…');
+        const session=(db.V2_SAC_SESSIONS||[]).find(x=>String(x['SAC Session ID']||x['Session ID']||'')===String(sessionId));
+        const packCandidates=sessionCandidates.map(c=>({referenceNo:String(c['Reference No']||''),studentName:String(c['Student Name']||c['Reference No']||''),programme:String(c['Programme']||''),complete:false}));
+        const result={sessionId,sessionName:String(session?.['SAC Name']||sessionId),candidates:packCandidates,candidateCount:packCandidates.length,prepWarnings};
+        setPrepareProgress(100,'Ready to collect available SAC documents.');
         sacPackState=result;
         if(title)title.textContent=result.sessionName||result.sessionId||'SAC Print Pack';
-        if(sub)sub.textContent=`${result.candidateCount||0} candidate(s) · Essential 5 only: PG-ADM-01 → AI Screening → Certificate → Transcript → Resume/CV.`;
-        if(summary)summary.innerHTML=`<span class="badge purple">${result.candidateCount||0} candidates</span><span class="badge green">${result.completeCount||0} complete</span><span class="badge ${result.incompleteCount?'amber':'green'}">${result.incompleteCount||0} incomplete</span>`;
-        const candidates=Array.isArray(result.candidates)?result.candidates:[];
-        if(list)list.innerHTML=candidates.map(c=>{
-          const missing=Array.isArray(c.missingDocuments)?c.missingDocuments:[];
-          const missingText=missing.map(x=>x.label||x.key||x).filter(Boolean).join(', '),ref=String(c.referenceNo||'');
-          const statusBadge=c.complete?'<span class="badge green">Complete · Included</span>':'<span class="badge amber">Incomplete · Available docs will still be included</span>';
-          return `<div class="sac-pack-candidate" data-reference="${esc(ref)}" data-complete="${c.complete?'YES':'NO'}"><div class="sac-pack-candidate-head"><div><div class="sac-pack-candidate-name">${esc(c.studentName||ref)}</div><div class="sac-pack-candidate-meta">${esc(c.programme||'-')} · ${esc(ref)} · ${c.essentialReadyCount??c.documentCount??0}/5 ready</div></div>${statusBadge}</div>${c.complete?'':`<div class="sac-pack-missing">Missing: ${esc(missingText||'Required document')}</div>`}</div>`;
-        }).join('')||'<div class="empty">No candidates assigned to this session.</div>';
+        if(sub)sub.textContent=`${result.candidateCount||0} candidate(s) · Essential 5 only. Missing student-uploaded documents will not block generation.`;
+        if(summary)summary.innerHTML=`<span class="badge purple">${result.candidateCount||0} candidates</span>${prepWarnings.length?`<span class="badge amber">${prepWarnings.length} internal generation warning(s)</span>`:`<span class="badge green">Internal docs checked</span>`}`;
+        if(list)list.innerHTML=packCandidates.map(c=>`<div class="sac-pack-candidate" data-reference="${esc(c.referenceNo)}"><div class="sac-pack-candidate-head"><div><div class="sac-pack-candidate-name">${esc(c.studentName||c.referenceNo)}</div><div class="sac-pack-candidate-meta">${esc(c.programme||"-")} · ${esc(c.referenceNo)}</div></div><span class="badge blue">Collect available docs</span></div></div>`).join('')||'<div class="empty">No candidates assigned to this session.</div>';
         if(msg){msg.style.display='none';msg.textContent=''}
         if(btn){btn.disabled=false;btn.textContent='Generate & Print SAC Pack';btn.onclick=generateSacPack}
       }catch(e){sacPackModalMsg(e.message||'Unable to prepare SAC pack.','error');if(btn){btn.disabled=true;btn.textContent='Generate & Print SAC Pack'}}
@@ -1974,7 +1946,7 @@
       setProgress(8,'Preparing candidate manifest…');
       let progressTimer=setInterval(()=>{const bar=document.getElementById('sacPackProgressBar');if(!bar)return;const cur=parseInt(bar.style.width||'8',10)||8;if(cur<82)setProgress(cur+4,cur<30?'Collecting documents…':cur<58?'Merging PDF documents…':'Saving SAC pack to Drive…')},550);
       try{
-        const res=await fetch(SAC_PACK_API,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({password,sessionId:sacPackState.sessionId,choices})});
+        const res=await fetch(SAC_PACK_API,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({password,sessionId:sacPackState.sessionId,candidates:candidates.map(c=>({referenceNo:c.referenceNo,studentName:c.studentName,programme:c.programme}))})});
         clearInterval(progressTimer);progressTimer=null;
         if(!res.ok){const err=await res.json().catch(()=>({message:'Unable to generate SAC pack.'}));throw new Error(err.message||'Unable to generate SAC pack.')}
         setProgress(92,'Finalising PDF and Drive record…');

@@ -41,7 +41,7 @@ export default async function handler(req,res){
   else{data=await fetchSheets(SHEETS,warnings);ADMIN_DATA_CACHE.v2=cloneCached(data);ADMIN_DATA_CACHE.v2At=now;}
   const sheetsMs=Date.now()-sheetsStarted;
   const sacStarted=Date.now();const hasSacSessions=Array.isArray(data.V2_SAC_SESSIONS)&&data.V2_SAC_SESSIONS.length;
-  if(scope==='sac'||hasSacSessions){try{data.V2_SAC_CANDIDATES=await fetchLiveSacCandidates(body.password,body.sessionId,scope==='sac'&&force);if(ADMIN_DATA_CACHE.v2)ADMIN_DATA_CACHE.v2.V2_SAC_CANDIDATES=cloneCached(data.V2_SAC_CANDIDATES);}catch(error){warnings.push('V2_SAC_CANDIDATES authoritative load: '+(error?.message||'Unable to load'));}}
+  if(scope==='sac'||hasSacSessions){try{data.V2_SAC_CANDIDATES=await fetchLiveSacCandidates(body.password,body.sessionId,scope==='sac'&&force);if(ADMIN_DATA_CACHE.v2)ADMIN_DATA_CACHE.v2.V2_SAC_CANDIDATES=cloneCached(data.V2_SAC_CANDIDATES);}catch(error){const fallback=Array.isArray(ADMIN_DATA_CACHE.sacCandidates)?ADMIN_DATA_CACHE.sacCandidates:(Array.isArray(ADMIN_DATA_CACHE.v2?.V2_SAC_CANDIDATES)?ADMIN_DATA_CACHE.v2.V2_SAC_CANDIDATES:null);if(fallback)data.V2_SAC_CANDIDATES=cloneCached(fallback);warnings.push('V2_SAC_CANDIDATES authoritative load: '+(error?.message||'Unable to load')+(fallback?' · retained cached candidates':''));}}
   const sacMs=Date.now()-sacStarted;
   if(scope!=='sac'){data.V1_MASTER_DATABASE=[];data.V1_LEGACY_META=[{source:'ARCHIVED_AFTER_UNIFIED_MIGRATION',count:0,readOnly:true,cacheHit:false}];}
   sortSacSessions(data);const totalMs=Date.now()-startedAt;res.setHeader('Server-Timing',`auth;dur=${authMs}, sheets;dur=${sheetsMs}, sac;dur=${sacMs}, total;dur=${totalMs}`);

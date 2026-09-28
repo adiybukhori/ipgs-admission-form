@@ -1,8 +1,11 @@
 import { PDFDocument } from 'pdf-lib';
 
+export const config = { maxDuration: 300 };
+
 const AUTH_WEB_APP = 'https://script.google.com/macros/s/AKfycbw22-UOsHkaap3dzU16aOjA6XFr7jWGr9qQPfp8F1CQrXboP7YdRZJKKJhHijC3us4/exec';
 const ADMIN_BRIDGE = 'https://anasbukhori.app.n8n.cloud/webhook/iuc-admission-v2-admin-bridge';
-const FILE_FETCH_CONCURRENCY = 6;
+const FILE_FETCH_CONCURRENCY = 8;
+const FILE_FETCH_TIMEOUT_MS = 25000;
 
 async function validateAdminPassword(password) {
   if (!password) return false;
@@ -17,18 +20,27 @@ async function validateAdminPassword(password) {
   }
 }
 
-async function callV2(action, data, password) {
-  const response = await fetch(ADMIN_BRIDGE, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      password: String(password || ''),
-      action,
-      data: data || {},
-      updatedBy: 'Admin Portal V2 - SAC Pack'
-    }),
-    redirect: 'follow'
-  });
+async function callV2(action, data, password, timeoutMs = 60000) {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
+  let response;
+  try {
+    response = await fetch(ADMIN_BRIDGE, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        password: String(password || ''),
+        action,
+        data: data || {},
+        updatedBy: 'Admin Portal V2 - SAC Pack'
+      }),
+      redirect: 'follow',
+      signal: controller.signal
+    });
+  } catch (error) {
+    if (error?.name === 'AbortError') throw new Error(action + ' timed out.');
+    throw error;
+  } finally { clearTimeout(timer); }
   const text = await response.text();
   let parsed;
   try { parsed = JSON.parse(text); }
@@ -103,41 +115,40 @@ export default async function handler(req, res) {
   const sessionId = String(body.sessionId || '').trim();
   if (!sessionId) return res.status(400).json({ ok: false, message: 'SAC Session ID is required.' });
 
-  const choices = Array.isArray(body.choices) ? body.choices : [];
-  const choiceMap = new Map(choices.map(item => [String(item.referenceNo || ''), String(item.action || '').toUpperCase()]));
+  const candidates = (Array.isArray(body.candidates) ? body.candidates : [])
+    .map(item => ({referenceNo:String(item?.referenceNo||'').trim(),studentName:String(item?.studentName||''),programme:String(item?.programme||'')}))
+    .filter(item => item.referenceNo);
+  if (!candidates.length) return res.status(400).json({ ok:false, message:'No candidates found in this SAC session.' });
+  const DOCS=[
+    {key:'pgAdm01',label:'PG-ADM-01',internal:true},
+    {key:'aiScreeningReport',label:'AI Screening Report',internal:true},
+    {key:'certificate',label:'Certificate'},
+    {key:'transcript',label:'Transcript'},
+    {key:'resume',label:'Resume / CV'}
+  ];
 
   try {
-    const preparedStatus = await callV2('v2GetSacPackPrepareStatus', { sessionId }, password);
-    const status = preparedStatus?.result || preparedStatus;
-    if (String(status?.status || '').toUpperCase() !== 'COMPLETED' || !status?.payload) {
-      return res.status(409).json({ ok: false, message: 'SAC pack preparation is not complete. Please prepare the SAC pack first.' });
-    }
-    const pack = status.payload?.result || status.payload;
-    const candidates = Array.isArray(pack?.candidates) ? pack.candidates : [];
-    const kindOf = doc => { const x=String((doc?.key||'')+' '+(doc?.label||'')).toLowerCase(); if(/pg.?adm.?0?1|form.?0?1|eligibility/.test(x))return 'pgAdm01'; if(/ai.*screen|screen.*report/.test(x))return 'aiScreeningReport'; if(/transcript/.test(x))return 'transcript'; if(/certificate|academic.?cert|scroll/.test(x))return 'certificate'; if(/(^|\W)(cv|resume|curriculum)(\W|$)/.test(x))return 'resume'; return ''; };
-    const order={pgAdm01:0,aiScreeningReport:1,certificate:2,transcript:3,resume:4};
-    const essentialDocs = candidate => (Array.isArray(candidate.documents)?candidate.documents:[]).map(doc=>({doc,kind:kindOf(doc)})).filter(x=>x.kind).sort((a,b)=>order[a.kind]-order[b.kind]).filter((x,i,a)=>a.findIndex(y=>y.kind===x.kind)===i).map(x=>x.doc);
-    const essentialComplete = candidate => essentialDocs(candidate).length===5;
-    const selected = candidates;
-    const incompleteCount = candidates.filter(candidate => !essentialComplete(candidate)).length;
-
-    if (!selected.length) return res.status(400).json({ ok: false, message: 'No candidates found in this SAC session.' });
-
-    const jobs = [];
-    for (const candidate of selected) for (const doc of essentialDocs(candidate)) jobs.push({ candidate, doc });
-
-    const fetched = await mapWithConcurrency(jobs, FILE_FETCH_CONCURRENCY, async ({ candidate, doc }) => {
-      try {
-        const response = await callV2('v2GetSacPackFile', { sessionId, referenceNo: candidate.referenceNo, documentKey: doc.key }, password);
-        const file = response?.result || response;
-        if (!file?.base64) return { candidate, doc, error: 'FILE_NOT_AVAILABLE' };
-        return { candidate, doc, file };
-      } catch (error) { return { candidate, doc, error: error?.message || 'FILE_FETCH_FAILED' }; }
+    const jobs=[];
+    for(const candidate of candidates) for(const doc of DOCS) jobs.push({candidate,doc});
+    const fetched=await mapWithConcurrency(jobs,FILE_FETCH_CONCURRENCY,async({candidate,doc})=>{
+      const attempts=doc.internal?2:1; let lastError='FILE_NOT_AVAILABLE';
+      for(let attempt=1;attempt<=attempts;attempt++){
+        try{
+          const response=await callV2('v2GetSacPackFile',{sessionId,referenceNo:candidate.referenceNo,documentKey:doc.key},password,FILE_FETCH_TIMEOUT_MS);
+          const file=response?.result||response;
+          if(file?.base64)return {candidate,doc,file};
+          lastError='FILE_NOT_AVAILABLE';
+        }catch(error){lastError=error?.message||'FILE_FETCH_FAILED';}
+      }
+      return {candidate,doc,error:lastError};
     });
-    const files = fetched.filter(item => item.file?.base64);
+    const files=fetched.filter(item=>item.file?.base64);
+    const stats=new Map(candidates.map(c=>[c.referenceNo,new Set()]));
+    for(const item of files) stats.get(item.candidate.referenceNo)?.add(item.doc.key);
+    const incompleteCount=candidates.filter(c=>(stats.get(c.referenceNo)?.size||0)<DOCS.length).length;
 
     const merged = await PDFDocument.create();
-    merged.setTitle(`${pack.sessionName || sessionId} - SAC Print Pack`);
+    merged.setTitle(`${sessionId} - SAC Print Pack`);
     merged.setSubject('IPGS SAC physical meeting print pack');
     merged.setCreator('IUC IPGS Admission V2');
     merged.setProducer('IUC IPGS Admission V2');
@@ -158,7 +169,7 @@ export default async function handler(req, res) {
     if (!generatedRefs.size) return res.status(400).json({ ok: false, message: 'No printable SAC documents were available.' });
 
     const bytes = await merged.save({ useObjectStreams: true });
-    const safe = String(pack.sessionName || sessionId)
+    const safe = String(sessionId)
       .replace(/[\\/:*?"<>|]+/g, '-')
       .replace(/\s+/g, '-')
       .replace(/-+/g, '-')
