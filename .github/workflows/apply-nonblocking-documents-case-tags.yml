@@ -1,0 +1,51 @@
+name: Apply Nonblocking Documents and Case Tags
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'scripts/patch_nonblocking_documents_case_tags.py'
+      - '.github/workflows/apply-nonblocking-documents-case-tags.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+      - name: Apply patch
+        run: python scripts/patch_nonblocking_documents_case_tags.py
+      - name: Validate changes
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          s=Path('admin.html').read_text(encoding='utf-8')
+          checks=[
+            'id="caseTagFilter"',
+            'SKY activated · LOA pending',
+            'missingForReminder',
+            'nonblocking document policy',
+            'Missing / request again',
+            'CASE_TAG_LABELS'
+          ]
+          for c in checks:
+            assert c in s, c
+          print('Nonblocking documents and case tags validation passed')
+          PY
+      - name: Commit patched admin
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add admin.html
+          if git diff --cached --quiet; then
+            echo 'No admin changes required.'
+            exit 0
+          fi
+          git commit -m 'Make documents nonblocking and add filterable case remarks'
+          git push origin main
