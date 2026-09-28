@@ -114,17 +114,16 @@ export default async function handler(req, res) {
     }
     const pack = status.payload?.result || status.payload;
     const candidates = Array.isArray(pack?.candidates) ? pack.candidates : [];
-    const selected = candidates.filter(candidate => candidate.complete || choiceMap.get(String(candidate.referenceNo || '')) === 'PROCEED');
+    const kindOf = doc => { const x=String((doc?.key||'')+' '+(doc?.label||'')).toLowerCase(); if(/pg.?adm.?0?1|form.?0?1|eligibility/.test(x))return 'pgAdm01'; if(/ai.*screen|screen.*report/.test(x))return 'aiScreeningReport'; if(/transcript/.test(x))return 'transcript'; if(/certificate|academic.?cert|scroll/.test(x))return 'certificate'; if(/(^|\W)(cv|resume|curriculum)(\W|$)/.test(x))return 'resume'; return ''; };
+    const order={pgAdm01:0,aiScreeningReport:1,certificate:2,transcript:3,resume:4};
+    const essentialDocs = candidate => (Array.isArray(candidate.documents)?candidate.documents:[]).map(doc=>({doc,kind:kindOf(doc)})).filter(x=>x.kind).sort((a,b)=>order[a.kind]-order[b.kind]).filter((x,i,a)=>a.findIndex(y=>y.kind===x.kind)===i).map(x=>x.doc);
+    const essentialComplete = candidate => essentialDocs(candidate).length===5;
+    const selected = candidates.filter(candidate => essentialComplete(candidate) || choiceMap.get(String(candidate.referenceNo || '')) === 'PROCEED');
 
     if (!selected.length) return res.status(400).json({ ok: false, message: 'No candidates were selected for printing.' });
 
     const jobs = [];
-    for (const candidate of selected) {
-      const docs = Array.isArray(candidate.documents) ? candidate.documents : [];
-      for (const doc of docs) {
-        jobs.push({ candidate, doc });
-      }
-    }
+    for (const candidate of selected) for (const doc of essentialDocs(candidate)) jobs.push({ candidate, doc });
 
     const files = await mapWithConcurrency(jobs, FILE_FETCH_CONCURRENCY, async ({ candidate, doc }) => {
       const response = await callV2('v2GetSacPackFile', {

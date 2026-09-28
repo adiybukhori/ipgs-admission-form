@@ -1934,10 +1934,14 @@
         }
         if(!status||String(status.status||'').toUpperCase()!=='COMPLETED'||!status.payload)throw new Error('SAC pack preparation exceeded 8 minutes. Please retry.');
         const result=status.payload?.result||status.payload;
+        const essentialKinds=[['pgAdm01','PG-ADM-01'],['aiScreeningReport','AI Screening Report'],['certificate','Certificate'],['transcript','Transcript'],['resume','Resume / CV']];
+        const sacDocKind=d=>{const x=String((d?.key||'')+' '+(d?.label||'')).toLowerCase();if(/pg.?adm.?0?1|form.?0?1|eligibility/.test(x))return 'pgAdm01';if(/ai.*screen|screen.*report/.test(x))return 'aiScreeningReport';if(/transcript/.test(x))return 'transcript';if(/certificate|academic.?cert|scroll/.test(x))return 'certificate';if(/(^|\W)(cv|resume|curriculum)(\W|$)/.test(x))return 'resume';return ''};
+        const packCandidates=(Array.isArray(result.candidates)?result.candidates:[]).map(c=>{const docs=(Array.isArray(c.documents)?c.documents:[]).filter(d=>sacDocKind(d));const found=new Set(docs.map(sacDocKind));const missing=essentialKinds.filter(([k])=>!found.has(k)).map(([key,label])=>({key,label}));return {...c,documents:docs,documentCount:docs.length,missingDocuments:missing,complete:missing.length===0,essentialReadyCount:docs.length};});
+        result.candidates=packCandidates;result.candidateCount=packCandidates.length;result.completeCount=packCandidates.filter(c=>c.complete).length;result.incompleteCount=packCandidates.length-result.completeCount;
         setPrepareProgress(100,'Preparation complete.');
         sacPackState=result;
         if(title)title.textContent=result.sessionName||result.sessionId||'SAC Print Pack';
-        if(sub)sub.textContent=`${result.candidateCount||0} candidate(s) · PG-ADM-01 is the first document for each candidate and acts as the separator.`;
+        if(sub)sub.textContent=`${result.candidateCount||0} candidate(s) · Essential 5 only: PG-ADM-01 → AI Screening → Certificate → Transcript → Resume/CV.`;
         if(summary)summary.innerHTML=`<span class="badge purple">${result.candidateCount||0} candidates</span><span class="badge green">${result.completeCount||0} complete</span><span class="badge ${result.incompleteCount?'amber':'green'}">${result.incompleteCount||0} incomplete</span>`;
         const candidates=Array.isArray(result.candidates)?result.candidates:[];
         if(list)list.innerHTML=candidates.map(c=>{
@@ -1945,7 +1949,7 @@
           const missingText=missing.map(x=>x.label||x.key||x).filter(Boolean).join(', '),ref=String(c.referenceNo||'');
           const statusBadge=c.complete?'<span class="badge green">Complete · Included</span>':'<span class="badge amber">Missing file(s)</span>';
           const choice=c.complete?'':`<div class="sac-pack-choice"><label><input type="radio" name="sacPackChoice_${esc(ref)}" value="PROCEED"> Proceed with available documents</label><label><input type="radio" name="sacPackChoice_${esc(ref)}" value="SKIP" checked> Skip this candidate</label></div>`;
-          return `<div class="sac-pack-candidate" data-reference="${esc(ref)}" data-complete="${c.complete?'YES':'NO'}"><div class="sac-pack-candidate-head"><div><div class="sac-pack-candidate-name">${esc(c.studentName||ref)}</div><div class="sac-pack-candidate-meta">${esc(c.programme||'-')} · ${esc(ref)} · ${c.documentCount||0} document(s)</div></div>${statusBadge}</div>${c.complete?'':`<div class="sac-pack-missing">Missing: ${esc(missingText||'Required document')}</div>${choice}`}</div>`;
+          return `<div class="sac-pack-candidate" data-reference="${esc(ref)}" data-complete="${c.complete?'YES':'NO'}"><div class="sac-pack-candidate-head"><div><div class="sac-pack-candidate-name">${esc(c.studentName||ref)}</div><div class="sac-pack-candidate-meta">${esc(c.programme||'-')} · ${esc(ref)} · ${c.essentialReadyCount??c.documentCount??0}/5 ready</div></div>${statusBadge}</div>${c.complete?'':`<div class="sac-pack-missing">Missing: ${esc(missingText||'Required document')}</div>${choice}`}</div>`;
         }).join('')||'<div class="empty">No candidates assigned to this session.</div>';
         if(msg){msg.style.display='none';msg.textContent=''}
         if(btn){btn.disabled=false;btn.textContent='Generate & Print SAC Pack';btn.onclick=generateSacPack}
