@@ -169,7 +169,7 @@
     .sac-pack-candidates{display:grid;gap:10px}.sac-pack-candidate{border:1px solid var(--line);border-radius:13px;padding:12px;background:#fff}
     .sac-pack-candidate-head{display:flex;justify-content:space-between;gap:10px;align-items:flex-start}.sac-pack-candidate-name{font-size:12px;font-weight:850}.sac-pack-candidate-meta{font-size:10px;color:var(--muted);margin-top:3px}
     .sac-pack-missing{font-size:10px;color:var(--red);margin-top:8px;line-height:1.45}.sac-pack-choice{display:flex;flex-wrap:wrap;gap:12px;margin-top:9px;font-size:10px}.sac-pack-choice label{display:flex;align-items:center;gap:5px;font-weight:750}
-    .sac-pack-footer{position:sticky;bottom:0;background:#fff;border-top:1px solid var(--line);padding:13px 18px;display:flex;gap:8px;justify-content:flex-end;flex-wrap:wrap}
+    .sac-pack-footer{position:sticky;bottom:0;background:#fff;border-top:1px solid var(--line);padding:13px 18px;display:flex;gap:8px;justify-content:flex-end;flex-wrap:wrap}.sac-pack-footer-progress{display:none;flex:0 0 100%;width:100%;margin-bottom:2px}.sac-pack-footer-progress.show{display:block}.sac-pack-footer-progress-row{display:flex;justify-content:space-between;gap:12px;align-items:center;margin-bottom:6px;font-size:11px;font-weight:750;color:var(--muted)}
     .drawer-backdrop{position:fixed;inset:0;background:rgba(18,24,38,.34);z-index:40;display:none}
     .drawer-backdrop.open{display:block}
     .drawer{position:fixed;top:0;right:0;width:min(760px,96vw);height:100vh;background:#fff;z-index:50;box-shadow:-18px 0 45px rgba(20,25,40,.16);transform:translateX(102%);transition:.2s ease;display:flex;flex-direction:column}
@@ -974,7 +974,7 @@
     <div class="sac-pack-card">
       <div class="sac-pack-head"><div><h3 id="sacPackTitle">SAC Print Pack</h3><p id="sacPackSubtitle">Prepare physical SAC documents.</p></div><button class="ghost" onclick="closeSacPackModal()">Close</button></div>
       <div class="sac-pack-body"><div id="sacPackSummary" class="sac-pack-summary"></div><div id="sacPackCandidates" class="sac-pack-candidates"></div><div id="sacPackMessage" class="message" style="display:none"></div></div>
-      <div class="sac-pack-footer"><button class="ghost" onclick="closeSacPackModal()">Cancel</button><button id="sacPackGenerateBtn" class="primary" onclick="generateSacPack()">Generate & Print SAC Pack</button></div>
+      <div class="sac-pack-footer"><div id="sacPackFooterProgress" class="sac-pack-footer-progress"><div class="sac-pack-footer-progress-row"><span id="sacPackFooterProgressLabel">Preparing...</span><span id="sacPackFooterProgressPct">0%</span></div><div class="sac-pack-progress-track"><div id="sacPackFooterProgressBar" class="sac-pack-progress-bar"></div></div></div><button class="ghost" onclick="closeSacPackModal()">Cancel</button><button id="sacPackGenerateBtn" class="primary" onclick="generateSacPack()">Generate & Print SAC Pack</button></div>
     </div>
   </div>
 
@@ -1942,7 +1942,7 @@
       const btn=document.getElementById('sacPackGenerateBtn');if(btn){btn.disabled=true;btn.textContent='Generating merged PDF…'}
       const msg=document.getElementById('sacPackMessage');
       if(msg){msg.innerHTML=`<div class="sac-pack-progress-wrap"><div class="sac-pack-progress-track"><div id="sacPackProgressBar" class="sac-pack-progress-bar"></div></div><div id="sacPackProgressLabel" class="sac-pack-progress-label">Starting…</div></div>`;msg.style.display='block';}
-      const setProgress=(pct,label)=>{const bar=document.getElementById('sacPackProgressBar'),lab=document.getElementById('sacPackProgressLabel');if(bar)bar.style.width=Math.max(0,Math.min(100,pct))+'%';if(lab)lab.textContent=label||''};
+      const footerProgress=document.getElementById('sacPackFooterProgress');if(footerProgress)footerProgress.classList.add('show');const setProgress=(pct,label)=>{const value=Math.max(0,Math.min(100,pct));const bar=document.getElementById('sacPackProgressBar'),lab=document.getElementById('sacPackProgressLabel'),fbar=document.getElementById('sacPackFooterProgressBar'),flab=document.getElementById('sacPackFooterProgressLabel'),fpct=document.getElementById('sacPackFooterProgressPct');if(bar)bar.style.width=value+'%';if(lab)lab.textContent=label||'';if(fbar)fbar.style.width=value+'%';if(flab)flab.textContent=label||'';if(fpct)fpct.textContent=Math.round(value)+'%'};
       setProgress(8,'Preparing candidate manifest…');
       let progressTimer=setInterval(()=>{const bar=document.getElementById('sacPackProgressBar');if(!bar)return;const cur=parseInt(bar.style.width||'8',10)||8;if(cur<82)setProgress(cur+4,cur<30?'Collecting documents…':cur<58?'Merging PDF documents…':'Saving SAC pack to Drive…')},550);
       try{
@@ -1964,7 +1964,7 @@
         renderSac();if(sacDetailSessionId===sacPackState.sessionId)renderSacSessionDetail();
         if(btn&&packUrl){btn.disabled=false;btn.textContent='Open SAC Pack';btn.onclick=()=>window.open(packUrl,'_blank');}
         setTimeout(()=>URL.revokeObjectURL(url),120000);
-      }catch(e){if(progressTimer){clearInterval(progressTimer);progressTimer=null} sacPackModalMsg(e.message||'Unable to generate SAC pack.','error')}
+      }catch(e){if(progressTimer){clearInterval(progressTimer);progressTimer=null} if(footerProgress)footerProgress.classList.remove('show');sacPackModalMsg(e.message||'Unable to generate SAC pack.','error')}
       finally{if(btn&&btn.textContent!=='Open SAC Pack'){btn.disabled=false;btn.textContent='Generate SAC Pack';btn.onclick=generateSacPack}}
     }
     function recordAssessmentResult(panelResult){if(!selected)return;runAdminAction('v2UpdateAssessment',{referenceNo:selected.ref,assessmentType:'INTERNAL_ASSESSMENT',sequence:1,component:'OVERALL',status:'COMPLETED',panelResult},`Confirm IA panel result: ${pretty(panelResult)}?`)}
