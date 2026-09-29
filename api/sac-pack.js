@@ -181,7 +181,9 @@ export default async function handler(req, res) {
       .replace(/-+/g, '-')
       .replace(/^-|-$/g, '')
       .slice(0, 80) || 'SAC';
-    const fileName = `${safe}_SAC-Print-Pack.pdf`;
+    const oneCandidate = candidates.length === 1 ? candidates[0] : null;
+    const candidateSafe = oneCandidate ? String(oneCandidate.studentName || oneCandidate.referenceNo || 'Candidate').replace(/[\/:*?"<>|]+/g, '-').replace(/\s+/g, '-').replace(/-+/g, '-').replace(/^-|-$/g, '').slice(0, 70) : '';
+    const fileName = oneCandidate ? `${safe}_${candidateSafe}_SAC-Pack.pdf` : `${safe}_SAC-Print-Pack.pdf`;
 
     // Persist the merged pack in the session's Drive folder before returning it.
     const savedResponse = await callV2('v2SaveSacPackPdf', {

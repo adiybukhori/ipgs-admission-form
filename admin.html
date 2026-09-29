@@ -1937,35 +1937,37 @@
     async function generateSacPack(){
       if(!sacPackState)return sacPackModalMsg('Prepare the SAC pack first.','error');
       const candidates=Array.isArray(sacPackState.candidates)?sacPackState.candidates:[];
-      const choices=[];
       if(!candidates.length)return sacPackModalMsg('No candidates found in this SAC session.','error');
       const btn=document.getElementById('sacPackGenerateBtn');if(btn){btn.disabled=true;btn.textContent='Generating merged PDF…'}
+      const footerProgress=document.getElementById('sacPackFooterProgress');if(footerProgress)footerProgress.classList.add('show');
       const msg=document.getElementById('sacPackMessage');
       if(msg){msg.innerHTML=`<div class="sac-pack-progress-wrap"><div class="sac-pack-progress-track"><div id="sacPackProgressBar" class="sac-pack-progress-bar"></div></div><div id="sacPackProgressLabel" class="sac-pack-progress-label">Starting…</div></div>`;msg.style.display='block';}
-      const footerProgress=document.getElementById('sacPackFooterProgress');if(footerProgress)footerProgress.classList.add('show');const setProgress=(pct,label)=>{const value=Math.max(0,Math.min(100,pct));const bar=document.getElementById('sacPackProgressBar'),lab=document.getElementById('sacPackProgressLabel'),fbar=document.getElementById('sacPackFooterProgressBar'),flab=document.getElementById('sacPackFooterProgressLabel'),fpct=document.getElementById('sacPackFooterProgressPct');if(bar)bar.style.width=value+'%';if(lab)lab.textContent=label||'';if(fbar)fbar.style.width=value+'%';if(flab)flab.textContent=label||'';if(fpct)fpct.textContent=Math.round(value)+'%'};
-      setProgress(8,'Preparing candidate manifest…');
-      let progressTimer=setInterval(()=>{const bar=document.getElementById('sacPackProgressBar');if(!bar)return;const cur=parseInt(bar.style.width||'8',10)||8;if(cur<82)setProgress(cur+4,cur<30?'Collecting documents…':cur<58?'Merging PDF documents…':'Saving SAC pack to Drive…')},550);
+      const setProgress=(pct,label)=>{const value=Math.max(0,Math.min(100,pct));for(const id of ['sacPackProgressBar','sacPackFooterProgressBar']){const el=document.getElementById(id);if(el)el.style.width=value+'%'}for(const id of ['sacPackProgressLabel','sacPackFooterProgressLabel']){const el=document.getElementById(id);if(el)el.textContent=label||''}const fpct=document.getElementById('sacPackFooterProgressPct');if(fpct)fpct.textContent=Math.round(value)+'%'};
+      const parts=[];let generatedCount=0,incompleteCount=0,failedCount=0,folderUrl='';
       try{
-        const res=await fetch(SAC_PACK_API,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({password,sessionId:sacPackState.sessionId,candidates:candidates.map(c=>({referenceNo:c.referenceNo,studentName:c.studentName,programme:c.programme}))})});
-        clearInterval(progressTimer);progressTimer=null;
-        if(!res.ok){const err=await res.json().catch(()=>({message:'Unable to generate SAC pack.'}));throw new Error(err.message||'Unable to generate SAC pack.')}
-        setProgress(92,'Finalising PDF and Drive record…');
-        const packUrl=res.headers.get('X-SAC-Pack-URL')||'';
-        const folderUrl=res.headers.get('X-SAC-Folder-URL')||'';
-        const generatedCount=Number(res.headers.get('X-SAC-Candidate-Count')||0);
-        const incompleteCount=Number(res.headers.get('X-SAC-Incomplete-Count')||0);
-        const blob=await res.blob(),url=URL.createObjectURL(blob);let w=null;try{w=window.open(url,'_blank')}catch(_){}
-        if(!w){const a=document.createElement('a');a.href=url;a.target='_blank';a.rel='noopener';a.click()}
+        setProgress(3,`Starting 0 of ${candidates.length} students…`);
+        for(let i=0;i<candidates.length;i++){
+          const c=candidates[i],name=c.studentName||c.referenceNo||`Student ${i+1}`;
+          setProgress(5+Math.floor((i/candidates.length)*78),`Collecting ${i+1} of ${candidates.length} · ${name}`);
+          try{
+            const res=await fetch(SAC_PACK_API,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({password,sessionId:sacPackState.sessionId,candidates:[{referenceNo:c.referenceNo,studentName:c.studentName,programme:c.programme}]})});
+            if(!res.ok){failedCount++;continue}
+            incompleteCount+=Number(res.headers.get('X-SAC-Incomplete-Count')||0);folderUrl=folderUrl||res.headers.get('X-SAC-Folder-URL')||'';
+            parts.push(await res.arrayBuffer());generatedCount++;
+          }catch(_){failedCount++}
+        }
+        if(!parts.length)throw new Error('No student SAC pack could be generated.');
+        setProgress(86,`Merging ${generatedCount} student pack(s)…`);
+        const {PDFDocument}=await import('https://cdn.jsdelivr.net/npm/pdf-lib@1.17.1/+esm');
+        const merged=await PDFDocument.create();
+        for(let i=0;i<parts.length;i++){const src=await PDFDocument.load(parts[i]);const copied=await merged.copyPages(src,src.getPageIndices());copied.forEach(p=>merged.addPage(p));setProgress(86+Math.floor(((i+1)/parts.length)*10),`Merging ${i+1} of ${parts.length} student pack(s)…`)}
+        const bytes=await merged.save({useObjectStreams:true}),blob=new Blob([bytes],{type:'application/pdf'}),url=URL.createObjectURL(blob);let w=null;try{w=window.open(url,'_blank')}catch(_){}if(!w){const a=document.createElement('a');a.href=url;a.target='_blank';a.rel='noopener';a.click()}
         setProgress(100,'Completed');
-        const links=[packUrl?`<a class="ghost" target="_blank" rel="noopener" href="${esc(packUrl)}">Open SAC Pack</a>`:'',folderUrl?`<a class="ghost" target="_blank" rel="noopener" href="${esc(folderUrl)}">Open SAC Folder</a>`:''].filter(Boolean).join(' ');
-        sacPackModalMsg(`<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap"><strong>SAC Pack generated: ${generatedCount} student(s).</strong><span>${incompleteCount} student(s) incomplete; available documents were still included.</span>${links}</div>`,'ok',true);
-        const currentSession=(db.V2_SAC_SESSIONS||[]).find(x=>String(x['SAC Session ID']||'').trim()===String(sacPackState.sessionId||'').trim());
-        if(currentSession){if(packUrl)currentSession['SAC Pack URL']=packUrl;if(folderUrl)currentSession['SAC Folder URL']=folderUrl;currentSession['SAC Pack Generated At']=new Date().toISOString();}
-        renderSac();if(sacDetailSessionId===sacPackState.sessionId)renderSacSessionDetail();
-        if(btn&&packUrl){btn.disabled=false;btn.textContent='Open SAC Pack';btn.onclick=()=>window.open(packUrl,'_blank');}
-        setTimeout(()=>URL.revokeObjectURL(url),120000);
-      }catch(e){if(progressTimer){clearInterval(progressTimer);progressTimer=null} if(footerProgress)footerProgress.classList.remove('show');sacPackModalMsg(e.message||'Unable to generate SAC pack.','error')}
-      finally{if(btn&&btn.textContent!=='Open SAC Pack'){btn.disabled=false;btn.textContent='Generate SAC Pack';btn.onclick=generateSacPack}}
+        const links=folderUrl?`<a class="ghost" target="_blank" rel="noopener" href="${esc(folderUrl)}">Open SAC Folder</a>`:'';
+        sacPackModalMsg(`<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap"><strong>SAC Pack generated: ${generatedCount} student(s).</strong><span>${incompleteCount} incomplete · ${failedCount} failed/skipped.</span>${links}</div>`,'ok',true);
+        if(btn){btn.disabled=false;btn.textContent='Open Merged SAC Pack';btn.onclick=()=>window.open(url,'_blank')}
+        setTimeout(()=>URL.revokeObjectURL(url),20*60*1000);
+      }catch(e){if(footerProgress)footerProgress.classList.remove('show');sacPackModalMsg(e.message||'Unable to generate SAC pack.','error');if(btn){btn.disabled=false;btn.textContent='Generate SAC Pack';btn.onclick=generateSacPack}}
     }
     function recordAssessmentResult(panelResult){if(!selected)return;runAdminAction('v2UpdateAssessment',{referenceNo:selected.ref,assessmentType:'INTERNAL_ASSESSMENT',sequence:1,component:'OVERALL',status:'COMPLETED',panelResult},`Confirm IA panel result: ${pretty(panelResult)}?`)}
     function recordPrerequisiteResult(panelResult){if(!selected)return;runAdminAction('v2UpdateAssessment',{referenceNo:selected.ref,assessmentType:'PREREQUISITE',sequence:1,component:'OVERALL',status:'COMPLETED',panelResult},`Confirm Prerequisite result: ${pretty(panelResult)}?`)}
