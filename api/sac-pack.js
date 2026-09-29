@@ -20,7 +20,7 @@ async function validateAdminPassword(password) {
   }
 }
 
-async function callV2(action, data, password, timeoutMs = 60000) {
+async function callV2(action, data, password, timeoutMs = 60000, authSessionId = '') {
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), timeoutMs);
   let response;
@@ -30,6 +30,7 @@ async function callV2(action, data, password, timeoutMs = 60000) {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         password: String(password || ''),
+        sessionId: String(authSessionId || ''),
         action,
         data: data || {},
         updatedBy: 'Admin Portal V2 - SAC Pack'
@@ -108,8 +109,13 @@ export default async function handler(req, res) {
   }
 
   const password = String(body.password || '');
-  if (!(await validateAdminPassword(password))) {
-    return res.status(401).json({ ok: false, message: 'Invalid admin password.' });
+  const authSessionId = `SACPACK-${Date.now()}-${Math.random().toString(36).slice(2,10)}`;
+  try {
+    await callV2('__AUTH_SESSION__', {}, password, 60000, authSessionId);
+  } catch (error) {
+    const message = String(error?.message || 'Unable to authenticate SAC pack request.');
+    const status = /invalid admin password/i.test(message) ? 401 : 502;
+    return res.status(status).json({ ok: false, message });
   }
 
   const sessionId = String(body.sessionId || '').trim();
@@ -134,7 +140,7 @@ export default async function handler(req, res) {
       const attempts=doc.internal?2:1; let lastError='FILE_NOT_AVAILABLE';
       for(let attempt=1;attempt<=attempts;attempt++){
         try{
-          const response=await callV2('v2GetSacPackFile',{sessionId,referenceNo:candidate.referenceNo,documentKey:doc.key},password,FILE_FETCH_TIMEOUT_MS);
+          const response=await callV2('v2GetSacPackFile',{sessionId,referenceNo:candidate.referenceNo,documentKey:doc.key},password,FILE_FETCH_TIMEOUT_MS,authSessionId);
           const file=response?.result||response;
           if(file?.base64)return {candidate,doc,file};
           lastError='FILE_NOT_AVAILABLE';
@@ -182,7 +188,7 @@ export default async function handler(req, res) {
       sessionId,
       fileName,
       base64: Buffer.from(bytes).toString('base64')
-    }, password);
+    }, password, 60000, authSessionId);
     const saved = savedResponse?.result || savedResponse || {};
 
     res.setHeader('X-SAC-Pack-URL', String(saved.fileUrl || ''));
