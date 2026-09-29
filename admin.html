@@ -490,6 +490,7 @@
     .application-row-actions{display:flex;gap:6px;align-items:center;justify-content:flex-end;flex-wrap:wrap}
     .remark-indicator-btn{border-color:#d9d2f4;background:#f7f5ff;color:var(--purple);white-space:nowrap}
     .remark-indicator-btn:hover{background:var(--purpleSoft);border-color:#c9bff1}
+    .admin-note-cell{min-width:230px;max-width:300px}.admin-note-box{display:flex;align-items:flex-start;gap:7px}.admin-note-text{font-size:11px;line-height:1.35;color:var(--ink);display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;word-break:break-word;flex:1}.admin-note-empty{font-size:11px;color:var(--muted);font-style:italic}.admin-note-btn{padding:6px 8px!important;white-space:nowrap;font-size:10px!important}
   </style>
 </head>
 <body>
@@ -561,7 +562,7 @@
           <div class="panel">
             <div class="panel-head"><h3>Application registry</h3><button class="ghost" onclick="exportApplicationsCsv()">Export CSV</button></div>
             <div class="panel-body"><div class="toolbar"><input id="searchInput" class="searchbox" placeholder="Search name, reference, ID, email or programme" oninput="renderApplications()" /><select id="intakeFilter" class="compact" onchange="renderApplications()"><option value="">All intakes</option></select><select id="programmeFilter" class="compact" onchange="renderApplications()"><option value="">All programmes</option></select><select id="stageFilter" class="compact" onchange="renderApplications()"><option value="">All stages</option></select><select id="caseTagFilter" class="compact" onchange="renderApplications()"><option value="">All case remarks</option><option value="SKY_ACTIVE_LOA_PENDING">SKY activated · LOA pending</option><option value="SKY_ACTIVE_ADMISSION_PENDING">SKY activated · admission pending</option><option value="SKY_ACTIVE_DOCUMENTS_PENDING">SKY activated · documents pending</option><option value="SKY_ACTIVE_SAC_PENDING">SKY activated · SAC pending</option><option value="SKY_ACTIVE_IA_PREREQ_PENDING">SKY activated · IA / prerequisite pending</option><option value="LOA_ISSUED_SKY_PENDING">LOA issued · SKY pending</option><option value="URGENT_MANAGEMENT">Urgent / management instruction</option><option value="BACKDATED_SPECIAL">Backdated / special case</option><option value="FOLLOW_UP_REQUIRED">Follow-up required</option></select></div></div>
-            <div class="table-wrap"><table><thead><tr><th>Applicant</th><th>Programme</th><th>Intake</th><th>Current stage</th><th>Recommendation / Decision</th><th>Status</th><th>Updated</th><th>Action</th></tr></thead><tbody id="applicationsBody"></tbody></table></div>
+            <div class="table-wrap"><table><thead><tr><th>Applicant</th><th>Programme</th><th>Intake</th><th>Current stage</th><th>Recommendation / Decision</th><th>Status</th><th>Updated</th><th>Admin Note</th><th>Action</th></tr></thead><tbody id="applicationsBody"></tbody></table></div>
           </div>
         </section>
 
@@ -1130,7 +1131,29 @@
         if(btn)detailTab('activity',btn);
       });
     }
-    function renderApplications(){const body=document.getElementById('applicationsBody');if(!body)return;const list=filteredApplications();body.innerHTML=list.map(r=>{return`<tr><td><div class="student">${esc(r.app['Student Name']||'-')}</div><div class="subline">${esc(r.ref)}</div></td><td>${esc(r.app['Programme']||'-')}<div class="subline">${esc(r.app['Study Mode']||'')}</div></td><td>${esc(r.app['Intake']||'-')}</td><td><span class="badge ${classifyBadge(stage(r))}">${esc(pretty(stage(r)))}</span></td><td>${decision(r)?`<span class="badge ${classifyBadge(decision(r))}">${esc(pretty(decision(r)))}</span>`:'-'}</td><td><span class="badge ${classifyBadge(status(r))}">${esc(pretty(status(r)))}</span></td><td>${esc(formatDate(val(r,'Last Updated',r.app['Last Updated']||r.app['Submitted At']||'')))}</td><td><div class="application-row-actions"><button class="ghost" onclick="openRecord('${esc(r.ref)}')">Open</button>${latestInternalRemark(r)?`<button class="ghost remark-indicator-btn" title="${esc(latestInternalRemark(r)['Remark']||latestInternalRemark(r)['Details']||latestInternalRemark(r)['Message']||latestInternalRemark(r)['Note']||'Internal remark available')}" onclick="openApplicantRemarks('${esc(r.ref)}')">📝 Remark</button>`:''}</div></td></tr>`}).join('')||'<tr><td colspan="8" class="empty">No applications match the selected filters.</td></tr>'}
+    async function recordInternalRemarkFast(ref,remark,caseTag=''){
+      const now=new Date().toISOString(),tagPrefix=caseTag?`[CASE_TAG:${caseTag}] `:'',storedRemark=tagPrefix+(remark||CASE_TAG_LABELS[caseTag]||caseTag);
+      const payload={referenceNo:ref,agentId:'ADMIN_PORTAL',executionId:'REMARK-'+Date.now(),action:'INTERNAL_REMARK',activity:'INTERNAL_REMARK',type:'INTERNAL_REMARK',status:'RECORDED',remark:storedRemark,note:storedRemark,message:storedRemark,details:storedRemark,summary:storedRemark,data:{remark:storedRemark,caseTag},timestamp:now,updatedBy:'Admin Portal V2'};
+      const res=await fetch(ACTION_API,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({password,sessionId:adminSessionId,action:'v2RecordAgentActivity',data:payload,updatedBy:'Admin Portal V2'})});
+      const out=await res.json().catch(()=>({ok:false,message:'Invalid remark response.'}));
+      if(!res.ok||!out.ok)throw new Error(out.message||'Unable to save admin note.');
+      const r=records.find(x=>x.ref===ref),event={'Action':'INTERNAL_REMARK','Type':'INTERNAL_REMARK','Remark':storedRemark,'Summary':storedRemark,'Case Tag':caseTag,'Timestamp':now,'Updated By':'Admin Portal V2'};
+      if(r){r.audit=r.audit||[];r.audit.unshift(event)}
+      return {event,storedRemark,result:out.result||out};
+    }
+    async function quickAdminNote(ref,button){
+      const r=records.find(x=>x.ref===ref);if(!r)return;
+      const latest=latestInternalRemark(r),current=latest?cleanRemarkText(latest):'';
+      const value=prompt('Admin Note (internal only)\n\nUpdate the note for this applicant. A new audit entry will be kept.',current);
+      if(value===null)return;const note=String(value||'').trim();if(!note)return;
+      const old=button?.textContent||'';if(button){button.disabled=true;button.textContent='Savingâ€¦'}
+      try{await recordInternalRemarkFast(ref,note,'');renderApplications()}
+      catch(e){alert(e.message||'Unable to save admin note.');if(button){button.disabled=false;button.textContent=old||'Edit'}}
+    }
+    function renderApplications(){
+      const body=document.getElementById('applicationsBody');if(!body)return;const list=filteredApplications();
+      body.innerHTML=list.map(r=>{const latest=latestInternalRemark(r),note=latest?cleanRemarkText(latest):'';return`<tr><td><div class="student">${esc(r.app['Student Name']||'-')}</div><div class="subline">${esc(r.ref)}</div></td><td>${esc(r.app['Programme']||'-')}<div class="subline">${esc(r.app['Study Mode']||'')}</div></td><td>${esc(r.app['Intake']||'-')}</td><td><span class="badge ${classifyBadge(stage(r))}">${esc(pretty(stage(r)))}</span></td><td>${decision(r)?`<span class="badge ${classifyBadge(decision(r))}">${esc(pretty(decision(r)))}</span>`:'-'}</td><td><span class="badge ${classifyBadge(status(r))}">${esc(pretty(status(r)))}</span></td><td>${esc(formatDate(val(r,'Last Updated',r.app['Last Updated']||r.app['Submitted At']||'')))}</td><td class="admin-note-cell"><div class="admin-note-box"><div class="${note?'admin-note-text':'admin-note-empty'}" title="${esc(note||'No admin note yet')}">${esc(note||'No note')}</div><button class="ghost admin-note-btn" onclick="quickAdminNote('${esc(r.ref)}',this)">${note?'Edit':' + Note'}</button></div></td><td><div class="application-row-actions"><button class="ghost" onclick="openRecord('${esc(r.ref)}')">Open</button>${latest?`<button class="ghost remark-indicator-btn" title="Open full remark history" onclick="openApplicantRemarks('${esc(r.ref)}')">History</button>`:''}</div></td></tr>`}).join('')||'<tr><td colspan="9" class="empty">No applications match the selected filters.</td></tr>';
+    }
     function renderSac(){
       const sessions=db.V2_SAC_SESSIONS||[],candidates=db.V2_SAC_CANDIDATES||[];
       document.getElementById('sacSessionsKpi').textContent=sessions.length;
@@ -1997,44 +2020,17 @@
     function renderDetailTabs(r){if(r.source==='V1'){renderLegacyDetailTabs(r);return}const raw=r.raw||{};document.getElementById('tab-overview').innerHTML=`<div class="detail-grid">${objectCard('Application',r.app,[['Reference','Reference No'],['Submitted','Submitted At'],['Applicant Type','Applicant Type'],['Email','Personal Email'],['Phone','Phone Number']])}${objectCard('Programme',r.app,[['Programme','Programme'],['Level','Level of Study'],['Study Mode','Study Mode'],['Intake','Intake'],['Entry Route','Entry Qualification Type']])}${card('Personal details','<div class="kv">'+[pair('ID / Passport',r.app['ID / Passport No']),pair('Country',raw.country),pair('Nationality',raw.nationality),pair('Gender',raw.gender),pair('Employment',raw.employmentStatus),pair('Sector',raw.employmentSector)].join('')+'</div>')}${card('Academic qualification','<div class="kv">'+[pair('Highest qualification',r.app['Highest Qualification']),pair('Institution',r.app['Institution / Awarding Body']),pair('Field',r.app['Field of Study']),pair('Result / CGPA',r.app['Academic Result / CGPA / Grade']),pair('Year',raw.yearOfCompletion)].join('')+'</div>')}${objectCard('Current workflow',r.workflow,[['Stage','Application Stage'],['Status','Application Status'],['Updated','Last Updated'],['Updated By','Updated By']],true)}</div>`;const docs=(r.files||[]).map(f=>`<div class="doc"><div><div class="name">${esc(f.fileName||f.field||'Document')}</div><div class="type">${esc(f.field||'')} · ${esc(f.mimeType||'')}</div></div>${f.url?`<a class="link" target="_blank" href="${esc(f.url)}">Open</a>`:''}</div>`).join('');document.getElementById('tab-documents').innerHTML=`<div class="detail-grid">${card('Uploaded documents',`<div class="docs">${docs||'<div class="empty">No uploaded documents recorded.</div>'}</div>`,true)}${objectCard('Document review',r.workflow,[['Review Status','Document Review Status'],['Reviewed At','Document Reviewed At'],['Reviewed By','Document Reviewed By'],['Missing Documents','Missing Document Count'],['PG-ADM-01','PG-ADM-01 Status'],['PG-ADM-01 Generated','PG-ADM-01 Generated At'],['PG-ADM-01 Error','PG-ADM-01 Error']],true)}</div>`;document.getElementById('tab-screening').innerHTML=`<div class="detail-grid">${r.ai&&Object.keys(r.ai).length?objectCard('AI document screening',r.ai,[['Provider','Provider'],['Model','Model'],['Status','Status'],['Qualification','Qualification'],['Institution','Institution'],['Field of Study','Field of Study'],['CGPA / Grade','CGPA / Grade'],['AI Work Experience','Relevant Work Experience'],['AI Field Classification','Field Classification'],['Confidence','Confidence'],['Human Review','Human Review Status'],['Human Field Classification','Human Field Classification'],['Human Work Experience','Human Relevant Work Experience'],['Confirmed for Rule Engine','Confirmed For Rule Engine']],true):card('AI document screening','<div class="empty">No AI screening result yet. The formal rule engine still uses staff-confirmed values.</div>',true)}${objectCard('Qualification screening',r.workflow,[['Status','Qualification Screening Status'],['Recommendation','Screening Recommendation'],['Field Classification','Field Classification'],['Work Experience','Relevant Work Experience'],['Rule Code','Qualification Rule Code'],['Screened At','Qualification Screened At'],['Screened By','Qualification Screened By'],['Manual Review','Manual Review Required']],true)}</div>`;document.getElementById('tab-sacdetail').innerHTML=`<div class="detail-grid">${objectCard('SAC',r.workflow,[['Session','SAC Session ID'],['Decision','SAC Decision'],['Endorsed At','SAC Endorsed At']])}${objectCard('Assessment route',r.workflow,[['Assessment Status','Assessment Status'],['Prerequisite Status','Prerequisite Status']])}${r.assessment&&Object.keys(r.assessment).length?objectCard('Assessment progress',r.assessment,Object.keys(r.assessment).slice(0,10).map(k=>[k,k]),true):card('Assessment progress','<div class="empty">No assessment progress record.</div>',true)}</div>`;document.getElementById('tab-offer').innerHTML=renderOfferAcceptanceTab(r);const audit=(r.audit||[]).map(a=>{const title=a['Action']||a['Event']||a['Activity']||'Workflow update';const note=cleanRemarkText(a);const tag=caseTagOfRemark(a);const isRemark=String(title).toUpperCase().includes('INTERNAL_REMARK')||String(a['Type']||'').toUpperCase()==='INTERNAL_REMARK';return `<div class="audit-item${isRemark?' internal-remark-item':''}"><div class="t">${isRemark?'📝 Internal Remark':esc(title)}${tag?` <span class="badge purple" style="margin-left:6px">${esc(CASE_TAG_LABELS[tag]||pretty(tag))}</span>`:''}</div><div class="m">${esc(formatDate(a['Timestamp']||a['Created At']||a['Updated At']||''))} ${esc(a['Updated By']||a['Actor']||a['Agent ID']||'')}</div>${note?`<div style="margin-top:6px;line-height:1.5;color:var(--ink)">${esc(note)}</div>`:''}</div>`}).join('');document.getElementById('tab-activity').innerHTML=`<div class="internal-remark-box"><div style="font-weight:850;margin-bottom:5px">Internal Remarks</div><div style="font-size:11px;color:var(--muted);margin-bottom:10px">For staff reference only. Remarks do not change the applicant's workflow or status.</div><select id="internalRemarkTag" class="ops-select" style="width:100%;margin-bottom:9px"><option value="">General remark (no case status)</option><option value="SKY_ACTIVE_LOA_PENDING">SKY activated · LOA pending</option><option value="SKY_ACTIVE_ADMISSION_PENDING">SKY activated · admission pending</option><option value="SKY_ACTIVE_DOCUMENTS_PENDING">SKY activated · documents pending</option><option value="SKY_ACTIVE_SAC_PENDING">SKY activated · SAC pending</option><option value="SKY_ACTIVE_IA_PREREQ_PENDING">SKY activated · IA / prerequisite pending</option><option value="LOA_ISSUED_SKY_PENDING">LOA issued · SKY pending</option><option value="URGENT_MANAGEMENT">Urgent / management instruction</option><option value="BACKDATED_SPECIAL">Backdated / special case</option><option value="FOLLOW_UP_REQUIRED">Follow-up required</option></select><textarea id="internalRemarkText" class="internal-remark-textarea" placeholder="Add a private internal remark for this applicant..."></textarea><div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-top:9px"><button class="primary" type="button" onclick="saveInternalRemark()">Save Remark</button><span id="internalRemarkStatus" style="font-size:11px;color:var(--muted)"></span></div></div><div class="audit">${audit||'<div class="empty">No activity or remarks found for this reference.</div>'}</div>`}
     async function saveInternalRemark(){
       if(!selected||!selected.ref)return;
-      const input=document.getElementById('internalRemarkText');
-      const statusEl=document.getElementById('internalRemarkStatus');
-      const remark=String(input?.value||'').trim();
-      const caseTag=String(document.getElementById('internalRemarkTag')?.value||'').trim();
+      const input=document.getElementById('internalRemarkText'),statusEl=document.getElementById('internalRemarkStatus');
+      const remark=String(input?.value||'').trim(),caseTag=String(document.getElementById('internalRemarkTag')?.value||'').trim();
       if(!remark&&!caseTag){if(statusEl)statusEl.textContent='Enter a remark first.';return}
-      if(statusEl)statusEl.textContent='Saving…';
+      if(statusEl)statusEl.textContent='Savingâ€¦';
       try{
-        const now=new Date().toISOString();
-        const tagPrefix=caseTag?`[CASE_TAG:${caseTag}] `:'';
-        const storedRemark=tagPrefix+(remark||CASE_TAG_LABELS[caseTag]||caseTag);
-        const payload={
-          referenceNo:selected.ref,
-          agentId:'ADMIN_PORTAL',
-          executionId:'REMARK-'+Date.now(),
-          action:'INTERNAL_REMARK',
-          activity:'INTERNAL_REMARK',
-          type:'INTERNAL_REMARK',
-          status:'RECORDED',
-          remark:storedRemark,
-          note:storedRemark,
-          message:storedRemark,
-          details:storedRemark,
-          summary:storedRemark,
-          data:{remark:storedRemark,caseTag},
-          timestamp:now,
-          updatedBy:'Admin Portal V2'
-        };
-        const out=await runAdminAction('v2RecordAgentActivity',payload);
-        if(!out)return;
-        selected.audit=selected.audit||[];
-        selected.audit.unshift({'Action':'INTERNAL_REMARK','Type':'INTERNAL_REMARK','Remark':storedRemark,'Summary':storedRemark,'Case Tag':caseTag,'Timestamp':now,'Updated By':'Admin Portal V2'});
-        renderApplications();
-        if(input)input.value='';
-        renderDetailTabs(selected);
-        const tab=document.getElementById('tab-activity');if(tab)tab.classList.add('active');
+        await recordInternalRemarkFast(selected.ref,remark,caseTag);
+        renderApplications();if(input)input.value='';
+        renderDetailTabs(selected);const tab=document.getElementById('tab-activity');if(tab)tab.classList.add('active');
         document.querySelectorAll('.tabs button').forEach(x=>x.classList.remove('active'));
         const btn=[...document.querySelectorAll('.tabs button')].find(x=>x.textContent.includes('Activity / Remarks'));if(btn)btn.classList.add('active');
-        const refreshedStatus=document.getElementById('internalRemarkStatus');if(refreshedStatus)refreshedStatus.textContent='Remark saved.';
+        const refreshedStatus=document.getElementById('internalRemarkStatus');if(refreshedStatus)refreshedStatus.textContent='Remark saved instantly.';
       }catch(e){if(statusEl)statusEl.textContent=e.message||'Unable to save remark.'}
     }
 
