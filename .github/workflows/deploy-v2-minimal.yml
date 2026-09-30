@@ -88,7 +88,7 @@ jobs:
               v1Touched:false
             };
           }
-'''
+          '''
           pattern = re.compile(r"function v2GetSacPackFile_\(data\) \{.*?\n\}\n\nfunction v2BuildSacCandidateManifest_", re.S)
           updated, count = pattern.subn(new_block + "\nfunction v2BuildSacCandidateManifest_", text, count=1)
           if count != 1:
