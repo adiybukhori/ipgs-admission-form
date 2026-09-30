@@ -10,6 +10,7 @@ on:
 permissions:
   contents: write
 
+# SAC backend repair trigger: 2026-10-01
 jobs:
   deploy:
     runs-on: ubuntu-latest
