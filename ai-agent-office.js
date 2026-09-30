@@ -11,10 +11,19 @@ function addCampusStyles(){
     .campus-live-note{display:flex;gap:10px;align-items:center;flex-wrap:wrap;padding:11px 14px;border-top:1px solid var(--line);font-size:10px;color:#8f9ac3;background:rgba(7,9,20,.92)}
     .campus-live-note b{color:#bffbea}
     .campus-live-status{margin-left:auto;color:#bffbea;font-weight:800}
+    .campus-live-status.error{color:#ff9aaa}
     @media(max-width:900px){.campus-live-frame{height:650px}}
     @media(max-width:620px){.campus-live-frame{height:590px}.campus-live-note{align-items:flex-start}.campus-live-status{margin-left:0;width:100%}}
   `;
   document.head.appendChild(style);
+}
+
+function sendCampusAuth(){
+  const frame=document.getElementById('campusLiveFrame');
+  const password=sessionStorage.getItem('ipgsAdminPassword')||'';
+  if(!frame?.contentWindow||!password)return false;
+  frame.contentWindow.postMessage({type:'IPGS_CAMPUS_AUTH',password},location.origin);
+  return true;
 }
 
 function injectCampusView(){
@@ -29,7 +38,7 @@ function injectCampusView(){
   button.type='button';
   button.dataset.view='campus';
   button.textContent='Campus View';
-  button.addEventListener('click',()=>window.switchOpsView?.('campus'));
+  button.addEventListener('click',()=>{window.switchOpsView?.('campus');setTimeout(sendCampusAuth,80);});
   nav.insertBefore(button,journeyButton);
 
   const journey=document.getElementById('opsJourneyView')||document.querySelector('.ops-view[data-view="journey"]');
@@ -62,12 +71,32 @@ function injectCampusView(){
     </div>`;
   journey.parentNode.insertBefore(section,journey);
 
+  const frame=document.getElementById('campusLiveFrame');
+  frame?.addEventListener('load',()=>setTimeout(sendCampusAuth,60));
+
   window.addEventListener('message',event=>{
     if(event.origin!==location.origin)return;
     const status=document.getElementById('campusLiveStatus');
     if(!status)return;
-    if(event.data?.type==='IPGS_CAMPUS_READY')status.textContent='Connected · loading students';
-    if(event.data?.type==='IPGS_CAMPUS_SYNCED')status.textContent=`Live · ${Number(event.data.total)||0} students`;
+    if(event.data?.type==='IPGS_CAMPUS_READY'){
+      status.classList.remove('error');
+      status.textContent='Connected · loading students';
+      sendCampusAuth();
+    }
+    if(event.data?.type==='IPGS_CAMPUS_AUTH_REQUIRED'){
+      status.classList.remove('error');
+      status.textContent='Authenticating ACC…';
+      sendCampusAuth();
+    }
+    if(event.data?.type==='IPGS_CAMPUS_SYNCED'){
+      status.classList.remove('error');
+      const total=Number(event.data.total)||0;
+      status.textContent=total?`Live · ${total} students`:'Live · no active students returned';
+    }
+    if(event.data?.type==='IPGS_CAMPUS_ERROR'){
+      status.classList.add('error');
+      status.textContent=`Campus data error · ${event.data.message||'refresh failed'}`;
+    }
   });
 }
 
