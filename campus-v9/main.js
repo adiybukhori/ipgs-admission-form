@@ -7,7 +7,7 @@ const params=new URLSearchParams(location.search);
 const embedded=params.get('embedded')==='1';
 if(embedded)document.documentElement.dataset.embedded='1';
 const scene=new CampusScene(document.getElementById('campus'));
-let engine,hud,liveLoaded=false,liveBusy=false,liveTimer=null,embeddedPassword='';
+let engine,hud,liveLoaded=false,liveBusy=false,embeddedPassword='';
 
 function reset(){
   scene.staff.forEach(a=>{a.path=[];a.onArrive=null;a.x=a.home.x;a.y=a.home.y;});
@@ -28,50 +28,40 @@ function clearDemoForLive(){
   document.getElementById('count').textContent='(0)';
 }
 
-function currentPassword(){
-  return embeddedPassword||sessionStorage.getItem('ipgsAdminPassword')||'';
-}
-
 function postParent(type,payload={}){
   if(window.parent!==window)window.parent.postMessage({type,...payload},location.origin);
 }
 
-async function refreshLive({quiet=false}={}){
-  if(liveBusy)return;
-  const password=currentPassword();
-  if(!password){
-    const message='Waiting for authenticated ACC session…';
-    document.getElementById('liveMessage').textContent=message;
-    postParent('IPGS_CAMPUS_AUTH_REQUIRED');
-    return;
-  }
+function applySharedSnapshot(message){
+  const records=WorkflowAdapter.normalize(message.data||{});
+  const result=WorkflowAdapter.sync(engine,records,{instant:!liveLoaded});
+  liveLoaded=true;hud.select(engine.apps[0]||null);
+  document.getElementById('liveMessage').textContent=`${records.length} live students · shared from AI Operations Center`;
+  document.getElementById('mode').textContent='Live ACC';
+  postParent('IPGS_CAMPUS_SYNCED',{total:records.length,counts:result.counts});
+}
+
+async function refreshStandalone({quiet=false}={}){
+  if(embedded||liveBusy)return;
+  const password=embeddedPassword||sessionStorage.getItem('ipgsAdminPassword')||'';
+  if(!password){if(!quiet)document.getElementById('liveMessage').textContent='Open Campus View from an authenticated ACC session.';return;}
   liveBusy=true;
   try{
     const snapshot=await WorkflowAdapter.fetchSnapshot(password);
-    const result=WorkflowAdapter.sync(engine,snapshot.records,{instant:!liveLoaded});
-    liveLoaded=true;hud.select(engine.apps[0]||null);
-    const summary=Object.entries(result.counts).map(([k,v])=>`${k}: ${v}`).join(' · ');
-    const message=snapshot.records.length
-      ?`${snapshot.records.length} live students · ${snapshot.loadedAt||'current snapshot'}${snapshot.warnings.length?' · source warning: '+snapshot.warnings.join('; '):''}`
-      :'No active Admission V2 students returned by ACC.';
-    document.getElementById('liveMessage').textContent=message;
-    document.getElementById('mode').textContent='Live ACC';
+    applySharedSnapshot({data:snapshot.raw||{},loadedAt:snapshot.loadedAt});
     if(!quiet)hud.toast('Admission V2 live snapshot refreshed');
-    postParent('IPGS_CAMPUS_SYNCED',{total:snapshot.records.length,counts:result.counts,summary});
   }catch(error){
-    const message=error?.message||'Unable to load live Admission V2 data';
-    document.getElementById('liveMessage').textContent=message;
-    clearDemoForLive();
+    document.getElementById('liveMessage').textContent=error?.message||'Unable to load live Admission V2 data';
     if(!quiet)hud.toast('Live ACC refresh failed');
-    postParent('IPGS_CAMPUS_ERROR',{message});
   }finally{liveBusy=false;}
 }
 
 try{
   await scene.load();reset();document.getElementById('loading').hidden=true;
-  let last=performance.now();
+  let last=performance.now(),lastPaint=0;
   function frame(now){
-    let dt=Math.min((now-last)/1000,.1);last=now;
+    if(embedded&&now-lastPaint<33){requestAnimationFrame(frame);return;}
+    let dt=Math.min((now-last)/1000,.1);last=now;lastPaint=now;
     if(engine.live){if(!engine.paused){engine.clock+=dt;for(const a of [...engine.apps,...scene.staff])a.update(dt);}}
     else engine.update(dt);
     scene.render(engine.paused?0:dt);hud.render();requestAnimationFrame(frame);
@@ -79,24 +69,29 @@ try{
   requestAnimationFrame(frame);
   if(embedded){
     clearDemoForLive();
+    document.getElementById('liveMessage').textContent='Waiting for data already loaded by AI Operations Center…';
     postParent('IPGS_CAMPUS_READY');
-    await refreshLive({quiet:true});
-    liveTimer=setInterval(()=>refreshLive({quiet:true}),30000);
-    document.addEventListener('visibilitychange',()=>{if(!document.hidden)refreshLive({quiet:true});});
   }
 }catch(error){document.getElementById('loading').textContent='Campus could not load: '+error.message;console.error(error);postParent('IPGS_CAMPUS_ERROR',{message:error.message});}
 
-document.getElementById('reset').onclick=()=>{if(engine.live){refreshLive();return;}reset();hud.toast('Simulation reset');};
-document.getElementById('demo').onclick=()=>{liveLoaded=false;embeddedPassword='';reset();document.getElementById('liveMessage').textContent='';document.getElementById('mode').textContent='Simulation';};
-document.getElementById('liveForm').onsubmit=async event=>{event.preventDefault();const input=document.getElementById('password'),button=event.target.querySelector('button');button.disabled=true;try{sessionStorage.setItem('ipgsAdminPassword',input.value);embeddedPassword=input.value;clearDemoForLive();await refreshLive();}finally{input.value='';button.disabled=false;}};
+document.getElementById('reset').onclick=()=>{if(engine.live){if(!embedded)refreshStandalone();return;}reset();hud.toast('Simulation reset');};
+document.getElementById('demo').onclick=()=>{if(embedded)return;liveLoaded=false;embeddedPassword='';reset();document.getElementById('liveMessage').textContent='';document.getElementById('mode').textContent='Simulation';};
+document.getElementById('liveForm').onsubmit=async event=>{event.preventDefault();if(embedded)return;const input=document.getElementById('password'),button=event.target.querySelector('button');button.disabled=true;try{sessionStorage.setItem('ipgsAdminPassword',input.value);embeddedPassword=input.value;clearDemoForLive();await refreshStandalone();}finally{input.value='';button.disabled=false;}};
 
 window.addEventListener('message',event=>{
   if(event.origin!==location.origin)return;
-  if(event.data?.type==='IPGS_CAMPUS_AUTH'){
-    embeddedPassword=String(event.data.password||'');
-    if(embeddedPassword){clearDemoForLive();refreshLive({quiet:true});}
+  if(event.data?.type==='IPGS_CAMPUS_DATA'){
+    try{applySharedSnapshot(event.data);}catch(error){
+      document.getElementById('liveMessage').textContent='Campus sync error: '+error.message;
+      postParent('IPGS_CAMPUS_ERROR',{message:error.message});
+      console.error(error);
+    }
     return;
   }
-  if(event.data?.type==='IPGS_CAMPUS_REFRESH')refreshLive({quiet:true});
+  if(event.data?.type==='IPGS_CAMPUS_AUTH'){
+    embeddedPassword=String(event.data.password||'');
+    if(!embedded&&embeddedPassword){clearDemoForLive();refreshStandalone({quiet:true});}
+    return;
+  }
+  if(event.data?.type==='IPGS_CAMPUS_REFRESH'&&!embedded)refreshStandalone({quiet:true});
 });
-window.addEventListener('beforeunload',()=>{if(liveTimer)clearInterval(liveTimer);});
