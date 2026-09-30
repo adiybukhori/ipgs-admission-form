@@ -526,6 +526,7 @@
         <button data-section="sac" onclick="go('sac',this)">✓ <span>SAC</span></button>
         <button data-section="assessment" onclick="go('assessment',this)">◎ <span>IA / PREREQ</span></button>
         <button data-section="activation" onclick="goActivation(this)">⚙ <span>Prospect / Activation</span></button>
+        <button data-section="activated" onclick="goActivated(this)">✓ <span>Activated</span></button>
         <button data-section="orientation" onclick="goOrientation(this)">◉ <span>Orientation</span></button>
         <button data-section="handover" onclick="goHandover(this)">⇄ <span>Academic Handover</span></button>
         <button type="button" onclick="window.location.href='/agents.html'">◈ <span>Academic Consultants</span></button>
@@ -624,6 +625,17 @@
             </div>
             <div class="table-wrap"><table><thead><tr><th>Student / Consultant</th><th>Prospect</th><th>Fee Group</th><th>Active in SKY</th><th>Status</th><th>Action</th></tr></thead><tbody id="activationBody"></tbody></table></div>
           </div>
+        </section>
+
+        <section id="activated" class="section">
+          <div class="hero"><div><h2>Activated Students</h2><p>Students verified as ACTIVE in SKY. Monitor orientation and academic handover from one operational queue.</p></div><span class="badge green">SKY ACTIVATED</span></div>
+          <div class="kpis">
+            <div class="kpi"><div class="label">ACTIVE IN SKY</div><div id="activatedTotalKpi" class="value">0</div><div class="meta">Verified SKY activation</div></div>
+            <div class="kpi"><div class="label">ORIENTATION PENDING</div><div id="activatedOrientationKpi" class="value">0</div><div class="meta">Not yet completed orientation</div></div>
+            <div class="kpi"><div class="label">HANDOVER PENDING</div><div id="activatedHandoverKpi" class="value">0</div><div class="meta">Awaiting Academic handover completion</div></div>
+            <div class="kpi"><div class="label">HANDED OVER</div><div id="activatedHandedOverKpi" class="value">0</div><div class="meta">Academic handover sent / completed</div></div>
+          </div>
+          <div class="panel"><div class="panel-head"><h3>Activated Student Queue</h3><span>SKY activation → Orientation → Academic Handover</span></div><div class="table-wrap"><table><thead><tr><th>Student</th><th>Programme / Intake</th><th>SKY Student ID</th><th>Activated</th><th>Orientation</th><th>Academic Handover</th><th>Folder</th><th>Action</th></tr></thead><tbody id="activatedBody"></tbody></table></div></div>
         </section>
 
         <section id="orientation" class="section">
@@ -1107,7 +1119,7 @@
       const rows=internalRemarksFor(r).slice().sort((a,b)=>(Date.parse(b?.['Timestamp']||b?.['Created At']||'')||0)-(Date.parse(a?.['Timestamp']||a?.['Created At']||'')||0));
       for(const row of rows){const tag=caseTagOfRemark(row);if(tag)return tag}return '';
     }
-    function filteredApplications(){const q=document.getElementById('searchInput')?.value.toLowerCase().trim()||'',source=document.getElementById('sourceFilter')?.value||'',intake=document.getElementById('intakeFilter')?.value||'',programme=document.getElementById('programmeFilter')?.value||'',st=document.getElementById('stageFilter')?.value||'',caseTag=document.getElementById('caseTagFilter')?.value||'';return records.filter(r=>{if(String(r.workflow?.['Application Status']||r.app?.['Application Status']||'').toUpperCase()==='TEST')return false;const hay=[r.ref,r.app['Student Name'],r.app['ID / Passport No'],r.app['Personal Email'],r.app['Programme']].join(' ').toLowerCase();return(!q||hay.includes(q))&&(!source||r.source===source)&&(!intake||r.app['Intake']===intake)&&(!programme||r.app['Programme']===programme)&&(!st||stage(r)===st)&&(!caseTag||latestCaseTag(r)===caseTag)})}
+    function filteredApplications(){const q=document.getElementById('searchInput')?.value.toLowerCase().trim()||'',source=document.getElementById('sourceFilter')?.value||'',intake=document.getElementById('intakeFilter')?.value||'',programme=document.getElementById('programmeFilter')?.value||'',st=document.getElementById('stageFilter')?.value||'',caseTag=document.getElementById('caseTagFilter')?.value||'';return records.filter(r=>{if(String(r.workflow?.['Application Status']||r.app?.['Application Status']||'').toUpperCase()==='TEST')return false;if(String(r.workflow?.['SKY Activation Status']||r.app?.['SKY Activation Status']||'').toUpperCase()==='ACTIVATED')return false;const hay=[r.ref,r.app['Student Name'],r.app['ID / Passport No'],r.app['Personal Email'],r.app['Programme']].join(' ').toLowerCase();return(!q||hay.includes(q))&&(!source||r.source===source)&&(!intake||r.app['Intake']===intake)&&(!programme||r.app['Programme']===programme)&&(!st||stage(r)===st)&&(!caseTag||latestCaseTag(r)===caseTag)})}
     function internalRemarksFor(r){
       return (r?.audit||[]).filter(a=>{
         const action=String(a?.['Action']||a?.['Event']||a?.['Activity']||'').toUpperCase();

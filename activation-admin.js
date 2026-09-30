@@ -135,7 +135,8 @@
   }
 
   window.renderRegistryActivation=function(){
-    const list=liveActivationRecords(),states=list.map(activationState);
+    const all=liveActivationRecords(),states=all.map(activationState);
+    const list=all.filter(r=>activationState(r)!=='ACTIVE_IN_SKY_DONE');
     const set=(id,n)=>{const el=document.getElementById(id);if(el)el.textContent=n};
     set('activationProspectPendingKpi',states.filter(x=>x==='PROSPECT_PENDING').length);
     set('activationProspectDoneKpi',states.filter(x=>x==='PROSPECT_DONE').length);
@@ -166,6 +167,28 @@
     }).join('')||'<tr><td colspan="6" class="empty">No V2 applications.</td></tr>';
   };
 
+  window.renderActivatedStudents=function(){
+    const list=liveActivationRecords().filter(r=>String(r.workflow?.['SKY Activation Status']||r.app?.['SKY Activation Status']||'').toUpperCase()==='ACTIVATED');
+    const set=(id,n)=>{const el=document.getElementById(id);if(el)el.textContent=n};
+    const handed=list.filter(r=>['HANDED_OVER','COMPLETED'].includes(String(r.workflow?.['Academic Handover Status']||'').toUpperCase())).length;
+    set('activatedTotalKpi',list.length);
+    set('activatedOrientationKpi',list.filter(r=>String(r.workflow?.['Orientation Status']||'').toUpperCase()!=='COMPLETED').length);
+    set('activatedHandoverKpi',Math.max(0,list.length-handed));
+    set('activatedHandedOverKpi',handed);
+    const body=document.getElementById('activatedBody');if(!body)return;
+    body.innerHTML=list.map(r=>{
+      const w=r.workflow||{},a=r.app||{};
+      const folder=w['Student Folder URL']||a['Student Folder URL']||'';
+      const orientation=String(w['Orientation Status']||'NOT_ASSIGNED').toUpperCase();
+      const handover=String(w['Academic Handover Status']||'NOT_READY').toUpperCase();
+      const skyId=w['SKY Student ID']||a['SKY Student ID']||'-';
+      const activatedAt=w['SKY Activated At']||a['SKY Activated At']||'';
+      return `<tr><td><div class="student">${esc(a['Student Name']||'-')}</div><div class="subline">${esc(r.ref)}</div></td><td>${esc(a['Programme']||'-')}<div class="subline">${esc(a['Intake']||w['Intake']||'-')}</div></td><td><div class="student">${esc(skyId)}</div></td><td>${esc(formatDate(activatedAt)||'-')}</td><td><span class="badge ${orientation==='COMPLETED'?'green':'amber'}">${esc(pretty(orientation))}</span></td><td><span class="badge ${['HANDED_OVER','COMPLETED'].includes(handover)?'green':'purple'}">${esc(pretty(handover))}</span></td><td>${folder?`<a class="link" href="${esc(folder)}" target="_blank" rel="noopener">Open Folder</a>`:'-'}</td><td><button class="ghost" onclick="openRecord('${esc(r.ref)}')">Open</button></td></tr>`;
+    }).join('')||'<tr><td colspan="8" class="empty">No SKY-activated students yet.</td></tr>';
+  };
+
+  window.goActivated=function(btn){go('activated',btn);const title=document.getElementById('topTitle');if(title)title.textContent='Activated Students';};
+
   window.goActivation=function(btn){
     go('activation',btn);
     const title=document.getElementById('topTitle');if(title)title.textContent='Prospect & SKY Activation';
@@ -173,6 +196,6 @@
 
   const baseRenderAll=window.renderAll;
   if(typeof baseRenderAll==='function'){
-    window.renderAll=function(){baseRenderAll();renderRegistryActivation()};
+    window.renderAll=function(){baseRenderAll();renderRegistryActivation();renderActivatedStudents()};
   }
 })();
