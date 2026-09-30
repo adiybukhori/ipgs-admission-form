@@ -1,0 +1,1 @@
+export class Station{constructor(config){Object.assign(this,config);this.occupants=new Set();this.closed=false;}get available(){return !this.closed&&this.occupants.size<this.capacity;}reserve(app){if(!this.available)return false;this.occupants.add(app.id);return true;}release(app){this.occupants.delete(app.id);}}
