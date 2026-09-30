@@ -1,0 +1,55 @@
+name: Patch SAC Six-Document Pack
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/scripts/patch_sac_six_documents.py'
+      - '.github/workflows/patch-sac-six-documents.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Apply six-document SAC pack patch
+        run: python .github/scripts/patch_sac_six_documents.py
+      - name: Validate Admin inline JavaScript
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          import re, subprocess
+          text=Path('admin.html').read_text(encoding='utf-8')
+          scripts=re.findall(r'<script>(.*?)</script>', text, flags=re.S)
+          p=Path('/tmp/admin-inline.js')
+          p.write_text('\n'.join(scripts), encoding='utf-8')
+          subprocess.run(['node','--check',str(p)], check=True)
+          PY
+      - name: Validate SAC pack API
+        run: node --check api/sac-pack.js
+      - name: Verify six-document markers
+        run: |
+          grep -q "key:'admissionForm'" api/sac-pack.js
+          grep -q "key:'pgAdm01'" api/sac-pack.js
+          grep -q "key:'certificate'" api/sac-pack.js
+          grep -q "key:'transcript'" api/sac-pack.js
+          grep -q "key:'resume'" api/sac-pack.js
+          grep -q "Final AI Screening Report" api/sac-pack.js
+          grep -q "SAC pack order: Admission Form" admin.html
+      - name: Commit six-document SAC pack update
+        run: |
+          if git diff --quiet; then
+            echo "No changes to commit."
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add admin.html api/sac-pack.js
+          git commit -m "Use six documents in SAC print pack"
+          git push origin HEAD:main
