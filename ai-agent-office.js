@@ -46,30 +46,23 @@ function setCampusStatus(text){
 }
 
 function sendCampusData(){
-  if(!campusFrame?.contentWindow)return false;
+  if(!campusFrame?.contentWindow||!campusReady)return false;
   const payload=campusDataPayload();
   if(!payload.V2_APPLICATIONS.length&&!payload.V2_WORKFLOW.length){
     setCampusStatus('Waiting for ACC data…');
     return false;
   }
-  campusFrame.contentWindow.postMessage({
-    type:'IPGS_CAMPUS_DATA',
-    data:payload,
-    loadedAt:new Date().toISOString()
-  },location.origin);
+  campusFrame.contentWindow.postMessage({type:'IPGS_CAMPUS_DATA',data:payload,loadedAt:new Date().toISOString()},location.origin);
   setCampusStatus(`Syncing ${payload.V2_APPLICATIONS.length||payload.V2_WORKFLOW.length} students…`);
   return true;
 }
 
-function startCampusSync(){
+function scheduleCampusSync(){
   clearInterval(campusSyncTimer);
-  let warmup=0;
   campusSyncTimer=setInterval(()=>{
-    warmup++;
-    if(campusReady)sendCampusData();
-    if(warmup>=75){
+    if(sendCampusData()){
       clearInterval(campusSyncTimer);
-      campusSyncTimer=setInterval(()=>{if(campusReady)sendCampusData();},30000);
+      campusSyncTimer=setInterval(()=>sendCampusData(),30000);
     }
   },400);
 }
@@ -88,7 +81,7 @@ function injectCampusView(){
   button.textContent='Campus View';
   button.addEventListener('click',()=>{
     window.switchOpsView?.('campus');
-    setTimeout(sendCampusData,60);
+    setTimeout(()=>{if(!sendCampusData())scheduleCampusSync();},60);
   });
   nav.insertBefore(button,journeyButton);
 
@@ -114,7 +107,7 @@ function injectCampusView(){
           <iframe id="campusLiveFrame" class="campus-live-frame" src="/campus-rpg-v9.html?embedded=1" title="IPGS live admissions campus simulation" loading="lazy"></iframe>
           <div class="campus-live-note">
             <b>Admission V2 is authoritative.</b>
-            <span>Campus View now reuses data already loaded by this dashboard instead of calling ACC a second time.</span>
+            <span>Campus View reuses data already loaded by this dashboard, so it does not call ACC a second time.</span>
             <span id="campusLiveStatus" class="campus-live-status">Starting…</span>
           </div>
         </div>
@@ -122,20 +115,16 @@ function injectCampusView(){
     </div>`;
   journey.parentNode.insertBefore(section,journey);
   campusFrame=document.getElementById('campusLiveFrame');
-  startCampusSync();
+  scheduleCampusSync();
 
   window.addEventListener('message',event=>{
     if(event.origin!==location.origin)return;
     if(event.data?.type==='IPGS_CAMPUS_READY'){
       campusReady=true;
       setCampusStatus('Campus ready · waiting for ACC data');
-      sendCampusData();
+      if(!sendCampusData())scheduleCampusSync();
     }
-    if(event.data?.type==='IPGS_CAMPUS_SYNCED'){
-      setCampusStatus=`Live · ${Number(event.data.total)||0} students`;
-      const status=document.getElementById('campusLiveStatus');
-      if(status)status.textContent=`Live · ${Number(event.data.total)||0} students`;
-    }
+    if(event.data?.type==='IPGS_CAMPUS_SYNCED')setCampusStatus(`Live · ${Number(event.data.total)||0} students`);
     if(event.data?.type==='IPGS_CAMPUS_ERROR')setCampusStatus('Campus sync error · dashboard remains active');
   });
 }
