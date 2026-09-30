@@ -1,0 +1,48 @@
+name: Patch SAC Pack Regenerate
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/scripts/patch_sac_regenerate_pack.py'
+      - '.github/workflows/patch-sac-regenerate-pack.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Apply regenerate controls
+        run: python .github/scripts/patch_sac_regenerate_pack.py
+      - name: Validate admin inline JavaScript
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          import re, subprocess
+          text=Path('admin.html').read_text(encoding='utf-8')
+          scripts=re.findall(r'<script>(.*?)</script>', text, flags=re.S)
+          p=Path('/tmp/admin-inline.js')
+          p.write_text('\n'.join(scripts), encoding='utf-8')
+          subprocess.run(['node','--check',str(p)], check=True)
+          PY
+      - name: Verify regenerate markers
+        run: |
+          grep -q 'Regenerate SAC Pack' admin.html
+          grep -q 'Admission Form → PG-ADM-01 → Certificate → Transcript → Resume / CV → Final AI Screening Report' admin.html
+      - name: Commit update
+        run: |
+          if git diff --quiet; then
+            echo "No changes to commit."
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add admin.html
+          git commit -m "Allow SAC pack regeneration without reversing session"
+          git push origin HEAD:main
