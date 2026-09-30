@@ -1,2 +1,2 @@
-sync-request: 2026-09-27 Admission V2 controlled UAT
-purpose: pull current Apps Script HEAD before official deployment
+sync-request: 2026-10-01 SAC pack repair snapshot
+purpose: pull current Apps Script HEAD before targeted SAC pack repair
