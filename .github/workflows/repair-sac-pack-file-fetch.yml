@@ -1,0 +1,189 @@
+name: Repair SAC Pack Backend File Fetch
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/repair-sac-pack-file-fetch.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  repair:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout current live Apps Script snapshot branch
+        uses: actions/checkout@v4
+        with:
+          ref: apps-script-v2-dev
+          fetch-depth: 0
+
+      - name: Patch SAC file resolver only
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          import re
+
+          p = Path('apps-script-v2/SacPackV2.js')
+          text = p.read_text(encoding='utf-8')
+
+          new_block = r'''function v2GetSacPackFile_(data) {
+  assertDevIdentity_();
+
+  const sessionId = String(data && data.sessionId || '').trim();
+  const reference = String(data && data.referenceNo || '').trim();
+  const documentKey = String(data && data.documentKey || '').trim();
+
+  if (!sessionId) throw new Error('SAC Session ID is required.');
+  if (!reference) throw new Error('Reference No is required.');
+  if (!documentKey) throw new Error('Document key is required.');
+
+  const candidate = v2SacPackFindCandidate_(sessionId, reference);
+  if (!candidate) throw new Error('Candidate is not assigned to this SAC session.');
+
+  // Resolve the six approved SAC documents directly instead of rebuilding the
+  // full candidate manifest. This keeps regeneration independent from unrelated
+  // screening/runtime code and provides stable aliases for the Vercel API.
+  const application = v2Find_('V2_APPLICATIONS', 'Reference No', reference);
+  const workflow = v2Find_('V2_WORKFLOW', 'Reference No', reference);
+  if (!application) throw new Error('V2 application record not found.');
+
+  let fileId = '';
+  let canonicalKey = documentKey;
+
+  if (documentKey === 'admissionForm') {
+    fileId = v2SacPackExtractDriveId_(
+      application.record['Admission Form PDF URL'] ||
+      (workflow && workflow.record['Admission Form PDF URL']) || ''
+    );
+
+  } else if (documentKey === 'pgAdm01' || documentKey === 'form01') {
+    canonicalKey = 'pgAdm01';
+    fileId = v2SacPackExtractDriveId_(
+      candidate.record['Form 01 URL'] ||
+      (workflow && (workflow.record['PG-ADM-01 URL'] || workflow.record['PG-ADM-01 Form URL'])) || ''
+    );
+
+  } else if (documentKey === 'aiScreeningReport') {
+    const aiScreening = v2Find_('V2_AI_SCREENING', 'Reference No', reference);
+    if (aiScreening) {
+      const reportStatus = String(aiScreening.record['Report Status'] || '').trim().toUpperCase();
+      if (reportStatus === 'FINAL' || reportStatus === 'FINAL_WITH_FLAGS') {
+        fileId = String(
+          aiScreening.record['Report File ID'] ||
+          v2SacPackExtractDriveId_(aiScreening.record['Report PDF URL'] || '') || ''
+        ).trim();
+      }
+    }
+
+  } else {
+    const fieldMap = {
+      certificate: 'certificate',
+      transcript: 'transcript',
+      resume: 'cvResume',
+      cvResume: 'cvResume'
+    };
+    const targetField = fieldMap[documentKey] || '';
+    if (targetField) {
+      canonicalKey = targetField === 'cvResume' ? 'resume' : targetField;
+      const submitted = v2GetSubmittedDocuments_(application.record);
+      const match = submitted.filter(function(doc) {
+        return String(doc && doc.field || '').trim() === targetField;
+      })[0];
+      if (match) {
+        fileId = String(
+          match.fileId ||
+          v2SacPackExtractDriveId_(match.url || '') || ''
+        ).trim();
+      }
+    }
+  }
+
+  if (!fileId) {
+    throw new Error('Requested SAC pack document was not found: ' + documentKey + '.');
+  }
+
+  const file = DriveApp.getFileById(fileId);
+  const prepared = v2SacPackPrintableBlob_(file);
+  const bytes = prepared.blob.getBytes();
+
+  return {
+    ok: true,
+    sessionId: sessionId,
+    referenceNo: reference,
+    documentKey: canonicalKey,
+    requestedDocumentKey: documentKey,
+    fileName: prepared.fileName,
+    mimeType: prepared.mimeType,
+    base64: Utilities.base64Encode(bytes),
+    size: bytes.length,
+    v1Touched: false
+  };
+}
+'''
+
+          pattern = re.compile(r"function v2GetSacPackFile_\(data\) \{.*?\n\}\n\nfunction v2BuildSacCandidateManifest_", re.S)
+          replacement = new_block + "\nfunction v2BuildSacCandidateManifest_"
+          updated, count = pattern.subn(replacement, text, count=1)
+          if count != 1:
+              raise SystemExit(f'v2GetSacPackFile_ replacement count: {count}')
+
+          p.write_text(updated, encoding='utf-8')
+          PY
+
+      - name: Validate targeted Apps Script file
+        run: node --check apps-script-v2/SacPackV2.js
+
+      - name: Verify six SAC document aliases
+        run: |
+          grep -F "documentKey === 'admissionForm'" apps-script-v2/SacPackV2.js
+          grep -F "documentKey === 'pgAdm01'" apps-script-v2/SacPackV2.js
+          grep -F "certificate: 'certificate'" apps-script-v2/SacPackV2.js
+          grep -F "transcript: 'transcript'" apps-script-v2/SacPackV2.js
+          grep -F "resume: 'cvResume'" apps-script-v2/SacPackV2.js
+          grep -F "documentKey === 'aiScreeningReport'" apps-script-v2/SacPackV2.js
+
+      - name: Verify clasp credential
+        env:
+          CLASPRC_JSON: ${{ secrets.CLASPRC_JSON }}
+        run: |
+          test -n "$CLASPRC_JSON" || (echo 'CLASPRC_JSON secret is not configured.' && exit 1)
+
+      - name: Install clasp
+        run: npm install --global @google/clasp@3.4.1
+
+      - name: Restore clasp credential
+        env:
+          CLASPRC_JSON: ${{ secrets.CLASPRC_JSON }}
+        run: |
+          printf '%s' "$CLASPRC_JSON" > "$HOME/.clasprc.json"
+          chmod 600 "$HOME/.clasprc.json"
+
+      - name: Verify locked V2 target
+        run: node tools/verify-clasp-target.mjs
+
+      - name: Push current snapshot plus targeted SAC repair
+        run: clasp push --force
+
+      - name: Redeploy existing V2 web app
+        env:
+          V2_DEPLOYMENT_ID: AKfycbxasT_HgtRSvTbR_bsa8p17Cm-C2PKn20Ok1kU-AyJmxiKX8kX5EGOtRLwVwNlAL7JB
+        run: clasp create-deployment --deploymentId "$V2_DEPLOYMENT_ID" --description "SAC six-document direct file resolver repair"
+
+      - name: Commit repaired source back to snapshot branch
+        run: |
+          git config user.name 'adiybukhori'
+          git config user.email 'muhammadadiy93@gmail.com'
+          git add apps-script-v2/SacPackV2.js
+          if git diff --cached --quiet; then
+            echo 'No source commit required.'
+          else
+            git commit -m 'Repair SAC six-document backend file resolver'
+            git push origin HEAD:apps-script-v2-dev
+          fi
+
+      - name: Remove clasp credential
+        if: always()
+        run: rm -f "$HOME/.clasprc.json"
