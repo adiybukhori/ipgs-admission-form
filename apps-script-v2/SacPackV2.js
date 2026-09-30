@@ -168,7 +168,6 @@ function v2GetSacPackFile_(data) {
   const sessionId = String(data && data.sessionId || '').trim();
   const reference = String(data && data.referenceNo || '').trim();
   const documentKey = String(data && data.documentKey || '').trim();
-
   if (!sessionId) throw new Error('SAC Session ID is required.');
   if (!reference) throw new Error('Reference No is required.');
   if (!documentKey) throw new Error('Document key is required.');
@@ -176,27 +175,53 @@ function v2GetSacPackFile_(data) {
   const candidate = v2SacPackFindCandidate_(sessionId, reference);
   if (!candidate) throw new Error('Candidate is not assigned to this SAC session.');
 
-  const manifest = v2BuildSacCandidateManifest_(sessionId, reference, false);
-  const doc = manifest.documents.filter(function(item) {
-    return item.key === documentKey;
-  })[0];
+  const application = v2Find_('V2_APPLICATIONS', 'Reference No', reference);
+  const workflow = v2Find_('V2_WORKFLOW', 'Reference No', reference);
+  if (!application) throw new Error('V2 application record not found.');
 
-  if (!doc || !doc.fileId) throw new Error('Requested SAC pack document was not found.');
+  let fileId = '';
+  let canonicalKey = documentKey;
 
-  const file = DriveApp.getFileById(doc.fileId);
+  if (documentKey === 'admissionForm') {
+    fileId = v2SacPackExtractDriveId_(application.record['Admission Form PDF URL'] || (workflow && workflow.record['Admission Form PDF URL']) || '');
+  } else if (documentKey === 'pgAdm01' || documentKey === 'form01') {
+    canonicalKey = 'pgAdm01';
+    fileId = v2SacPackExtractDriveId_(candidate.record['Form 01 URL'] || (workflow && (workflow.record['PG-ADM-01 URL'] || workflow.record['PG-ADM-01 Form URL'])) || '');
+  } else if (documentKey === 'aiScreeningReport') {
+    const ai = v2Find_('V2_AI_SCREENING', 'Reference No', reference);
+    if (ai) {
+      const reportStatus = String(ai.record['Report Status'] || '').trim().toUpperCase();
+      if (reportStatus === 'FINAL' || reportStatus === 'FINAL_WITH_FLAGS') {
+        fileId = String(ai.record['Report File ID'] || v2SacPackExtractDriveId_(ai.record['Report PDF URL'] || '') || '').trim();
+      }
+    }
+  } else {
+    const fieldMap = {certificate:'certificate', transcript:'transcript', resume:'cvResume', cvResume:'cvResume'};
+    const targetField = fieldMap[documentKey] || '';
+    if (targetField) {
+      canonicalKey = targetField === 'cvResume' ? 'resume' : targetField;
+      const submitted = v2GetSubmittedDocuments_(application.record);
+      const match = submitted.filter(function(doc){ return String(doc && doc.field || '').trim() === targetField; })[0];
+      if (match) fileId = String(match.fileId || v2SacPackExtractDriveId_(match.url || '') || '').trim();
+    }
+  }
+
+  if (!fileId) throw new Error('Requested SAC pack document was not found: ' + documentKey + '.');
+
+  const file = DriveApp.getFileById(fileId);
   const prepared = v2SacPackPrintableBlob_(file);
   const bytes = prepared.blob.getBytes();
-
   return {
-    ok: true,
-    sessionId: sessionId,
-    referenceNo: reference,
-    documentKey: documentKey,
-    fileName: prepared.fileName,
-    mimeType: prepared.mimeType,
-    base64: Utilities.base64Encode(bytes),
-    size: bytes.length,
-    v1Touched: false
+    ok:true,
+    sessionId:sessionId,
+    referenceNo:reference,
+    documentKey:canonicalKey,
+    requestedDocumentKey:documentKey,
+    fileName:prepared.fileName,
+    mimeType:prepared.mimeType,
+    base64:Utilities.base64Encode(bytes),
+    size:bytes.length,
+    v1Touched:false
   };
 }
 
