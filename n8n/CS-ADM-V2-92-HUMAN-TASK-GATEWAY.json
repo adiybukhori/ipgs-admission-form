@@ -19,7 +19,7 @@
     },
     {
       "parameters": {
-        "jsCode": "const req=$input.first().json;\nconst h=req.headers||{};\nconst supplied=h['x-iuc-agent-secret']||h['X-IUC-Agent-Secret']||'';\nconst expected='REPLACE_WITH_N8N_EVENT_SHARED_SECRET';\nif(supplied!==expected) throw new Error('Invalid human-task gateway secret');\nconst body=req.body||req;\nif(!body.operation) throw new Error('operation required');\nreturn [{json:body}];"
+        "jsCode": "const req=$input.first().json;\nconst h=req.headers||{};\nconst supplied=h['x-iuc-agent-secret']||h['X-IUC-Agent-Secret']||'';\nconst expected=$vars.N8N_EVENT_SHARED_SECRET;\nif(supplied!==expected) throw new Error('Invalid human-task gateway secret');\nconst body=req.body||req;\nif(!body.operation) throw new Error('operation required');\nreturn [{json:body}];"
       },
       "id": "human-validate",
       "name": "Validate Human Task Request",
@@ -120,7 +120,7 @@
         "sendBody": true,
         "contentType": "raw",
         "rawContentType": "application/json",
-        "body": "={{ JSON.stringify({action:'v2ListOpenHumanTasks',token:'REPLACE_WITH_V2_ADMIN_API_PASSWORD',updatedBy:'n8n | Human Task Gateway',data:{}}) }}",
+        "body": "={{ JSON.stringify({action:'v2ListOpenHumanTasks',token:$vars.V2_ADMIN_API_PASSWORD,updatedBy:'n8n | Human Task Gateway',data:{}}) }}",
         "options": {}
       },
       "id": "list-human",
@@ -139,7 +139,7 @@
         "sendBody": true,
         "contentType": "raw",
         "rawContentType": "application/json",
-        "body": "={{ JSON.stringify({action:'v2ResolveHumanTask',token:'REPLACE_WITH_V2_ADMIN_API_PASSWORD',updatedBy:$json.resolvedBy||'n8n | Human Task Gateway',data:{taskId:$json.taskId,decision:$json.decision,notes:$json.notes||'',resolution:$json.resolution||{}}}) }}",
+        "body": "={{ JSON.stringify({action:'v2ResolveHumanTask',token:$vars.V2_ADMIN_API_PASSWORD,updatedBy:$json.resolvedBy||'n8n | Human Task Gateway',data:{taskId:$json.taskId,decision:$json.decision,notes:$json.notes||'',resolution:$json.resolution||{}}}) }}",
         "options": {}
       },
       "id": "resolve-human",
@@ -173,7 +173,7 @@
         "sendBody": true,
         "contentType": "raw",
         "rawContentType": "application/json",
-        "body": "={{ JSON.stringify({action:'v2CreateHumanTask',token:'REPLACE_WITH_V2_ADMIN_API_PASSWORD',updatedBy:$json.raisedByAgent||'n8n | Human Task Gateway',data:$json}) }}",
+        "body": "={{ JSON.stringify({action:'v2CreateHumanTask',token:$vars.V2_ADMIN_API_PASSWORD,updatedBy:$json.raisedByAgent||'n8n | Human Task Gateway',data:$json}) }}",
         "options": {}
       },
       "id": "create-human",

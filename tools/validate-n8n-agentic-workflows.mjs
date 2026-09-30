@@ -27,8 +27,8 @@ if(actual.length!==expected.length)throw new Error('Expected '+expected.length+'
 
 const webhookPaths=new Map();
 const workflowNames=new Set();
-const allowedSecret='REPLACE_WITH_N8N_EVENT_SHARED_SECRET';
-const allowedAdmin='REPLACE_WITH_V2_ADMIN_API_PASSWORD';
+const allowedSecret='$vars.N8N_EVENT_SHARED_SECRET';
+const allowedAdmin='$vars.V2_ADMIN_API_PASSWORD';
 
 for(const file of expected){
   const full=path.join(root,file);
@@ -69,12 +69,16 @@ for(const file of expected){
     throw new Error(file+': possible live secret detected');
   }
 
+  if(raw.includes('REPLACE_WITH_')){
+    throw new Error(file+': unresolved import placeholder remains');
+  }
+
   if(raw.includes('X-IUC-Agent-Secret')&&!raw.includes(allowedSecret)){
-    throw new Error(file+': shared secret header exists without the approved placeholder');
+    throw new Error(file+': shared secret header exists without the approved project variable');
   }
 
   if(raw.includes('V2_ADMIN_API_PASSWORD')&&!raw.includes(allowedAdmin)){
-    throw new Error(file+': V2 admin password reference exists without the approved placeholder');
+    throw new Error(file+': V2 admin password reference exists without the approved project variable');
   }
 }
 
@@ -136,7 +140,10 @@ if(!orchestratorCode.includes("SKY_ACTIVATED:'ORIENTATION'")){
 const systems=JSON.parse(fs.readFileSync(path.join(root,'CS-ADM-V2-05-SYSTEMS-OPERATOR.json'),'utf8'));
 const systemsVerify=systems.nodes.find(n=>n.name==='Verify Systems Result');
 if(!String(systemsVerify?.parameters?.jsCode||'').includes("acceptanceStatus")){
-  throw new Error('Systems Operator must preserve the Acceptance gate');
+  throw new Error('Systems Operator must preserve Acceptance as an independent Orientation gate');
+}
+if(String(systemsVerify?.parameters?.jsCode||'').includes('WAITING_ACCEPTANCE')){
+  throw new Error('Systems Operator must not block SKY activation on Acceptance');
 }
 if(!systems.nodes.some(n=>n.name==='Route Activated Student to Orientation')){
   throw new Error('Systems Operator must support verified activated-state handoff to Orientation');
@@ -148,7 +155,7 @@ if(!orientationVerifyCode.includes("SKY Activation Status") && !orientationVerif
   throw new Error('Orientation workflow must verify SKY activation before assignment/invitation');
 }
 
-console.log('Admission sequence barrier OK: Acceptance -> SKY -> Orientation');
+console.log('Admission sequence barrier OK: SKY may activate independently; Orientation requires Acceptance + SKY');
 
 
 const handover=JSON.parse(fs.readFileSync(path.join(root,'CS-ADM-V2-07-ACADEMIC-HANDOVER.json'),'utf8'));

@@ -43,7 +43,7 @@
           "parameters": [
             {
               "name": "X-IUC-Agent-Secret",
-              "value": "REPLACE_WITH_N8N_EVENT_SHARED_SECRET"
+              "value": "={{ $vars.N8N_EVENT_SHARED_SECRET }}"
             }
           ]
         },
@@ -80,7 +80,7 @@
     },
     {
       "parameters": {
-        "jsCode": "const req=$input.first().json;\nconst h=req.headers||{};\nconst supplied=h['x-iuc-agent-secret']||h['X-IUC-Agent-Secret']||'';\nconst expected='REPLACE_WITH_N8N_EVENT_SHARED_SECRET';\nif(supplied!==expected) throw new Error('Invalid Management Intelligence secret');\nconst body=req.body||req;\nreturn [{json:{\n  operation:'execute',\n  executionId:String(body.executionId||('MI-MANUAL-'+Date.now())),\n  agentId:'MANAGEMENT_INTELLIGENCE',\n  requestedAction:'RUN_MANAGEMENT_INTELLIGENCE',\n  window:String(body.window||'MANUAL'),\n  sendEmail:body.sendEmail===true,\n  recipients:String(body.recipients||'')\n}}];"
+        "jsCode": "const req=$input.first().json;\nconst h=req.headers||{};\nconst supplied=h['x-iuc-agent-secret']||h['X-IUC-Agent-Secret']||'';\nconst expected=$vars.N8N_EVENT_SHARED_SECRET;\nif(supplied!==expected) throw new Error('Invalid Management Intelligence secret');\nconst body=req.body||req;\nreturn [{json:{\n  operation:'execute',\n  executionId:String(body.executionId||('MI-MANUAL-'+Date.now())),\n  agentId:'MANAGEMENT_INTELLIGENCE',\n  requestedAction:'RUN_MANAGEMENT_INTELLIGENCE',\n  window:String(body.window||'MANUAL'),\n  sendEmail:body.sendEmail===true,\n  recipients:String(body.recipients||'')\n}}];"
       },
       "id": "prepare-manual",
       "name": "Prepare Manual Scan",
@@ -100,7 +100,7 @@
           "parameters": [
             {
               "name": "X-IUC-Agent-Secret",
-              "value": "REPLACE_WITH_N8N_EVENT_SHARED_SECRET"
+              "value": "={{ $vars.N8N_EVENT_SHARED_SECRET }}"
             }
           ]
         },
