@@ -1,0 +1,88 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>IUC Campus AI Office V3</title>
+  <meta name="theme-color" content="#f5f1e8">
+  <link rel="stylesheet" href="/ai-agent-office-phaser-v3.css">
+</head>
+<body>
+<header class="topbar">
+  <div class="brand">
+    <div class="brand-mark">IUC</div>
+    <div><small>INNOVATIVE UNIVERSITY COLLEGE · IPGS</small><h1>Campus AI Admissions Office <span>V3</span></h1></div>
+  </div>
+  <div class="top-actions">
+    <span class="mode-pill"><i></i> Open-source Phaser Scene · Simulation</span>
+    <a href="/ai-operations-center.html">AI Operations Center</a>
+    <a href="/admin.html">Command Center</a>
+  </div>
+</header>
+
+<main class="page">
+  <section class="intro">
+    <div>
+      <span class="eyebrow">GAME-LIKE LIVE OPERATIONS FLOOR</span>
+      <h2>Every application is a student character. Every counter has its own staff agent.</h2>
+      <p>Applicants queue at Admission and are escorted through the actual IPGS admission pathway. This V3 uses a real 2D scene engine and CC0 game assets instead of dashboard-style SVG boxes.</p>
+    </div>
+    <div class="summary">
+      <div><small>Waiting</small><strong id="waitingCount">5</strong></div>
+      <div><small>Active Case</small><strong id="activeCase">—</strong></div>
+      <div><small>Current Station</small><strong id="activeStation">Admission Queue</strong></div>
+    </div>
+  </section>
+
+  <section class="toolbar">
+    <label>Workflow
+      <select id="workflowSelect">
+        <option value="prerequisite">IA → Prerequisite · Full Lifecycle</option>
+        <option value="direct">Direct Entry · Full Lifecycle</option>
+        <option value="ia">IA Sufficient · Full Lifecycle</option>
+      </select>
+    </label>
+    <button id="processBtn" class="primary">▶ Process Next Applicant</button>
+    <button id="pauseBtn" disabled>Pause</button>
+    <button id="resetBtn">Reset</button>
+    <div class="live-connect">
+      <input id="adminPassword" type="password" placeholder="Admin password">
+      <button id="connectBtn">Connect Live ACC</button>
+    </div>
+  </section>
+
+  <section class="layout">
+    <div class="game-card">
+      <div class="game-head">
+        <div><span class="eyebrow">IUC · IPGS CAMPUS</span><h3>Admissions Hub</h3></div>
+        <div class="legend"><span><i class="free"></i>Available</span><span><i class="work"></i>Working</span><span><i class="move"></i>Moving</span></div>
+      </div>
+      <div id="phaser-office"></div>
+    </div>
+
+    <aside class="sidebar">
+      <section class="side-card">
+        <span class="eyebrow">CURRENT EVENT</span>
+        <h3 id="eventName">Waiting</h3>
+        <div class="kv"><small>Applicant</small><b id="eventApplicant">—</b></div>
+        <div class="kv"><small>Task</small><b id="eventTask">—</b></div>
+        <div class="kv"><small>Staff Agent</small><b id="eventAgent">—</b></div>
+        <div class="kv"><small>Action</small><b id="eventAction">—</b></div>
+        <div class="kv"><small>Next</small><b id="eventNext">—</b></div>
+      </section>
+      <section class="side-card">
+        <span class="eyebrow">ACTIVITY</span><h3>Journey Stream</h3>
+        <div id="activityFeed" class="feed"><div class="empty">No activity yet.</div></div>
+      </section>
+      <section class="side-card credits">
+        <span class="eyebrow">V3 FOUNDATION</span>
+        <p>Scene engine: Phaser. Character and interior assets: Kenney CC0 packs. Current Admission V2 remains untouched.</p>
+      </section>
+    </aside>
+  </section>
+</main>
+
+<script src="https://cdn.jsdelivr.net/npm/phaser@4.2.1/dist/phaser.js"></script>
+<script src="/ai-agent-office-phaser-v3.js"></script>
+</body>
+</html>
