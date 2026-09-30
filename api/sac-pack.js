@@ -126,11 +126,12 @@ export default async function handler(req, res) {
     .filter(item => item.referenceNo);
   if (!candidates.length) return res.status(400).json({ ok:false, message:'No candidates found in this SAC session.' });
   const DOCS=[
+    {key:'admissionForm',label:'Admission Form',internal:true},
     {key:'pgAdm01',label:'PG-ADM-01',internal:true},
-    {key:'aiScreeningReport',label:'AI Screening Report',internal:true},
     {key:'certificate',label:'Certificate'},
     {key:'transcript',label:'Transcript'},
-    {key:'resume',label:'Resume / CV'}
+    {key:'resume',label:'Resume / CV'},
+    {key:'aiScreeningReport',label:'Final AI Screening Report',internal:true}
   ];
 
   try {

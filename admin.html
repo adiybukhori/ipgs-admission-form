@@ -1960,7 +1960,7 @@
         setPrepareProgress(100,'Ready to collect available SAC documents.');
         sacPackState=result;
         if(title)title.textContent=result.sessionName||result.sessionId||'SAC Print Pack';
-        if(sub)sub.textContent=`${result.candidateCount||0} candidate(s) · Essential 5 only. Missing student-uploaded documents will not block generation.`;
+        if(sub)sub.textContent=`${result.candidateCount||0} candidate(s) · SAC pack order: Admission Form → PG-ADM-01 → Certificate → Transcript → Resume / CV → Final AI Screening Report. Missing student-uploaded documents will not block generation.`;
         if(summary)summary.innerHTML=`<span class="badge purple">${result.candidateCount||0} candidates</span>${prepWarnings.length?`<span class="badge amber">${prepWarnings.length} internal generation warning(s)</span>`:`<span class="badge green">Internal docs checked</span>`}`;
         if(list)list.innerHTML=packCandidates.map(c=>`<div class="sac-pack-candidate" data-reference="${esc(c.referenceNo)}"><div class="sac-pack-candidate-head"><div><div class="sac-pack-candidate-name">${esc(c.studentName||c.referenceNo)}</div><div class="sac-pack-candidate-meta">${esc(c.programme||"-")} · ${esc(c.referenceNo)}</div></div><span class="badge blue">Collect available docs</span></div></div>`).join('')||'<div class="empty">No candidates assigned to this session.</div>';
         if(msg){msg.style.display='none';msg.textContent=''}
