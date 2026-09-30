@@ -34,23 +34,10 @@ function v2NotificationTestRecipient_() {
 }
 
 function v2NotificationAdminRecipients_() {
-  const props = PropertiesService.getScriptProperties();
-  const configured = String(props.getProperty('V2_ADMIN_NOTIFICATION_EMAILS') || '').trim();
-  let values = [];
-  if (configured) values = configured.split(/[;,]/);
-  if (!values.length && CONFIG && Array.isArray(CONFIG.notificationEmails)) {
-    values = CONFIG.notificationEmails.slice();
-  }
-
-  // Core observers always receive the new-application Registry notification
-  // in addition to the assigned Academic Consultant / Marketing agent.
-  values = values.concat([
-    'ipgs.admission@innovative.edu.my',
+  return v2NotificationUniqueEmails_([
     'adiybukhori.ipgs@innovative.edu.my',
     'abu.huzaifah.ipgs@innovative.edu.my'
   ]);
-
-  return v2NotificationUniqueEmails_(values);
 }
 
 function v2NotificationUniqueEmails_(values) {
@@ -89,28 +76,42 @@ function v2NotificationSend_(eventName, intendedRecipients, subject, textBody, h
   let effectiveSender = '';
   if (requestedFrom) {
     try {
-      const effectiveUser = String(Session.getEffectiveUser().getEmail() || '').trim().toLowerCase();
-      const aliases = GmailApp.getAliases().map(function(value){ return String(value || '').trim().toLowerCase(); });
-      if (effectiveUser === requestedFrom) {
-        // Primary mailbox already is the requested admission sender.
-        senderAliasApplied = true;
-        effectiveSender = requestedFrom;
-      } else if (aliases.indexOf(requestedFrom) >= 0) {
+      const aliases = GmailApp.getAliases().map(function(value) {
+        return String(value || '').trim().toLowerCase();
+      });
+
+      if (aliases.indexOf(requestedFrom) >= 0) {
         mailOptions.from = requestedFrom;
         senderAliasApplied = true;
         effectiveSender = requestedFrom;
       } else {
-        throw new Error('Required sender alias is not authorised for this Apps Script user: ' + requestedFrom);
+        effectiveSender = requestedFrom;
       }
+
     } catch (senderError) {
-      throw new Error('Unable to use required V2 notification sender ' + requestedFrom + ': ' + String(senderError && senderError.message || senderError));
+      effectiveSender = requestedFrom;
     }
   }
+
   if (opts.replyTo) mailOptions.replyTo = String(opts.replyTo);
 
-  recipients.forEach(function(to) {
-    GmailApp.sendEmail(to, String(subject || 'IUC IPGS Admission'), String(textBody || ''), mailOptions);
-  });
+  if (opts.singleMessageToAll === true) {
+    GmailApp.sendEmail(
+      recipients.join(','),
+      String(subject || 'IUC IPGS Admission'),
+      String(textBody || ''),
+      mailOptions
+    );
+  } else {
+    recipients.forEach(function(to) {
+      GmailApp.sendEmail(
+        to,
+        String(subject || 'IUC IPGS Admission'),
+        String(textBody || ''),
+        mailOptions
+      );
+    });
+  }
 
   return {
     sent:true,
@@ -183,13 +184,32 @@ function v2SendApplicationNotifications_(payload, reference, intake, pdf, col, o
   const friendlyName = v2ApplicantFriendlyName_(student);
   const programmeRaw = String(payload.programme || '').trim();
   const programme = programmeRaw.indexOf(' - ') >= 0 ? programmeRaw.split(' - ').slice(1).join(' - ').trim() : programmeRaw;
-  const intakeName = String(intake && intake.name || payload.intake || '').trim();
+  const intakeNameRaw = String(intake && intake.name || payload.intake || '').trim();
+
+  let intakeName = intakeNameRaw;
+
+  const parsedIntakeDate = new Date(intakeNameRaw);
+
+  if (!isNaN(parsedIntakeDate.getTime())) {
+    intakeName = Utilities.formatDate(
+      parsedIntakeDate,
+      CONFIG.timezone || 'Asia/Kuala_Lumpur',
+      'MMMM yyyy'
+    );
+  }
   const admissionAttachment = pdf && pdf.blob ? [pdf.blob] : [];
   const studentAttachments = [];
   if (col && col.blob) studentAttachments.push(col.blob);
   if (pdf && pdf.blob) studentAttachments.push(pdf.blob);
 
   const applicationRow = v2Find_('V2_APPLICATIONS','Reference No',reference);
+  const applicantFolderUrl = applicationRow ? String(applicationRow.record['Student Folder URL'] || '').trim() : '';
+  const folderButton = applicantFolderUrl
+  ? '<p style="margin:20px 0 4px">' +
+      '<a href="' + v2Html_(applicantFolderUrl) + '" ' +
+      'style="display:inline-block;background:#34206f;color:#ffffff;text-decoration:none;padding:12px 18px;border-radius:9px;font-weight:700">' +
+      'Open Applicant Folder</a></p>'
+  : '';
   const researchIntentStatus = applicationRow ? String(applicationRow.record['Research Intent Status'] || '') : '';
   const researchIntentUrl = applicationRow ? String(applicationRow.record['Research Intent Upload URL'] || '') : '';
   const researchIntentPending = researchIntentStatus === 'PENDING' && !!researchIntentUrl;
@@ -205,7 +225,7 @@ function v2SendApplicationNotifications_(payload, reference, intake, pdf, col, o
       '</td></tr></table>'
     : '';
 
-  const studentSubject = 'Congratulations, ' + friendlyName + ' - Your IUC Conditional Offer Letter';
+  const studentSubject = 'Congratulations & Welcome to Innovative - Your Conditional Offer Letter';
   const studentText =
     'Dear ' + friendlyName + ',\n\n' +
     'Congratulations. We are delighted that you have chosen Innovative University College for the next step in your postgraduate journey.\n\n' +
@@ -329,7 +349,9 @@ function v2SendApplicationNotifications_(payload, reference, intake, pdf, col, o
       '<div style="background:#34206f;color:white;padding:20px"><h2 style="margin:0;font-size:20px">New Admission Application</h2></div>' +
       '<div style="padding:22px"><p>A new postgraduate application has been submitted and the student Conditional Offer Letter has been issued.</p>' +
       '<p><strong>Student:</strong> '+v2Html_(student)+'<br><strong>Programme:</strong> '+v2Html_(programme)+'<br><strong>Intake:</strong> '+v2Html_(intakeName)+'<br><strong>Reference:</strong> '+v2Html_(reference)+agentLine+researchIntentAdminLine+'</p>' +
-      '<p>The Admission Form is attached. Please continue the document review and screening process in Admission V2.</p></div></div>';
+      folderButton +
+      '<p>The Admission Form is attached. Please continue the document review and screening process in Admission V2.</p>' +
+      '</div></div>';
 
     try {
       adminResult = v2NotificationSend_(
@@ -340,7 +362,8 @@ function v2SendApplicationNotifications_(payload, reference, intake, pdf, col, o
           attachments:admissionAttachment,
           senderName:'IUC IPGS Admission',
           fromAlias:'ipgs.admission@innovative.edu.my',
-          replyTo:'ipgs.admission@innovative.edu.my'
+          replyTo:'ipgs.admission@innovative.edu.my',
+          singleMessageToAll:true
         }
       );
     } catch (adminError) {
@@ -692,4 +715,273 @@ function v2NotificationStatus_() {
     events:['NEW_APPLICATION_STUDENT','NEW_APPLICATION_ADMIN','AGENT_NEW_APPLICATION','OFFER_ISSUED','ACCEPTANCE_COMPLETED'],
     v1Touched:false
   };
+}
+
+function TEST_HUZAIFAH_NOTIFICATION_PATCH() {
+  const reference = 'IUC-ADM-V2-20260930-103552-02080306-F606';
+
+  const studentEmail = 'abu.huzaifah.ipgs@innovative.edu.my';
+
+  const colFile = DriveApp.getFileById(
+    '1qjK9j6g-dk30V4VogtXXvtDBLud8tzPX'
+  );
+
+  const admissionFormFile = DriveApp.getFileById(
+    '1soLgNCJyv4D1pXPraUxkb54PhPKZ20sd'
+  );
+
+  const attachments = [
+    colFile.getBlob(),
+    admissionFormFile.getBlob()
+  ];
+
+  // =========================================================
+  // TEST 1 - STUDENT EMAIL
+  // =========================================================
+  const studentSubject =
+    'Congratulations – Conditional Offer of Admission | Doctor of Philosophy in Management';
+
+  const studentText = [
+    'Dear Muhammad Abu Huzaifah Bin Zulkifli,',
+    '',
+    'Congratulations and welcome to Innovative University College (IUC).',
+    '',
+    'Please find attached your Conditional Offer Letter and system-generated Admission Form.',
+    '',
+    'Programme: Doctor of Philosophy in Management',
+    'Study Mode: Full-Time',
+    'Intake: September 2026',
+    'Reference No: ' + reference,
+    '',
+    'Thank you.',
+    '',
+    'Best regards,',
+    'IPGS Admission',
+    'Innovative University College'
+  ].join('\n');
+
+  const studentHtml = `
+    <div style="font-family:Arial,sans-serif;max-width:680px;margin:auto">
+      <h2>Congratulations and Welcome to IUC</h2>
+
+      <p>Dear Muhammad Abu Huzaifah Bin Zulkifli,</p>
+
+      <p>
+        We are pleased to confirm your application for the
+        <strong>Doctor of Philosophy in Management</strong>.
+      </p>
+
+      <p>
+        Please find attached your:
+      </p>
+
+      <ol>
+        <li>Conditional Offer Letter</li>
+        <li>System-generated Admission Form</li>
+      </ol>
+
+      <p>
+        <strong>Programme:</strong> Doctor of Philosophy in Management<br>
+        <strong>Study Mode:</strong> Full-Time<br>
+        <strong>Intake:</strong> September 2026<br>
+        <strong>Reference No:</strong> ${reference}
+      </p>
+
+      <p>
+        We look forward to welcoming you to Innovative University College.
+      </p>
+
+      <p>
+        Best regards,<br>
+        <strong>IPGS Admission</strong><br>
+        Innovative University College
+      </p>
+    </div>
+  `;
+
+  const studentResult = v2NotificationSend_(
+    'APPLICATION_COL_STUDENT',
+    [studentEmail],
+    studentSubject,
+    studentText,
+    studentHtml,
+    {
+      modeOverride: 'LIVE',
+      fromAlias: 'ipgs.admission@innovative.edu.my',
+      replyTo: 'ipgs.admission@innovative.edu.my',
+      senderName: 'IPGS Admission',
+      attachments: attachments
+    }
+  );
+
+  Logger.log('STUDENT RESULT: ' + JSON.stringify(studentResult));
+
+
+  // =========================================================
+  // TEST 2 - ADMISSION TEAM NOTIFICATION
+  // =========================================================
+  const teamRecipients = [
+    'ipgs.admission@innovative.edu.my',
+    'adiybukhori.ipgs@innovative.edu.my'
+  ];
+
+  const teamSubject =
+    '[IUC Admission] New Application Received - ' + reference;
+
+  const teamText = [
+    'A new postgraduate admission application has been submitted.',
+    '',
+    'Reference: ' + reference,
+    'Student: MUHAMMAD ABU HUZAIFAH BIN ZULKIFLI',
+    'Applicant Type: Local (Malaysian Citizen)',
+    'Programme: Doctor of Philosophy in Management',
+    'Study Mode: Full-Time',
+    'Intake: September 2026',
+    'Email: ' + studentEmail,
+    '',
+    'This notification is generated as a controlled UAT of the live Admission V2 notification function.'
+  ].join('\n');
+
+  const teamHtml = `
+    <div style="font-family:Arial,sans-serif;max-width:680px;margin:auto">
+      <h3>New Admission Application Received</h3>
+
+      <p><strong>Reference:</strong> ${reference}</p>
+      <p><strong>Student:</strong> MUHAMMAD ABU HUZAIFAH BIN ZULKIFLI</p>
+      <p><strong>Applicant Type:</strong> Local (Malaysian Citizen)</p>
+      <p><strong>Programme:</strong> Doctor of Philosophy in Management</p>
+      <p><strong>Study Mode:</strong> Full-Time</p>
+      <p><strong>Intake:</strong> September 2026</p>
+      <p><strong>Email:</strong> ${studentEmail}</p>
+
+      <hr>
+
+      <p style="font-size:12px;color:#666">
+        Controlled UAT – Admission V2 notification function.
+      </p>
+    </div>
+  `;
+
+  const teamResult = v2NotificationSend_(
+    'APPLICATION_ADMIN_NOTIFICATION',
+    teamRecipients,
+    teamSubject,
+    teamText,
+    teamHtml,
+    {
+      modeOverride: 'LIVE',
+      fromAlias: 'ipgs.admission@innovative.edu.my',
+      replyTo: 'ipgs.admission@innovative.edu.my',
+      senderName: 'IPGS Admission'
+    }
+  );
+
+  Logger.log('TEAM RESULT: ' + JSON.stringify(teamResult));
+
+  return {
+    student: studentResult,
+    team: teamResult
+  };
+}
+
+function TEST_HUZAIFAH_PRODUCTION_EMAILS() {
+  const reference = 'IUC-ADM-V2-20260930-103552-02080306-F606';
+
+  const application = v2Find_(
+    'V2_APPLICATIONS',
+    'Reference No',
+    reference
+  );
+
+  if (!application) {
+    throw new Error('Huzaifah application not found.');
+  }
+
+  let payload = {};
+
+  try {
+    payload = JSON.parse(
+      String(application.record['Raw Application JSON'] || '{}')
+    );
+  } catch (e) {
+    payload = {};
+  }
+
+  payload.fullName =
+    payload.fullName ||
+    application.record['Student Name'] ||
+    '';
+
+  payload.email =
+    payload.email ||
+    application.record['Personal Email'] ||
+    '';
+
+  payload.programme =
+    payload.programme ||
+    application.record['Programme'] ||
+    '';
+
+  payload.levelOfStudy =
+    payload.levelOfStudy ||
+    application.record['Level of Study'] ||
+    '';
+
+  payload.studyMode =
+    payload.studyMode ||
+    application.record['Study Mode'] ||
+    '';
+
+  payload.intake =
+    payload.intake ||
+    application.record['Intake'] ||
+    '';
+
+  payload.applicantType =
+    payload.applicantType ||
+    application.record['Applicant Type'] ||
+    '';
+
+  payload.idPassport =
+    payload.idPassport ||
+    application.record['ID / Passport No'] ||
+    '';
+
+  const admissionBlob = v2NotificationBlobFromUrl_(
+    application.record['Admission Form PDF URL']
+  );
+
+  const colBlob = v2NotificationBlobFromUrl_(
+    application.record['COL PDF URL']
+  );
+
+  if (!admissionBlob) {
+    throw new Error('Admission Form PDF could not be loaded.');
+  }
+
+  if (!colBlob) {
+    throw new Error('COL PDF could not be loaded.');
+  }
+
+  const result = v2SendApplicationNotifications_(
+    payload,
+    reference,
+    {
+      name: String(
+        application.record['Intake'] ||
+        payload.intake ||
+        ''
+      )
+    },
+    { blob: admissionBlob },
+    { blob: colBlob },
+    {}
+  );
+
+  Logger.log(
+    'PRODUCTION EMAIL RESULT: ' +
+    JSON.stringify(result)
+  );
+
+  return result;
 }

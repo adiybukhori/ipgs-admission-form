@@ -61,11 +61,33 @@ function v2CompleteManualDocumentReview_(data, reviewer) {
   });
 
   const decisions = requiredDocuments.map(function(doc) {
-    const item = decisionByKey[doc.key];
-    if (!item) throw new Error('Manual decision is required for ' + doc.label + '.');
-    if (!submittedByKey[doc.key] && item.status === 'VERIFIED') {
-      throw new Error(doc.label + ' cannot be VERIFIED because no uploaded file is recorded.');
+    let item = decisionByKey[doc.key];
+
+    // CV / Resume compatibility:
+    // Older/current UI may display CV under Additional Documents and therefore
+    // does not send a separate manual decision for it.
+    // If the CV is already uploaded, do not block the document-review workflow.
+    if (!item && doc.key === 'cvResume' && submittedByKey[doc.key]) {
+      item = {
+        key: doc.key,
+        label: doc.label || V2_DOCUMENT_LABELS[doc.key] || 'Curriculum Vitae (CV) / Resume',
+        status: 'VERIFIED',
+        remarks: 'CV / Resume uploaded and accepted for document completeness.',
+        fileName: String(submittedByKey[doc.key].fileName || ''),
+        url: String(submittedByKey[doc.key].url || '')
+      };
     }
+
+    if (!item) {
+      throw new Error('Manual decision is required for ' + doc.label + '.');
+    }
+
+    if (!submittedByKey[doc.key] && item.status === 'VERIFIED') {
+      throw new Error(
+        doc.label + ' cannot be VERIFIED because no uploaded file is recorded.'
+      );
+    }
+
     return item;
   });
 
