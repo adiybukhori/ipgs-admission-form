@@ -10,137 +10,19 @@ on:
 permissions:
   contents: write
 
-# SAC direct gateway repair trigger: 2026-10-01
+# SAC direct gateway deployment trigger: 2026-10-01-v2
 jobs:
   deploy:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout V2 branch
+        uses: actions/checkout@v4
         with:
           ref: apps-script-v2-dev
           fetch-depth: 0
 
       - name: Patch protected doPost SAC file fast-path
-        run: |
-          python3 - <<'PY'
-          from pathlib import Path
-
-          p = Path('apps-script-v2/Code.js')
-          text = p.read_text(encoding='utf-8')
-
-          marker = "const action = String(payload && payload.action ? payload.action : '');"
-          if marker not in text:
-              raise SystemExit('doPost action marker not found')
-
-          if 'DIRECT_SAC_PACK_FILE_FAST_PATH' not in text:
-              insert = r'''
-
-    // DIRECT_SAC_PACK_FILE_FAST_PATH
-    // SAC print-pack retrieval is read-only and must bypass legacy DEV-locked helpers.
-    if (action === 'v2GetSacPackFile' && payload.token) {
-      const properties = PropertiesService.getScriptProperties();
-      const expected = String(
-        properties.getProperty('V2_ADMIN_API_PASSWORD') ||
-        CONFIG.adminApiPassword ||
-        ''
-      ).trim();
-      const received = String(payload.token || '').trim();
-
-      if (!expected) {
-        throw new Error('V2 admin password is not configured in Script Properties.');
-      }
-      if (!received || received !== expected) {
-        throw new Error('Invalid V2 admin password.');
-      }
-
-      const directResult = v2GetSacPackFileDirect_(payload.data || {});
-      return ContentService
-        .createTextOutput(JSON.stringify(directResult))
-        .setMimeType(ContentService.MimeType.JSON);
-    }
-'''
-              text = text.replace(marker, marker + insert, 1)
-              p.write_text(text, encoding='utf-8')
-          else:
-              print('Direct SAC fast-path already present.')
-          PY
-
-      - name: Patch SAC six-document file resolver
-        run: |
-          python3 - <<'PY'
-          from pathlib import Path
-          import re
-          p = Path('apps-script-v2/SacPackV2.js')
-          text = p.read_text(encoding='utf-8')
-          new_block = r'''function v2GetSacPackFile_(data) {
-            assertDevIdentity_();
-
-            const sessionId = String(data && data.sessionId || '').trim();
-            const reference = String(data && data.referenceNo || '').trim();
-            const documentKey = String(data && data.documentKey || '').trim();
-            if (!sessionId) throw new Error('SAC Session ID is required.');
-            if (!reference) throw new Error('Reference No is required.');
-            if (!documentKey) throw new Error('Document key is required.');
-
-            const candidate = v2SacPackFindCandidate_(sessionId, reference);
-            if (!candidate) throw new Error('Candidate is not assigned to this SAC session.');
-
-            const application = v2Find_('V2_APPLICATIONS', 'Reference No', reference);
-            const workflow = v2Find_('V2_WORKFLOW', 'Reference No', reference);
-            if (!application) throw new Error('V2 application record not found.');
-
-            let fileId = '';
-            let canonicalKey = documentKey;
-
-            if (documentKey === 'admissionForm') {
-              fileId = v2SacPackExtractDriveId_(application.record['Admission Form PDF URL'] || (workflow && workflow.record['Admission Form PDF URL']) || '');
-            } else if (documentKey === 'pgAdm01' || documentKey === 'form01') {
-              canonicalKey = 'pgAdm01';
-              fileId = v2SacPackExtractDriveId_(candidate.record['Form 01 URL'] || (workflow && (workflow.record['PG-ADM-01 URL'] || workflow.record['PG-ADM-01 Form URL'])) || '');
-            } else if (documentKey === 'aiScreeningReport') {
-              const ai = v2Find_('V2_AI_SCREENING', 'Reference No', reference);
-              if (ai) {
-                const reportStatus = String(ai.record['Report Status'] || '').trim().toUpperCase();
-                if (reportStatus === 'FINAL' || reportStatus === 'FINAL_WITH_FLAGS') {
-                  fileId = String(ai.record['Report File ID'] || v2SacPackExtractDriveId_(ai.record['Report PDF URL'] || '') || '').trim();
-                }
-              }
-            } else {
-              const fieldMap = {certificate:'certificate', transcript:'transcript', resume:'cvResume', cvResume:'cvResume'};
-              const targetField = fieldMap[documentKey] || '';
-              if (targetField) {
-                canonicalKey = targetField === 'cvResume' ? 'resume' : targetField;
-                const submitted = v2GetSubmittedDocuments_(application.record);
-                const match = submitted.filter(function(doc){ return String(doc && doc.field || '').trim() === targetField; })[0];
-                if (match) fileId = String(match.fileId || v2SacPackExtractDriveId_(match.url || '') || '').trim();
-              }
-            }
-
-            if (!fileId) throw new Error('Requested SAC pack document was not found: ' + documentKey + '.');
-
-            const file = DriveApp.getFileById(fileId);
-            const prepared = v2SacPackPrintableBlob_(file);
-            const bytes = prepared.blob.getBytes();
-            return {
-              ok:true,
-              sessionId:sessionId,
-              referenceNo:reference,
-              documentKey:canonicalKey,
-              requestedDocumentKey:documentKey,
-              fileName:prepared.fileName,
-              mimeType:prepared.mimeType,
-              base64:Utilities.base64Encode(bytes),
-              size:bytes.length,
-              v1Touched:false
-            };
-          }
-          '''
-          pattern = re.compile(r"function v2GetSacPackFile_\(data\) \{.*?\n\}\n\nfunction v2BuildSacCandidateManifest_", re.S)
-          updated, count = pattern.subn(new_block + "\nfunction v2BuildSacCandidateManifest_", text, count=1)
-          if count != 1:
-              raise SystemExit(f'v2GetSacPackFile_ replacement count: {count}')
-          p.write_text(updated, encoding='utf-8')
-          PY
+        run: python3 .github/scripts/patch_sac_direct_gateway.py
 
       - name: Verify source
         run: |
@@ -150,8 +32,6 @@ jobs:
           node --check apps-script-v2/SacPackDirectGatewayV2.js
           grep -F "DIRECT_SAC_PACK_FILE_FAST_PATH" apps-script-v2/Code.js
           grep -F "function v2GetSacPackFileDirect_" apps-script-v2/SacPackDirectGatewayV2.js
-          grep -F "documentKey === 'pgAdm01'" apps-script-v2/SacPackV2.js
-          grep -F "resume:'cvResume'" apps-script-v2/SacPackV2.js
 
       - name: Verify clasp credential exists
         env:
@@ -178,11 +58,11 @@ jobs:
       - name: Redeploy existing web app
         run: clasp create-deployment --deploymentId AKfycbxasT_HgtRSvTbR_bsa8p17Cm-C2PKn20Ok1kU-AyJmxiKX8kX5EGOtRLwVwNlAL7JB --description "Direct SAC pack read-only file gateway"
 
-      - name: Commit deployed SAC repair to source branch
+      - name: Commit deployed fast-path back to source branch
         run: |
           git config user.name 'adiybukhori'
           git config user.email 'muhammadadiy93@gmail.com'
-          git add apps-script-v2/Code.js apps-script-v2/SacPackV2.js apps-script-v2/SacPackDirectGatewayV2.js
+          git add apps-script-v2/Code.js apps-script-v2/SacPackDirectGatewayV2.js
           if git diff --cached --quiet; then
             echo 'No source commit required.'
           else
