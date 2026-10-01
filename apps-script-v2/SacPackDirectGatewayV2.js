@@ -158,3 +158,41 @@ function v2GetSacPackFileDirect_(data) {
     v1Touched: false
   };
 }
+
+/**
+ * Read-only controlled UAT against the one-candidate SAC session used for the
+ * production repair. Returns metadata only so execution logs do not contain
+ * document bytes.
+ */
+function v2SacPackDirectGatewayControlledTest() {
+  assertDevIdentity_();
+
+  const common = {
+    sessionId: 'SAC-20260929-F1B9E8',
+    referenceNo: 'IUC-ADM-V2-20260927-122229-89082203-95D5'
+  };
+
+  function check(key) {
+    const result = v2GetSacPackFileDirect_({
+      sessionId: common.sessionId,
+      referenceNo: common.referenceNo,
+      documentKey: key
+    });
+    return {
+      ok: result.ok === true,
+      documentKey: result.documentKey,
+      requestedDocumentKey: result.requestedDocumentKey,
+      fileName: result.fileName,
+      mimeType: result.mimeType,
+      size: result.size,
+      source: result.source
+    };
+  }
+
+  return {
+    ok: true,
+    admissionForm: check('admissionForm'),
+    certificate: check('certificate'),
+    aiScreeningReport: check('aiScreeningReport')
+  };
+}
