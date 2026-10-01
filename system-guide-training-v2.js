@@ -2,19 +2,22 @@
   if(window.__ipgsGuideV2BootstrapLoaded)return;
   window.__ipgsGuideV2BootstrapLoaded=true;
 
-  function loadLatest(){
-    if(window.__ipgsLatestGuidePatchRequested)return;
-    window.__ipgsLatestGuidePatchRequested=true;
-    const patch=document.createElement('script');
-    patch.src='/system-guide-training-latest.js?v=20261002';
-    patch.async=false;
-    document.head.appendChild(patch);
+  function loadScript(src,flag){
+    if(flag&&window[flag])return;
+    if(flag)window[flag]=true;
+    const script=document.createElement('script');
+    script.src=src;
+    script.async=false;
+    document.head.appendChild(script);
+    return script;
   }
+
+  loadScript('/acc-login-ui.js?v=20261002','__ipgsAccLoginUiRequested');
 
   const legacy=document.createElement('script');
   legacy.src='https://cdn.jsdelivr.net/gh/adiybukhori/ipgs-admission-form@cdafa47034cef3ddaa21e98f2fc920cc19492536/system-guide-training-v2.js';
   legacy.async=false;
-  legacy.onload=loadLatest;
-  legacy.onerror=loadLatest;
+  legacy.onload=function(){loadScript('/system-guide-training-latest.js?v=20261002','__ipgsLatestGuidePatchRequested')};
+  legacy.onerror=function(){loadScript('/system-guide-training-latest.js?v=20261002','__ipgsLatestGuidePatchRequested')};
   document.head.appendChild(legacy);
 })();
