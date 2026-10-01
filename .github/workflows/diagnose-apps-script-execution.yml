@@ -40,11 +40,14 @@ jobs:
         env:
           V2_DEPLOYMENT_ID: AKfycbxasT_HgtRSvTbR_bsa8p17Cm-C2PKn20Ok1kU-AyJmxiKX8kX5EGOtRLwVwNlAL7JB
         run: |
-          clasp push
-          clasp create-deployment --deploymentId "$V2_DEPLOYMENT_ID" --description "Admission V2 execution diagnostics"
+          clasp push --force
+          clasp create-deployment --deploymentId "$V2_DEPLOYMENT_ID" --description "Admission V2 SAC direct gateway UAT"
 
       - name: Execution API ping
         run: clasp run-function v2ExecutionPing --json
+
+      - name: SAC direct gateway controlled test
+        run: clasp run-function v2SacPackDirectGatewayControlledTest --json
 
       - name: Manual screening controlled test
         continue-on-error: true
