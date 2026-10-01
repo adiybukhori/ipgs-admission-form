@@ -53,7 +53,7 @@
     const sop=document.getElementById('guideSopView');
     if(!sop)return;
     const existing=document.getElementById('guideLatestArrangement');
-    if(existing && existing.dataset.guideVersion===VERSION)return;
+    if(existing?.dataset.guideVersion===VERSION)return;
     if(existing)existing.remove();
     sop.insertAdjacentHTML('afterbegin',latestPanelHtml());
   }
@@ -62,7 +62,9 @@
     const rows=[...document.querySelectorAll('#guideSopView .guide-flow-row')];
     const row=rows.find(r=>r.querySelector('.guide-flow-stage')?.textContent.trim()===stageTitle);
     const action=row?.querySelector('.guide-flow-action');
-    if(action)action.innerHTML=html;
+    if(!action||action.dataset.latestGuideVersion===VERSION)return;
+    action.innerHTML=html;
+    action.dataset.latestGuideVersion=VERSION;
   }
 
   function patchSopFlow(){
@@ -78,9 +80,10 @@
   function patchGuideHeader(){
     const guide=document.getElementById('guide');if(!guide)return;
     const badge=[...guide.querySelectorAll('.badge')].find(x=>/CURRENT OPERATING GUIDE/i.test(x.textContent||''));
-    if(badge)badge.textContent='CURRENT OPERATING GUIDE · OCT 2026';
+    if(badge&&badge.textContent!=='CURRENT OPERATING GUIDE · OCT 2026')badge.textContent='CURRENT OPERATING GUIDE · OCT 2026';
     const heroP=guide.querySelector('.hero p');
-    if(heroP)heroP.textContent='Current operating guide for the IPGS Admission Command Center — aligned to the latest Admission V2 submission, document, screening, SAC, IA / prerequisite, SKY, Orientation and Academic Handover controls.';
+    const text='Current operating guide for the IPGS Admission Command Center — aligned to the latest Admission V2 submission, document, screening, SAC, IA / prerequisite, SKY, Orientation and Academic Handover controls.';
+    if(heroP&&heroP.textContent!==text)heroP.textContent=text;
   }
 
   function ensureFlowLatestNote(){
@@ -116,15 +119,13 @@
       note.innerHTML='<b>Training baseline · 2 Oct 2026:</b> use the latest Admission V2 controls in this deck. Where an older screenshot or wording differs, the live module and the Current Admission V2 Arrangement in SOP Guide take precedence.';
       (toolbar||slides).insertAdjacentElement(toolbar?'afterend':'afterbegin',note);
     }
-    const stage=document.getElementById('guideSlideStage');
-    if(!stage)return;
-    const slide=stage.querySelector('.guide-slide');if(!slide)return;
-    slide.querySelectorAll('footer span').forEach(x=>{if(/System Training Guide/i.test(x.textContent||''))x.textContent='System Training Guide · October 2026'});
+    const slide=document.querySelector('#guideSlideStage .guide-slide');if(!slide)return;
+    slide.querySelectorAll('footer span').forEach(x=>{if(/System Training Guide/i.test(x.textContent||'')&&x.textContent!=='System Training Guide · October 2026')x.textContent='System Training Guide · October 2026'});
     const aside=slide.querySelector('.g2-layout aside');
     const msg=slideLatestText(currentSlideTitle());
     const old=slide.querySelector('.guide-latest-slide-note');
     if(!msg){if(old)old.remove();return;}
-    if(old){old.innerHTML=msg;return;}
+    if(old){if(old.innerHTML!==msg)old.innerHTML=msg;return;}
     if(aside){const note=document.createElement('div');note.className='guide-latest-slide-note';note.innerHTML=msg;aside.appendChild(note)}
   }
 
@@ -134,37 +135,37 @@
     });
   }
 
-  let scheduled=false;
-  function applyAll(){
-    scheduled=false;
+  function applyStatic(){
     addStyles();
     patchGuideHeader();
     ensureLatestPanel();
     patchSopFlow();
+    patchStaticDates();
+  }
+
+  function applyDynamic(){
+    patchGuideHeader();
     ensureFlowLatestNote();
     patchSlides();
     patchStaticDates();
   }
-  function scheduleApply(){
-    if(scheduled)return;
-    scheduled=true;
-    requestAnimationFrame(applyAll);
+
+  function wrapFunction(name){
+    const original=window[name];
+    if(typeof original!=='function'||original.__latestGuideWrapped)return;
+    const wrapped=function(){
+      const out=original.apply(this,arguments);
+      setTimeout(applyDynamic,0);
+      return out;
+    };
+    wrapped.__latestGuideWrapped=true;
+    window[name]=wrapped;
   }
 
   function init(){
-    applyAll();
-    const guide=document.getElementById('guide');
-    if(guide){
-      const observer=new MutationObserver(scheduleApply);
-      observer.observe(guide,{subtree:true,childList:true,characterData:false});
-    }
-    ['setGuideMode','openGuideSlides','guideSlideMove','guideSlideJump'].forEach(name=>{
-      const original=window[name];
-      if(typeof original!=='function'||original.__latestWrapped)return;
-      const wrapped=function(){const out=original.apply(this,arguments);scheduleApply();setTimeout(scheduleApply,0);return out};
-      wrapped.__latestWrapped=true;
-      window[name]=wrapped;
-    });
+    applyStatic();
+    ['setGuideMode','openGuideSlides','guideSlideMove','guideSlideJump'].forEach(wrapFunction);
+    setTimeout(applyDynamic,0);
   }
 
   if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',init,{once:true});
