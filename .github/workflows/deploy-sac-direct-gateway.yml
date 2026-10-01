@@ -1,0 +1,113 @@
+name: Deploy SAC Direct Gateway
+
+on:
+  push:
+    branches: [apps-script-v2-dev]
+    paths:
+      - '.github/workflows/deploy-sac-direct-gateway.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout V2 branch
+        uses: actions/checkout@v4
+        with:
+          ref: apps-script-v2-dev
+          fetch-depth: 0
+
+      - name: Patch protected doPost SAC file fast-path
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+
+          p = Path('apps-script-v2/Code.js')
+          text = p.read_text(encoding='utf-8')
+
+          marker = "const action = String(payload && payload.action ? payload.action : '');"
+          if marker not in text:
+              raise SystemExit('doPost action marker not found')
+
+          if "DIRECT_SAC_PACK_FILE_FAST_PATH" in text:
+              print('Direct SAC pack fast-path already present.')
+          else:
+              insert = r'''
+
+    // DIRECT_SAC_PACK_FILE_FAST_PATH
+    // SAC print-pack document retrieval is read-only. Route it directly to the
+    // V2-only resolver so legacy DEV-locked helpers cannot intercept the call.
+    if (action === 'v2GetSacPackFile' && payload.token) {
+      const properties = PropertiesService.getScriptProperties();
+      const expected = String(
+        properties.getProperty('V2_ADMIN_API_PASSWORD') ||
+        CONFIG.adminApiPassword ||
+        ''
+      ).trim();
+      const received = String(payload.token || '').trim();
+
+      if (!expected) {
+        throw new Error('V2 admin password is not configured in Script Properties.');
+      }
+      if (!received || received !== expected) {
+        throw new Error('Invalid V2 admin password.');
+      }
+
+      const directResult = v2GetSacPackFileDirect_(payload.data || {});
+      return ContentService
+        .createTextOutput(JSON.stringify(directResult))
+        .setMimeType(ContentService.MimeType.JSON);
+    }
+'''
+              text = text.replace(marker, marker + insert, 1)
+              p.write_text(text, encoding='utf-8')
+          PY
+
+      - name: Validate targeted source
+        run: |
+          node tools/verify-clasp-target.mjs
+          node --check apps-script-v2/Code.js
+          node --check apps-script-v2/SacPackDirectGatewayV2.js
+          grep -F "DIRECT_SAC_PACK_FILE_FAST_PATH" apps-script-v2/Code.js
+          grep -F "function v2GetSacPackFileDirect_" apps-script-v2/SacPackDirectGatewayV2.js
+
+      - name: Verify clasp credential
+        env:
+          CLASPRC_JSON: ${{ secrets.CLASPRC_JSON }}
+        run: |
+          test -n "$CLASPRC_JSON" || (echo 'CLASPRC_JSON secret is not configured.' && exit 1)
+
+      - name: Install clasp
+        run: npm install --global @google/clasp@3.4.1
+
+      - name: Restore clasp credential
+        env:
+          CLASPRC_JSON: ${{ secrets.CLASPRC_JSON }}
+        run: |
+          printf '%s' "$CLASPRC_JSON" > "$HOME/.clasprc.json"
+          chmod 600 "$HOME/.clasprc.json"
+
+      - name: Push V2 source
+        run: clasp push --force
+
+      - name: Redeploy existing V2 web app
+        run: clasp create-deployment --deploymentId AKfycbxasT_HgtRSvTbR_bsa8p17Cm-C2PKn20Ok1kU-AyJmxiKX8kX5EGOtRLwVwNlAL7JB --description "Direct SAC pack read-only file gateway"
+
+      - name: Commit patched Code.js back to branch
+        run: |
+          git config user.name 'adiybukhori'
+          git config user.email 'muhammadadiy93@gmail.com'
+          git add apps-script-v2/Code.js apps-script-v2/SacPackDirectGatewayV2.js
+          if git diff --cached --quiet; then
+            echo 'No source commit required.'
+          else
+            git commit -m 'Route SAC file fetch through direct V2 gateway'
+            git push origin HEAD:apps-script-v2-dev
+          fi
+
+      - name: Cleanup clasp credential
+        if: always()
+        run: rm -f "$HOME/.clasprc.json"
