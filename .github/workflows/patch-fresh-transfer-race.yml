@@ -26,14 +26,12 @@ jobs:
           p = Path('index.html')
           s = p.read_text(encoding='utf-8')
 
-          # 1) Race dropdown: add Chinese as a distinct race option.
           old_races = '"Indian Muslim", "Chinese Muslim","Jakun"'
           new_races = '"Indian Muslim", "Chinese", "Chinese Muslim","Jakun"'
           if old_races not in s:
               raise SystemExit('RACES anchor not found; refusing to patch.')
           s = s.replace(old_races, new_races, 1)
 
-          # 2) State: add mandatory admission entry type to both live and reset state.
           state_anchor = '      entryQualificationType: "",\n      proposedSupervisor: "",'
           state_replacement = '      entryQualificationType: "",\n      applicationCategory: "",\n      proposedSupervisor: "",'
           state_count = s.count(state_anchor)
@@ -41,53 +39,26 @@ jobs:
               raise SystemExit(f'Expected 2 state anchors, found {state_count}; refusing to patch.')
           s = s.replace(state_anchor, state_replacement)
 
-          # 3) Step 1 UI: Fresh Student / Transfer Student.
-          ui_anchor = '''          ${internationalBlock}
-
-          <div class="field"><label>Level of Study <span class="required">*</span></label>'''
-          ui_replacement = '''          ${internationalBlock}
-
-          <div class="field">
-            <label>Admission Entry Type <span class="required">*</span></label>
-            <select data-field="applicationCategory">
-              ${selectOptions(["Fresh Student", "Transfer Student"], "Select admission entry type", formState.applicationCategory)}
-            </select>
-            <div class="hint">Select Transfer Student if you are currently or previously enrolled in another institution/programme and are applying to transfer your study, credits or research progress to IUC.</div>
-          </div>
-
-          <div class="field"><label>Level of Study <span class="required">*</span></label>'''
+          ui_anchor = '          ${internationalBlock}\n\n          <div class="field"><label>Level of Study <span class="required">*</span></label>'
+          ui_replacement = '          ${internationalBlock}\n\n          <div class="field">\n            <label>Admission Entry Type <span class="required">*</span></label>\n            <select data-field="applicationCategory">\n              ${selectOptions(["Fresh Student", "Transfer Student"], "Select admission entry type", formState.applicationCategory)}\n            </select>\n            <div class="hint">Select Transfer Student if you are currently or previously enrolled in another institution/programme and are applying to transfer your study, credits or research progress to IUC.</div>\n          </div>\n\n          <div class="field"><label>Level of Study <span class="required">*</span></label>'
           if ui_anchor not in s:
               raise SystemExit('Programme Selection UI anchor not found; refusing to patch.')
           s = s.replace(ui_anchor, ui_replacement, 1)
 
-          # 4) Step 1 validation: selection is compulsory.
-          validation_anchor = '''      !formState.studyMode ||
-      !formState.entryQualificationType
-    ) {'''
-          validation_replacement = '''      !formState.studyMode ||
-      !formState.entryQualificationType ||
-      !formState.applicationCategory
-    ) {'''
+          validation_anchor = '      !formState.studyMode ||\n      !formState.entryQualificationType\n    ) {'
+          validation_replacement = '      !formState.studyMode ||\n      !formState.entryQualificationType ||\n      !formState.applicationCategory\n    ) {'
           if validation_anchor not in s:
               raise SystemExit('Step 1 validation anchor not found; refusing to patch.')
           s = s.replace(validation_anchor, validation_replacement, 1)
 
-          # 5) Review page: show the selected entry type clearly.
-          review_anchor = '''          <p><strong>Applicant Type:</strong> ${escapeHtml(formState.applicantType || '-')}</p>
-          <p><strong>Level of Study:</strong>'''
-          review_replacement = '''          <p><strong>Applicant Type:</strong> ${escapeHtml(formState.applicantType || '-')}</p>
-          <p><strong>Admission Entry Type:</strong> ${escapeHtml(formState.applicationCategory || '-')}</p>
-          <p><strong>Level of Study:</strong>'''
+          review_anchor = '          <p><strong>Applicant Type:</strong> ${escapeHtml(formState.applicantType || \'-\')}</p>\n          <p><strong>Level of Study:</strong>'
+          review_replacement = '          <p><strong>Applicant Type:</strong> ${escapeHtml(formState.applicantType || \'-\')}</p>\n          <p><strong>Admission Entry Type:</strong> ${escapeHtml(formState.applicationCategory || \'-\')}</p>\n          <p><strong>Level of Study:</strong>'
           if review_anchor not in s:
               raise SystemExit('Review summary anchor not found; refusing to patch.')
           s = s.replace(review_anchor, review_replacement, 1)
 
-          # 6) Submission payload: map to the backend Transfer Applicant field.
-          payload_anchor = '''      const payload = JSON.parse(JSON.stringify(formState));
-      payload.documents = documents;'''
-          payload_replacement = '''      const payload = JSON.parse(JSON.stringify(formState));
-      payload.transferApplicant = formState.applicationCategory === 'Transfer Student';
-      payload.documents = documents;'''
+          payload_anchor = '      const payload = JSON.parse(JSON.stringify(formState));\n      payload.documents = documents;'
+          payload_replacement = '      const payload = JSON.parse(JSON.stringify(formState));\n      payload.transferApplicant = formState.applicationCategory === \'Transfer Student\';\n      payload.documents = documents;'
           if payload_anchor not in s:
               raise SystemExit('Payload anchor not found; refusing to patch.')
           s = s.replace(payload_anchor, payload_replacement, 1)
