@@ -378,7 +378,7 @@
 
     const COUNTRIES = ["Malaysia", "Afghanistan", "Bangladesh", "Brunei", "Cambodia", "China", "India", "Indonesia", "Nepal", "Pakistan", "Singapore", "Sri Lanka", "Thailand", "Vietnam", "Zimbabwe", "Other"];
     const NATIONALITIES = ["Malaysian", "Bruneian", "Indonesian", "Singaporean", "Thai", "Filipino", "Chinese (China)", "Indian (India)", "Bangladeshi", "Nepalese", "Pakistani", "Sri Lankan", "Vietnamese", "Cambodian", "Other"];
-    const RACES = ["Bajau", "Bidayuh", "Bisaya", "Brunei", "Bugis", "Bumiputera Sabah", "Bumiputera Sarawak", "Dusun", "Iban", "India", "Indian Muslim", "Chinese Muslim","Jakun", "Jawa", "Kadazan", "Kayan", "Kelabit", "Kedayan", "Kenyah", "Malay", "Melanau", "Murut", "Other"];
+    const RACES = ["Bajau", "Bidayuh", "Bisaya", "Brunei", "Bugis", "Bumiputera Sabah", "Bumiputera Sarawak", "Dusun", "Iban", "India", "Indian Muslim", "Chinese", "Chinese Muslim","Jakun", "Jawa", "Kadazan", "Kayan", "Kelabit", "Kedayan", "Kenyah", "Malay", "Melanau", "Murut", "Other"];
     const RELIGIONS = ["Islam", "Christianity (Christian)", "Buddhism", "Hinduism", "Sikhism", "Taoism", "Confucianism", "Bahai", "Judaism", "No Religion", "Others"];
     const MARITAL_STATUSES = ["Single", "Married", "Married (Separated)", "Divorced", "Widowed"];
     const RELATIONSHIPS = ["Father", "Mother", "Spouse", "Friend", "Guardian", "Sibling", "Other"];
@@ -422,6 +422,7 @@
       intake: "",
       studyMode: "",
       entryQualificationType: "",
+      applicationCategory: "",
       proposedSupervisor: "",
       referralSource: AGENT_REFERRAL_CODE ? "Education Consultant" : "",
       partnerCode: AGENT_REFERRAL_CODE,
@@ -719,6 +720,14 @@
           </div>
 
           ${internationalBlock}
+
+          <div class="field">
+            <label>Admission Entry Type <span class="required">*</span></label>
+            <select data-field="applicationCategory">
+              ${selectOptions(["Fresh Student", "Transfer Student"], "Select admission entry type", formState.applicationCategory)}
+            </select>
+            <div class="hint">Select Transfer Student if you are currently or previously enrolled in another institution/programme and are applying to transfer your study, credits or research progress to IUC.</div>
+          </div>
 
           <div class="field"><label>Level of Study <span class="required">*</span></label><select data-field="levelOfStudy">${selectOptions(LEVELS_OF_STUDY, "Select level of study", formState.levelOfStudy)}</select>${formState.levelOfStudy === "Diploma" ? '<div class="hint">Diploma option is intentionally disabled for IPGS current release.</div>' : ''}</div>
           <div class="field"><label>Intended Programme of Study <span class="required">*</span></label><select data-field="programme" ${programmeDisabled ? "disabled" : ""}>${selectOptions(getProgrammeOptions(), programmeDisabled ? "Please select level of study first" : "Select programme", formState.programme)}</select></div>
@@ -1287,6 +1296,7 @@
           <h3>Programme</h3>
           <p><strong>Email:</strong> ${escapeHtml(formState.capturedEmail || '-')}</p>
           <p><strong>Applicant Type:</strong> ${escapeHtml(formState.applicantType || '-')}</p>
+          <p><strong>Admission Entry Type:</strong> ${escapeHtml(formState.applicationCategory || '-')}</p>
           <p><strong>Level of Study:</strong> ${escapeHtml(formState.levelOfStudy || '-')}</p>
           <p><strong>Programme:</strong> ${escapeHtml(formState.programme || '-')}</p>
           <p><strong>Intake:</strong> ${escapeHtml(formState.intake || '-')}</p>
@@ -1513,6 +1523,7 @@
         intake: "",
         studyMode: "",
         entryQualificationType: "",
+        applicationCategory: "",
         proposedSupervisor: "",
         referralSource: AGENT_REFERRAL_CODE ? "Education Consultant" : "",
         partnerCode: AGENT_REFERRAL_CODE,
@@ -1659,7 +1670,8 @@
       !formState.programme ||
       !formState.intake ||
       !formState.studyMode ||
-      !formState.entryQualificationType
+      !formState.entryQualificationType ||
+      !formState.applicationCategory
     ) {
       return 'Please complete all required fields in Programme Selection.';
     }
@@ -1870,6 +1882,7 @@
         if (file) documents[key] = await fileToBase64(file);
       }
       const payload = JSON.parse(JSON.stringify(formState));
+      payload.transferApplicant = formState.applicationCategory === 'Transfer Student';
       payload.documents = documents;
       payload.meta = {
         submittedAt: new Date().toISOString(),
