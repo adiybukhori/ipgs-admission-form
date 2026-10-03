@@ -22,6 +22,7 @@ jobs:
         shell: python
         run: |
           from pathlib import Path
+          import re
 
           p = Path('index.html')
           s = p.read_text(encoding='utf-8')
@@ -32,12 +33,13 @@ jobs:
               raise SystemExit('RACES anchor not found; refusing to patch.')
           s = s.replace(old_races, new_races, 1)
 
-          state_anchor = '      entryQualificationType: "",\n      proposedSupervisor: "",'
-          state_replacement = '      entryQualificationType: "",\n      applicationCategory: "",\n      proposedSupervisor: "",'
-          state_count = s.count(state_anchor)
+          state_pattern = re.compile(r'(?m)^(\s*)entryQualificationType: "",\n\1proposedSupervisor: "",')
+          def add_entry_type(match):
+              indent = match.group(1)
+              return indent + 'entryQualificationType: "",\n' + indent + 'applicationCategory: "",\n' + indent + 'proposedSupervisor: "",'
+          s, state_count = state_pattern.subn(add_entry_type, s)
           if state_count != 2:
-              raise SystemExit(f'Expected 2 state anchors, found {state_count}; refusing to patch.')
-          s = s.replace(state_anchor, state_replacement)
+              raise SystemExit(f'Expected 2 state definitions, found {state_count}; refusing to patch.')
 
           ui_anchor = '          ${internationalBlock}\n\n          <div class="field"><label>Level of Study <span class="required">*</span></label>'
           ui_replacement = '          ${internationalBlock}\n\n          <div class="field">\n            <label>Admission Entry Type <span class="required">*</span></label>\n            <select data-field="applicationCategory">\n              ${selectOptions(["Fresh Student", "Transfer Student"], "Select admission entry type", formState.applicationCategory)}\n            </select>\n            <div class="hint">Select Transfer Student if you are currently or previously enrolled in another institution/programme and are applying to transfer your study, credits or research progress to IUC.</div>\n          </div>\n\n          <div class="field"><label>Level of Study <span class="required">*</span></label>'
