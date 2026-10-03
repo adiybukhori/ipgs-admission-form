@@ -1882,7 +1882,7 @@
         if (file) documents[key] = await fileToBase64(file);
       }
       const payload = JSON.parse(JSON.stringify(formState));
-      payload.transferApplicant = formState.applicationCategory === 'Transfer Student';
+      payload.isTransferApplicant = formState.applicationCategory === 'Transfer Student';
       payload.documents = documents;
       payload.meta = {
         submittedAt: new Date().toISOString(),
