@@ -28,11 +28,8 @@ jobs:
           p = Path('apps-script-v2/NotificationEngineV2.js')
           text = p.read_text(encoding='utf-8')
 
-          text = text.replace(
-              "const V2_NOTIFICATION_BUILD = 'V2_NOTIFICATION_ENGINE_20260917';",
-              "const V2_NOTIFICATION_BUILD = 'V2_NOTIFICATION_ENGINE_20261004_INTL_ROUTE';",
-              1
-          )
+          # Remove the incorrectly assumed Aimi recipient from any existing source.
+          text = text.replace("    'jalilahaimi.khir@innovative.edu.my',\n", "")
 
           if 'function v2NotificationInternationalRecipients_()' not in text:
               match = re.search(r"function v2NotificationAdminRecipients_\(\) \{.*?\n\}", text, re.S)
@@ -42,7 +39,6 @@ jobs:
                   "\n\nfunction v2NotificationInternationalRecipients_() {\n"
                   "  return v2NotificationUniqueEmails_([\n"
                   "    'syed.suhaimi@innovative.edu.my',\n"
-                  "    'jalilahaimi.khir@innovative.edu.my',\n"
                   "    'yusrahim@innovative.edu.my',\n"
                   "    'helmi@innovative.edu.my'\n"
                   "  ]);\n"
@@ -92,7 +88,6 @@ jobs:
           required = [
               'V2_NOTIFICATION_ENGINE_20261004_INTL_ROUTE',
               'syed.suhaimi@innovative.edu.my',
-              'jalilahaimi.khir@innovative.edu.my',
               'yusrahim@innovative.edu.my',
               'helmi@innovative.edu.my',
               'v2NotificationIsInternational_',
@@ -102,6 +97,8 @@ jobs:
           missing = [value for value in required if value not in text]
           if missing:
               raise SystemExit('Patch incomplete: ' + ', '.join(missing))
+          if 'jalilahaimi.khir@innovative.edu.my' in text:
+              raise SystemExit('Incorrect Aimi recipient is still present.')
 
           p.write_text(text, encoding='utf-8')
 
@@ -110,20 +107,23 @@ jobs:
           node --check apps-script-v2/NotificationEngineV2.js
           grep -F "V2_NOTIFICATION_ENGINE_20261004_INTL_ROUTE" apps-script-v2/NotificationEngineV2.js
           grep -F "syed.suhaimi@innovative.edu.my" apps-script-v2/NotificationEngineV2.js
-          grep -F "jalilahaimi.khir@innovative.edu.my" apps-script-v2/NotificationEngineV2.js
           grep -F "yusrahim@innovative.edu.my" apps-script-v2/NotificationEngineV2.js
           grep -F "helmi@innovative.edu.my" apps-script-v2/NotificationEngineV2.js
           grep -F "New International Application" apps-script-v2/NotificationEngineV2.js
+          if grep -F "jalilahaimi.khir@innovative.edu.my" apps-script-v2/NotificationEngineV2.js; then
+            echo 'Incorrect Aimi recipient still present.'
+            exit 1
+          fi
 
       - name: Commit V2 source correction
         run: |
           if git diff --quiet -- apps-script-v2/NotificationEngineV2.js; then
-            echo 'International notification rule already present.'
+            echo 'International notification recipient correction already present.'
           else
             git config user.name 'github-actions[bot]'
             git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
             git add apps-script-v2/NotificationEngineV2.js
-            git commit -m 'Route international applications to ISO stakeholders'
+            git commit -m 'Remove incorrect Aimi notification recipient'
             git push origin apps-script-v2-dev
           fi
 
@@ -153,7 +153,7 @@ jobs:
       - name: Redeploy existing V2 web app
         env:
           V2_DEPLOYMENT_ID: AKfycbxasT_HgtRSvTbR_bsa8p17Cm-C2PKn20Ok1kU-AyJmxiKX8kX5EGOtRLwVwNlAL7JB
-        run: clasp create-deployment --deploymentId "$V2_DEPLOYMENT_ID" --description "International application notification routing - Syed, Aimi, Yusri, Helmi"
+        run: clasp create-deployment --deploymentId "$V2_DEPLOYMENT_ID" --description "International application notification routing - Syed, Yusri, Helmi"
 
       - name: Cleanup
         if: always()
