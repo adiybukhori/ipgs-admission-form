@@ -2,8 +2,8 @@
   if(window.__ipgsLatestGuideTrainingPatchLoaded)return;
   window.__ipgsLatestGuideTrainingPatchLoaded=true;
 
-  const VERSION='2026-10-02';
-  const LABEL='LATEST ARRANGEMENT · 2 OCT 2026';
+  const VERSION='2026-10-03';
+  const LABEL='LATEST ARRANGEMENT · 3 OCT 2026';
 
   function addStyles(){
     if(document.getElementById('ipgsLatestGuideTrainingStyles'))return;
@@ -45,6 +45,7 @@
         <div class="guide-latest-item"><em>06</em><div><b>SAC Pack Order</b><span>Generate available documents in this order: Admission Form → PG-ADM-01 → Certificate → Transcript → Resume / CV → Final AI Screening Report. Missing student-uploaded documents do not block the whole pack.</span></div></div>
         <div class="guide-latest-item"><em>07</em><div><b>SAC Route</b><span>SAC records Direct Entry, Internal Assessment, or Rejected / Not Qualified. PREREQ is not selected directly at SAC; it follows IA only when the authorised IA outcome requires it.</span></div></div>
         <div class="guide-latest-item"><em>08</em><div><b>IA / PREREQ Uses Email — No Second COL</b><span>IA and prerequisite communication uses the relevant email and attachments only. After the approved route is completed, proceed to the Official Offer Letter / LOA without issuing another COL and without routine re-SAC.</span></div></div>
+        <div class="guide-latest-item"><em>09</em><div><b>Fresh vs Transfer Student Identification</b><span>Every applicant must select Fresh Student or Transfer Student during Programme Selection. Transfer status is saved into the application record, shown in the Admission Form PDF and visible to Registry in the ACC applicant overview. Race options also include Chinese.</span></div></div>
       </div>
     </div>`;
   }
@@ -92,7 +93,7 @@
     const intro=flow.querySelector('.guide-training-intro');
     const note=document.createElement('div');
     note.className='guide-latest-note guide-latest-flow-note';
-    note.innerHTML='<b>Latest admission controls:</b> Submission sends COL + Admission Form PDF and internal New Application notification; four core initial documents are IC / Passport, Transcript, Certificate and CV / Resume; document exceptions are non-blocking when authorised; SAC pack order is Admission Form → PG-ADM-01 → Certificate → Transcript → Resume / CV → Final AI Screening Report; IA / prerequisite does not trigger a second COL.';
+    note.innerHTML='<b>Latest admission controls:</b> Submission sends COL + Admission Form PDF and internal New Application notification; every applicant identifies as Fresh Student or Transfer Student; four core initial documents are IC / Passport, Transcript, Certificate and CV / Resume; document exceptions are non-blocking when authorised; SAC pack order is Admission Form → PG-ADM-01 → Certificate → Transcript → Resume / CV → Final AI Screening Report; IA / prerequisite does not trigger a second COL.';
     (intro||flow).insertAdjacentElement(intro?'afterend':'afterbegin',note);
   }
 
@@ -102,7 +103,7 @@
 
   function slideLatestText(title){
     if(/From Application to Active Student/i.test(title))return '<b>Latest:</b> the journey begins with the submission COL + Admission Form PDF and internal team notification. The COL is conditional; formal admission still continues through Document Review → Screening → SAC → IA / PREREQ where required → Official Offer / LOA → Acceptance.';
-    if(/Monitor New Applications/i.test(title))return '<b>Latest:</b> every valid submission should show evidence of both outward communication (COL + Admission Form PDF to student) and inward communication (New Application notification to Admission team).';
+    if(/Monitor New Applications/i.test(title))return '<b>Latest:</b> every valid submission should record Fresh Student / Transfer Student status and show evidence of both outward communication (COL + Admission Form PDF to student) and inward communication (New Application notification to Admission team).';
     if(/Process the Applicant/i.test(title))return '<b>Latest:</b> document issues are follow-up controls, not an automatic dead end. Use Manual Document Review / authorised human progression for legitimate exception cases and preserve the audit trail.';
     if(/^SAC$/i.test(title))return '<b>Latest SAC pack:</b> Admission Form → PG-ADM-01 → Certificate → Transcript → Resume / CV → Final AI Screening Report. Missing student-uploaded items do not block the entire pack.';
     if(/IA \/ PREREQ/i.test(title))return '<b>Latest:</b> IA first; PREREQ only if IA requires it. Send the relevant email/attachments only, issue no second COL, and move to Official Offer / LOA readiness after completion without routine re-SAC.';
