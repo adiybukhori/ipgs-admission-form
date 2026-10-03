@@ -1,0 +1,164 @@
+name: International Application Notification Routing
+
+on:
+  push:
+    branches: [apps-script-v2-dev]
+    paths:
+      - '.github/workflows/international-application-notification.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  patch-deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Admission V2 source
+        uses: actions/checkout@v4
+        with:
+          ref: apps-script-v2-dev
+          fetch-depth: 0
+
+      - name: Add international application notification routing
+        shell: python
+        run: |
+          from pathlib import Path
+
+          p = Path('apps-script-v2/NotificationEngineV2.js')
+          text = p.read_text(encoding='utf-8')
+
+          text = text.replace(
+              "const V2_NOTIFICATION_BUILD = 'V2_NOTIFICATION_ENGINE_20260917';",
+              "const V2_NOTIFICATION_BUILD = 'V2_NOTIFICATION_ENGINE_20261004_INTL_ROUTE';",
+              1
+          )
+
+          old_recipients = """function v2NotificationAdminRecipients_() {
+            return v2NotificationUniqueEmails_([
+              'adiybukhori.ipgs@innovative.edu.my',
+              'abu.huzaifah.ipgs@innovative.edu.my'
+            ]);
+          }
+          """
+          new_recipients = """function v2NotificationAdminRecipients_() {
+            return v2NotificationUniqueEmails_([
+              'adiybukhori.ipgs@innovative.edu.my',
+              'abu.huzaifah.ipgs@innovative.edu.my'
+            ]);
+          }
+
+          function v2NotificationInternationalRecipients_() {
+            return v2NotificationUniqueEmails_([
+              'syed.suhaimi@innovative.edu.my',
+              'jalilahaimi.khir@innovative.edu.my',
+              'yusrahim@innovative.edu.my',
+              'helmi@innovative.edu.my'
+            ]);
+          }
+
+          function v2NotificationIsInternational_(payload, applicationRow) {
+            const payloadType = String(payload && payload.applicantType || '').trim();
+            const storedType = applicationRow && applicationRow.record
+              ? String(applicationRow.record['Applicant Type'] || '').trim()
+              : '';
+            const type = (payloadType + ' ' + storedType).toUpperCase();
+            return type.indexOf('INTERNATIONAL') >= 0 || type.indexOf('NON-MALAYSIAN') >= 0;
+          }
+          """
+          if 'function v2NotificationInternationalRecipients_()' not in text:
+              if old_recipients not in text:
+                  raise SystemExit('Admin recipient anchor not found; refusing to patch.')
+              text = text.replace(old_recipients, new_recipients, 1)
+
+          old_admin = """  if (!options.studentOnly) {
+            const adminRecipients = v2NotificationAdminRecipients_();
+            const agentLine = payload.partnerCode ? '<br><strong>Agent Code:</strong> '+v2Html_(payload.partnerCode) : '';
+            const researchIntentAdminLine = researchIntentStatus ? '<br><strong>Research Intent:</strong> '+v2Html_(researchIntentStatus) : '';
+            const adminSubject = '[IPGS Admission] New Application - ' + student + ' - ' + reference;
+          """
+          new_admin = """  if (!options.studentOnly) {
+            const isInternational = v2NotificationIsInternational_(payload, applicationRow);
+            const adminRecipients = v2NotificationUniqueEmails_(
+              v2NotificationAdminRecipients_().concat(
+                isInternational ? v2NotificationInternationalRecipients_() : []
+              )
+            );
+            const agentLine = payload.partnerCode ? '<br><strong>Agent Code:</strong> '+v2Html_(payload.partnerCode) : '';
+            const researchIntentAdminLine = researchIntentStatus ? '<br><strong>Research Intent:</strong> '+v2Html_(researchIntentStatus) : '';
+            const applicantTypeAdminLine = '<br><strong>Applicant Type:</strong> '+v2Html_(isInternational ? 'International' : String(payload.applicantType || 'Local'));
+            const adminSubject = (isInternational ? '[IPGS Admission] New International Application - ' : '[IPGS Admission] New Application - ') + student + ' - ' + reference;
+          """
+          if 'const isInternational = v2NotificationIsInternational_(payload, applicationRow);' not in text:
+              if old_admin not in text:
+                  raise SystemExit('Application admin notification anchor not found; refusing to patch.')
+              text = text.replace(old_admin, new_admin, 1)
+
+          old_detail = """'<p><strong>Student:</strong> '+v2Html_(student)+'<br><strong>Programme:</strong> '+v2Html_(programme)+'<br><strong>Intake:</strong> '+v2Html_(intakeName)+'<br><strong>Reference:</strong> '+v2Html_(reference)+agentLine+researchIntentAdminLine+'</p>' +"""
+          new_detail = """'<p><strong>Student:</strong> '+v2Html_(student)+'<br><strong>Programme:</strong> '+v2Html_(programme)+'<br><strong>Intake:</strong> '+v2Html_(intakeName)+'<br><strong>Reference:</strong> '+v2Html_(reference)+applicantTypeAdminLine+agentLine+researchIntentAdminLine+'</p>' +"""
+          if old_detail in text:
+              text = text.replace(old_detail, new_detail, 1)
+
+          required = [
+              'syed.suhaimi@innovative.edu.my',
+              'jalilahaimi.khir@innovative.edu.my',
+              'yusrahim@innovative.edu.my',
+              'helmi@innovative.edu.my',
+              'New International Application',
+              'Applicant Type:'
+          ]
+          missing = [value for value in required if value not in text]
+          if missing:
+              raise SystemExit('International notification patch incomplete: ' + ', '.join(missing))
+
+          p.write_text(text, encoding='utf-8')
+
+      - name: Validate source
+        run: |
+          node --check apps-script-v2/NotificationEngineV2.js
+          grep -F "syed.suhaimi@innovative.edu.my" apps-script-v2/NotificationEngineV2.js
+          grep -F "jalilahaimi.khir@innovative.edu.my" apps-script-v2/NotificationEngineV2.js
+          grep -F "yusrahim@innovative.edu.my" apps-script-v2/NotificationEngineV2.js
+          grep -F "helmi@innovative.edu.my" apps-script-v2/NotificationEngineV2.js
+          grep -F "New International Application" apps-script-v2/NotificationEngineV2.js
+
+      - name: Commit notification rule
+        run: |
+          if git diff --quiet -- apps-script-v2/NotificationEngineV2.js; then
+            echo 'International notification rule already present.'
+          else
+            git config user.name 'github-actions[bot]'
+            git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+            git add apps-script-v2/NotificationEngineV2.js
+            git commit -m 'Route international applications to ISO stakeholders'
+            git push origin apps-script-v2-dev
+          fi
+
+      - name: Verify clasp credential
+        env:
+          CLASPRC_JSON: ${{ secrets.CLASPRC_JSON }}
+        run: test -n "$CLASPRC_JSON"
+
+      - name: Install clasp
+        run: npm install --global @google/clasp@3.4.1
+
+      - name: Restore clasp credential
+        env:
+          CLASPRC_JSON: ${{ secrets.CLASPRC_JSON }}
+        run: |
+          printf '%s' "$CLASPRC_JSON" > "$HOME/.clasprc.json"
+          chmod 600 "$HOME/.clasprc.json"
+
+      - name: Verify locked Apps Script target
+        run: node tools/verify-clasp-target.mjs
+
+      - name: Push Admission V2 source
+        run: clasp push --force
+
+      - name: Redeploy Admission V2 web app
+        env:
+          V2_DEPLOYMENT_ID: AKfycbxasT_HgtRSvTbR_bsa8p17Cm-C2PKn20Ok1kU-AyJmxiKX8kX5EGOtRLwVwNlAL7JB
+        run: clasp create-deployment --deploymentId "$V2_DEPLOYMENT_ID" --description "International application notification routing - Syed, Aimi, Yusri, Helmi"
+
+      - name: Cleanup
+        if: always()
+        run: rm -f "$HOME/.clasprc.json"
