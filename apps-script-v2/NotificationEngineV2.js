@@ -43,7 +43,6 @@ function v2NotificationAdminRecipients_() {
 function v2NotificationInternationalRecipients_() {
   return v2NotificationUniqueEmails_([
     'syed.suhaimi@innovative.edu.my',
-    'jalilahaimi.khir@innovative.edu.my',
     'yusrahim@innovative.edu.my',
     'helmi@innovative.edu.my'
   ]);
@@ -372,7 +371,7 @@ function v2SendApplicationNotifications_(payload, reference, intake, pdf, col, o
     const adminHtml = '<div style="font-family:Arial,sans-serif;max-width:680px;margin:auto;border:1px solid #e5e7eb;border-radius:14px;overflow:hidden">' +
       '<div style="background:#34206f;color:white;padding:20px"><h2 style="margin:0;font-size:20px">New Admission Application</h2></div>' +
       '<div style="padding:22px"><p>A new postgraduate application has been submitted and the student Conditional Offer Letter has been issued.</p>' +
-      '<p><strong>Student:</strong> '+v2Html_(student)+'<br><strong>Programme:</strong> '+v2Html_(programme)+'<br><strong>Intake:</strong> '+v2Html_(intakeName)+'<br><strong>Reference:</strong> '+v2Html_(reference)+applicantTypeAdminLine+agentLine+researchIntentAdminLine+'</p>' +
+      '<p><strong>Student:</strong> '+v2Html_(student)+'<br><strong>Programme:</strong> '+v2Html_(programme)+'<br><strong>Intake:</strong> '+v2Html_(intakeName)+'<br><strong>Reference:</strong> '+v2Html_(reference)+applicantTypeAdminLine+applicantTypeAdminLine+agentLine+researchIntentAdminLine+'</p>' +
       folderButton +
       '<p>The Admission Form is attached. Please continue the document review and screening process in Admission V2.</p>' +
       '</div></div>';
