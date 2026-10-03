@@ -1,3 +1,5 @@
+import { timingSafeEqual } from 'crypto';
+
 const SPREADSHEET_ID = '1O-Y-q7_q78xKM1p5e2C3EWyQfYr5rXvhO0oWbVaw5Mw';
 const ADMIN_BRIDGE = 'https://anasbukhori.app.n8n.cloud/webhook/iuc-admission-v2-admin-bridge';
 
@@ -17,12 +19,17 @@ function parseCsv(text){const rows=[];let row=[],field='',quoted=false;for(let i
 function toObjects(csv){const rows=parseCsv(csv);if(!rows.length)return[];const headers=rows[0].map(v=>String(v||'').trim());return rows.slice(1).filter(row=>row.some(v=>String(v||'').trim()!=='')).map(row=>{const obj={};headers.forEach((h,i)=>{if(h)obj[h]=row[i]??''});return obj});}
 function sacSessionSortValue(row){const meetingValue=Date.parse([String(row?.['Meeting Date']||'').trim(),String(row?.['Meeting Time']||'').trim()].filter(Boolean).join(' '));if(Number.isFinite(meetingValue))return meetingValue;const createdValue=Date.parse(String(row?.['Created At']||'').trim());return Number.isFinite(createdValue)?createdValue:0;}
 function sortSacSessions(data){if(Array.isArray(data.V2_SAC_SESSIONS))data.V2_SAC_SESSIONS.sort((a,b)=>{const d=sacSessionSortValue(b)-sacSessionSortValue(a);if(d!==0)return d;return(Date.parse(String(b?.['Created At']||''))||0)-(Date.parse(String(a?.['Created At']||''))||0)});}
+function safeEqual(a,b){const left=Buffer.from(String(a||''));const right=Buffer.from(String(b||''));if(!left.length||left.length!==right.length)return false;return timingSafeEqual(left,right);}
 
 async function validateAdminSession(password,sessionId){
   if(!password)return false;
-  const response=await fetch(ADMIN_BRIDGE,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({password:String(password||''),sessionId:String(sessionId||''),action:'__AUTH_SESSION__',data:{},updatedBy:'ACC admin data auth'}),redirect:'follow'});
-  const text=await response.text();let parsed;try{parsed=JSON.parse(text)}catch(_){return false}
-  return response.ok&&parsed&&parsed.ok===true&&parsed.authenticated===true;
+  const localSecret=String(process.env.V2_ADMIN_API_PASSWORD||'');
+  if(localSecret&&safeEqual(password,localSecret))return true;
+  try{
+    const response=await fetch(ADMIN_BRIDGE,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({password:String(password||''),sessionId:String(sessionId||''),action:'__AUTH_SESSION__',data:{},updatedBy:'ACC admin data auth'}),redirect:'follow'});
+    const text=await response.text();let parsed;try{parsed=JSON.parse(text)}catch(_){return false}
+    return response.ok&&parsed&&parsed.ok===true&&parsed.authenticated===true;
+  }catch(_){return false}
 }
 async function fetchSheet(sheet){const url=`https://docs.google.com/spreadsheets/d/${SPREADSHEET_ID}/gviz/tq?tqx=out:csv&sheet=${encodeURIComponent(sheet)}&_=${Date.now()}`;const response=await fetch(url,{redirect:'follow'});if(!response.ok)throw new Error(`${sheet} returned HTTP ${response.status}`);return toObjects(await response.text());}
 async function fetchSheets(names,warnings){const data={};const settled=await Promise.allSettled(names.map(async sheet=>[sheet,await fetchSheet(sheet)]));settled.forEach((result,index)=>{const sheet=names[index];if(result.status==='fulfilled'){const[name,rows]=result.value;data[name]=rows}else{data[sheet]=[];warnings.push(`${sheet}: ${result.reason?.message||'Unable to load'}`)}});return data;}
@@ -30,7 +37,7 @@ async function fetchLiveSacCandidates(password,sessionId,force=false){const now=
 
 export default async function handler(req,res){
   res.setHeader('Cache-Control','no-store, max-age=0');
-  if(req.method==='GET'&&String(req.query?.health||'')==='1')return res.status(200).json({ok:true,service:'IPGS Unified Admission Admin Data',build:'ADMIN_DATA_SESSION_FAST_20260928'});
+  if(req.method==='GET'&&String(req.query?.health||'')==='1')return res.status(200).json({ok:true,service:'IPGS Unified Admission Admin Data',build:'ADMIN_DATA_LOCAL_AUTH_20261003'});
   if(req.method!=='POST')return res.status(405).json({ok:false,message:'Method not allowed.'});
   const startedAt=Date.now();let body=req.body||{};if(typeof body==='string'){try{body=JSON.parse(body)}catch(_){body={}}}
   const authStarted=Date.now();if(!(await validateAdminSession(body.password,body.sessionId)))return res.status(401).json({ok:false,message:'Invalid admin password.'});const authMs=Date.now()-authStarted;
@@ -45,5 +52,5 @@ export default async function handler(req,res){
   const sacMs=Date.now()-sacStarted;
   if(scope!=='sac'){data.V1_MASTER_DATABASE=[];data.V1_LEGACY_META=[{source:'ARCHIVED_AFTER_UNIFIED_MIGRATION',count:0,readOnly:true,cacheHit:false}];}
   sortSacSessions(data);const totalMs=Date.now()-startedAt;res.setHeader('Server-Timing',`auth;dur=${authMs}, sheets;dur=${sheetsMs}, sac;dur=${sacMs}, total;dur=${totalMs}`);
-  return res.status(200).json({ok:true,build:'ADMIN_DATA_SESSION_FAST_20260928',scope,loadedAt:new Date().toISOString(),warnings,cache:{unifiedHit:v2CacheHit,ttlSeconds:30,forced:force},performance:{authMs,sheetsMs,sacMs,totalMs},data});
+  return res.status(200).json({ok:true,build:'ADMIN_DATA_LOCAL_AUTH_20261003',scope,loadedAt:new Date().toISOString(),warnings,cache:{unifiedHit:v2CacheHit,ttlSeconds:30,forced:force},performance:{authMs,sheetsMs,sacMs,totalMs},data});
 }
