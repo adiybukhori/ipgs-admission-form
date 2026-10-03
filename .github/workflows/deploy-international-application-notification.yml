@@ -1,0 +1,159 @@
+name: Deploy International Application Notification Routing
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/deploy-international-application-notification.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Admission V2 source
+        uses: actions/checkout@v4
+        with:
+          ref: apps-script-v2-dev
+          fetch-depth: 0
+
+      - name: Patch international application notification routing
+        shell: python
+        run: |
+          from pathlib import Path
+          import re
+
+          p = Path('apps-script-v2/NotificationEngineV2.js')
+          text = p.read_text(encoding='utf-8')
+
+          text = text.replace(
+              "const V2_NOTIFICATION_BUILD = 'V2_NOTIFICATION_ENGINE_20260917';",
+              "const V2_NOTIFICATION_BUILD = 'V2_NOTIFICATION_ENGINE_20261004_INTL_ROUTE';",
+              1
+          )
+
+          if 'function v2NotificationInternationalRecipients_()' not in text:
+              match = re.search(r"function v2NotificationAdminRecipients_\(\) \{.*?\n\}", text, re.S)
+              if not match:
+                  raise SystemExit('Admin recipient function not found.')
+              helper = r'''
+
+function v2NotificationInternationalRecipients_() {
+  return v2NotificationUniqueEmails_([
+    'syed.suhaimi@innovative.edu.my',
+    'jalilahaimi.khir@innovative.edu.my',
+    'yusrahim@innovative.edu.my',
+    'helmi@innovative.edu.my'
+  ]);
+}
+
+function v2NotificationIsInternational_(payload, applicationRow) {
+  const payloadType = String(payload && payload.applicantType || '').trim();
+  const storedType = applicationRow && applicationRow.record
+    ? String(applicationRow.record['Applicant Type'] || '').trim()
+    : '';
+  const type = (payloadType + ' ' + storedType).toUpperCase();
+  return type.indexOf('INTERNATIONAL') >= 0 || type.indexOf('NON-MALAYSIAN') >= 0;
+}'''
+              text = text[:match.end()] + helper + text[match.end():]
+
+          if 'const isInternational = v2NotificationIsInternational_(payload, applicationRow);' not in text:
+              needle = "    const adminRecipients = v2NotificationAdminRecipients_();"
+              replacement = """    const isInternational = v2NotificationIsInternational_(payload, applicationRow);
+    const adminRecipients = v2NotificationUniqueEmails_(
+      v2NotificationAdminRecipients_().concat(
+        isInternational ? v2NotificationInternationalRecipients_() : []
+      )
+    );"""
+              if needle not in text:
+                  raise SystemExit('Admin recipient call not found.')
+              text = text.replace(needle, replacement, 1)
+
+          research_line = "    const researchIntentAdminLine = researchIntentStatus ? '<br><strong>Research Intent:</strong> '+v2Html_(researchIntentStatus) : '';"
+          applicant_line = "    const applicantTypeAdminLine = '<br><strong>Applicant Type:</strong> '+v2Html_(isInternational ? 'International' : String(payload.applicantType || 'Local'));"
+          if applicant_line not in text:
+              if research_line not in text:
+                  raise SystemExit('Admin detail anchor not found.')
+              text = text.replace(research_line, research_line + "\n" + applicant_line, 1)
+
+          old_subject = "    const adminSubject = '[IPGS Admission] New Application - ' + student + ' - ' + reference;"
+          new_subject = "    const adminSubject = (isInternational ? '[IPGS Admission] New International Application - ' : '[IPGS Admission] New Application - ') + student + ' - ' + reference;"
+          if old_subject in text:
+              text = text.replace(old_subject, new_subject, 1)
+
+          old_detail = "+agentLine+researchIntentAdminLine+'</p>' +"
+          new_detail = "+applicantTypeAdminLine+agentLine+researchIntentAdminLine+'</p>' +"
+          if old_detail in text:
+              text = text.replace(old_detail, new_detail, 1)
+
+          required = [
+              "V2_NOTIFICATION_ENGINE_20261004_INTL_ROUTE",
+              'syed.suhaimi@innovative.edu.my',
+              'jalilahaimi.khir@innovative.edu.my',
+              'yusrahim@innovative.edu.my',
+              'helmi@innovative.edu.my',
+              'v2NotificationIsInternational_',
+              'New International Application',
+              'applicantTypeAdminLine'
+          ]
+          missing = [value for value in required if value not in text]
+          if missing:
+              raise SystemExit('Patch incomplete: ' + ', '.join(missing))
+
+          p.write_text(text, encoding='utf-8')
+
+      - name: Validate notification source
+        run: |
+          node --check apps-script-v2/NotificationEngineV2.js
+          grep -F "V2_NOTIFICATION_ENGINE_20261004_INTL_ROUTE" apps-script-v2/NotificationEngineV2.js
+          grep -F "syed.suhaimi@innovative.edu.my" apps-script-v2/NotificationEngineV2.js
+          grep -F "jalilahaimi.khir@innovative.edu.my" apps-script-v2/NotificationEngineV2.js
+          grep -F "yusrahim@innovative.edu.my" apps-script-v2/NotificationEngineV2.js
+          grep -F "helmi@innovative.edu.my" apps-script-v2/NotificationEngineV2.js
+          grep -F "New International Application" apps-script-v2/NotificationEngineV2.js
+
+      - name: Commit V2 source correction
+        run: |
+          if git diff --quiet -- apps-script-v2/NotificationEngineV2.js; then
+            echo 'International notification rule already present.'
+          else
+            git config user.name 'github-actions[bot]'
+            git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+            git add apps-script-v2/NotificationEngineV2.js
+            git commit -m 'Route international applications to ISO stakeholders'
+            git push origin apps-script-v2-dev
+          fi
+
+      - name: Verify clasp credential
+        env:
+          CLASPRC_JSON: ${{ secrets.CLASPRC_JSON }}
+        run: test -n "$CLASPRC_JSON"
+
+      - name: Install clasp
+        run: npm install --global @google/clasp@3.4.1
+
+      - name: Restore clasp credential
+        env:
+          CLASPRC_JSON: ${{ secrets.CLASPRC_JSON }}
+        run: |
+          printf '%s' "$CLASPRC_JSON" > "$HOME/.clasprc.json"
+          chmod 600 "$HOME/.clasprc.json"
+
+      - name: Verify target and source syntax
+        run: |
+          node tools/verify-clasp-target.mjs
+          node --check apps-script-v2/NotificationEngineV2.js
+
+      - name: Push V2 source to Apps Script
+        run: clasp push --force
+
+      - name: Redeploy existing V2 web app
+        env:
+          V2_DEPLOYMENT_ID: AKfycbxasT_HgtRSvTbR_bsa8p17Cm-C2PKn20Ok1kU-AyJmxiKX8kX5EGOtRLwVwNlAL7JB
+        run: clasp create-deployment --deploymentId "$V2_DEPLOYMENT_ID" --description "International application notification routing - Syed, Aimi, Yusri, Helmi"
+
+      - name: Cleanup
+        if: always()
+        run: rm -f "$HOME/.clasprc.json"
