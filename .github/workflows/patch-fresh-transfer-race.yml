@@ -1,0 +1,124 @@
+name: Patch admission race and transfer applicant
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/patch-fresh-transfer-race.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+
+      - name: Patch Admission Form V2
+        shell: python
+        run: |
+          from pathlib import Path
+
+          p = Path('index.html')
+          s = p.read_text(encoding='utf-8')
+
+          # 1) Race dropdown: add Chinese as a distinct race option.
+          old_races = '"Indian Muslim", "Chinese Muslim","Jakun"'
+          new_races = '"Indian Muslim", "Chinese", "Chinese Muslim","Jakun"'
+          if old_races not in s:
+              raise SystemExit('RACES anchor not found; refusing to patch.')
+          s = s.replace(old_races, new_races, 1)
+
+          # 2) State: add mandatory admission entry type to both live and reset state.
+          state_anchor = '      entryQualificationType: "",\n      proposedSupervisor: "",'
+          state_replacement = '      entryQualificationType: "",\n      applicationCategory: "",\n      proposedSupervisor: "",'
+          state_count = s.count(state_anchor)
+          if state_count != 2:
+              raise SystemExit(f'Expected 2 state anchors, found {state_count}; refusing to patch.')
+          s = s.replace(state_anchor, state_replacement)
+
+          # 3) Step 1 UI: Fresh Student / Transfer Student.
+          ui_anchor = '''          ${internationalBlock}
+
+          <div class="field"><label>Level of Study <span class="required">*</span></label>'''
+          ui_replacement = '''          ${internationalBlock}
+
+          <div class="field">
+            <label>Admission Entry Type <span class="required">*</span></label>
+            <select data-field="applicationCategory">
+              ${selectOptions(["Fresh Student", "Transfer Student"], "Select admission entry type", formState.applicationCategory)}
+            </select>
+            <div class="hint">Select Transfer Student if you are currently or previously enrolled in another institution/programme and are applying to transfer your study, credits or research progress to IUC.</div>
+          </div>
+
+          <div class="field"><label>Level of Study <span class="required">*</span></label>'''
+          if ui_anchor not in s:
+              raise SystemExit('Programme Selection UI anchor not found; refusing to patch.')
+          s = s.replace(ui_anchor, ui_replacement, 1)
+
+          # 4) Step 1 validation: selection is compulsory.
+          validation_anchor = '''      !formState.studyMode ||
+      !formState.entryQualificationType
+    ) {'''
+          validation_replacement = '''      !formState.studyMode ||
+      !formState.entryQualificationType ||
+      !formState.applicationCategory
+    ) {'''
+          if validation_anchor not in s:
+              raise SystemExit('Step 1 validation anchor not found; refusing to patch.')
+          s = s.replace(validation_anchor, validation_replacement, 1)
+
+          # 5) Review page: show the selected entry type clearly.
+          review_anchor = '''          <p><strong>Applicant Type:</strong> ${escapeHtml(formState.applicantType || '-')}</p>
+          <p><strong>Level of Study:</strong>'''
+          review_replacement = '''          <p><strong>Applicant Type:</strong> ${escapeHtml(formState.applicantType || '-')}</p>
+          <p><strong>Admission Entry Type:</strong> ${escapeHtml(formState.applicationCategory || '-')}</p>
+          <p><strong>Level of Study:</strong>'''
+          if review_anchor not in s:
+              raise SystemExit('Review summary anchor not found; refusing to patch.')
+          s = s.replace(review_anchor, review_replacement, 1)
+
+          # 6) Submission payload: map to the backend Transfer Applicant field.
+          payload_anchor = '''      const payload = JSON.parse(JSON.stringify(formState));
+      payload.documents = documents;'''
+          payload_replacement = '''      const payload = JSON.parse(JSON.stringify(formState));
+      payload.transferApplicant = formState.applicationCategory === 'Transfer Student';
+      payload.documents = documents;'''
+          if payload_anchor not in s:
+              raise SystemExit('Payload anchor not found; refusing to patch.')
+          s = s.replace(payload_anchor, payload_replacement, 1)
+
+          p.write_text(s, encoding='utf-8')
+
+      - name: Sanity check
+        shell: python
+        run: |
+          from pathlib import Path
+          s = Path('index.html').read_text(encoding='utf-8')
+          checks = [
+              '"Chinese", "Chinese Muslim"',
+              'applicationCategory: ""',
+              'Admission Entry Type',
+              'Fresh Student',
+              'Transfer Student',
+              "payload.transferApplicant = formState.applicationCategory === 'Transfer Student';",
+          ]
+          missing = [x for x in checks if x not in s]
+          if missing:
+              raise SystemExit('Sanity check failed: ' + ', '.join(missing))
+          if s.count('applicationCategory: ""') != 2:
+              raise SystemExit('State/reset applicationCategory count is not 2.')
+
+      - name: Commit patch and remove one-shot workflow
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git rm .github/workflows/patch-fresh-transfer-race.yml
+          git add index.html
+          git diff --cached --quiet && exit 0
+          git commit -m "Add Chinese race and fresh transfer applicant selection"
+          git push origin main
