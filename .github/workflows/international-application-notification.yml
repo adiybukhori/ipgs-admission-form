@@ -23,6 +23,7 @@ jobs:
         shell: python
         run: |
           from pathlib import Path
+          import re
 
           p = Path('apps-script-v2/NotificationEngineV2.js')
           text = p.read_text(encoding='utf-8')
@@ -33,78 +34,69 @@ jobs:
               1
           )
 
-          old_recipients = """function v2NotificationAdminRecipients_() {
-            return v2NotificationUniqueEmails_([
-              'adiybukhori.ipgs@innovative.edu.my',
-              'abu.huzaifah.ipgs@innovative.edu.my'
-            ]);
-          }
-          """
-          new_recipients = """function v2NotificationAdminRecipients_() {
-            return v2NotificationUniqueEmails_([
-              'adiybukhori.ipgs@innovative.edu.my',
-              'abu.huzaifah.ipgs@innovative.edu.my'
-            ]);
-          }
-
-          function v2NotificationInternationalRecipients_() {
-            return v2NotificationUniqueEmails_([
-              'syed.suhaimi@innovative.edu.my',
-              'jalilahaimi.khir@innovative.edu.my',
-              'yusrahim@innovative.edu.my',
-              'helmi@innovative.edu.my'
-            ]);
-          }
-
-          function v2NotificationIsInternational_(payload, applicationRow) {
-            const payloadType = String(payload && payload.applicantType || '').trim();
-            const storedType = applicationRow && applicationRow.record
-              ? String(applicationRow.record['Applicant Type'] || '').trim()
-              : '';
-            const type = (payloadType + ' ' + storedType).toUpperCase();
-            return type.indexOf('INTERNATIONAL') >= 0 || type.indexOf('NON-MALAYSIAN') >= 0;
-          }
-          """
           if 'function v2NotificationInternationalRecipients_()' not in text:
-              if old_recipients not in text:
-                  raise SystemExit('Admin recipient anchor not found; refusing to patch.')
-              text = text.replace(old_recipients, new_recipients, 1)
+              match = re.search(r"function v2NotificationAdminRecipients_\(\) \{.*?\n\}", text, re.S)
+              if not match:
+                  raise SystemExit('Admin recipient function not found; refusing to patch.')
+              helper = r'''
 
-          old_admin = """  if (!options.studentOnly) {
-            const adminRecipients = v2NotificationAdminRecipients_();
-            const agentLine = payload.partnerCode ? '<br><strong>Agent Code:</strong> '+v2Html_(payload.partnerCode) : '';
-            const researchIntentAdminLine = researchIntentStatus ? '<br><strong>Research Intent:</strong> '+v2Html_(researchIntentStatus) : '';
-            const adminSubject = '[IPGS Admission] New Application - ' + student + ' - ' + reference;
-          """
-          new_admin = """  if (!options.studentOnly) {
-            const isInternational = v2NotificationIsInternational_(payload, applicationRow);
-            const adminRecipients = v2NotificationUniqueEmails_(
-              v2NotificationAdminRecipients_().concat(
-                isInternational ? v2NotificationInternationalRecipients_() : []
-              )
-            );
-            const agentLine = payload.partnerCode ? '<br><strong>Agent Code:</strong> '+v2Html_(payload.partnerCode) : '';
-            const researchIntentAdminLine = researchIntentStatus ? '<br><strong>Research Intent:</strong> '+v2Html_(researchIntentStatus) : '';
-            const applicantTypeAdminLine = '<br><strong>Applicant Type:</strong> '+v2Html_(isInternational ? 'International' : String(payload.applicantType || 'Local'));
-            const adminSubject = (isInternational ? '[IPGS Admission] New International Application - ' : '[IPGS Admission] New Application - ') + student + ' - ' + reference;
-          """
+function v2NotificationInternationalRecipients_() {
+  return v2NotificationUniqueEmails_([
+    'syed.suhaimi@innovative.edu.my',
+    'jalilahaimi.khir@innovative.edu.my',
+    'yusrahim@innovative.edu.my',
+    'helmi@innovative.edu.my'
+  ]);
+}
+
+function v2NotificationIsInternational_(payload, applicationRow) {
+  const payloadType = String(payload && payload.applicantType || '').trim();
+  const storedType = applicationRow && applicationRow.record
+    ? String(applicationRow.record['Applicant Type'] || '').trim()
+    : '';
+  const type = (payloadType + ' ' + storedType).toUpperCase();
+  return type.indexOf('INTERNATIONAL') >= 0 || type.indexOf('NON-MALAYSIAN') >= 0;
+}'''
+              text = text[:match.end()] + helper + text[match.end():]
+
           if 'const isInternational = v2NotificationIsInternational_(payload, applicationRow);' not in text:
-              if old_admin not in text:
-                  raise SystemExit('Application admin notification anchor not found; refusing to patch.')
-              text = text.replace(old_admin, new_admin, 1)
+              needle = "    const adminRecipients = v2NotificationAdminRecipients_();"
+              replacement = """    const isInternational = v2NotificationIsInternational_(payload, applicationRow);
+    const adminRecipients = v2NotificationUniqueEmails_(
+      v2NotificationAdminRecipients_().concat(
+        isInternational ? v2NotificationInternationalRecipients_() : []
+      )
+    );"""
+              if needle not in text:
+                  raise SystemExit('Admin recipients line not found; refusing to patch.')
+              text = text.replace(needle, replacement, 1)
 
-          old_detail = """'<p><strong>Student:</strong> '+v2Html_(student)+'<br><strong>Programme:</strong> '+v2Html_(programme)+'<br><strong>Intake:</strong> '+v2Html_(intakeName)+'<br><strong>Reference:</strong> '+v2Html_(reference)+agentLine+researchIntentAdminLine+'</p>' +"""
-          new_detail = """'<p><strong>Student:</strong> '+v2Html_(student)+'<br><strong>Programme:</strong> '+v2Html_(programme)+'<br><strong>Intake:</strong> '+v2Html_(intakeName)+'<br><strong>Reference:</strong> '+v2Html_(reference)+applicantTypeAdminLine+agentLine+researchIntentAdminLine+'</p>' +"""
+          research_line = "    const researchIntentAdminLine = researchIntentStatus ? '<br><strong>Research Intent:</strong> '+v2Html_(researchIntentStatus) : '';"
+          applicant_line = "    const applicantTypeAdminLine = '<br><strong>Applicant Type:</strong> '+v2Html_(isInternational ? 'International' : String(payload.applicantType || 'Local'));"
+          if applicant_line not in text:
+              if research_line not in text:
+                  raise SystemExit('Research intent admin line not found; refusing to patch.')
+              text = text.replace(research_line, research_line + "\n" + applicant_line, 1)
+
+          old_subject = "    const adminSubject = '[IPGS Admission] New Application - ' + student + ' - ' + reference;"
+          new_subject = "    const adminSubject = (isInternational ? '[IPGS Admission] New International Application - ' : '[IPGS Admission] New Application - ') + student + ' - ' + reference;"
+          if old_subject in text:
+              text = text.replace(old_subject, new_subject, 1)
+
+          old_detail = "+agentLine+researchIntentAdminLine+'</p>' +"
+          new_detail = "+applicantTypeAdminLine+agentLine+researchIntentAdminLine+'</p>' +"
           if old_detail in text:
               text = text.replace(old_detail, new_detail, 1)
 
           required = [
+              "V2_NOTIFICATION_ENGINE_20261004_INTL_ROUTE",
               'syed.suhaimi@innovative.edu.my',
               'jalilahaimi.khir@innovative.edu.my',
               'yusrahim@innovative.edu.my',
               'helmi@innovative.edu.my',
+              'v2NotificationIsInternational_',
               'New International Application',
-              'Applicant Type:'
+              'applicantTypeAdminLine'
           ]
           missing = [value for value in required if value not in text]
           if missing:
@@ -115,6 +107,7 @@ jobs:
       - name: Validate source
         run: |
           node --check apps-script-v2/NotificationEngineV2.js
+          grep -F "V2_NOTIFICATION_ENGINE_20261004_INTL_ROUTE" apps-script-v2/NotificationEngineV2.js
           grep -F "syed.suhaimi@innovative.edu.my" apps-script-v2/NotificationEngineV2.js
           grep -F "jalilahaimi.khir@innovative.edu.my" apps-script-v2/NotificationEngineV2.js
           grep -F "yusrahim@innovative.edu.my" apps-script-v2/NotificationEngineV2.js
