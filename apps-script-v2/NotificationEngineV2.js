@@ -10,7 +10,7 @@
  * test inbox and never to the intended recipient.
  */
 
-const V2_NOTIFICATION_BUILD = 'V2_NOTIFICATION_ENGINE_20260917';
+const V2_NOTIFICATION_BUILD = 'V2_NOTIFICATION_ENGINE_20261004_INTL_ROUTE';
 
 function v2NotificationMode_() {
   const props = PropertiesService.getScriptProperties();
@@ -38,6 +38,24 @@ function v2NotificationAdminRecipients_() {
     'adiybukhori.ipgs@innovative.edu.my',
     'abu.huzaifah.ipgs@innovative.edu.my'
   ]);
+}
+
+function v2NotificationInternationalRecipients_() {
+  return v2NotificationUniqueEmails_([
+    'syed.suhaimi@innovative.edu.my',
+    'jalilahaimi.khir@innovative.edu.my',
+    'yusrahim@innovative.edu.my',
+    'helmi@innovative.edu.my'
+  ]);
+}
+
+function v2NotificationIsInternational_(payload, applicationRow) {
+  const payloadType = String(payload && payload.applicantType || '').trim();
+  const storedType = applicationRow && applicationRow.record
+    ? String(applicationRow.record['Applicant Type'] || '').trim()
+    : '';
+  const type = (payloadType + ' ' + storedType).toUpperCase();
+  return type.indexOf('INTERNATIONAL') >= 0 || type.indexOf('NON-MALAYSIAN') >= 0;
 }
 
 function v2NotificationUniqueEmails_(values) {
@@ -341,14 +359,20 @@ function v2SendApplicationNotifications_(payload, reference, intake, pdf, col, o
   };
 
   if (!options.studentOnly) {
-    const adminRecipients = v2NotificationAdminRecipients_();
+    const isInternational = v2NotificationIsInternational_(payload, applicationRow);
+    const adminRecipients = v2NotificationUniqueEmails_(
+      v2NotificationAdminRecipients_().concat(
+        isInternational ? v2NotificationInternationalRecipients_() : []
+      )
+    );
     const agentLine = payload.partnerCode ? '<br><strong>Agent Code:</strong> '+v2Html_(payload.partnerCode) : '';
     const researchIntentAdminLine = researchIntentStatus ? '<br><strong>Research Intent:</strong> '+v2Html_(researchIntentStatus) : '';
-    const adminSubject = '[IPGS Admission] New Application - ' + student + ' - ' + reference;
+    const applicantTypeAdminLine = '<br><strong>Applicant Type:</strong> '+v2Html_(isInternational ? 'International' : String(payload.applicantType || 'Local'));
+    const adminSubject = (isInternational ? '[IPGS Admission] New International Application - ' : '[IPGS Admission] New Application - ') + student + ' - ' + reference;
     const adminHtml = '<div style="font-family:Arial,sans-serif;max-width:680px;margin:auto;border:1px solid #e5e7eb;border-radius:14px;overflow:hidden">' +
       '<div style="background:#34206f;color:white;padding:20px"><h2 style="margin:0;font-size:20px">New Admission Application</h2></div>' +
       '<div style="padding:22px"><p>A new postgraduate application has been submitted and the student Conditional Offer Letter has been issued.</p>' +
-      '<p><strong>Student:</strong> '+v2Html_(student)+'<br><strong>Programme:</strong> '+v2Html_(programme)+'<br><strong>Intake:</strong> '+v2Html_(intakeName)+'<br><strong>Reference:</strong> '+v2Html_(reference)+agentLine+researchIntentAdminLine+'</p>' +
+      '<p><strong>Student:</strong> '+v2Html_(student)+'<br><strong>Programme:</strong> '+v2Html_(programme)+'<br><strong>Intake:</strong> '+v2Html_(intakeName)+'<br><strong>Reference:</strong> '+v2Html_(reference)+applicantTypeAdminLine+agentLine+researchIntentAdminLine+'</p>' +
       folderButton +
       '<p>The Admission Form is attached. Please continue the document review and screening process in Admission V2.</p>' +
       '</div></div>';
