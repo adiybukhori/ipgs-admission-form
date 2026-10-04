@@ -55,6 +55,17 @@ function v2SacManualEnsureSchema_() {
   v2EnsureHeaders_(committee, V2_SAC_COMMITTEE_HEADERS);
   v2StyleHeader_(committee, V2_SAC_COMMITTEE_HEADERS.length);
 
+  if (typeof v2AcademicEligibilityEnsureSchema_ === 'function') {
+    v2AcademicEligibilityEnsureSchema_();
+  }
+  if (typeof v2AcademicEligibilityEnsureTrigger_ === 'function') {
+    try {
+      v2AcademicEligibilityEnsureTrigger_();
+    } catch (error) {
+      Logger.log('AQC reconciliation trigger setup failed non-blocking: ' + String(error && error.message || error));
+    }
+  }
+
   return {ok:true, portalEnabled:false, meetingMode:V2_SAC_MEETING_MODE};
 }
 
@@ -445,11 +456,23 @@ function v2FinalizeSacSessionManual_(data, actor) {
   if (data.generateDocuments !== false) {
     documents = v2GenerateSacMinutesEndorsement_({sessionId:sessionId, confirmed:true}, actor || 'Admin Portal V2');
   }
+
+  let academicEligibility = null;
+  if (typeof v2AcademicEligibilitySyncSacSession_ === 'function') {
+    try {
+      academicEligibility = v2AcademicEligibilitySyncSacSession_(sessionId, actor || 'Admin Portal V2');
+    } catch (error) {
+      academicEligibility = {ok:false, error:String(error && error.message || error), emailSent:false};
+      Logger.log('AQC SAC finalisation sync failed non-blocking: ' + academicEligibility.error);
+    }
+  }
+
   return {
     ok:true,
     sessionId:sessionId,
     finalised:finalised,
     documents:documents,
+    academicEligibility:academicEligibility,
     meetingMode:V2_SAC_MEETING_MODE,
     portalEnabled:false,
     v1Touched:false
