@@ -344,7 +344,7 @@ function v2ApiOutput_(obj, callback) {
 
 function handleV2Post_(payload) {
   const action = String(payload.action || '');
-  if (action === 'v2SubmitAdmission') return v2SubmitAdmission_(payload.data || payload);
+  if (action === 'v2SubmitAdmission') return submitAdmissionFormV2(payload.data || payload);
   if (action === 'v2GetOrientationAttendanceContext') return v2GetOrientationAttendanceContext_(payload.data || payload);
   if (action === 'v2ResolveOrientationAttendanceIdentity') return v2ResolveOrientationAttendanceIdentity_(payload.data || payload);
   if (action === 'v2SubmitOrientationAttendance') return v2SubmitOrientationAttendance_(payload.data || payload);
