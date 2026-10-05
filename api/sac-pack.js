@@ -99,7 +99,13 @@ async function fetchDriveFile(url,mimeHint=''){
   if(!['application/pdf','image/png','image/jpeg','image/jpg'].includes(mime))return null;
   return {base64:bytes.toString('base64'),mimeType:mime};
 }
+async function fallbackCanonicalBundleFile(referenceNo,documentKey){
+  const typeMap={transcript:'transcript',certificate:'certificate',resume:'resume'};const documentType=typeMap[documentKey];if(!documentType)return null;
+  const url=String(process.env.SUPABASE_URL||process.env.NEXT_PUBLIC_SUPABASE_URL||'').replace(/\/$/,'');const key=String(process.env.SUPABASE_SERVICE_ROLE_KEY||process.env.SUPABASE_SECRET_KEY||'');if(!url||!key)return null;
+  try{const qRef=encodeURIComponent(referenceNo),qType=encodeURIComponent(documentType);const r=await fetch(`${url}/rest/v1/document_bundles?select=canonical_file_url,canonical_mime_type&reference_no=eq.${qRef}&document_type=eq.${qType}&limit=1`,{headers:{apikey:key,Authorization:`Bearer ${key}`}});if(!r.ok)return null;const rows=await r.json();const b=Array.isArray(rows)?rows[0]:null;if(!b?.canonical_file_url)return null;return fetchDriveFile(b.canonical_file_url,b.canonical_mime_type||'application/pdf')}catch(_){return null}
+}
 async function fallbackSheetFile(referenceNo,documentKey){
+  const canonical=await fallbackCanonicalBundleFile(referenceNo,documentKey);if(canonical)return canonical;
   const app=await fetchSheetRow('V2_APPLICATIONS','A',referenceNo);if(!app)return null;
   if(documentKey==='admissionForm')return fetchDriveFile(app['Admission Form PDF URL'],'application/pdf');
   if(documentKey==='pgAdm01'){

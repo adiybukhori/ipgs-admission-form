@@ -31,19 +31,23 @@ function toObjects(csv){const rows=parseCsv(csv);if(!rows.length)return[];const 
 function gvizLiteral(value){return String(value||'').replace(/'/g,"''");}
 function supabaseConfig(){const url=String(process.env.SUPABASE_URL||process.env.NEXT_PUBLIC_SUPABASE_URL||'').replace(/\/$/,'');const key=String(process.env.SUPABASE_SERVICE_ROLE_KEY||process.env.SUPABASE_SECRET_KEY||'');return url&&key?{url,key}:null;}
 async function fetchSupabaseOperational(referenceNo){
-  const cfg=supabaseConfig();if(!cfg)return {candidate:null,state:null,assessments:[]};
+  const cfg=supabaseConfig();if(!cfg)return {candidate:null,state:null,assessments:[],documentBundles:[],documentVersions:[]};
   const h={apikey:cfg.key,Authorization:`Bearer ${cfg.key}`,'Content-Type':'application/json'},q=encodeURIComponent(referenceNo);
-  const [cr,sr,ar]=await Promise.all([
+  const [cr,sr,ar,br,vr]=await Promise.all([
     fetch(`${cfg.url}/rest/v1/sac_candidates?select=reference_no,student_name,programme,sac_session_id,decision,decision_at,decision_by&reference_no=eq.${q}&order=decision_at.desc.nullslast,updated_at.desc&limit=1`,{headers:h}),
     fetch(`${cfg.url}/rest/v1/workflow_state?select=*&reference_no=eq.${q}&limit=1`,{headers:h}),
-    fetch(`${cfg.url}/rest/v1/assessment_cases?select=*&reference_no=eq.${q}&order=created_at.asc`,{headers:h})
+    fetch(`${cfg.url}/rest/v1/assessment_cases?select=*&reference_no=eq.${q}&order=created_at.asc`,{headers:h}),
+    fetch(`${cfg.url}/rest/v1/document_bundles?select=*&reference_no=eq.${q}&order=updated_at.desc`,{headers:h}),
+    fetch(`${cfg.url}/rest/v1/document_versions?select=*&reference_no=eq.${q}&order=document_type.asc,version_no.asc`,{headers:h})
   ]);
-  if(!cr.ok||!sr.ok||!ar.ok)throw new Error('Supabase operational workflow read failed.');
-  const [c,s,a]=await Promise.all([cr.json(),sr.json(),ar.json()]);
-  return {candidate:Array.isArray(c)?c[0]||null:null,state:Array.isArray(s)?s[0]||null:null,assessments:Array.isArray(a)?a:[]};
+  if(!cr.ok||!sr.ok||!ar.ok||!br.ok||!vr.ok)throw new Error('Supabase operational workflow read failed.');
+  const [c,s,a,b,v]=await Promise.all([cr.json(),sr.json(),ar.json(),br.json(),vr.json()]);
+  return {candidate:Array.isArray(c)?c[0]||null:null,state:Array.isArray(s)?s[0]||null:null,assessments:Array.isArray(a)?a:[],documentBundles:Array.isArray(b)?b:[],documentVersions:Array.isArray(v)?v:[]};
 }
 function overlaySupabaseOperational(data,o){
-  const c=o?.candidate||null,st=o?.state||null,a=o?.assessments||[];
+  const c=o?.candidate||null,st=o?.state||null,a=o?.assessments||[],b=o?.documentBundles||[],v=o?.documentVersions||[];
+  data.V2_DOCUMENT_BUNDLES=b;
+  data.V2_DOCUMENT_VERSIONS=v;
   if(c){const e=Array.isArray(data.V2_SAC_CANDIDATES)?data.V2_SAC_CANDIDATES[0]||{}:{};data.V2_SAC_CANDIDATES=[{...e,'Reference No':c.reference_no,'Student Name':c.student_name||e['Student Name']||'','Programme':c.programme||e['Programme']||'','Decision':c.decision||'PENDING','Decision At':c.decision_at||'','Decision By':c.decision_by||''}];}
   if(st){const w=Array.isArray(data.V2_WORKFLOW)&&data.V2_WORKFLOW[0]?data.V2_WORKFLOW[0]:{'Reference No':st.reference_no};data.V2_WORKFLOW=[{...w,'Application Stage':st.current_stage||w['Application Stage']||'','SAC Decision':st.sac_decision||w['SAC Decision']||'','SAC Supabase Decision':st.sac_decision||'','Assessment Status':st.assessment_status||'','Prerequisite Status':st.prerequisite_status||'','Offer Letter Status':st.offer_status||w['Offer Letter Status']||'','Acceptance Status':st.acceptance_status||w['Acceptance Status']||'','Workflow Version':String(st.workflow_version||''),'Workflow Source':'SUPABASE','Legacy Sync Status':st.legacy_sync_status||'','SAC Sync Status':st.legacy_sync_status==='SYNCED'?'SYNCED':'LEGACY_MIRROR_PENDING','Last Updated':st.updated_at||w['Last Updated']||'','Updated By':st.updated_by||w['Updated By']||''}];}
   if(a.length)data.V2_ASSESSMENT_PROGRESS=a.map(x=>({'Reference No':x.reference_no,'Assessment Type':x.assessment_type,'Sequence':String(x.sequence||1),'Component':'OVERALL','Status':x.status,'Panel Result':x.panel_result||'','Remarks':x.remarks||'','Updated At':x.updated_at||'','Updated By':x.completed_by||x.created_by||''}));

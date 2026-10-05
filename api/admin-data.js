@@ -82,10 +82,10 @@ function mapSupabaseCandidate(row,sessionLegacyId){return{
   'Missing Documents JSON':JSON.stringify(row.missing_documents||[]),'Pack Prepared At':row.pack_prepared_at||''
 }}
 async function fetchSupabaseSac(){
-  const [sessions,candidates,workflow,assessments]=await Promise.all([supabaseGet('sac_sessions?select=*&order=meeting_date.desc.nullslast,created_at.desc'),supabaseGet('sac_candidates?select=*&order=created_at.asc'),supabaseGet('workflow_state?select=*'),supabaseGet('assessment_cases?select=*&order=created_at.asc')]);
+  const [sessions,candidates,workflow,assessments,documentBundles,documentVersions]=await Promise.all([supabaseGet('sac_sessions?select=*&order=meeting_date.desc.nullslast,created_at.desc'),supabaseGet('sac_candidates?select=*&order=created_at.asc'),supabaseGet('workflow_state?select=*'),supabaseGet('assessment_cases?select=*&order=created_at.asc'),supabaseGet('document_bundles?select=*&order=updated_at.desc'),supabaseGet('document_versions?select=*&order=reference_no.asc,document_type.asc,version_no.asc')]);
   const sessionById=new Map((sessions||[]).map(s=>[String(s.id),s]));
   const counts=new Map();for(const c of (candidates||[])){const id=String(c.sac_session_id||'');counts.set(id,(counts.get(id)||0)+1)}
-  return{sessions:(sessions||[]).filter(s=>!s.is_hidden).map(s=>mapSupabaseSession(s,counts.get(String(s.id))||0)),candidates:(candidates||[]).map(c=>mapSupabaseCandidate(c,sessionById.get(String(c.sac_session_id))?.legacy_session_id||'')),workflow:workflow||[],assessments:assessments||[]};
+  return{sessions:(sessions||[]).filter(s=>!s.is_hidden).map(s=>mapSupabaseSession(s,counts.get(String(s.id))||0)),candidates:(candidates||[]).map(c=>mapSupabaseCandidate(c,sessionById.get(String(c.sac_session_id))?.legacy_session_id||'')),workflow:workflow||[],assessments:assessments||[],documentBundles:documentBundles||[],documentVersions:documentVersions||[]};
 }
 function overlaySupabaseWorkflow(data,states,assessments){
   if(!Array.isArray(data.V2_WORKFLOW))data.V2_WORKFLOW=[];const byRef=new Map(data.V2_WORKFLOW.map(w=>[String(w['Reference No']||w['Reference']||''),w]));
@@ -114,6 +114,8 @@ export default async function handler(req,res){
     const supa=await fetchSupabaseSac();
     data.V2_SAC_SESSIONS=supa.sessions;
     data.V2_SAC_CANDIDATES=supa.candidates;
+    data.V2_DOCUMENT_BUNDLES=supa.documentBundles||[];
+    data.V2_DOCUMENT_VERSIONS=supa.documentVersions||[];
     if(scope!=='sac')overlaySupabaseWorkflow(data,supa.workflow,supa.assessments);
     if(ADMIN_DATA_CACHE.v2){ADMIN_DATA_CACHE.v2.V2_SAC_SESSIONS=cloneCached(supa.sessions);ADMIN_DATA_CACHE.v2.V2_SAC_CANDIDATES=cloneCached(supa.candidates);}
   }catch(error){
