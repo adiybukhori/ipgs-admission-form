@@ -2013,20 +2013,24 @@
       const msg=document.getElementById('sacPackMessage');
       if(msg){msg.innerHTML=`<div class="sac-pack-progress-wrap"><div class="sac-pack-progress-track"><div id="sacPackProgressBar" class="sac-pack-progress-bar"></div></div><div id="sacPackProgressLabel" class="sac-pack-progress-label">Starting…</div></div>`;msg.style.display='block';}
       const setProgress=(pct,label)=>{const value=Math.max(0,Math.min(100,pct));for(const id of ['sacPackProgressBar','sacPackFooterProgressBar']){const el=document.getElementById(id);if(el)el.style.width=value+'%'}for(const id of ['sacPackProgressLabel','sacPackFooterProgressLabel']){const el=document.getElementById(id);if(el)el.textContent=label||''}const fpct=document.getElementById('sacPackFooterProgressPct');if(fpct)fpct.textContent=Math.round(value)+'%'};
-      const parts=[];let generatedCount=0,incompleteCount=0,failedCount=0,folderUrl='';
+      const parts=[],packErrors=[],packWarnings=[];let generatedCount=0,incompleteCount=0,failedCount=0,folderUrl='';
       try{
         setProgress(3,`Starting 0 of ${candidates.length} students…`);
         for(let i=0;i<candidates.length;i++){
           const c=candidates[i],name=c.studentName||c.referenceNo||`Student ${i+1}`;
           setProgress(5+Math.floor((i/candidates.length)*78),`Collecting ${i+1} of ${candidates.length} · ${name}`);
           try{
-            const res=await fetch(SAC_PACK_API,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({password,sessionId:sacPackState.sessionId,candidates:[{referenceNo:c.referenceNo,studentName:c.studentName,programme:c.programme}]})});
-            if(!res.ok){failedCount++;continue}
+            const res=await fetch(SAC_PACK_API,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({password,adminSessionId,sessionId:sacPackState.sessionId,candidates:[{referenceNo:c.referenceNo,studentName:c.studentName,programme:c.programme}]})});
+            if(!res.ok){
+              let detail='';try{const j=await res.json();detail=String(j?.message||'')}catch(_){}
+              failedCount++;if(detail)packErrors.push(`${name}: ${detail}`);continue;
+            }
             incompleteCount+=Number(res.headers.get('X-SAC-Incomplete-Count')||0);folderUrl=folderUrl||res.headers.get('X-SAC-Folder-URL')||'';
+            const saveWarning=res.headers.get('X-SAC-Save-Warning')||'';if(saveWarning)packWarnings.push(decodeURIComponent(saveWarning));
             parts.push(await res.arrayBuffer());generatedCount++;
-          }catch(_){failedCount++}
+          }catch(e){failedCount++;packErrors.push(`${name}: ${e?.message||'Request failed'}`)}
         }
-        if(!parts.length)throw new Error('No student SAC pack could be generated.');
+        if(!parts.length)throw new Error(packErrors[0]||'No student SAC pack could be generated.');
         setProgress(86,`Merging ${generatedCount} student pack(s)…`);
         const {PDFDocument}=await import('https://cdn.jsdelivr.net/npm/pdf-lib@1.17.1/+esm');
         const merged=await PDFDocument.create();
@@ -2034,7 +2038,8 @@
         const bytes=await merged.save({useObjectStreams:true}),blob=new Blob([bytes],{type:'application/pdf'}),url=URL.createObjectURL(blob);let w=null;try{w=window.open(url,'_blank')}catch(_){}if(!w){const a=document.createElement('a');a.href=url;a.target='_blank';a.rel='noopener';a.click()}
         setProgress(100,'Completed');
         const links=folderUrl?`<a class="ghost" target="_blank" rel="noopener" href="${esc(folderUrl)}">Open SAC Folder</a>`:'';
-        sacPackModalMsg(`<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap"><strong>SAC Pack generated: ${generatedCount} student(s).</strong><span>${incompleteCount} incomplete · ${failedCount} failed/skipped.</span>${links}</div>`,'ok',true);
+        const warn=packWarnings.length?`<span style="width:100%;font-size:11px">PDF generated successfully, but Drive save reported ${packWarnings.length} warning(s). You can still open/print the merged PDF.</span>`:'';
+        sacPackModalMsg(`<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap"><strong>SAC Pack generated: ${generatedCount} student(s).</strong><span>${incompleteCount} incomplete · ${failedCount} failed/skipped.</span>${links}${warn}</div>`,'ok',true);
         if(btn){btn.disabled=false;btn.textContent='Open Merged SAC Pack';btn.onclick=()=>window.open(url,'_blank')}
         setTimeout(()=>URL.revokeObjectURL(url),20*60*1000);
       }catch(e){if(footerProgress)footerProgress.classList.remove('show');sacPackModalMsg(e.message||'Unable to generate SAC pack.','error');if(btn){btn.disabled=false;btn.textContent='Generate SAC Pack';btn.onclick=generateSacPack}}

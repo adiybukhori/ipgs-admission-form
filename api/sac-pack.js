@@ -20,36 +20,50 @@ async function validateAdminPassword(password) {
   }
 }
 
-async function callV2(action, data, password, timeoutMs = 60000, authSessionId = '') {
+async function callAppsScriptV2(action, data, password, timeoutMs = 60000) {
+  const token = String(process.env.V2_ADMIN_API_PASSWORD || password || '');
+  if (!token) throw new Error('V2 backend token is not configured.');
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), timeoutMs);
-  let response;
   try {
-    response = await fetch(ADMIN_BRIDGE, {
+    const response = await fetch('https://script.google.com/macros/s/AKfycbxasT_HgtRSvTbR_bsa8p17Cm-C2PKn20Ok1kU-AyJmxiKX8kX5EGOtRLwVwNlAL7JB/exec', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        password: String(password || ''),
-        sessionId: String(authSessionId || ''),
-        action,
-        data: data || {},
-        updatedBy: 'Admin Portal V2 - SAC Pack'
-      }),
-      redirect: 'follow',
-      signal: controller.signal
+      headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+      body: JSON.stringify({ action, token, data: data || {}, updatedBy: 'Admin Portal V2 - SAC Pack' }),
+      redirect: 'follow', signal: controller.signal
     });
+    const text = await response.text();
+    let parsed; try { parsed = JSON.parse(text); } catch (_) { throw new Error(`V2 backend returned HTTP ${response.status}.`); }
+    if (!response.ok || !parsed || parsed.ok === false) throw new Error(parsed?.message || `V2 backend returned HTTP ${response.status}.`);
+    return parsed;
   } catch (error) {
     if (error?.name === 'AbortError') throw new Error(action + ' timed out.');
     throw error;
   } finally { clearTimeout(timer); }
-  const text = await response.text();
-  let parsed;
-  try { parsed = JSON.parse(text); }
-  catch (_) { throw new Error(`Admin bridge returned HTTP ${response.status}.`); }
-  if (!response.ok || !parsed || parsed.ok === false) {
-    throw new Error(parsed?.message || `Admin bridge returned HTTP ${response.status}.`);
+}
+
+async function callV2(action, data, password, timeoutMs = 60000, authSessionId = '') {
+  let bridgeError = null;
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), Math.min(timeoutMs, 20000));
+  try {
+    const response = await fetch(ADMIN_BRIDGE, {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ password:String(password||''), sessionId:String(authSessionId||''), action, data:data||{}, updatedBy:'Admin Portal V2 - SAC Pack' }),
+      redirect: 'follow', signal: controller.signal
+    });
+    const text = await response.text(); let parsed = null; try { parsed = JSON.parse(text); } catch (_) {}
+    if (response.ok && parsed && parsed.ok !== false) return parsed;
+    bridgeError = new Error(parsed?.message || `Admin bridge returned HTTP ${response.status}.`);
+  } catch (error) {
+    bridgeError = error?.name === 'AbortError' ? new Error(action + ' bridge timed out.') : error;
+  } finally { clearTimeout(timer); }
+
+  try {
+    return await callAppsScriptV2(action, data, password, timeoutMs);
+  } catch (directError) {
+    throw new Error(`SAC pack backend failed. Bridge: ${bridgeError?.message || 'unavailable'} | V2 backend: ${directError?.message || 'failed'}`);
   }
-  return parsed;
 }
 
 async function mapWithConcurrency(items, concurrency, worker) {
@@ -109,13 +123,13 @@ export default async function handler(req, res) {
   }
 
   const password = String(body.password || '');
-  const authSessionId = `SACPACK-${Date.now()}-${Math.random().toString(36).slice(2,10)}`;
+  const authSessionId = String(body.adminSessionId || '').trim();
   try {
-    await callV2('__AUTH_SESSION__', {}, password, 60000, authSessionId);
+    const local = String(process.env.V2_ADMIN_API_PASSWORD || '');
+    const authenticated = Boolean(local && local === password) || await validateAdminPassword(password);
+    if (!authenticated) return res.status(401).json({ ok:false, message:'Invalid admin password.' });
   } catch (error) {
-    const message = String(error?.message || 'Unable to authenticate SAC pack request.');
-    const status = /invalid admin password/i.test(message) ? 401 : 502;
-    return res.status(status).json({ ok: false, message });
+    return res.status(502).json({ ok:false, message:error?.message || 'Unable to authenticate SAC pack request.' });
   }
 
   const sessionId = String(body.sessionId || '').trim();
@@ -186,16 +200,26 @@ export default async function handler(req, res) {
     const candidateSafe = oneCandidate ? String(oneCandidate.studentName || oneCandidate.referenceNo || 'Candidate').replace(/[\/:*?"<>|]+/g, '-').replace(/\s+/g, '-').replace(/-+/g, '-').replace(/^-|-$/g, '').slice(0, 70) : '';
     const fileName = oneCandidate ? `${safe}_${candidateSafe}_SAC-Pack.pdf` : `${safe}_SAC-Print-Pack.pdf`;
 
-    // Persist the merged pack in the session's Drive folder before returning it.
-    const savedResponse = await callV2('v2SaveSacPackPdf', {
-      sessionId,
-      fileName,
-      base64: Buffer.from(bytes).toString('base64')
-    }, password, 60000, authSessionId);
-    const saved = savedResponse?.result || savedResponse || {};
+    // Persist to Drive when available, but never discard a valid generated PDF because Drive/bridge saving failed.
+    let saved = {}, saveWarning = '';
+    for (let attempt = 1; attempt <= 2; attempt++) {
+      try {
+        const savedResponse = await callV2('v2SaveSacPackPdf', {
+          sessionId,
+          fileName,
+          base64: Buffer.from(bytes).toString('base64')
+        }, password, 60000, authSessionId);
+        saved = savedResponse?.result || savedResponse || {};
+        saveWarning = '';
+        break;
+      } catch (error) {
+        saveWarning = error?.message || 'Unable to save SAC Pack to Drive.';
+      }
+    }
 
     res.setHeader('X-SAC-Pack-URL', String(saved.fileUrl || ''));
     res.setHeader('X-SAC-Folder-URL', String(saved.folderUrl || ''));
+    if (saveWarning) res.setHeader('X-SAC-Save-Warning', encodeURIComponent(saveWarning).slice(0, 1500));
     res.setHeader('Content-Type', 'application/pdf');
     res.setHeader('Content-Disposition', `inline; filename="${fileName}"`);
     res.setHeader('X-SAC-Candidate-Count', String(generatedRefs.size));
