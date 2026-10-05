@@ -118,19 +118,45 @@ async function supabaseRpc(fn,body){
  const r=await fetch(`${cfg.url}/rest/v1/rpc/${fn}`,{method:'POST',headers:{apikey:cfg.key,Authorization:`Bearer ${cfg.key}`,'Content-Type':'application/json'},body:JSON.stringify(body||{})});
  const t=await r.text();let j=null;try{j=t?JSON.parse(t):null}catch(_){}if(!r.ok)throw new Error(j?.message||`Supabase workflow RPC returned HTTP ${r.status}.`);return j;
 }
+async function verifyWorkflowState(referenceNo,expectedStage,expectedAssessment,expectedPrerequisite){
+ const rows=await supabaseRequest(`workflow_state?select=current_stage,assessment_status,prerequisite_status,workflow_version&reference_no=eq.${encodeURIComponent(referenceNo)}&limit=1`);
+ const row=Array.isArray(rows)?rows[0]:null;if(!row)return {ok:false,row:null};
+ const ok=String(row.current_stage||'')===String(expectedStage||'')&&(!expectedAssessment||String(row.assessment_status||'')===String(expectedAssessment))&&(!expectedPrerequisite||String(row.prerequisite_status||'')===String(expectedPrerequisite));
+ return {ok,row};
+}
 async function recordSacDecisionDirect(data,password,updatedBy){
  if(!(await validateDirectAdmin(password))){const e=new Error('Invalid admin password.');e.code='ADMIN_AUTH_FAILED';throw e;}
  const legacy=String(data?.sessionId||data?.sacSessionId||'').trim(),ref=String(data?.referenceNo||'').trim(),decision=String(data?.decision||'').toUpperCase();
  if(!legacy||!ref||!decision)throw new Error('SAC session, Reference No and decision are required.');
- const r=await supabaseRpc('record_sac_decision_atomic',{p_legacy_session_id:legacy,p_reference_no:ref,p_decision:decision,p_actor:updatedBy||'Admin Portal V2',p_remarks:String(data?.remarks||'')});
- return {...(r||{}),workflowSyncStatus:'SUPABASE_CANONICAL',canonicalWorkflowEngine:'SUPABASE',legacyWorkflowSyncStatus:r?.legacySyncStatus||'PENDING'};
+ const expectedStage=decision==='DIRECT_ENTRY'?'ELIGIBLE_FOR_OFFER':decision==='INTERNAL_ASSESSMENT'?'INTERNAL_ASSESSMENT':decision==='REJECTED'?'REJECTED':'';
+ const expectedAssessment=decision==='INTERNAL_ASSESSMENT'?'PENDING':'NOT_REQUIRED',expectedPrerequisite='NOT_REQUIRED';
+ let r=null,verified=null;
+ for(let attempt=1;attempt<=3;attempt++){
+  r=await supabaseRpc('record_sac_decision_atomic',{p_legacy_session_id:legacy,p_reference_no:ref,p_decision:decision,p_actor:updatedBy||'Admin Portal V2',p_remarks:String(data?.remarks||'')});
+  verified=await verifyWorkflowState(ref,expectedStage,expectedAssessment,expectedPrerequisite);if(verified.ok)break;
+ }
+ if(!verified?.ok)throw new Error('SAC decision was saved but workflow verification failed after 3 attempts. No downstream action was released.');
+ return {...(r||{}),verified:true,workflowVersion:verified.row?.workflow_version||r?.workflowVersion,workflowSyncStatus:'SUPABASE_CANONICAL',canonicalWorkflowEngine:'SUPABASE',legacyWorkflowSyncStatus:r?.legacySyncStatus||'PENDING'};
 }
 async function recordAssessmentResultDirect(data,password,updatedBy){
  if(!(await validateDirectAdmin(password))){const e=new Error('Invalid admin password.');e.code='ADMIN_AUTH_FAILED';throw e;}
  const ref=String(data?.referenceNo||'').trim(),typ=String(data?.assessmentType||'').toUpperCase(),res=String(data?.panelResult||'').toUpperCase();
  if(!ref||!typ||!res)throw new Error('Reference No, assessment type and panel result are required.');
- const r=await supabaseRpc('record_assessment_result_atomic',{p_reference_no:ref,p_assessment_type:typ,p_panel_result:res,p_actor:updatedBy||'Admin Portal V2',p_remarks:String(data?.remarks||'')});
- return {...(r||{}),workflowSyncStatus:'SUPABASE_CANONICAL',canonicalWorkflowEngine:'SUPABASE',legacyWorkflowSyncStatus:r?.legacySyncStatus||'PENDING'};
+ let expectedStage='',expectedAssessment='',expectedPrerequisite='';
+ if(typ==='INTERNAL_ASSESSMENT'){
+  if(res==='QUALIFIED'){expectedStage='ELIGIBLE_FOR_OFFER';expectedAssessment='QUALIFIED';expectedPrerequisite='NOT_REQUIRED';}
+  else if(res==='PREREQUISITE_REQUIRED'){expectedStage='PREREQUISITE';expectedAssessment='PREREQUISITE_REQUIRED';expectedPrerequisite='PENDING';}
+  else if(res==='NOT_QUALIFIED'){expectedStage='REJECTED';expectedAssessment='NOT_QUALIFIED';expectedPrerequisite='NOT_REQUIRED';}
+ }else if(typ==='PREREQUISITE'){
+  expectedStage=res==='QUALIFIED'?'ELIGIBLE_FOR_OFFER':res==='NOT_QUALIFIED'?'REJECTED':'';expectedPrerequisite=res;
+ }
+ let r=null,verified=null;
+ for(let attempt=1;attempt<=3;attempt++){
+  r=await supabaseRpc('record_assessment_result_atomic',{p_reference_no:ref,p_assessment_type:typ,p_panel_result:res,p_actor:updatedBy||'Admin Portal V2',p_remarks:String(data?.remarks||'')});
+  verified=await verifyWorkflowState(ref,expectedStage,expectedAssessment,expectedPrerequisite);if(verified.ok)break;
+ }
+ if(!verified?.ok)throw new Error('Assessment result was saved but workflow verification failed after 3 attempts. No downstream action was released.');
+ return {...(r||{}),verified:true,workflowVersion:verified.row?.workflow_version||r?.workflowVersion,workflowSyncStatus:'SUPABASE_CANONICAL',canonicalWorkflowEngine:'SUPABASE',legacyWorkflowSyncStatus:r?.legacySyncStatus||'PENDING'};
 }
 
 async function callV2(action, data, password, sessionId, updatedBy) {
