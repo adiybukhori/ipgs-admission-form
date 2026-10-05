@@ -1,0 +1,409 @@
+name: Fix Admission Large Upload Backend
+
+on:
+  push:
+    branches: [apps-script-v2-dev]
+    paths:
+      - '.github/workflows/fix-admission-large-upload-backend.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  patch-and-deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Apps Script V2
+        uses: actions/checkout@v4
+        with:
+          ref: apps-script-v2-dev
+          fetch-depth: 0
+
+      - name: Add staged chunk upload backend
+        run: |
+          cat > apps-script-v2/AdmissionUploadV2.js <<'EOF'
+          /**
+           * Admission V2 staged/chunked document upload transport.
+           * Keeps browser -> Vercel requests below the Vercel Function payload limit.
+           * The admission business process remains unchanged: files are materialised
+           * into the normal student folder before the admission record is generated.
+           */
+          const V2_ADMISSION_UPLOAD_STAGING_FOLDER = 'V2_UPLOAD_STAGING';
+          const V2_ADMISSION_UPLOAD_MAX_CHUNK_BYTES = 1200 * 1024;
+          const V2_ADMISSION_UPLOAD_MAX_CHUNKS = 10;
+          const V2_ADMISSION_UPLOAD_META_FILE = 'UPLOAD_META.json';
+
+          function v2AdmissionDocumentPayloadPresent_(doc) {
+            return !!(doc && (String(doc.base64 || '').trim() || String(doc.stagedUploadId || '').trim()));
+          }
+
+          function v2ValidateAdmissionDocumentDescriptor_(key, doc) {
+            if (!doc) return;
+            const size = Number(doc.size || 0);
+            const mimeType = String(doc.mimeType || '');
+            if (size < 1 || size > V2_MAX_DOCUMENT_BYTES) {
+              throw new Error('Invalid document size for ' + key + '.');
+            }
+            if (V2_ALLOWED_MIME_TYPES.indexOf(mimeType) < 0) {
+              throw new Error('Unsupported document type for ' + key + '.');
+            }
+            if (doc.base64) return;
+
+            const uploadId = v2AdmissionUploadId_(doc.stagedUploadId);
+            const chunkCount = Number(doc.chunkCount || 0);
+            if (!uploadId || chunkCount < 1 || chunkCount > V2_ADMISSION_UPLOAD_MAX_CHUNKS) {
+              throw new Error('Invalid staged upload for ' + key + '.');
+            }
+          }
+
+          function v2AdmissionUploadId_(value) {
+            const id = String(value || '').trim();
+            if (!/^[A-Za-z0-9_-]{16,96}$/.test(id)) {
+              throw new Error('Invalid upload identifier.');
+            }
+            return id;
+          }
+
+          function v2AdmissionUploadStagingRoot_() {
+            const root = DriveApp.getFolderById(CONFIG.rootFolderId);
+            return v2GetOrCreateFolder_(root, V2_ADMISSION_UPLOAD_STAGING_FOLDER);
+          }
+
+          function v2AdmissionUploadFolder_(uploadId, createIfMissing) {
+            const id = v2AdmissionUploadId_(uploadId);
+            const root = v2AdmissionUploadStagingRoot_();
+            const name = 'UPLOAD_' + id;
+            const folders = root.getFoldersByName(name);
+            if (folders.hasNext()) {
+              const folder = folders.next();
+              if (folders.hasNext()) throw new Error('Ambiguous upload staging folder.');
+              return folder;
+            }
+            if (!createIfMissing) throw new Error('Staged upload not found. Please upload the document again.');
+            return root.createFolder(name);
+          }
+
+          function v2AdmissionUploadReadMeta_(folder) {
+            const files = folder.getFilesByName(V2_ADMISSION_UPLOAD_META_FILE);
+            if (!files.hasNext()) return null;
+            const file = files.next();
+            if (files.hasNext()) throw new Error('Ambiguous upload metadata.');
+            try {
+              return JSON.parse(file.getBlob().getDataAsString('UTF-8'));
+            } catch (_) {
+              throw new Error('Invalid upload metadata.');
+            }
+          }
+
+          function v2AdmissionUploadWriteMeta_(folder, meta) {
+            const files = folder.getFilesByName(V2_ADMISSION_UPLOAD_META_FILE);
+            while (files.hasNext()) files.next().setTrashed(true);
+            folder.createFile(Utilities.newBlob(
+              JSON.stringify(meta),
+              'application/json',
+              V2_ADMISSION_UPLOAD_META_FILE
+            ));
+          }
+
+          function v2AdmissionUploadChunkName_(index) {
+            return 'CHUNK_' + ('000' + Number(index)).slice(-3) + '.bin';
+          }
+
+          function v2UploadAdmissionChunk_(payload) {
+            assertDevIdentity_();
+            const data = payload || {};
+            const uploadId = v2AdmissionUploadId_(data.uploadId);
+            const field = String(data.field || '').trim();
+            const fileName = String(data.fileName || '').trim();
+            const mimeType = String(data.mimeType || '').trim();
+            const size = Number(data.size || 0);
+            const chunkIndex = Number(data.chunkIndex);
+            const chunkCount = Number(data.chunkCount);
+            const base64 = String(data.base64 || '');
+
+            if (!field || !fileName) throw new Error('Upload field and file name are required.');
+            if (size < 1 || size > V2_MAX_DOCUMENT_BYTES) throw new Error('Document exceeds the allowed size.');
+            if (V2_ALLOWED_MIME_TYPES.indexOf(mimeType) < 0) throw new Error('Unsupported document type.');
+            if (!Number.isInteger(chunkIndex) || chunkIndex < 0) throw new Error('Invalid upload chunk index.');
+            if (!Number.isInteger(chunkCount) || chunkCount < 1 || chunkCount > V2_ADMISSION_UPLOAD_MAX_CHUNKS) {
+              throw new Error('Invalid upload chunk count.');
+            }
+            if (chunkIndex >= chunkCount) throw new Error('Upload chunk index is out of range.');
+            if (!base64) throw new Error('Upload chunk is empty.');
+
+            let bytes;
+            try {
+              bytes = Utilities.base64Decode(base64);
+            } catch (_) {
+              throw new Error('Upload chunk is not valid base64 data.');
+            }
+            if (!bytes.length || bytes.length > V2_ADMISSION_UPLOAD_MAX_CHUNK_BYTES) {
+              throw new Error('Upload chunk size is invalid.');
+            }
+
+            const lock = LockService.getScriptLock();
+            lock.waitLock(30000);
+            try {
+              const folder = v2AdmissionUploadFolder_(uploadId, true);
+              const existingMeta = v2AdmissionUploadReadMeta_(folder);
+              const expectedMeta = {
+                uploadId:uploadId,
+                field:field,
+                fileName:fileName,
+                mimeType:mimeType,
+                size:size,
+                chunkCount:chunkCount
+              };
+
+              if (existingMeta) {
+                ['uploadId','field','fileName','mimeType','size','chunkCount'].forEach(function(key) {
+                  if (String(existingMeta[key]) !== String(expectedMeta[key])) {
+                    throw new Error('Upload metadata changed during transfer. Please upload the document again.');
+                  }
+                });
+              } else {
+                expectedMeta.createdAt = new Date().toISOString();
+                v2AdmissionUploadWriteMeta_(folder, expectedMeta);
+              }
+
+              const chunkName = v2AdmissionUploadChunkName_(chunkIndex);
+              const oldChunks = folder.getFilesByName(chunkName);
+              while (oldChunks.hasNext()) oldChunks.next().setTrashed(true);
+              folder.createFile(Utilities.newBlob(bytes, 'application/octet-stream', chunkName));
+
+              return {
+                ok:true,
+                success:true,
+                uploadId:uploadId,
+                chunkIndex:chunkIndex,
+                chunkCount:chunkCount,
+                receivedBytes:bytes.length
+              };
+            } finally {
+              lock.releaseLock();
+            }
+          }
+
+          function v2MaterializeStagedAdmissionDocument_(studentFolder, key, doc, payload) {
+            v2ValidateAdmissionDocumentDescriptor_(key, doc);
+            const uploadId = v2AdmissionUploadId_(doc.stagedUploadId);
+            const stageFolder = v2AdmissionUploadFolder_(uploadId, false);
+            const meta = v2AdmissionUploadReadMeta_(stageFolder);
+            if (!meta) throw new Error('Upload metadata is missing for ' + key + '.');
+
+            const expected = {
+              uploadId:uploadId,
+              field:String(key || ''),
+              fileName:String(doc.fileName || ''),
+              mimeType:String(doc.mimeType || ''),
+              size:Number(doc.size || 0),
+              chunkCount:Number(doc.chunkCount || 0)
+            };
+            ['uploadId','field','fileName','mimeType','size','chunkCount'].forEach(function(name) {
+              if (String(meta[name]) !== String(expected[name])) {
+                throw new Error('Staged upload verification failed for ' + key + '.');
+              }
+            });
+
+            const byteParts = [];
+            for (let i = 0; i < expected.chunkCount; i += 1) {
+              const files = stageFolder.getFilesByName(v2AdmissionUploadChunkName_(i));
+              if (!files.hasNext()) throw new Error('Upload is incomplete for ' + key + '.');
+              const file = files.next();
+              if (files.hasNext()) throw new Error('Duplicate upload chunk detected for ' + key + '.');
+              byteParts.push(file.getBlob().getBytes());
+            }
+            const allBytes = [].concat.apply([], byteParts);
+            if (allBytes.length !== expected.size) {
+              throw new Error('Uploaded document size verification failed for ' + key + '.');
+            }
+
+            const extension = v2DocumentExtension_(doc.fileName, doc.mimeType);
+            const targetName = v2SafeName_(key).toUpperCase() + '_' +
+              v2SafeName_(payload.fullName).toUpperCase() + extension;
+            const blob = Utilities.newBlob(allBytes, doc.mimeType, targetName);
+            const file = studentFolder.createFile(blob);
+            return {
+              field:key,
+              fileName:file.getName(),
+              url:file.getUrl(),
+              mimeType:doc.mimeType,
+              size:expected.size
+            };
+          }
+
+          function v2CleanupPayloadStagedUploads_(payload) {
+            const seen = {};
+            const documents = payload && payload.documents ? payload.documents : {};
+            Object.keys(documents).forEach(function(key) {
+              const doc = documents[key] || {};
+              if (!doc.stagedUploadId) return;
+              const uploadId = v2AdmissionUploadId_(doc.stagedUploadId);
+              if (seen[uploadId]) return;
+              seen[uploadId] = true;
+              try {
+                v2AdmissionUploadFolder_(uploadId, false).setTrashed(true);
+              } catch (error) {
+                Logger.log('Admission upload staging cleanup failed for ' + uploadId + ': ' + String(error && error.message || error));
+              }
+            });
+          }
+          EOF
+
+          python3 - <<'PY'
+          from pathlib import Path
+          import re
+
+          p = Path('apps-script-v2/AdmissionV2.js')
+          text = p.read_text(encoding='utf-8')
+
+          old = """function submitAdmissionFormV2(payload) {
+            return v2SubmitAdmission_(payload || {});
+          }"""
+          new = """function submitAdmissionFormV2(payload) {
+            const data = payload || {};
+            if (data.__admissionUploadChunk === true) {
+              return v2UploadAdmissionChunk_(data);
+            }
+            return v2SubmitAdmission_(data);
+          }"""
+          if old in text:
+              text = text.replace(old, new, 1)
+          elif '__admissionUploadChunk' not in text:
+              raise SystemExit('submitAdmissionFormV2 patch anchor not found')
+
+          old_required = "if (!item.doc || !item.doc.base64) throw new Error(item.label + ' is required.');"
+          new_required = "if (!v2AdmissionDocumentPayloadPresent_(item.doc)) throw new Error(item.label + ' is required.');"
+          if old_required in text:
+              text = text.replace(old_required, new_required, 1)
+          elif new_required not in text:
+              raise SystemExit('required document validation anchor not found')
+
+          old_validation = """  Object.keys(documents).forEach(function(key) {
+            const doc = documents[key];
+            if (!doc || !doc.base64) return;
+            const size = Number(doc.size || 0);
+            if (size < 1 || size > V2_MAX_DOCUMENT_BYTES) throw new Error('Invalid document size for ' + key + '.');
+            if (V2_ALLOWED_MIME_TYPES.indexOf(String(doc.mimeType || '')) < 0) {
+              throw new Error('Unsupported document type for ' + key + '.');
+            }
+          });"""
+          new_validation = """  Object.keys(documents).forEach(function(key) {
+            const doc = documents[key];
+            if (!v2AdmissionDocumentPayloadPresent_(doc)) return;
+            v2ValidateAdmissionDocumentDescriptor_(key, doc);
+          });"""
+          if old_validation in text:
+              text = text.replace(old_validation, new_validation, 1)
+          elif 'v2ValidateAdmissionDocumentDescriptor_(key, doc);' not in text:
+              raise SystemExit('document descriptor validation block not found')
+
+          pattern = re.compile(r"function v2SaveAdmissionDocuments_\(folder, payload\) \{.*?\n\}\n\nfunction v2DocumentExtension_", re.S)
+          replacement = """function v2SaveAdmissionDocuments_(folder, payload) {
+            const uploaded = [];
+            const documents = payload.documents || {};
+            Object.keys(documents).forEach(function(key) {
+              const doc = documents[key];
+              if (!v2AdmissionDocumentPayloadPresent_(doc)) return;
+
+              if (doc.stagedUploadId) {
+                uploaded.push(v2MaterializeStagedAdmissionDocument_(folder, key, doc, payload));
+                return;
+              }
+
+              const extension = v2DocumentExtension_(doc.fileName, doc.mimeType);
+              const fileName = v2SafeName_(key).toUpperCase() + '_' + v2SafeName_(payload.fullName).toUpperCase() + extension;
+              const blob = Utilities.newBlob(Utilities.base64Decode(doc.base64), doc.mimeType, fileName);
+              const file = folder.createFile(blob);
+              uploaded.push({field:key,fileName:file.getName(),url:file.getUrl(),mimeType:doc.mimeType,size:Number(doc.size || 0)});
+            });
+            return uploaded;
+          }
+
+          function v2DocumentExtension_"""
+          current_match = pattern.search(text)
+          if current_match:
+              current_block = current_match.group(0)
+              if 'v2MaterializeStagedAdmissionDocument_' not in current_block:
+                  text, n = pattern.subn(replacement, text, count=1)
+                  if n != 1:
+                      raise SystemExit('save document function replacement failed')
+          elif 'v2MaterializeStagedAdmissionDocument_' not in text:
+              raise SystemExit('save document function not found')
+
+          cleanup_anchor = """    v2InvalidateCache_();
+            return {
+              ok:true,"""
+          cleanup_replacement = """    v2CleanupPayloadStagedUploads_(payload);
+            v2InvalidateCache_();
+            return {
+              ok:true,"""
+          if cleanup_anchor in text and 'v2CleanupPayloadStagedUploads_(payload);' not in text:
+              text = text.replace(cleanup_anchor, cleanup_replacement, 1)
+          elif 'v2CleanupPayloadStagedUploads_(payload);' not in text:
+              # Preserve functionality even if formatting changed: insert before the final success return.
+              marker = "    return {\n      ok:true,\n      success:true,"
+              if marker not in text:
+                  raise SystemExit('success return cleanup anchor not found')
+              text = text.replace(marker, "    v2CleanupPayloadStagedUploads_(payload);\n    " + marker.lstrip(), 1)
+
+          text = text.replace(
+              "const V2_ADMISSION_BUILD = 'ADMISSION_V2_SUBMISSION_COL_20260923';",
+              "const V2_ADMISSION_BUILD = 'ADMISSION_V2_CHUNKED_UPLOAD_20261006';",
+              1
+          )
+          p.write_text(text, encoding='utf-8')
+          PY
+
+      - name: Syntax check patched Apps Script
+        run: |
+          node --check apps-script-v2/AdmissionV2.js
+          node --check apps-script-v2/AdmissionUploadV2.js
+
+      - name: Commit backend source
+        run: |
+          if git diff --quiet -- apps-script-v2/AdmissionV2.js apps-script-v2/AdmissionUploadV2.js; then
+            echo 'No backend source changes required.'
+          else
+            git config user.name 'github-actions[bot]'
+            git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+            git add apps-script-v2/AdmissionV2.js apps-script-v2/AdmissionUploadV2.js
+            git commit -m 'Stage admission documents in upload chunks'
+            git push origin apps-script-v2-dev
+          fi
+
+      - name: Verify clasp credential
+        env:
+          CLASPRC_JSON: ${{ secrets.CLASPRC_JSON }}
+        run: |
+          test -n "$CLASPRC_JSON" || (echo 'CLASPRC_JSON secret is not configured.' && exit 1)
+
+      - name: Install clasp
+        run: npm install --global @google/clasp@3.4.1
+
+      - name: Restore clasp credential
+        env:
+          CLASPRC_JSON: ${{ secrets.CLASPRC_JSON }}
+        run: |
+          printf '%s' "$CLASPRC_JSON" > "$HOME/.clasprc.json"
+          chmod 600 "$HOME/.clasprc.json"
+
+      - name: Verify locked V2 target
+        run: node tools/verify-clasp-target.mjs
+
+      - name: Syntax check complete Apps Script tree
+        run: |
+          set -e
+          for f in apps-script-v2/*.js; do node --check "$f"; done
+
+      - name: Push complete V2 source to Apps Script
+        run: clasp push --force
+
+      - name: Redeploy existing V2 web app
+        env:
+          V2_DEPLOYMENT_ID: AKfycbxasT_HgtRSvTbR_bsa8p17Cm-C2PKn20Ok1kU-AyJmxiKX8kX5EGOtRLwVwNlAL7JB
+        run: clasp create-deployment --deploymentId "$V2_DEPLOYMENT_ID" --description "Admission V2 chunked document upload payload fix 2026-10-06"
+
+      - name: Remove clasp credential
+        if: always()
+        run: rm -f "$HOME/.clasprc.json"
