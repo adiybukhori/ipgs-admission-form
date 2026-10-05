@@ -1,0 +1,176 @@
+name: Deploy Admission Chunk Upload Backend
+
+on:
+  push:
+    branches: [apps-script-v2-dev]
+    paths:
+      - '.github/workflows/fix-admission-large-upload-backend-v2.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  patch-and-deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Apps Script V2
+        uses: actions/checkout@v4
+        with:
+          ref: apps-script-v2-dev
+          fetch-depth: 0
+
+      - name: Patch Admission V2 to use staged uploads
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+
+          p = Path('apps-script-v2/AdmissionV2.js')
+          text = p.read_text(encoding='utf-8')
+
+          # 1. Route chunk packets through the existing public v2SubmitAdmission action.
+          old = """function submitAdmissionFormV2(payload) {
+            return v2SubmitAdmission_(payload || {});
+          }"""
+          new = """function submitAdmissionFormV2(payload) {
+            const data = payload || {};
+            if (data.__admissionUploadChunk === true) {
+              return v2UploadAdmissionChunk_(data);
+            }
+            return v2SubmitAdmission_(data);
+          }"""
+          if old in text:
+              text = text.replace(old, new, 1)
+          elif '__admissionUploadChunk' not in text:
+              raise SystemExit('submitAdmissionFormV2 anchor not found')
+
+          # 2. Required document test must accept either legacy base64 or staged upload metadata.
+          old_required = "if (!item.doc || !item.doc.base64) throw new Error(item.label + ' is required.');"
+          new_required = "if (!v2AdmissionDocumentPayloadPresent_(item.doc)) throw new Error(item.label + ' is required.');"
+          if old_required in text:
+              text = text.replace(old_required, new_required, 1)
+          elif new_required not in text:
+              raise SystemExit('required document validation anchor not found')
+
+          # 3. Replace only the document descriptor validation loop within v2ValidateAdmissionPayload_.
+          vstart = text.index('function v2ValidateAdmissionPayload_(payload) {')
+          vend = text.index('\nfunction v2AssertNoDuplicateApplication_', vstart)
+          segment = text[vstart:vend]
+          loop_start = segment.index('  Object.keys(documents).forEach(function(key) {')
+          loop_end = segment.index('  });', loop_start) + len('  });')
+          new_loop = """  Object.keys(documents).forEach(function(key) {
+            const doc = documents[key];
+            if (!v2AdmissionDocumentPayloadPresent_(doc)) return;
+            v2ValidateAdmissionDocumentDescriptor_(key, doc);
+          });"""
+          segment = segment[:loop_start] + new_loop + segment[loop_end:]
+          text = text[:vstart] + segment + text[vend:]
+
+          # 4. Materialise staged chunks into the normal student folder; keep legacy base64 compatibility.
+          sstart = text.index('function v2SaveAdmissionDocuments_(folder, payload) {')
+          send = text.index('\nfunction v2DocumentExtension_', sstart)
+          new_save = """function v2SaveAdmissionDocuments_(folder, payload) {
+            const uploaded = [];
+            const documents = payload.documents || {};
+            Object.keys(documents).forEach(function(key) {
+              const doc = documents[key];
+              if (!v2AdmissionDocumentPayloadPresent_(doc)) return;
+
+              if (doc.stagedUploadId) {
+                uploaded.push(v2MaterializeStagedAdmissionDocument_(folder, key, doc, payload));
+                return;
+              }
+
+              const extension = v2DocumentExtension_(doc.fileName, doc.mimeType);
+              const fileName = v2SafeName_(key).toUpperCase() + '_' + v2SafeName_(payload.fullName).toUpperCase() + extension;
+              const blob = Utilities.newBlob(Utilities.base64Decode(doc.base64), doc.mimeType, fileName);
+              const file = folder.createFile(blob);
+              uploaded.push({field:key,fileName:file.getName(),url:file.getUrl(),mimeType:doc.mimeType,size:Number(doc.size || 0)});
+            });
+            return uploaded;
+          }
+          """
+          text = text[:sstart] + new_save + text[send:]
+
+          # 5. Delete staging folders only after the complete admission submission has succeeded.
+          sub_start = text.index('function v2SubmitAdmission_(payload) {')
+          sub_end = text.index('\nfunction v2GeneratePgAdm01OnSubmission_', sub_start)
+          sub = text[sub_start:sub_end]
+          cleanup_line = '    v2CleanupPayloadStagedUploads_(payload);\n'
+          if cleanup_line not in sub:
+              marker = "    return {\n      ok:true,\n      success:true,"
+              pos = sub.rfind(marker)
+              if pos < 0:
+                  raise SystemExit('final success return anchor not found')
+              sub = sub[:pos] + cleanup_line + sub[pos:]
+              text = text[:sub_start] + sub + text[sub_end:]
+
+          # 6. Make the deployed build identifiable.
+          text = text.replace(
+              "const V2_ADMISSION_BUILD = 'ADMISSION_V2_SUBMISSION_COL_20260923';",
+              "const V2_ADMISSION_BUILD = 'ADMISSION_V2_CHUNKED_UPLOAD_20261006';",
+              1
+          )
+
+          p.write_text(text, encoding='utf-8')
+          PY
+
+      - name: Syntax check patched files
+        run: |
+          node --check apps-script-v2/AdmissionV2.js
+          node --check apps-script-v2/AdmissionUploadV2.js
+
+      - name: Verify patch markers
+        run: |
+          grep -F "__admissionUploadChunk" apps-script-v2/AdmissionV2.js
+          grep -F "v2AdmissionDocumentPayloadPresent_" apps-script-v2/AdmissionV2.js
+          grep -F "v2MaterializeStagedAdmissionDocument_" apps-script-v2/AdmissionV2.js
+          grep -F "v2CleanupPayloadStagedUploads_(payload)" apps-script-v2/AdmissionV2.js
+          grep -F "ADMISSION_V2_CHUNKED_UPLOAD_20261006" apps-script-v2/AdmissionV2.js
+
+      - name: Commit backend source
+        run: |
+          if git diff --quiet -- apps-script-v2/AdmissionV2.js; then
+            echo 'AdmissionV2.js already patched.'
+          else
+            git config user.name 'github-actions[bot]'
+            git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+            git add apps-script-v2/AdmissionV2.js
+            git commit -m 'Use staged chunks for admission document uploads'
+            git push origin apps-script-v2-dev
+          fi
+
+      - name: Verify clasp credential
+        env:
+          CLASPRC_JSON: ${{ secrets.CLASPRC_JSON }}
+        run: |
+          test -n "$CLASPRC_JSON" || (echo 'CLASPRC_JSON secret is not configured.' && exit 1)
+
+      - name: Install clasp
+        run: npm install --global @google/clasp@3.4.1
+
+      - name: Restore clasp credential
+        env:
+          CLASPRC_JSON: ${{ secrets.CLASPRC_JSON }}
+        run: |
+          printf '%s' "$CLASPRC_JSON" > "$HOME/.clasprc.json"
+          chmod 600 "$HOME/.clasprc.json"
+
+      - name: Verify locked V2 target
+        run: node tools/verify-clasp-target.mjs
+
+      - name: Syntax check complete Apps Script tree
+        run: |
+          set -e
+          for f in apps-script-v2/*.js; do node --check "$f"; done
+
+      - name: Push complete V2 source to Apps Script
+        run: clasp push --force
+
+      - name: Redeploy existing V2 web app
+        env:
+          V2_DEPLOYMENT_ID: AKfycbxasT_HgtRSvTbR_bsa8p17Cm-C2PKn20Ok1kU-AyJmxiKX8kX5EGOtRLwVwNlAL7JB
+        run: clasp create-deployment --deploymentId "$V2_DEPLOYMENT_ID" --description "Admission V2 chunked upload payload fix 2026-10-06"
+
+      - name: Remove clasp credential
+        if: always()
+        run: rm -f "$HOME/.clasprc.json"
