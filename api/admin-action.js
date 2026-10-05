@@ -1,9 +1,40 @@
 const ADMIN_BRIDGE = 'https://anasbukhori.app.n8n.cloud/webhook/iuc-admission-v2-admin-bridge';
+const V2_WEB_APP = 'https://script.google.com/macros/s/AKfycbxasT_HgtRSvTbR_bsa8p17Cm-C2PKn20Ok1kU-AyJmxiKX8kX5EGOtRLwVwNlAL7JB/exec';
+const AUTH_WEB_APP = 'https://script.google.com/macros/s/AKfycbw22-UOsHkaap3dzU16aOjA6XFr7jWGr9qQPfp8F1CQrXboP7YdRZJKKJhHijC3us4/exec';
 
 const ALLOWED_ACTIONS = new Set([
   'v2ListWorkflow','v2UpsertFeeStructure','v2SetFeeStructureStatus','v2UpsertAgent','v2AgentAdminStatus','v2UpdateStage','v2RunDocumentReview','v2RegeneratePgAdm01','v2CompleteManualDocumentReview','v2RunQualificationScreening','v2RunAutoAiScreening','v2CompleteManualQualificationScreening','v2RecordAiScreeningResult','v2ConfirmAiScreening','v2GenerateAiScreeningReport','v2RunComplianceDocumentQuality','v2SendDocumentReplacementRequest','v2SendMissingDocumentRequest','v2PrepareSacCoordination','v2PrepareIaCoordination','v2PreparePrerequisiteCoordination','v2PrepareOrientationForAccepted','v2RunOrientationSessionSupervisor','v2PrepareSkyActivation','v2PrepareAcademicHandover','v2PrepareStudentAccessDelivery','v2RunManagementIntelligence','v2AgenticStatus','v2GetAgentCaseState','v2AgentActionGateway','v2RecordAgentActivity','v2CreateHumanTask','v2ResolveHumanTask','v2ListOpenHumanTasks',
-  'v2IssueOffer','v2PrepareAcceptancePack','v2ResendAcceptanceConfirmation','v2CreateSacSession','v2AssignSacCandidate','v2PrepareSacPack','v2PrepareSacPackAsync','v2GetSacPackPrepareStatus','v2GetSacPackFile','v2SaveSacPackPdf','v2ListSacCandidates','v2RecordSacDecision','v2CreateSacSessionManual','v2UpdateSacSessionManual','v2DeleteSacSessionManual','v2SendSacCalendarInvitationManual','v2RecordSacDecisionManual','v2FinalizeSacSessionManual','v2SacManualPhase1Status','v2SacResultStatus','v2PrepareSacResultDocument','v2PreviewSacResult','v2SendSacResultEmail','v2UpdateAssessment','v2CreateOrientationSession','v2AssignOrientationBatch','v2SendOrientationInvitation','v2RemoveOrientationStudent','v2MoveOrientationStudent','v2UpdateOrientationAttendance','v2SendOrientationReminderNow','v2EndOrientationSession','v2EditOrientationSession','v2OpenOrientationAttendance','v2CloseOrientationAttendance','v2SetOrientationRecording','v2SendOrientationRecording','v2OrientationCompletionAssessment','v2CompleteOrientationAndGenerateReport','v2RegenerateOrientationReport','v2GetOrientationReportFile','v2CreateHandoverSession','v2AddHandoverStudents','v2SendHandoverSession','v2CreateAcademicHandoverBatch','v2ResendAcademicHandoverEmail','v2UpdateProvisioningTask','v2ResendProvisioningTaskEmails','v2SendStudentProvisioningAccess','v2RegistryUpsertProspect','v2RefreshFeeStructure','v2NotifyRegistryProspectReady','v2ActivateStudentInSky'
+  'v2IssueOffer','v2PrepareAcceptancePack','v2ResendAcceptanceConfirmation','v2CreateSacSession','v2AssignSacCandidate','v2RemoveSacCandidate','v2PrepareSacPack','v2PrepareSacPackAsync','v2GetSacPackPrepareStatus','v2GetSacPackFile','v2SaveSacPackPdf','v2ListSacCandidates','v2RecordSacDecision','v2CreateSacSessionManual','v2UpdateSacSessionManual','v2DeleteSacSessionManual','v2SendSacCalendarInvitationManual','v2RecordSacDecisionManual','v2FinalizeSacSessionManual','v2SacManualPhase1Status','v2SacResultStatus','v2PrepareSacResultDocument','v2PreviewSacResult','v2SendSacResultEmail','v2UpdateAssessment','v2CreateOrientationSession','v2AssignOrientationBatch','v2SendOrientationInvitation','v2RemoveOrientationStudent','v2MoveOrientationStudent','v2UpdateOrientationAttendance','v2SendOrientationReminderNow','v2EndOrientationSession','v2EditOrientationSession','v2OpenOrientationAttendance','v2CloseOrientationAttendance','v2SetOrientationRecording','v2SendOrientationRecording','v2OrientationCompletionAssessment','v2CompleteOrientationAndGenerateReport','v2RegenerateOrientationReport','v2GetOrientationReportFile','v2CreateHandoverSession','v2AddHandoverStudents','v2SendHandoverSession','v2CreateAcademicHandoverBatch','v2ResendAcademicHandoverEmail','v2UpdateProvisioningTask','v2ResendProvisioningTaskEmails','v2SendStudentProvisioningAccess','v2RegistryUpsertProspect','v2RefreshFeeStructure','v2NotifyRegistryProspectReady','v2ActivateStudentInSky'
 ]);
+
+async function validateDirectAdmin(password){
+  if(!password)return false;
+  const local=String(process.env.V2_ADMIN_API_PASSWORD||'');
+  if(local&&local===String(password))return true;
+  try{
+    const r=await fetch(`${AUTH_WEB_APP}?action=applications&token=${encodeURIComponent(String(password))}&_=${Date.now()}`,{redirect:'follow'});
+    const t=await r.text();const j=JSON.parse(t);return r.ok&&j?.ok===true;
+  }catch(_){return false;}
+}
+async function callAppsScriptV2(action,data,password,updatedBy){
+  const token=String(process.env.V2_ADMIN_API_PASSWORD||password||'');
+  const startedAt=Date.now();
+  const r=await fetch(V2_WEB_APP,{method:'POST',headers:{'Content-Type':'text/plain;charset=utf-8'},body:JSON.stringify({action,token,data:data||{},updatedBy:updatedBy||'Admin Portal V2'}),redirect:'follow'});
+  const text=await r.text();let parsed;try{parsed=JSON.parse(text)}catch(_){throw new Error(`Apps Script SAC backend returned HTTP ${r.status}.`)}
+  if(!r.ok||!parsed||parsed.ok===false)throw new Error(parsed?.message||`Apps Script SAC backend returned HTTP ${r.status}.`);
+  return {parsed,bridgeMs:Date.now()-startedAt};
+}
+async function removeSacCandidateDirect(data,password,updatedBy){
+  if(!(await validateDirectAdmin(password))){const e=new Error('Invalid admin password.');e.code='ADMIN_AUTH_FAILED';throw e;}
+  const legacy=String(data?.sessionId||data?.sacSessionId||'');
+  const ref=String(data?.referenceNo||'');
+  if(!legacy||!ref)throw new Error('SAC session and Reference No are required.');
+  const session=await findSacSession(legacy);
+  if(!session)throw new Error('SAC session not found in Supabase.');
+  const removed=await supabaseRequest(`sac_candidates?sac_session_id=eq.${encodeURIComponent(session.id)}&reference_no=eq.${encodeURIComponent(ref)}`,'DELETE');
+  await supabaseRequest('workflow_events','POST',[{reference_no:ref,event_type:'SAC_CANDIDATE_REMOVED',from_stage:'SAC_REVIEW',to_stage:'READY_FOR_SAC',actor:updatedBy||'Admin Portal V2',source:'ADMIN_PORTAL_V2',payload:{sac_session_id:legacy}}]);
+  return {ok:true,removed:Array.isArray(removed)?removed:[],referenceNo:ref,sessionId:legacy};
+}
 
 async function callV2(action, data, password, sessionId, updatedBy) {
   const startedAt = Date.now();
@@ -83,7 +114,14 @@ export default async function handler(req, res) {
 
   const startedAt = Date.now();
   try {
-    const { parsed: result, bridgeMs } = await callV2(action, body.data || {}, password, body.sessionId, body.updatedBy);
+    let result,bridgeMs;
+    if(action==='v2RemoveSacCandidate'){
+      const directStarted=Date.now();result=await removeSacCandidateDirect(body.data||{},password,body.updatedBy);bridgeMs=Date.now()-directStarted;
+    }else if(action==='v2RecordSacDecisionManual'){
+      ({parsed:result,bridgeMs}=await callAppsScriptV2(action,body.data||{},password,body.updatedBy));
+    }else{
+      ({parsed:result,bridgeMs}=await callV2(action, body.data || {}, password, body.sessionId, body.updatedBy));
+    }
     let supabaseMirror='not_applicable';
     if(action.toLowerCase().includes('sac')){try{await mirrorSacAction(action,body.data||{},result,body.updatedBy);supabaseMirror='ok';}catch(mirrorError){supabaseMirror='warning:'+String(mirrorError?.message||'mirror failed');}}
     const totalMs = Date.now() - startedAt;

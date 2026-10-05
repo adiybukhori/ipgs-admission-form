@@ -1254,7 +1254,7 @@
       document.getElementById('sacSessionSubtitle').textContent=`${sacDetailSessionId} · ${pretty(status)} · Manual physical SAC`;
 
       const panelHtml=panel.length?panel.map(m=>`<div class="sac-panel-item"><div><div class="name">${esc(m.name)}</div><div class="meta">${esc(m.role)} · ${esc(m.email)}</div></div><span class="badge ${m.active?'green':'amber'}">${m.active?'Active':'Inactive'}</span></div>`).join(''):'<div class="empty" style="padding:16px!important">No panel members configured yet.</div>';
-      const participantHtml=candidates.length?candidates.map(c=>{const ref=c['Reference No']||'',decision=c['Decision']||'PENDING';return`<div class="sac-participant-item"><div><div class="name">${esc(c['Student Name']||ref)}</div><div class="meta">${esc(c['Programme']||'')} · ${esc(ref)}</div></div><div style="display:flex;gap:7px;align-items:center;flex-wrap:wrap"><span class="badge ${classifyBadge(decision)}">${esc(pretty(decision))}</span><button class="ghost" type="button" onclick="closeSacSessionDetail();openRecord('${esc(ref)}')">Open Applicant</button></div></div>`}).join(''):'<div class="empty" style="padding:16px!important">No candidates assigned yet. Applicants that are Ready for SAC — including stranded SAC Review cases not yet linked to an actual SAC participant record — can be added here.</div>';
+      const participantHtml=candidates.length?candidates.map(c=>{const ref=c['Reference No']||'',decision=c['Decision']||'PENDING';return`<div class="sac-participant-item"><div><div class="name">${esc(c['Student Name']||ref)}</div><div class="meta">${esc(c['Programme']||'')} · ${esc(ref)}</div></div><div style="display:flex;gap:7px;align-items:center;flex-wrap:wrap"><span class="badge ${classifyBadge(decision)}">${esc(pretty(decision))}</span><button class="ghost" type="button" onclick="closeSacSessionDetail();openRecord('${esc(ref)}')">Open Applicant</button>${!isFinal?`<button class="ghost" type="button" style="color:#b42318;border-color:#f0b8b3" onclick="removeSacParticipant('${esc(ref)}')">Remove</button>`:''}</div></div>`}).join(''):'<div class="empty" style="padding:16px!important">No candidates assigned yet. Applicants that are Ready for SAC — including stranded SAC Review cases not yet linked to an actual SAC participant record — can be added here.</div>';
       const eligibleOptions=eligible.map(r=>`<option value="${esc(r.ref)}">${esc(r.app['Student Name']||r.ref)} · ${esc(r.app['Programme']||'')}</option>`).join('');
 
       document.getElementById('sacSessionBody').innerHTML=`
@@ -1296,6 +1296,14 @@
       sacDetailMsg('Participant added. Pending documents, if any, remain follow-up only.','ok');
     }
     async function smartAddSacParticipant(){return addSacParticipantFromDetail()}
+    async function removeSacParticipant(referenceNo){
+      const candidate=(db.V2_SAC_CANDIDATES||[]).find(c=>String(c['SAC Session ID']||'')===String(sacDetailSessionId)&&String(c['Reference No']||'')===String(referenceNo));
+      const name=candidate?.['Student Name']||referenceNo;
+      const result=await runSacPageAction('v2RemoveSacCandidate',{referenceNo,sessionId:sacDetailSessionId},`Remove ${name} from this SAC session?\n\nThe applicant will become available to assign to another SAC session.`);
+      if(!result)return;
+      db.V2_SAC_CANDIDATES=(db.V2_SAC_CANDIDATES||[]).filter(c=>!(String(c['SAC Session ID']||'')===String(sacDetailSessionId)&&String(c['Reference No']||'')===String(referenceNo)));
+      buildRecords();renderSac();renderSacSessionDetail();sacDetailMsg(`${name} removed from this SAC session.`,'ok');
+    }
 
     function eligibleSacParticipants(){
       const assigned=db.V2_SAC_CANDIDATES||[];
