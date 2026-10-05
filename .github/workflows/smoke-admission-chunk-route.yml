@@ -19,3 +19,5 @@ jobs:
             'https://ipgs-admission-form.innovative.edu.my/api/admission')"
           echo "$response"
           echo "$response" | grep -F 'Upload field and file name are required.'
+
+# Triggered after the chunk-aware Apps Script dispatcher was redeployed on 2026-10-06.
