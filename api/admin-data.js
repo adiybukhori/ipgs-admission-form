@@ -11,7 +11,7 @@ const SHEETS = [
   'V2_INTAKE_MASTER','V2_ORIENTATION_SESSIONS','V2_ORIENTATION_TRACKING','V2_ORIENTATION_WALKINS',
   'V2_HANDOVER_BATCHES','V2_HANDOVER_STUDENTS','V2_PROVISIONING','V2_ACADEMIC_PORTAL','V2_AUDIT_LOG'
 ];
-const SAC_SHEETS=['V2_SAC_SESSIONS','SAC_COMMITTEE_MASTER'];
+const SAC_SHEETS=['V2_SAC_SESSIONS','V2_SAC_CANDIDATES','SAC_COMMITTEE_MASTER'];
 const ADMIN_DATA_CACHE=globalThis.__IPGS_ADMIN_DATA_CACHE__||(globalThis.__IPGS_ADMIN_DATA_CACHE__={v2:null,v2At:0,sacCandidates:null,sacCandidatesAt:0});
 const V2_DATA_CACHE_MS=30*1000,SAC_LIVE_CACHE_MS=5*1000;
 
@@ -68,7 +68,30 @@ export default async function handler(req,res){
   else{data=await fetchSheets(SHEETS,warnings);ADMIN_DATA_CACHE.v2=cloneCached(data);ADMIN_DATA_CACHE.v2At=now;}
   const sheetsMs=Date.now()-sheetsStarted;
   const sacStarted=Date.now();const hasSacSessions=Array.isArray(data.V2_SAC_SESSIONS)&&data.V2_SAC_SESSIONS.length;
-  if(scope==='sac'||hasSacSessions){try{data.V2_SAC_CANDIDATES=await fetchLiveSacCandidates(body.password,body.sessionId,scope==='sac'&&force);if(ADMIN_DATA_CACHE.v2)ADMIN_DATA_CACHE.v2.V2_SAC_CANDIDATES=cloneCached(data.V2_SAC_CANDIDATES);}catch(error){const fallback=Array.isArray(ADMIN_DATA_CACHE.sacCandidates)?ADMIN_DATA_CACHE.sacCandidates:(Array.isArray(ADMIN_DATA_CACHE.v2?.V2_SAC_CANDIDATES)?ADMIN_DATA_CACHE.v2.V2_SAC_CANDIDATES:null);if(fallback)data.V2_SAC_CANDIDATES=cloneCached(fallback);warnings.push('V2_SAC_CANDIDATES authoritative load: '+(error?.message||'Unable to load')+(fallback?' · retained cached candidates':''));}}
+  if(scope==='sac'||hasSacSessions){
+    const sheetSacCandidates=Array.isArray(data.V2_SAC_CANDIDATES)?cloneCached(data.V2_SAC_CANDIDATES):[];
+    try{
+      const liveSacCandidates=await fetchLiveSacCandidates(body.password,body.sessionId,scope==='sac'&&force);
+      const sheetByRef=new Map(sheetSacCandidates.map(row=>[String(row?.['Reference No']||row?.referenceNo||'').trim(),row]));
+      const liveRows=Array.isArray(liveSacCandidates)?liveSacCandidates:[];
+      data.V2_SAC_CANDIDATES=(liveRows.length?liveRows:sheetSacCandidates).map(row=>{
+        const ref=String(row?.['Reference No']||row?.referenceNo||'').trim();
+        const base=sheetByRef.get(ref)||{};
+        const merged={...base,...row};
+        const sid=String(merged['SAC Session ID']||merged['Session ID']||merged.sacSessionId||merged.sessionId||base['SAC Session ID']||base['Session ID']||'').trim();
+        const decision=String(merged['Decision']||merged['Final Decision']||merged['SAC Decision']||merged.decision||merged.finalDecision||merged.sacDecision||'').trim();
+        if(ref)merged['Reference No']=ref;
+        if(sid)merged['SAC Session ID']=sid;
+        if(decision)merged['Decision']=decision;
+        return merged;
+      });
+      if(ADMIN_DATA_CACHE.v2)ADMIN_DATA_CACHE.v2.V2_SAC_CANDIDATES=cloneCached(data.V2_SAC_CANDIDATES);
+    }catch(error){
+      const fallback=sheetSacCandidates.length?sheetSacCandidates:(Array.isArray(ADMIN_DATA_CACHE.sacCandidates)?ADMIN_DATA_CACHE.sacCandidates:(Array.isArray(ADMIN_DATA_CACHE.v2?.V2_SAC_CANDIDATES)?ADMIN_DATA_CACHE.v2.V2_SAC_CANDIDATES:null));
+      if(fallback)data.V2_SAC_CANDIDATES=cloneCached(fallback);
+      warnings.push('V2_SAC_CANDIDATES authoritative load: '+(error?.message||'Unable to load')+(fallback?' · retained sheet/cached candidates':''));
+    }
+  }
   const sacMs=Date.now()-sacStarted;
   if(scope!=='sac'){data.V1_MASTER_DATABASE=[];data.V1_LEGACY_META=[{source:'ARCHIVED_AFTER_UNIFIED_MIGRATION',count:0,readOnly:true,cacheHit:false}];}
   sortSacSessions(data);const totalMs=Date.now()-startedAt;res.setHeader('Server-Timing',`auth;dur=${authMs}, sheets;dur=${sheetsMs}, sac;dur=${sacMs}, total;dur=${totalMs}`);
