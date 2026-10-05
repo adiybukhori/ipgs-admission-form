@@ -1,0 +1,82 @@
+name: Fix Admission Chunk Dispatch
+
+on:
+  push:
+    branches: [apps-script-v2-dev]
+    paths:
+      - '.github/workflows/fix-admission-chunk-dispatch.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  patch-and-deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Apps Script V2
+        uses: actions/checkout@v4
+        with:
+          ref: apps-script-v2-dev
+          fetch-depth: 0
+
+      - name: Route public submission through chunk-aware entrypoint
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          p = Path('apps-script-v2/WorkflowV2.js')
+          text = p.read_text(encoding='utf-8')
+          old = "if (action === 'v2SubmitAdmission') return v2SubmitAdmission_(payload.data || payload);"
+          new = "if (action === 'v2SubmitAdmission') return submitAdmissionFormV2(payload.data || payload);"
+          if old in text:
+              text = text.replace(old, new, 1)
+          elif new not in text:
+              raise SystemExit('v2SubmitAdmission dispatch anchor not found')
+          p.write_text(text, encoding='utf-8')
+          PY
+
+      - name: Syntax and dispatch checks
+        run: |
+          node --check apps-script-v2/WorkflowV2.js
+          node --check apps-script-v2/AdmissionV2.js
+          node --check apps-script-v2/AdmissionUploadV2.js
+          grep -F "return submitAdmissionFormV2(payload.data || payload);" apps-script-v2/WorkflowV2.js
+
+      - name: Commit dispatch repair
+        run: |
+          if git diff --quiet -- apps-script-v2/WorkflowV2.js; then
+            echo 'Dispatch already repaired.'
+          else
+            git config user.name 'github-actions[bot]'
+            git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+            git add apps-script-v2/WorkflowV2.js
+            git commit -m 'Route admission submissions through chunk-aware entrypoint'
+            git push origin apps-script-v2-dev
+          fi
+
+      - name: Install clasp
+        run: npm install --global @google/clasp@3.4.1
+
+      - name: Restore clasp credential
+        env:
+          CLASPRC_JSON: ${{ secrets.CLASPRC_JSON }}
+        run: |
+          test -n "$CLASPRC_JSON" || (echo 'CLASPRC_JSON secret is not configured.' && exit 1)
+          printf '%s' "$CLASPRC_JSON" > "$HOME/.clasprc.json"
+          chmod 600 "$HOME/.clasprc.json"
+
+      - name: Verify target and syntax
+        run: |
+          node tools/verify-clasp-target.mjs
+          set -e
+          for f in apps-script-v2/*.js; do node --check "$f"; done
+
+      - name: Push and redeploy Apps Script V2
+        env:
+          V2_DEPLOYMENT_ID: AKfycbxasT_HgtRSvTbR_bsa8p17Cm-C2PKn20Ok1kU-AyJmxiKX8kX5EGOtRLwVwNlAL7JB
+        run: |
+          clasp push --force
+          clasp create-deployment --deploymentId "$V2_DEPLOYMENT_ID" --description "Admission V2 chunk-aware public dispatcher 2026-10-06"
+
+      - name: Remove clasp credential
+        if: always()
+        run: rm -f "$HOME/.clasprc.json"
