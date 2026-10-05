@@ -221,6 +221,8 @@ export default async function handler(req, res) {
       const directStarted=Date.now();result=await updateSacSessionDirect(body.data||{},password,body.updatedBy);bridgeMs=Date.now()-directStarted;transport='SUPABASE_SAC_ADMIN';bridgeWarning=null;
     }else if(action==='v2DeleteSacSessionManual'){
       const directStarted=Date.now();result=await deleteSacSessionDirect(body.data||{},password,body.updatedBy);bridgeMs=Date.now()-directStarted;transport='SUPABASE_SAC_ADMIN';bridgeWarning=null;
+    }else if(action==='v2RecordSacDecisionManual'||action==='v2RecordSacDecision'){
+      const directStarted=Date.now();result=await recordSacDecisionDirect(body.data||{},password,body.updatedBy);bridgeMs=Date.now()-directStarted;transport='SUPABASE_SAC_DECISION';bridgeWarning='Canonical V2 workflow sync pending';
     }else{
       ({parsed:result,bridgeMs,transport,bridgeWarning}=await callV2(action, body.data || {}, password, body.sessionId, body.updatedBy));
     }
