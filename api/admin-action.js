@@ -17,7 +17,7 @@ async function validateDirectAdmin(password){
   }catch(_){return false;}
 }
 async function callAppsScriptV2(action,data,password,updatedBy){
-  const token=String(process.env.V2_ADMIN_API_PASSWORD||password||'');
+  const token=String(password||process.env.V2_ADMIN_API_PASSWORD||'');
   const startedAt=Date.now();
   const r=await fetch(V2_WEB_APP,{method:'POST',headers:{'Content-Type':'text/plain;charset=utf-8'},body:JSON.stringify({action,token,data:data||{},updatedBy:updatedBy||'Admin Portal V2'}),redirect:'follow'});
   const text=await r.text();let parsed;try{parsed=JSON.parse(text)}catch(_){throw new Error(`Apps Script SAC backend returned HTTP ${r.status}.`)}
@@ -93,30 +93,31 @@ async function recordSacDecisionDirect(data,password,updatedBy){
 
 async function callV2(action, data, password, sessionId, updatedBy) {
   const startedAt = Date.now();
-  const response = await fetch(ADMIN_BRIDGE, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      password: String(password || ''),
-      sessionId: String(sessionId || ''),
-      action,
-      data: data || {},
-      updatedBy: updatedBy || 'Admin Portal V2'
-    }),
-    redirect: 'follow'
-  });
+  let bridgeError = null;
+  try {
+    const response = await fetch(ADMIN_BRIDGE, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({password:String(password||''),sessionId:String(sessionId||''),action,data:data||{},updatedBy:updatedBy||'Admin Portal V2'}),
+      redirect: 'follow'
+    });
+    const text = await response.text();
+    let parsed = null; try { parsed = text ? JSON.parse(text) : null; } catch (_) {}
+    if (response.ok && parsed && parsed.ok !== false) return { parsed, bridgeMs: Date.now() - startedAt, transport:'N8N_BRIDGE' };
+    bridgeError = new Error(parsed?.message || `Admin bridge returned HTTP ${response.status}.`);
+    bridgeError.status = response.status;
+  } catch (error) { bridgeError = error; }
 
-  const text = await response.text();
-  let parsed;
-  try { parsed = JSON.parse(text); }
-  catch (_) { throw new Error(`Admin bridge returned HTTP ${response.status}.`); }
-
-  if (!response.ok || !parsed || parsed.ok === false) {
-    const error = new Error(parsed?.message || `Admin bridge returned HTTP ${response.status}.`);
-    error.code = response.status === 401 ? 'ADMIN_AUTH_FAILED' : 'V2_ACTION_FAILED';
+  // Production safety fallback: execute the EXISTING Apps Script V2 workflow engine.
+  // This preserves V2_WORKFLOW, IA/prerequisite/offer gates and audit logic; Supabase is only mirrored after success.
+  try {
+    const direct = await callAppsScriptV2(action, data, password, updatedBy);
+    return { parsed: direct.parsed, bridgeMs: Date.now() - startedAt, transport:'APPS_SCRIPT_FALLBACK', bridgeWarning:String(bridgeError?.message||'n8n bridge unavailable') };
+  } catch (directError) {
+    const error = new Error(`Workflow command failed. Bridge: ${String(bridgeError?.message||'unavailable')} | V2 backend: ${String(directError?.message||'failed')}`);
+    error.code = /password|auth/i.test(String(directError?.message||'')) ? 'ADMIN_AUTH_FAILED' : 'V2_ACTION_FAILED';
     throw error;
   }
-  return { parsed, bridgeMs: Date.now() - startedAt };
 }
 
 
@@ -169,23 +170,13 @@ export default async function handler(req, res) {
 
   const startedAt = Date.now();
   try {
-    let result,bridgeMs;
-    if(action==='v2CreateSacSessionManual'){
-      const directStarted=Date.now();result=await createSacSessionDirect(body.data||{},password,body.updatedBy);bridgeMs=Date.now()-directStarted;
-    }else if(action==='v2RemoveSacCandidate'){
-      const directStarted=Date.now();result=await removeSacCandidateDirect(body.data||{},password,body.updatedBy);bridgeMs=Date.now()-directStarted;
-    }else if(action==='v2DeleteSacSessionManual'){
-      const directStarted=Date.now();result=await deleteSacSessionDirect(body.data||{},password,body.updatedBy);bridgeMs=Date.now()-directStarted;
-    }else if(action==='v2RecordSacDecisionManual'){
-      const directStarted=Date.now();result=await recordSacDecisionDirect(body.data||{},password,body.updatedBy);bridgeMs=Date.now()-directStarted;
-    }else{
-      ({parsed:result,bridgeMs}=await callV2(action, body.data || {}, password, body.sessionId, body.updatedBy));
-    }
+    let result,bridgeMs,transport,bridgeWarning;
+    ({parsed:result,bridgeMs,transport,bridgeWarning}=await callV2(action, body.data || {}, password, body.sessionId, body.updatedBy));
     let supabaseMirror='not_applicable';
     if(action.toLowerCase().includes('sac')){try{await mirrorSacAction(action,body.data||{},result,body.updatedBy);supabaseMirror='ok';}catch(mirrorError){supabaseMirror='warning:'+String(mirrorError?.message||'mirror failed');}}
     const totalMs = Date.now() - startedAt;
     res.setHeader('Server-Timing', `bridge;dur=${bridgeMs}, total;dur=${totalMs}`);
-    return res.status(200).json({ ok: true, action, result, supabaseMirror, performance: { bridgeMs, totalMs } });
+    return res.status(200).json({ ok: true, action, result, supabaseMirror, transport:transport||'UNKNOWN', bridgeWarning:bridgeWarning||null, performance: { bridgeMs, totalMs } });
   } catch (error) {
     return res.status(error?.code === 'ADMIN_AUTH_FAILED' ? 401 : 502).json({
       ok: false,
