@@ -6,6 +6,7 @@ const AUTH_WEB_APP = 'https://script.google.com/macros/s/AKfycbw22-UOsHkaap3dzU1
 const ADMIN_BRIDGE = 'https://anasbukhori.app.n8n.cloud/webhook/iuc-admission-v2-admin-bridge';
 const FILE_FETCH_CONCURRENCY = 8;
 const FILE_FETCH_TIMEOUT_MS = 25000;
+const SPREADSHEET_ID = '1O-Y-q7_q78xKM1p5e2C3EWyQfYr5rXvhO0oWbVaw5Mw';
 
 async function validateAdminPassword(password) {
   if (!password) return false;
@@ -64,6 +65,48 @@ async function callV2(action, data, password, timeoutMs = 60000, authSessionId =
   } catch (directError) {
     throw new Error(`SAC pack backend failed. Bridge: ${bridgeError?.message || 'unavailable'} | V2 backend: ${directError?.message || 'failed'}`);
   }
+}
+
+function parseCsv(text){
+  const rows=[];let row=[],field='',quoted=false;
+  for(let i=0;i<text.length;i++){
+    const ch=text[i],next=text[i+1];
+    if(ch==='"'){if(quoted&&next==='"'){field+='"';i++;}else quoted=!quoted;continue;}
+    if(ch===','&&!quoted){row.push(field);field='';continue;}
+    if((ch==='\n'||ch==='\r')&&!quoted){if(ch==='\r'&&next==='\n')i++;row.push(field);if(row.some(v=>String(v||'').trim()!==''))rows.push(row);row=[];field='';continue;}
+    field+=ch;
+  }
+  row.push(field);if(row.some(v=>String(v||'').trim()!==''))rows.push(row);return rows;
+}
+function toObjects(csv){const rows=parseCsv(csv);if(!rows.length)return[];const h=rows[0].map(v=>String(v||'').trim());return rows.slice(1).map(r=>{const o={};h.forEach((k,i)=>{if(k)o[k]=r[i]??''});return o});}
+function gvizLiteral(value){return String(value||'').replace(/'/g,"''");}
+async function fetchSheetRow(sheet,column,referenceNo){
+  const tq=`select * where ${column} = '${gvizLiteral(referenceNo)}'`;
+  const url=`https://docs.google.com/spreadsheets/d/${SPREADSHEET_ID}/gviz/tq?tqx=out:csv&sheet=${encodeURIComponent(sheet)}&tq=${encodeURIComponent(tq)}&_=${Date.now()}`;
+  const r=await fetch(url,{redirect:'follow'});if(!r.ok)return null;const rows=toObjects(await r.text());return rows[0]||null;
+}
+function driveFileId(url){const s=String(url||'');const m=s.match(/\/d\/([A-Za-z0-9_-]+)/)||s.match(/[?&]id=([A-Za-z0-9_-]+)/);return m?m[1]:'';}
+async function fetchDriveFile(url,mimeHint=''){
+  const id=driveFileId(url);if(!id)return null;
+  const r=await fetch(`https://drive.google.com/uc?export=download&id=${encodeURIComponent(id)}`,{redirect:'follow'});if(!r.ok)return null;
+  const bytes=Buffer.from(await r.arrayBuffer());if(!bytes.length)return null;
+  let mime=String(mimeHint||r.headers.get('content-type')||'').toLowerCase();
+  if(mime==='application/octet-stream'||mime==='application/binary'||!mime){
+    if(bytes.slice(0,4).toString()==='%PDF')mime='application/pdf';
+    else if(bytes[0]===0x89&&bytes[1]===0x50)mime='image/png';
+    else if(bytes[0]===0xff&&bytes[1]===0xd8)mime='image/jpeg';
+  }
+  if(!['application/pdf','image/png','image/jpeg','image/jpg'].includes(mime))return null;
+  return {base64:bytes.toString('base64'),mimeType:mime};
+}
+async function fallbackSheetFile(referenceNo,documentKey){
+  const app=await fetchSheetRow('V2_APPLICATIONS','A',referenceNo);if(!app)return null;
+  if(documentKey==='admissionForm')return fetchDriveFile(app['Admission Form PDF URL'],'application/pdf');
+  let uploads=[];try{uploads=JSON.parse(app['Uploaded Files JSON']||'[]')}catch(_){}
+  const fieldMap={transcript:'transcript',certificate:'certificate',resume:'cvResume'};
+  const wanted=fieldMap[documentKey];
+  if(wanted){const f=uploads.find(x=>String(x?.field||'')===wanted);if(f?.url)return fetchDriveFile(f.url,f.mimeType||'');}
+  return null;
 }
 
 async function mapWithConcurrency(items, concurrency, worker) {
@@ -161,6 +204,10 @@ export default async function handler(req, res) {
           lastError='FILE_NOT_AVAILABLE';
         }catch(error){lastError=error?.message||'FILE_FETCH_FAILED';}
       }
+      try{
+        const fallback=await fallbackSheetFile(candidate.referenceNo,doc.key);
+        if(fallback?.base64)return {candidate,doc,file:fallback};
+      }catch(error){lastError=error?.message||lastError;}
       return {candidate,doc,error:lastError};
     });
     const files=fetched.filter(item=>item.file?.base64);
