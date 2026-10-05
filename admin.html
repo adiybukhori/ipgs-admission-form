@@ -1804,22 +1804,101 @@
       mergeTargetedApplicantData(ref,out.data||{});
       return selected;
     }
+    // ADMIN_TARGETED_REFRESH_V1
+    function renderSelectedApplicant(){
+      if(!selected)return;
+      renderProgress(selected);
+      renderQuickActions(selected);
+      renderOperationalActions(selected);
+      renderDetailTabs(selected);
+    }
+    function applyOptimisticActionResult(action,data,result){
+      if(!selected||selected.legacy)return;
+      const r=result&&typeof result==='object'?result:{};
+      selected.workflow={...(selected.workflow||{})};
+      selected.sac={...(selected.sac||{})};
+      selected.screening={...(selected.screening||{})};
+      selected.ai={...(selected.ai||{})};
+      selected.doc={...(selected.doc||{})};
+
+      const stage=String(r.nextStage||r.applicationStage||'').trim();
+      if(stage)selected.workflow['Application Stage']=stage;
+      if(r.screeningStatus)selected.workflow['Qualification Screening Status']=r.screeningStatus;
+      if(r.recommendedRoute){selected.workflow['Screening Recommendation']=r.recommendedRoute;selected.screening['Recommended Route']=r.recommendedRoute}
+      if(r.offerStatus)selected.workflow['Offer Letter Status']=r.offerStatus;
+      if(r.offerLetterPdfUrl)selected.workflow['Offer Letter PDF URL']=r.offerLetterPdfUrl;
+      if(r.acceptanceSigningUrl)selected.workflow['Acceptance Signing URL']=r.acceptanceSigningUrl;
+      if(r.acceptanceStatus)selected.workflow['Acceptance Status']=r.acceptanceStatus;
+
+      if(action==='v2RecordSacDecisionManual'||action==='v2RecordSacDecision'){
+        const decision=String(r.decision||data?.decision||'').toUpperCase();
+        if(decision){selected.workflow['SAC Decision']=decision;selected.sac['Decision']=decision}
+        if(!stage){
+          if(decision==='DIRECT_ENTRY')selected.workflow['Application Stage']='ELIGIBLE_FOR_OFFER';
+          else if(decision==='INTERNAL_ASSESSMENT')selected.workflow['Application Stage']='INTERNAL_ASSESSMENT';
+          else if(decision==='REJECTED')selected.workflow['Application Stage']='REJECTED';
+        }
+      }
+      if(action==='v2AssignSacCandidate'){
+        selected.workflow['SAC Session ID']=data?.sessionId||selected.workflow['SAC Session ID']||'';
+        selected.sac['SAC Session ID']=data?.sessionId||selected.sac['SAC Session ID']||'';
+        if(!stage)selected.workflow['Application Stage']='SAC_REVIEW';
+      }
+      if(action==='v2CompleteManualQualificationScreening'){
+        const route=String(r.recommendedRoute||data?.recommendedRoute||'');
+        if(route){selected.workflow['Screening Recommendation']=route;selected.screening['Recommended Route']=route}
+        selected.workflow['Qualification Screening Status']=r.screeningStatus||'COMPLETED_MANUAL';
+        if(!stage)selected.workflow['Application Stage']='READY_FOR_SAC';
+      }
+      if(action==='v2RunAutoAiScreening'&&r.status)selected.ai['Status']=r.status;
+      if(action==='v2RunDocumentReview'&&r.status)selected.workflow['Document Review Status']=r.status;
+      if(action==='v2CompleteManualDocumentReview')selected.workflow['Document Review Status']=r.status||r.documentReviewStatus||'COMPLETE';
+
+      renderSelectedApplicant();
+    }
+    function mergeTargetedApplicantData(referenceNo,delta){
+      const ref=String(referenceNo||'').trim();
+      if(!ref||!delta||typeof delta!=='object')return;
+      const targetSheets=['V2_APPLICATIONS','V2_WORKFLOW','V2_DOCUMENT_REVIEW','V2_AI_SCREENING','V2_QUALIFICATION_SCREENING','V2_SAC_CANDIDATES','V2_ASSESSMENT_PROGRESS','V2_AUDIT_LOG'];
+      targetSheets.forEach(name=>{
+        if(!Array.isArray(delta[name]))return;
+        const existing=Array.isArray(db[name])?db[name]:[];
+        db[name]=existing.filter(row=>String(row?.['Reference No']||'').trim()!==ref).concat(delta[name]);
+      });
+      buildRecords();
+      selected=records.find(x=>x.ref===ref)||selected;
+      renderSelectedApplicant();
+    }
+    async function refreshApplicantRecord(referenceNo){
+      const ref=String(referenceNo||'').trim();
+      if(!ref)return null;
+      const res=await fetch(RECORD_API,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({password,referenceNo:ref})});
+      const out=await res.json().catch(()=>({ok:false,message:'Invalid targeted refresh response.'}));
+      if(!res.ok||!out.ok)throw new Error(out.message||'Unable to refresh applicant.');
+      mergeTargetedApplicantData(ref,out.data||{});
+      return selected;
+    }
     async function runAdminAction(action,data,confirmText){
       if(confirmText&&!confirm(confirmText))return null;
       opsMsg('Processing…','info');
       try{
-        const res=await fetch(ACTION_API,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({password,sessionId:adminSessionId,action,data,updatedBy:'Admin Portal V2'})});
+        const res=await fetch(ACTION_API,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({password,action,data,updatedBy:'Admin Portal V2'})});
         const out=await res.json().catch(()=>({ok:false,message:'Invalid response from action service.'}));
         if(!res.ok||!out.ok)throw new Error(out.message||'Unable to complete action.');
         const result=out.result||out;
         const ref=selected?.ref||data?.referenceNo||'';
         applyOptimisticActionResult(action,data,result);
         opsMsg('Saved successfully. Syncing this applicant…','ok');
-        if(ref){scheduleApplicantRefresh(ref);opsMsg('Saved successfully.','ok')}else{opsMsg('Saved successfully.','ok')}
+        if(ref){
+          refreshApplicantRecord(ref)
+            .then(()=>opsMsg('Saved successfully.','ok'))
+            .catch(()=>opsMsg('Saved successfully. Use Refresh if you need to verify the latest backend data.','ok'));
+        }else{
+          opsMsg('Saved successfully.','ok');
+        }
         return result;
       }catch(e){opsMsg(e.message||'Unable to complete action.','error');return null}
     }
-    async function runAdminActionBackground(action,data){try{const res=await fetch(ACTION_API,{method:'POST',headers:{'Content-Type':'application/json'},keepalive:true,body:JSON.stringify({password,sessionId:adminSessionId,action,data,updatedBy:'Admin Portal V2'})});const out=await res.json().catch(()=>({ok:false,message:'Invalid background action response.'}));if(!res.ok||!out.ok)throw new Error(out.message||'Background save failed.');const ref=data?.referenceNo||'';if(ref)scheduleApplicantRefresh(ref,1600);return out.result||out}catch(e){console.warn('ACC background action failed',action,e);if(selected?.ref&&selected.ref===data?.referenceNo)opsMsg('Main save completed, but a background follow-up sync needs retry. Use Refresh if the status does not update.','error');return null}}
     function runDocumentReview(){if(!selected)return;runAdminAction('v2RunDocumentReview',{referenceNo:selected.ref,remarks:''},`Run document review for ${selected.app['Student Name']||selected.ref}?`)}
     function runComplianceQualityReview(){if(!selected)return;runAdminAction('v2RunComplianceDocumentQuality',{referenceNo:selected.ref},`Run Compliance & Records AI document-quality inspection for ${selected.app['Student Name']||selected.ref}? This checks document usability and does not make an academic admission decision.`)}
     async function approveDocumentQualityHumanOverride(){
