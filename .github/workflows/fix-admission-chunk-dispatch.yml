@@ -77,6 +77,16 @@ jobs:
           clasp push --force
           clasp create-deployment --deploymentId "$V2_DEPLOYMENT_ID" --description "Admission V2 chunk-aware public dispatcher 2026-10-06"
 
+      - name: Smoke test live Vercel to Apps Script chunk route
+        run: |
+          set -euo pipefail
+          response="$(curl --fail-with-body --silent --show-error \
+            -H 'Content-Type: text/plain;charset=utf-8' \
+            --data '{"action":"v2SubmitAdmission","data":{"__admissionUploadChunk":true,"uploadId":"smoke-test-20261006-abcdef","field":"identityDocument","mimeType":"application/pdf","size":1,"chunkIndex":0,"chunkCount":1,"base64":"AA=="}}' \
+            'https://ipgs-admission-form.innovative.edu.my/api/admission')"
+          echo "$response"
+          echo "$response" | grep -F 'Upload field and file name are required.'
+
       - name: Remove clasp credential
         if: always()
         run: rm -f "$HOME/.clasprc.json"
