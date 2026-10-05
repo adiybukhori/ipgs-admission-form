@@ -102,6 +102,15 @@ async function fetchDriveFile(url,mimeHint=''){
 async function fallbackSheetFile(referenceNo,documentKey){
   const app=await fetchSheetRow('V2_APPLICATIONS','A',referenceNo);if(!app)return null;
   if(documentKey==='admissionForm')return fetchDriveFile(app['Admission Form PDF URL'],'application/pdf');
+  if(documentKey==='pgAdm01'){
+    const wf=await fetchSheetRow('V2_WORKFLOW','A',referenceNo);return fetchDriveFile(wf?.['PG-ADM-01 URL'],'application/pdf');
+  }
+  if(documentKey==='aiScreeningReport'){
+    const ai=await fetchSheetRow('V2_AI_SCREENING','A',referenceNo);return fetchDriveFile(ai?.['Report PDF URL'],'application/pdf');
+  }
+  if(documentKey==='documentQualityReport'){
+    const dr=await fetchSheetRow('V2_DOCUMENT_REVIEW','A',referenceNo);return fetchDriveFile(dr?.['Document Quality Report PDF URL'],'application/pdf');
+  }
   let uploads=[];try{uploads=JSON.parse(app['Uploaded Files JSON']||'[]')}catch(_){}
   const fieldMap={transcript:'transcript',certificate:'certificate',resume:'cvResume'};
   const wanted=fieldMap[documentKey];
@@ -188,6 +197,7 @@ export default async function handler(req, res) {
     {key:'certificate',label:'Certificate'},
     {key:'transcript',label:'Transcript'},
     {key:'resume',label:'Resume / CV'},
+    {key:'documentQualityReport',label:'AI Document Quality Report',internal:true},
     {key:'aiScreeningReport',label:'Final AI Screening Report',internal:true}
   ];
 
