@@ -113,22 +113,24 @@ async function deleteSacSessionDirect(data,password,updatedBy){
   return {ok:true,sessionId:legacy,removed:Array.isArray(removed)?removed:[]};
 }
 
+async function supabaseRpc(fn,body){
+ const cfg=supabaseConfig();if(!cfg)throw new Error('Supabase is not configured.');
+ const r=await fetch(`${cfg.url}/rest/v1/rpc/${fn}`,{method:'POST',headers:{apikey:cfg.key,Authorization:`Bearer ${cfg.key}`,'Content-Type':'application/json'},body:JSON.stringify(body||{})});
+ const t=await r.text();let j=null;try{j=t?JSON.parse(t):null}catch(_){}if(!r.ok)throw new Error(j?.message||`Supabase workflow RPC returned HTTP ${r.status}.`);return j;
+}
 async function recordSacDecisionDirect(data,password,updatedBy){
-  if(!(await validateDirectAdmin(password))){const e=new Error('Invalid admin password.');e.code='ADMIN_AUTH_FAILED';throw e;}
-  const legacy=String(data?.sessionId||data?.sacSessionId||'');
-  const ref=String(data?.referenceNo||'');
-  const decision=String(data?.decision||'').toUpperCase();
-  if(!legacy||!ref||!decision)throw new Error('SAC session, Reference No and decision are required.');
-  if(!['DIRECT_ENTRY','INTERNAL_ASSESSMENT','REJECTED'].includes(decision))throw new Error('Unsupported SAC decision.');
-  const session=await findSacSession(legacy);if(!session)throw new Error('SAC session not found in Supabase.');
-  const rows=await supabaseRequest(`sac_candidates?select=id,student_name,programme&sac_session_id=eq.${encodeURIComponent(session.id)}&reference_no=eq.${encodeURIComponent(ref)}&limit=1`);
-  const candidate=Array.isArray(rows)?rows[0]:null;if(!candidate)throw new Error('SAC candidate not found in this session.');
-  const now=new Date().toISOString();
-  await supabaseRequest(`sac_candidates?id=eq.${encodeURIComponent(candidate.id)}`,'PATCH',{decision,reviewer_remarks:data?.remarks||'',decision_by:updatedBy||'Admin Portal V2',decision_at:now,updated_at:now});
-  await supabaseRequest('sac_decisions','POST',[{sac_candidate_id:candidate.id,decision,remarks:data?.remarks||'',decided_by:updatedBy||'Admin Portal V2',decided_at:now,source:'ADMIN_PORTAL',metadata:{session_id:legacy,reference_no:ref}}]);
-  const nextStage=decision==='DIRECT_ENTRY'?'ELIGIBLE_FOR_OFFER':decision==='INTERNAL_ASSESSMENT'?'INTERNAL_ASSESSMENT':'REJECTED';
-  await supabaseRequest('workflow_events','POST',[{reference_no:ref,event_type:'SAC_DECISION_RECORDED',from_stage:'SAC_REVIEW',to_stage:nextStage,actor:updatedBy||'Admin Portal V2',source:'ADMIN_PORTAL_V2',payload:{sac_session_id:legacy,decision}}]);
-  return {ok:true,referenceNo:ref,sessionId:legacy,decision,applicationStage:nextStage,workflowSyncStatus:'PENDING_BACKEND_SYNC',canonicalWorkflowEngine:'APPS_SCRIPT_V2',candidate:{'Reference No':ref,'SAC Session ID':legacy,'Student Name':candidate.student_name||'','Programme':candidate.programme||'','Decision':decision}};
+ if(!(await validateDirectAdmin(password))){const e=new Error('Invalid admin password.');e.code='ADMIN_AUTH_FAILED';throw e;}
+ const legacy=String(data?.sessionId||data?.sacSessionId||'').trim(),ref=String(data?.referenceNo||'').trim(),decision=String(data?.decision||'').toUpperCase();
+ if(!legacy||!ref||!decision)throw new Error('SAC session, Reference No and decision are required.');
+ const r=await supabaseRpc('record_sac_decision_atomic',{p_legacy_session_id:legacy,p_reference_no:ref,p_decision:decision,p_actor:updatedBy||'Admin Portal V2',p_remarks:String(data?.remarks||'')});
+ return {...(r||{}),workflowSyncStatus:'SUPABASE_CANONICAL',canonicalWorkflowEngine:'SUPABASE',legacyWorkflowSyncStatus:r?.legacySyncStatus||'PENDING'};
+}
+async function recordAssessmentResultDirect(data,password,updatedBy){
+ if(!(await validateDirectAdmin(password))){const e=new Error('Invalid admin password.');e.code='ADMIN_AUTH_FAILED';throw e;}
+ const ref=String(data?.referenceNo||'').trim(),typ=String(data?.assessmentType||'').toUpperCase(),res=String(data?.panelResult||'').toUpperCase();
+ if(!ref||!typ||!res)throw new Error('Reference No, assessment type and panel result are required.');
+ const r=await supabaseRpc('record_assessment_result_atomic',{p_reference_no:ref,p_assessment_type:typ,p_panel_result:res,p_actor:updatedBy||'Admin Portal V2',p_remarks:String(data?.remarks||'')});
+ return {...(r||{}),workflowSyncStatus:'SUPABASE_CANONICAL',canonicalWorkflowEngine:'SUPABASE',legacyWorkflowSyncStatus:r?.legacySyncStatus||'PENDING'};
 }
 
 async function callV2(action, data, password, sessionId, updatedBy) {
@@ -222,7 +224,9 @@ export default async function handler(req, res) {
     }else if(action==='v2DeleteSacSessionManual'){
       const directStarted=Date.now();result=await deleteSacSessionDirect(body.data||{},password,body.updatedBy);bridgeMs=Date.now()-directStarted;transport='SUPABASE_SAC_ADMIN';bridgeWarning=null;
     }else if(action==='v2RecordSacDecisionManual'||action==='v2RecordSacDecision'){
-      const directStarted=Date.now();result=await recordSacDecisionDirect(body.data||{},password,body.updatedBy);bridgeMs=Date.now()-directStarted;transport='SUPABASE_SAC_DECISION';bridgeWarning='Canonical V2 workflow sync pending';
+      const directStarted=Date.now();result=await recordSacDecisionDirect(body.data||{},password,body.updatedBy);bridgeMs=Date.now()-directStarted;transport='SUPABASE_WORKFLOW_ATOMIC';bridgeWarning=null;
+    }else if(action==='v2UpdateAssessment'){
+      const directStarted=Date.now();result=await recordAssessmentResultDirect(body.data||{},password,body.updatedBy);bridgeMs=Date.now()-directStarted;transport='SUPABASE_WORKFLOW_ATOMIC';bridgeWarning=null;
     }else{
       ({parsed:result,bridgeMs,transport,bridgeWarning}=await callV2(action, body.data || {}, password, body.sessionId, body.updatedBy));
     }

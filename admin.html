@@ -1738,8 +1738,9 @@
       selected.ai={...(selected.ai||{})};
       selected.doc={...(selected.doc||{})};
       const syncPending=String(r.workflowSyncStatus||'').toUpperCase()==='PENDING_BACKEND_SYNC';
+      const supabaseCanonical=String(r.workflowSyncStatus||'').toUpperCase()==='SUPABASE_CANONICAL';
       const nextStage=String(r.nextStage||r.applicationStage||'').trim();
-      if(nextStage&&!syncPending)selected.workflow['Application Stage']=nextStage;
+      if(nextStage&&(!syncPending||supabaseCanonical))selected.workflow['Application Stage']=nextStage;
       if(syncPending){selected.workflow['SAC Sync Status']='PENDING_BACKEND_SYNC';selected.workflow['Pending SAC Decision']=String(r.decision||data?.decision||'').toUpperCase();selected.workflow['SAC Expected Stage']=nextStage;}
       if(r.screeningStatus)selected.workflow['Qualification Screening Status']=r.screeningStatus;
       if(r.recommendedRoute){selected.workflow['Screening Recommendation']=r.recommendedRoute;selected.screening['Recommended Route']=r.recommendedRoute}
@@ -1752,7 +1753,7 @@
         if(d){
           selected.workflow['SAC Decision']=d;selected.sac['Decision']=d;
           const expected=nextStage||(d==='DIRECT_ENTRY'?'ELIGIBLE_FOR_OFFER':d==='INTERNAL_ASSESSMENT'?'INTERNAL_ASSESSMENT':d==='REJECTED'?'REJECTED':'');
-          if(expected){selected.workflow['SAC Expected Stage']=expected;if(syncPending)selected.workflow['SAC Sync Status']='PENDING_BACKEND_SYNC'}
+          if(expected){selected.workflow['SAC Expected Stage']=expected;if(syncPending)selected.workflow['SAC Sync Status']='PENDING_BACKEND_SYNC';else if(supabaseCanonical)selected.workflow['SAC Sync Status']='LEGACY_MIRROR_PENDING'}
           const c=(db.V2_SAC_CANDIDATES||[]).find(x=>String(x['Reference No']||'')===String(selected.ref));
           if(c){c['Decision']=d;c['Decision At']=r.decisionAt||new Date().toISOString();c['Decision By']='Admin Portal V2'}
         }
@@ -1762,6 +1763,13 @@
           else if(d==='REJECTED')selected.workflow['Application Stage']='REJECTED';
         }
         renderSac();
+      }
+      if(action==='v2UpdateAssessment'){
+        if(nextStage)selected.workflow['Application Stage']=nextStage;
+        if(r.assessmentStatus)selected.workflow['Assessment Status']=r.assessmentStatus;
+        if(r.prerequisiteStatus)selected.workflow['Prerequisite Status']=r.prerequisiteStatus;
+        selected.workflow['Workflow Source']='SUPABASE';
+        selected.workflow['Legacy Sync Status']=r.legacyWorkflowSyncStatus||r.legacySyncStatus||'PENDING';
       }
       if(action==='v2AssignSacCandidate'){
         selected.workflow['SAC Session ID']=data?.sessionId||selected.workflow['SAC Session ID']||'';

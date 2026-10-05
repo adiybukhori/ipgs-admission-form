@@ -82,20 +82,23 @@ function mapSupabaseCandidate(row,sessionLegacyId){return{
   'Missing Documents JSON':JSON.stringify(row.missing_documents||[]),'Pack Prepared At':row.pack_prepared_at||''
 }}
 async function fetchSupabaseSac(){
-  const [sessions,candidates]=await Promise.all([supabaseGet('sac_sessions?select=*&order=meeting_date.desc.nullslast,created_at.desc'),supabaseGet('sac_candidates?select=*&order=created_at.asc')]);
+  const [sessions,candidates,workflow,assessments]=await Promise.all([supabaseGet('sac_sessions?select=*&order=meeting_date.desc.nullslast,created_at.desc'),supabaseGet('sac_candidates?select=*&order=created_at.asc'),supabaseGet('workflow_state?select=*'),supabaseGet('assessment_cases?select=*&order=created_at.asc')]);
   const sessionById=new Map((sessions||[]).map(s=>[String(s.id),s]));
   const counts=new Map();for(const c of (candidates||[])){const id=String(c.sac_session_id||'');counts.set(id,(counts.get(id)||0)+1)}
-  return{
-    sessions:(sessions||[]).filter(s=>!s.is_hidden).map(s=>mapSupabaseSession(s,counts.get(String(s.id))||0)),
-    candidates:(candidates||[]).map(c=>mapSupabaseCandidate(c,sessionById.get(String(c.sac_session_id))?.legacy_session_id||''))
-  };
+  return{sessions:(sessions||[]).filter(s=>!s.is_hidden).map(s=>mapSupabaseSession(s,counts.get(String(s.id))||0)),candidates:(candidates||[]).map(c=>mapSupabaseCandidate(c,sessionById.get(String(c.sac_session_id))?.legacy_session_id||'')),workflow:workflow||[],assessments:assessments||[]};
+}
+function overlaySupabaseWorkflow(data,states,assessments){
+  if(!Array.isArray(data.V2_WORKFLOW))data.V2_WORKFLOW=[];const byRef=new Map(data.V2_WORKFLOW.map(w=>[String(w['Reference No']||w['Reference']||''),w]));
+  for(const st of (states||[])){const ref=String(st.reference_no||'');if(!ref)continue;const w=byRef.get(ref)||{'Reference No':ref};byRef.set(ref,{...w,'Application Stage':st.current_stage||w['Application Stage']||'','SAC Decision':st.sac_decision||w['SAC Decision']||'','SAC Supabase Decision':st.sac_decision||'','Assessment Status':st.assessment_status||'','Prerequisite Status':st.prerequisite_status||'','Offer Letter Status':st.offer_status||w['Offer Letter Status']||'','Acceptance Status':st.acceptance_status||w['Acceptance Status']||'','Workflow Version':String(st.workflow_version||''),'Workflow Source':'SUPABASE','Legacy Sync Status':st.legacy_sync_status||'','SAC Sync Status':st.legacy_sync_status==='SYNCED'?'SYNCED':'LEGACY_MIRROR_PENDING','Last Updated':st.updated_at||w['Last Updated']||'','Updated By':st.updated_by||w['Updated By']||''});}
+  data.V2_WORKFLOW=[...byRef.values()];
+  if(Array.isArray(assessments)&&assessments.length){const refs=new Set(assessments.map(a=>String(a.reference_no||''))),keep=(data.V2_ASSESSMENT_PROGRESS||[]).filter(r=>!refs.has(String(r['Reference No']||''))),mapped=assessments.map(a=>({'Reference No':a.reference_no,'Assessment Type':a.assessment_type,'Sequence':String(a.sequence||1),'Component':'OVERALL','Status':a.status,'Panel Result':a.panel_result||'','Remarks':a.remarks||'','Updated At':a.updated_at||'','Updated By':a.completed_by||a.created_by||''}));data.V2_ASSESSMENT_PROGRESS=keep.concat(mapped);}
 }
 
 async function fetchLiveSacCandidates(password,sessionId,force=false){const now=Date.now();if(!force&&ADMIN_DATA_CACHE.sacCandidates&&(now-ADMIN_DATA_CACHE.sacCandidatesAt)<SAC_LIVE_CACHE_MS)return cloneCached(ADMIN_DATA_CACHE.sacCandidates);const response=await fetch(ADMIN_BRIDGE,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({password:String(password||''),sessionId:String(sessionId||''),action:'v2ListSacCandidates',data:{},updatedBy:'Admin Data Live SAC Authoritative Read'}),redirect:'follow'});const text=await response.text();let parsed;try{parsed=JSON.parse(text)}catch(_){throw new Error('SAC live read returned HTTP '+response.status+'.')}if(!response.ok||!parsed||parsed.ok===false)throw new Error(parsed?.message||('SAC live read returned HTTP '+response.status+'.'));const payload=parsed?.result?.result||parsed?.result||parsed;const rows=Array.isArray(payload?.candidates)?payload.candidates:[];ADMIN_DATA_CACHE.sacCandidates=cloneCached(rows);ADMIN_DATA_CACHE.sacCandidatesAt=now;return rows;}
 
 export default async function handler(req,res){
   res.setHeader('Cache-Control','no-store, max-age=0');
-  if(req.method==='GET'&&String(req.query?.health||'')==='1')return res.status(200).json({ok:true,service:'IPGS Unified Admission Admin Data',build:'ADMIN_DATA_SAC_DUAL_WRITE_GUARD_20261005'});
+  if(req.method==='GET'&&String(req.query?.health||'')==='1')return res.status(200).json({ok:true,service:'IPGS Unified Admission Admin Data',build:'ADMIN_DATA_SUPABASE_WORKFLOW_20261005'});
   if(req.method!=='POST')return res.status(405).json({ok:false,message:'Method not allowed.'});
   const startedAt=Date.now();let body=req.body||{};if(typeof body==='string'){try{body=JSON.parse(body)}catch(_){body={}}}
   const authStarted=Date.now();if(!(await validateAdminSession(body.password,body.sessionId)))return res.status(401).json({ok:false,message:'Invalid admin password.'});const authMs=Date.now()-authStarted;
@@ -111,6 +114,7 @@ export default async function handler(req,res){
     const supa=await fetchSupabaseSac();
     data.V2_SAC_SESSIONS=supa.sessions;
     data.V2_SAC_CANDIDATES=supa.candidates;
+    if(scope!=='sac')overlaySupabaseWorkflow(data,supa.workflow,supa.assessments);
     if(ADMIN_DATA_CACHE.v2){ADMIN_DATA_CACHE.v2.V2_SAC_SESSIONS=cloneCached(supa.sessions);ADMIN_DATA_CACHE.v2.V2_SAC_CANDIDATES=cloneCached(supa.candidates);}
   }catch(error){
     warnings.push('Supabase SAC read: '+(error?.message||'Unable to load')+' · falling back to Google Sheet / bridge');
@@ -124,18 +128,8 @@ export default async function handler(req,res){
       if(!Array.isArray(data.V2_SAC_CANDIDATES)||!data.V2_SAC_CANDIDATES.length)data.V2_SAC_CANDIDATES=sheetSacCandidates;
     }
   }
-  if(scope!=='sac'&&Array.isArray(data.V2_WORKFLOW)&&Array.isArray(data.V2_SAC_CANDIDATES)){
-    const decided=new Map(data.V2_SAC_CANDIDATES.filter(c=>String(c['Decision']||'').toUpperCase()&&String(c['Decision']||'').toUpperCase()!=='PENDING').map(c=>[String(c['Reference No']||''),String(c['Decision']||'').toUpperCase()]));
-    data.V2_WORKFLOW=data.V2_WORKFLOW.map(w=>{
-      const ref=String(w['Reference No']||w['Reference']||''),d=decided.get(ref);if(!d)return w;
-      const expected=d==='DIRECT_ENTRY'?'ELIGIBLE_FOR_OFFER':d==='INTERNAL_ASSESSMENT'?'INTERNAL_ASSESSMENT':d==='REJECTED'?'REJECTED':'';
-      const backendDecision=String(w['SAC Decision']||'').toUpperCase(),backendStage=String(w['Application Stage']||'').toUpperCase();
-      const synced=!!expected&&backendDecision===d&&backendStage===expected;
-      return {...w,'SAC Supabase Decision':d,'SAC Expected Stage':expected,'SAC Sync Status':synced?'SYNCED':'PENDING_BACKEND_SYNC','Pending SAC Decision':synced?'':d};
-    });
-  }
   const sacMs=Date.now()-sacStarted;
   if(scope!=='sac'){data.V1_MASTER_DATABASE=[];data.V1_LEGACY_META=[{source:'ARCHIVED_AFTER_UNIFIED_MIGRATION',count:0,readOnly:true,cacheHit:false}];}
   sortSacSessions(data);const totalMs=Date.now()-startedAt;res.setHeader('Server-Timing',`auth;dur=${authMs}, sheets;dur=${sheetsMs}, sac;dur=${sacMs}, total;dur=${totalMs}`);
-  return res.status(200).json({ok:true,build:'ADMIN_DATA_SAC_DUAL_WRITE_GUARD_20261005',scope,loadedAt:new Date().toISOString(),warnings,cache:{unifiedHit:v2CacheHit,ttlSeconds:30,forced:force},performance:{authMs,sheetsMs,sacMs,totalMs},data});
+  return res.status(200).json({ok:true,build:'ADMIN_DATA_SUPABASE_WORKFLOW_20261005',scope,loadedAt:new Date().toISOString(),warnings,cache:{unifiedHit:v2CacheHit,ttlSeconds:30,forced:force},performance:{authMs,sheetsMs,sacMs,totalMs},data});
 }
