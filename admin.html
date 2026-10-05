@@ -1291,7 +1291,8 @@
     async function addSacParticipantFromDetail(){
       const referenceNo=document.getElementById('sacAddParticipant')?.value||'';
       if(!referenceNo)return sacDetailMsg('Select an applicant first.','error');
-      const result=await runSacPageAction('v2AssignSacCandidate',{referenceNo,sessionId:sacDetailSessionId,proceedWithPendingDocuments:true,confirmed:true,overrideBy:'Admin Portal V2 - nonblocking document policy'},'Add this applicant to the SAC session? Pending documents remain follow-up only.');
+      const applicant=records.find(r=>String(r.ref)===String(referenceNo));
+      const result=await runSacPageAction('v2AssignSacCandidate',{referenceNo,sessionId:sacDetailSessionId,studentName:applicant?.app?.['Student Name']||'',programme:applicant?.app?.['Programme']||'',screeningRecommendation:applicant?.screen?.['Recommendation']||applicant?.screen?.['Screening Recommendation']||'',proceedWithPendingDocuments:true,confirmed:true,overrideBy:'Admin Portal V2 - nonblocking document policy'},'Add this applicant to the SAC session? Pending documents remain follow-up only.');
       if(!result)return;
       sacDetailMsg('Participant added. Pending documents, if any, remain follow-up only.','ok');
     }
@@ -1343,7 +1344,7 @@
       updateProgress(0);
       for(let i=0;i<refs.length;i++){
         const applicant=records.find(r=>String(r.ref)===String(refs[i]));updateProgress(i,applicant?.app?.['Student Name']||'');
-        const result=await runSacPageAction('v2AssignSacCandidate',{referenceNo:refs[i],sessionId:sacDetailSessionId,proceedWithPendingDocuments:true,confirmed:true,overrideBy:'Admin Portal V2 - bulk SAC participant assignment'},null);
+        const result=await runSacPageAction('v2AssignSacCandidate',{referenceNo:refs[i],sessionId:sacDetailSessionId,studentName:applicant?.app?.['Student Name']||'',programme:applicant?.app?.['Programme']||'',screeningRecommendation:applicant?.screen?.['Recommendation']||applicant?.screen?.['Screening Recommendation']||'',proceedWithPendingDocuments:true,confirmed:true,overrideBy:'Admin Portal V2 - bulk SAC participant assignment'},null);
         if(result)success++;else failed++;updateProgress(i+1);
       }
       if(progressLabel)progressLabel.textContent=failed?`Completed with ${failed} failed`:'All participants added';

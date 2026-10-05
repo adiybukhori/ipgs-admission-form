@@ -32,11 +32,51 @@ async function removeSacCandidateDirect(data,password,updatedBy){
   const session=await findSacSession(legacy);
   if(!session)throw new Error('SAC session not found in Supabase.');
   const removed=await supabaseRequest(`sac_candidates?sac_session_id=eq.${encodeURIComponent(session.id)}&reference_no=eq.${encodeURIComponent(ref)}`,'DELETE');
-  await supabaseRequest('workflow_events','POST',[{reference_no:ref,event_type:'SAC_CANDIDATE_REMOVED',from_stage:'SAC_REVIEW',to_stage:'READY_FOR_SAC',actor:updatedBy||'Admin Portal V2',source:'ADMIN_PORTAL_V2',payload:{sac_session_id:legacy}}]);
+  await supabaseRequest('workflow_events','POST',[{reference_no:ref,event_type:'SAC_CANDIDATE_REMOVED',actor:updatedBy||'Admin Portal V2',source:'ADMIN_PORTAL_V2',payload:{sac_session_id:legacy}}]);
   return {ok:true,removed:Array.isArray(removed)?removed:[],referenceNo:ref,sessionId:legacy};
 }
 
 
+
+
+async function assignSacCandidateDirect(data,password,updatedBy){
+  if(!(await validateDirectAdmin(password))){const e=new Error('Invalid admin password.');e.code='ADMIN_AUTH_FAILED';throw e;}
+  const legacy=String(data?.sessionId||data?.sacSessionId||'').trim();
+  const ref=String(data?.referenceNo||'').trim();
+  if(!legacy||!ref)throw new Error('SAC session and Reference No are required.');
+  const session=await findSacSession(legacy);if(!session)throw new Error('SAC session not found in Supabase.');
+  const existing=await supabaseRequest(`sac_candidates?select=id,sac_session_id&reference_no=eq.${encodeURIComponent(ref)}&limit=1`);
+  if(Array.isArray(existing)&&existing.length){
+    if(String(existing[0].sac_session_id)===String(session.id))return {ok:true,alreadyAssigned:true,referenceNo:ref,sessionId:legacy};
+    throw new Error('This applicant is already assigned to another SAC session. Remove the applicant from that session first.');
+  }
+  const now=new Date().toISOString();
+  const rows=await supabaseRequest('sac_candidates','POST',[{
+    sac_session_id:session.id,reference_no:ref,
+    student_name:String(data?.studentName||'').trim()||null,
+    programme:String(data?.programme||'').trim()||null,
+    screening_recommendation:String(data?.screeningRecommendation||'').trim()||null,
+    decision:'PENDING',priority:'NORMAL',reviewer_remarks:String(data?.overrideBy||'').trim()||null,
+    created_at:now,updated_at:now
+  }]);
+  await supabaseRequest('workflow_events','POST',[{reference_no:ref,event_type:'SAC_CANDIDATE_ASSIGNED',actor:updatedBy||'Admin Portal V2',source:'ADMIN_PORTAL_V2',payload:{sac_session_id:legacy}}]);
+  return {ok:true,referenceNo:ref,sessionId:legacy,candidate:{'SAC Session ID':legacy,'Reference No':ref,'Student Name':String(data?.studentName||''),'Programme':String(data?.programme||''),'Decision':'PENDING'}};
+}
+
+async function updateSacSessionDirect(data,password,updatedBy){
+  if(!(await validateDirectAdmin(password))){const e=new Error('Invalid admin password.');e.code='ADMIN_AUTH_FAILED';throw e;}
+  const legacy=String(data?.sessionId||data?.sacSessionId||'').trim();if(!legacy)throw new Error('SAC session is required.');
+  const patch={updated_at:new Date().toISOString()};
+  if(data?.name!==undefined)patch.sac_name=String(data.name||'').trim();
+  if(data?.meetingDate!==undefined)patch.meeting_date=String(data.meetingDate||'').trim()||null;
+  if(data?.meetingTime!==undefined)patch.meeting_time=String(data.meetingTime||'').trim()||null;
+  if(data?.chairperson!==undefined)patch.chairperson=String(data.chairperson||'').trim()||null;
+  if(data?.venueLink!==undefined)patch.venue=String(data.venueLink||'').trim()||null;
+  if(data?.committeeEmails!==undefined)patch.committee_emails=String(data.committeeEmails||'').split(',').map(x=>x.trim()).filter(Boolean);
+  const rows=await supabaseRequest(`sac_sessions?legacy_session_id=eq.${encodeURIComponent(legacy)}`,'PATCH',patch);
+  if(!Array.isArray(rows)||!rows.length)throw new Error('SAC session not found in Supabase.');
+  return {ok:true,sessionId:legacy};
+}
 
 async function createSacSessionDirect(data,password,updatedBy){
   if(!(await validateDirectAdmin(password))){const e=new Error('Invalid admin password.');e.code='ADMIN_AUTH_FAILED';throw e;}
@@ -172,9 +212,15 @@ export default async function handler(req, res) {
   try {
     let result,bridgeMs,transport,bridgeWarning;
     if(action==='v2CreateSacSessionManual'){
-      const directStarted=Date.now();
-      result=await createSacSessionDirect(body.data||{},password,body.updatedBy);
-      bridgeMs=Date.now()-directStarted;transport='SUPABASE_SAC_ADMIN';bridgeWarning=null;
+      const directStarted=Date.now();result=await createSacSessionDirect(body.data||{},password,body.updatedBy);bridgeMs=Date.now()-directStarted;transport='SUPABASE_SAC_ADMIN';bridgeWarning=null;
+    }else if(action==='v2AssignSacCandidate'){
+      const directStarted=Date.now();result=await assignSacCandidateDirect(body.data||{},password,body.updatedBy);bridgeMs=Date.now()-directStarted;transport='SUPABASE_SAC_ADMIN';bridgeWarning=null;
+    }else if(action==='v2RemoveSacCandidate'){
+      const directStarted=Date.now();result=await removeSacCandidateDirect(body.data||{},password,body.updatedBy);bridgeMs=Date.now()-directStarted;transport='SUPABASE_SAC_ADMIN';bridgeWarning=null;
+    }else if(action==='v2UpdateSacSessionManual'){
+      const directStarted=Date.now();result=await updateSacSessionDirect(body.data||{},password,body.updatedBy);bridgeMs=Date.now()-directStarted;transport='SUPABASE_SAC_ADMIN';bridgeWarning=null;
+    }else if(action==='v2DeleteSacSessionManual'){
+      const directStarted=Date.now();result=await deleteSacSessionDirect(body.data||{},password,body.updatedBy);bridgeMs=Date.now()-directStarted;transport='SUPABASE_SAC_ADMIN';bridgeWarning=null;
     }else{
       ({parsed:result,bridgeMs,transport,bridgeWarning}=await callV2(action, body.data || {}, password, body.sessionId, body.updatedBy));
     }
