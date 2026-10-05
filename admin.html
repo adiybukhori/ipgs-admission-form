@@ -1644,6 +1644,12 @@
         el.innerHTML=`<div class="ops-head"><div class="title">V1 Legacy Record</div><div class="state">${accepted?'Accepted':'Read only'}</div></div><div class="ops-copy">This record remains in the original Admission V1 history. You can review its folder, offer / LOA history and acceptance documents here without changing the V1 database.</div><div class="ops-actions">${legacyAction}</div><div id="opsMessage" class="ops-message"></div>`;return;
       }
       const s=stage(r),sessions=(db.V2_SAC_SESSIONS||[]).filter(x=>{const status=String(x['Status']||'').toUpperCase(),id=String(x['SAC Session ID']||''),name=String(x['SAC Name']||'');return !/FINAL|CLOSED/.test(status)&&!/TEST|CONTROLLED/i.test(id+' '+name)});
+      const sacSync=String(r.workflow?.['SAC Sync Status']||'').toUpperCase();
+      if(sacSync==='PENDING_BACKEND_SYNC'){
+        const pending=pretty(r.workflow?.['Pending SAC Decision']||r.workflow?.['SAC Supabase Decision']||'SAC decision');
+        const expected=pretty(r.workflow?.['SAC Expected Stage']||'');
+        el.innerHTML=`<div class="ops-head"><div class="title">Operational Action Center</div><div class="state">Workflow Sync Pending</div></div><div class="ops-copy">${esc(pending)} has been captured in the SAC operational database, but the existing V2 workflow engine has not confirmed the same state yet. Downstream actions are safety-gated${expected?` until V2_WORKFLOW reaches ${esc(expected)}`:''}. No existing IA, prerequisite, offer or acceptance process has been bypassed.</div><div class="ops-actions">${pgAdm01Control(r)}<button class="ops-btn" disabled>Awaiting V2 workflow sync</button></div><div id="opsMessage" class="ops-message error" style="display:block">Decision is preserved. Canonical workflow sync is required before continuing.</div>`;return;
+      }
       let copy='Actions available for this stage.',actions='';
       if(s==='APPLICATION_RECEIVED'){
         copy='Choose Auto Document Check for a fast system completeness check, or Manual Document Review to open and verify each required document yourself.';
@@ -1722,8 +1728,10 @@
       selected.ai={...(selected.ai||{})};
       selected.doc={...(selected.doc||{})};
 
+      const syncPending=String(r.workflowSyncStatus||'').toUpperCase()==='PENDING_BACKEND_SYNC';
       const stage=String(r.nextStage||r.applicationStage||'').trim();
-      if(stage)selected.workflow['Application Stage']=stage;
+      if(stage&&!syncPending)selected.workflow['Application Stage']=stage;
+      if(syncPending){selected.workflow['SAC Sync Status']='PENDING_BACKEND_SYNC';selected.workflow['Pending SAC Decision']=String(r.decision||data?.decision||'').toUpperCase();selected.workflow['SAC Expected Stage']=stage;}
       if(r.screeningStatus)selected.workflow['Qualification Screening Status']=r.screeningStatus;
       if(r.recommendedRoute){selected.workflow['Screening Recommendation']=r.recommendedRoute;selected.screening['Recommended Route']=r.recommendedRoute}
       if(r.offerStatus)selected.workflow['Offer Letter Status']=r.offerStatus;
@@ -1734,7 +1742,7 @@
       if(action==='v2RecordSacDecisionManual'||action==='v2RecordSacDecision'){
         const decision=String(r.decision||data?.decision||'').toUpperCase();
         if(decision){selected.workflow['SAC Decision']=decision;selected.sac['Decision']=decision}
-        if(!stage){
+        if(!stage&&!syncPending){
           if(decision==='DIRECT_ENTRY')selected.workflow['Application Stage']='ELIGIBLE_FOR_OFFER';
           else if(decision==='INTERNAL_ASSESSMENT')selected.workflow['Application Stage']='INTERNAL_ASSESSMENT';
           else if(decision==='REJECTED')selected.workflow['Application Stage']='REJECTED';

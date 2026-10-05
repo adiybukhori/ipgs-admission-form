@@ -64,7 +64,7 @@ async function recordSacDecisionDirect(data,password,updatedBy){
   await supabaseRequest('sac_decisions','POST',[{sac_candidate_id:candidate.id,decision,remarks:data?.remarks||'',decided_by:updatedBy||'Admin Portal V2',decided_at:now,source:'ADMIN_PORTAL',metadata:{session_id:legacy,reference_no:ref}}]);
   const nextStage=decision==='DIRECT_ENTRY'?'ELIGIBLE_FOR_OFFER':decision==='INTERNAL_ASSESSMENT'?'INTERNAL_ASSESSMENT':'REJECTED';
   await supabaseRequest('workflow_events','POST',[{reference_no:ref,event_type:'SAC_DECISION_RECORDED',from_stage:'SAC_REVIEW',to_stage:nextStage,actor:updatedBy||'Admin Portal V2',source:'ADMIN_PORTAL_V2',payload:{sac_session_id:legacy,decision}}]);
-  return {ok:true,referenceNo:ref,sessionId:legacy,decision,applicationStage:nextStage,candidate:{'Reference No':ref,'SAC Session ID':legacy,'Student Name':candidate.student_name||'','Programme':candidate.programme||'','Decision':decision}};
+  return {ok:true,referenceNo:ref,sessionId:legacy,decision,applicationStage:nextStage,workflowSyncStatus:'PENDING_BACKEND_SYNC',canonicalWorkflowEngine:'APPS_SCRIPT_V2',candidate:{'Reference No':ref,'SAC Session ID':legacy,'Student Name':candidate.student_name||'','Programme':candidate.programme||'','Decision':decision}};
 }
 
 async function callV2(action, data, password, sessionId, updatedBy) {
