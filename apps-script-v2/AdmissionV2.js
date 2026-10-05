@@ -4,7 +4,7 @@
  * Property explicitly enables TEST or LIVE mode.
  */
 
-const V2_ADMISSION_BUILD = 'ADMISSION_V2_SUBMISSION_COL_20260923';
+const V2_ADMISSION_BUILD = 'ADMISSION_V2_CHUNKED_UPLOAD_20261006';
 const V2_MAX_DOCUMENT_BYTES = 7 * 1024 * 1024;
 let V2_BRANDED_RENDER_CONTEXT = false;
 const V2_ALLOWED_MIME_TYPES = Object.freeze([
@@ -12,7 +12,11 @@ const V2_ALLOWED_MIME_TYPES = Object.freeze([
 ]);
 
 function submitAdmissionFormV2(payload) {
-  return v2SubmitAdmission_(payload || {});
+  const data = payload || {};
+  if (data.__admissionUploadChunk === true) {
+    return v2UploadAdmissionChunk_(data);
+  }
+  return v2SubmitAdmission_(data);
 }
 
 function v2SubmitAdmission_(payload) {
@@ -141,6 +145,7 @@ function v2SubmitAdmission_(payload) {
     }
 
     v2InvalidateCache_();
+    v2CleanupPayloadStagedUploads_(payload);
     return {
       ok:true,
       success:true,
@@ -225,20 +230,16 @@ function v2ValidateAdmissionPayload_(payload) {
     {doc:documents.cvResume, label:'CV / Resume'}
   ];
   requiredDocuments.forEach(function(item) {
-    if (!item.doc || !item.doc.base64) throw new Error(item.label + ' is required.');
+    if (!v2AdmissionDocumentPayloadPresent_(item.doc)) throw new Error(item.label + ' is required.');
   });
 
   // Preliminary Research Intent is intentionally NOT a hard blocker here.
   // PhD applicants may submit first and provide it through the secure follow-up link.
   Object.keys(documents).forEach(function(key) {
-    const doc = documents[key];
-    if (!doc || !doc.base64) return;
-    const size = Number(doc.size || 0);
-    if (size < 1 || size > V2_MAX_DOCUMENT_BYTES) throw new Error('Invalid document size for ' + key + '.');
-    if (V2_ALLOWED_MIME_TYPES.indexOf(String(doc.mimeType || '')) < 0) {
-      throw new Error('Unsupported document type for ' + key + '.');
-    }
-  });
+  const doc = documents[key];
+  if (!v2AdmissionDocumentPayloadPresent_(doc)) return;
+  v2ValidateAdmissionDocumentDescriptor_(key, doc);
+});
 }
 
 function v2AssertNoDuplicateApplication_(payload) {
@@ -297,7 +298,13 @@ function v2SaveAdmissionDocuments_(folder, payload) {
   const documents = payload.documents || {};
   Object.keys(documents).forEach(function(key) {
     const doc = documents[key];
-    if (!doc || !doc.base64) return;
+    if (!v2AdmissionDocumentPayloadPresent_(doc)) return;
+
+    if (doc.stagedUploadId) {
+      uploaded.push(v2MaterializeStagedAdmissionDocument_(folder, key, doc, payload));
+      return;
+    }
+
     const extension = v2DocumentExtension_(doc.fileName, doc.mimeType);
     const fileName = v2SafeName_(key).toUpperCase() + '_' + v2SafeName_(payload.fullName).toUpperCase() + extension;
     const blob = Utilities.newBlob(Utilities.base64Decode(doc.base64), doc.mimeType, fileName);
