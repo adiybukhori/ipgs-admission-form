@@ -29,6 +29,9 @@ function parseCsv(text) {
 }
 function toObjects(csv){const rows=parseCsv(csv);if(!rows.length)return[];const headers=rows[0].map(v=>String(v||'').trim());return rows.slice(1).filter(row=>row.some(v=>String(v||'').trim()!=='')).map(row=>{const obj={};headers.forEach((header,i)=>{if(header)obj[header]=row[i]??''});return obj});}
 function gvizLiteral(value){return String(value||'').replace(/'/g,"''");}
+function supabaseConfig(){const url=String(process.env.SUPABASE_URL||process.env.NEXT_PUBLIC_SUPABASE_URL||'').replace(/\/$/,'');const key=String(process.env.SUPABASE_SERVICE_ROLE_KEY||process.env.SUPABASE_SECRET_KEY||'');return url&&key?{url,key}:null;}
+async function fetchSupabaseSacCandidate(referenceNo){const cfg=supabaseConfig();if(!cfg)return null;const url=`${cfg.url}/rest/v1/sac_candidates?select=reference_no,student_name,programme,sac_session_id,decision,decision_at,decision_by&reference_no=eq.${encodeURIComponent(referenceNo)}&order=decision_at.desc.nullslast,updated_at.desc&limit=1`;const response=await fetch(url,{headers:{apikey:cfg.key,Authorization:`Bearer ${cfg.key}`,'Content-Type':'application/json'}});if(!response.ok)throw new Error(`Supabase SAC returned HTTP ${response.status}`);const rows=await response.json();return Array.isArray(rows)?rows[0]||null:null;}
+function overlaySupabaseSacDecision(data,candidate){if(!candidate)return;const decision=String(candidate.decision||'').toUpperCase();if(!decision||decision==='PENDING')return;const expected=decision==='DIRECT_ENTRY'?'ELIGIBLE_FOR_OFFER':decision==='INTERNAL_ASSESSMENT'?'INTERNAL_ASSESSMENT':decision==='REJECTED'?'REJECTED':'';if(!expected)return;const current=Array.isArray(data.V2_WORKFLOW)&&data.V2_WORKFLOW[0]?data.V2_WORKFLOW[0]:{'Reference No':candidate.reference_no};const backendDecision=String(current['SAC Decision']||'').toUpperCase(),backendStage=String(current['Application Stage']||'').toUpperCase(),synced=backendDecision===decision&&backendStage===expected;data.V2_WORKFLOW=[{...current,'SAC Supabase Decision':decision,'SAC Expected Stage':expected,'SAC Sync Status':synced?'SYNCED':'PENDING_BACKEND_SYNC','Pending SAC Decision':synced?'':decision}];const existing=Array.isArray(data.V2_SAC_CANDIDATES)?data.V2_SAC_CANDIDATES[0]||{}:{};data.V2_SAC_CANDIDATES=[{...existing,'Reference No':candidate.reference_no,'Student Name':candidate.student_name||existing['Student Name']||'','Programme':candidate.programme||existing['Programme']||'','Decision':decision,'Decision At':candidate.decision_at||'','Decision By':candidate.decision_by||''}];}
 
 async function validateAdminSession(password,sessionId){
   if(!password)return false;
@@ -49,12 +52,14 @@ export default async function handler(req,res){
   const authStartedAt=Date.now();if(!(await validateAdminSession(password,sessionId)))return res.status(401).json({ok:false,message:'Invalid admin password.'});const authMs=Date.now()-authStartedAt;
   const referenceNo=String(body.referenceNo||'').trim();if(!referenceNo)return res.status(400).json({ok:false,message:'Reference No is required.'});
   const mode=String(body.mode||'full').toLowerCase()==='light'?'light':'full',targetSheets=mode==='light'?LIGHT_TARGET_SHEETS:FULL_TARGET_SHEETS;
-  const dataStartedAt=Date.now();const [settled,agentEventsResult]=await Promise.all([
+  const dataStartedAt=Date.now();const [settled,agentEventsResult,sacCandidateResult]=await Promise.all([
     Promise.allSettled(targetSheets.map(async([sheet,column])=>[sheet,await fetchReferenceRows(sheet,column,referenceNo)])),
-    fetchAgentEventsForReference(referenceNo).then(rows=>({ok:true,rows})).catch(error=>({ok:false,error}))
+    fetchAgentEventsForReference(referenceNo).then(rows=>({ok:true,rows})).catch(error=>({ok:false,error})),
+    fetchSupabaseSacCandidate(referenceNo).then(candidate=>({ok:true,candidate})).catch(error=>({ok:false,error}))
   ]);
   const data={},warnings=[];settled.forEach((result,index)=>{const sheet=targetSheets[index][0];if(result.status==='fulfilled')data[sheet]=result.value[1];else{data[sheet]=[];warnings.push(`${sheet}: ${result.reason?.message||'Unable to load'}`)}});
   if(agentEventsResult.ok)data.V2_AGENT_EVENTS=agentEventsResult.rows;else{data.V2_AGENT_EVENTS=[];warnings.push(`V2_AGENT_EVENTS: ${agentEventsResult.error?.message||'Unable to load'}`)}
+  if(sacCandidateResult.ok)overlaySupabaseSacDecision(data,sacCandidateResult.candidate);else warnings.push(`Supabase SAC: ${sacCandidateResult.error?.message||'Unable to load'}`);
   const dataMs=Date.now()-dataStartedAt,totalMs=Date.now()-startedAt;res.setHeader('Server-Timing',`auth;dur=${authMs}, data;dur=${dataMs}, total;dur=${totalMs}`);
   return res.status(200).json({ok:true,build:'ADMIN_RECORD_SESSION_FAST_20260928',mode,referenceNo,loadedAt:new Date().toISOString(),warnings,performance:{authMs,dataMs,totalMs,sheets:targetSheets.length+1},data});
 }
