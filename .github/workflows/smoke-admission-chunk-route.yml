@@ -1,0 +1,21 @@
+name: Smoke Admission Chunk Route
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/smoke-admission-chunk-route.yml'
+
+jobs:
+  smoke:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Verify live chunk request reaches Admission V2 backend
+        run: |
+          set -euo pipefail
+          response="$(curl --fail-with-body --silent --show-error \
+            -H 'Content-Type: text/plain;charset=utf-8' \
+            --data '{"action":"v2SubmitAdmission","data":{"__admissionUploadChunk":true,"uploadId":"smoke-test-20261006-abcdef","field":"identityDocument","mimeType":"application/pdf","size":1,"chunkIndex":0,"chunkCount":1,"base64":"AA=="}}' \
+            'https://ipgs-admission-form.innovative.edu.my/api/admission')"
+          echo "$response"
+          echo "$response" | grep -F 'Upload field and file name are required.'
