@@ -36,6 +36,19 @@ async function removeSacCandidateDirect(data,password,updatedBy){
   return {ok:true,removed:Array.isArray(removed)?removed:[],referenceNo:ref,sessionId:legacy};
 }
 
+
+async function deleteSacSessionDirect(data,password,updatedBy){
+  if(!(await validateDirectAdmin(password))){const e=new Error('Invalid admin password.');e.code='ADMIN_AUTH_FAILED';throw e;}
+  const legacy=String(data?.sessionId||data?.sacSessionId||'');
+  if(!legacy)throw new Error('SAC session is required.');
+  const session=await findSacSession(legacy);
+  if(!session)throw new Error('SAC session not found in Supabase.');
+  const members=await supabaseRequest(`sac_candidates?select=id&method=eq.ignore&sac_session_id=eq.${encodeURIComponent(session.id)}`.replace('&method=eq.ignore',''));
+  if(Array.isArray(members)&&members.length)throw new Error('Remove all SAC participants before deleting this session.');
+  const removed=await supabaseRequest(`sac_sessions?id=eq.${encodeURIComponent(session.id)}`,'DELETE');
+  return {ok:true,sessionId:legacy,removed:Array.isArray(removed)?removed:[]};
+}
+
 async function callV2(action, data, password, sessionId, updatedBy) {
   const startedAt = Date.now();
   const response = await fetch(ADMIN_BRIDGE, {
@@ -117,6 +130,8 @@ export default async function handler(req, res) {
     let result,bridgeMs;
     if(action==='v2RemoveSacCandidate'){
       const directStarted=Date.now();result=await removeSacCandidateDirect(body.data||{},password,body.updatedBy);bridgeMs=Date.now()-directStarted;
+    }else if(action==='v2DeleteSacSessionManual'){
+      const directStarted=Date.now();result=await deleteSacSessionDirect(body.data||{},password,body.updatedBy);bridgeMs=Date.now()-directStarted;
     }else if(action==='v2RecordSacDecisionManual'){
       ({parsed:result,bridgeMs}=await callAppsScriptV2(action,body.data||{},password,body.updatedBy));
     }else{
