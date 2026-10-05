@@ -171,7 +171,13 @@ export default async function handler(req, res) {
   const startedAt = Date.now();
   try {
     let result,bridgeMs,transport,bridgeWarning;
-    ({parsed:result,bridgeMs,transport,bridgeWarning}=await callV2(action, body.data || {}, password, body.sessionId, body.updatedBy));
+    if(action==='v2CreateSacSessionManual'){
+      const directStarted=Date.now();
+      result=await createSacSessionDirect(body.data||{},password,body.updatedBy);
+      bridgeMs=Date.now()-directStarted;transport='SUPABASE_SAC_ADMIN';bridgeWarning=null;
+    }else{
+      ({parsed:result,bridgeMs,transport,bridgeWarning}=await callV2(action, body.data || {}, password, body.sessionId, body.updatedBy));
+    }
     let supabaseMirror='not_applicable';
     if(action.toLowerCase().includes('sac')){try{await mirrorSacAction(action,body.data||{},result,body.updatedBy);supabaseMirror='ok';}catch(mirrorError){supabaseMirror='warning:'+String(mirrorError?.message||'mirror failed');}}
     const totalMs = Date.now() - startedAt;
