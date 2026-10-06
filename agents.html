@@ -56,7 +56,15 @@
   const ACTION_API='/api/admin-action';
   let password=sessionStorage.getItem('ipgsAdminPassword')||'';
   let agents=[];
-  if(!password){ location.href='/admin.html'; }
+  if(!password){
+    try{
+      if(window.opener&&window.opener.location.origin===window.location.origin){
+        password=window.opener.sessionStorage.getItem('ipgsAdminPassword')||'';
+        if(password)sessionStorage.setItem('ipgsAdminPassword',password);
+      }
+    }catch(_){}
+  }
+  if(!password){ location.replace('/admin.html?return=/agents.html'); }
 
   function esc(v=''){return String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[c]))}
   function referralLink(a){return String(a['Referral Link']||'').trim()||('https://ipgs-admission-form.innovative.edu.my/?agent='+encodeURIComponent(String(a['Agent Code']||'').trim()));}
@@ -68,7 +76,7 @@
     try{
       const res=await fetch(DATA_API,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({password})});
       const out=await res.json();
-      if(res.status===401){sessionStorage.removeItem('ipgsAdminPassword');location.href='/admin.html';return;}
+      if(res.status===401){sessionStorage.removeItem('ipgsAdminPassword');location.replace('/admin.html?return=/agents.html');return;}
       if(!res.ok||!out.ok)throw new Error(out.message||'Unable to load consultants.');
       agents=Array.isArray(out.data?.AGENT_MASTER)?out.data.AGENT_MASTER:[];
       renderAgents();
