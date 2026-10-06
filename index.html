@@ -1895,6 +1895,10 @@
     function showSubmissionSuccess(reference) {
       submissionCompleted = true;
       submitting = false;
+      try {
+        sessionStorage.removeItem('iuc_admission_submission_key');
+      } catch (_) {}
+
       setStatus('success', `
         <div class="submit-progress-wrap">
           <div><strong>Application submitted successfully.</strong></div>
@@ -2009,6 +2013,6 @@
     render();
     loadPartnerCodes();
   </script>
-  <script src="/admission-upload-v2.js?v=20261006"></script>
+  <script src="/admission-upload-v2.js?v=20261006-2"></script>
 </body>
 </html>
