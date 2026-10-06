@@ -182,12 +182,9 @@ export default async function handler(req, res) {
 
       await safetyStoreChunk(data);
 
-      // Keep the current Google Drive/Apps Script staging path in parallel.
-      const legacy = await postLegacy(payload);
       return res.status(200).json({
         ok: true,
         securelyReceived: true,
-        legacyBuffered: !!(legacy.httpOk && legacy.data && legacy.data.ok),
         message: 'Document securely received.'
       });
     }
@@ -214,29 +211,8 @@ export default async function handler(req, res) {
       });
     }
 
-    // 3) Post-processing. Failure here never loses the application.
-    const legacy = await postLegacy(payload);
-    if (legacy.httpOk && legacy.data && legacy.data.ok) {
-      const reference = legacy.data.reference || legacy.data.referenceNo || null;
-      await markBackendResult(submissionKey, true, reference, null);
-      return res.status(200).json({
-        ok: true,
-        received: true,
-        processingComplete: true,
-        receiptNo: receipt.receiptNo,
-        reference: reference || receipt.receiptNo
-      });
-    }
-
-    await markBackendResult(
-      submissionKey,
-      false,
-      null,
-      cleanMessage(legacy.data && legacy.data.message)
-    );
-
-    // Student data + documents are already durable.
-    // Database trigger + scheduled recovery worker will continue internally without delaying the student.
+    // 3) Acknowledge immediately after durable receipt.
+    // Google Drive / Apps Script finalisation runs asynchronously through the Supabase recovery worker.
     return res.status(200).json({
       ok: true,
       received: true,
