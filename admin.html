@@ -1781,8 +1781,8 @@
         actions=screeningControls(r);
       }else if(s==='READY_FOR_SAC'){
         if(assignedSacSessionId){
-          copy=`Screening is complete. This applicant is already assigned to SAC session: ${assignedSacName}.`;
-          actions=`<span class="badge green">Assigned to ${esc(assignedSacName)}</span><button class="ops-btn" onclick="openSacSessionDetail('${esc(assignedSacSessionId)}')">Open SAC Session</button>`;
+          copy=`Screening is complete. This applicant is already assigned to SAC session: ${assignedSacName}. Record the authorised SAC result below after the meeting.`;
+          actions=`<span class="badge green">Assigned to ${esc(assignedSacName)}</span><button class="ops-btn" onclick="openSacSessionDetail('${esc(assignedSacSessionId)}')">Open SAC Session</button><button class="ops-btn success" onclick="recordSacDecision('DIRECT_ENTRY')">Direct Entry</button><button class="ops-btn" onclick="recordSacDecision('INTERNAL_ASSESSMENT')">Internal Assessment</button><button class="ops-btn danger" onclick="recordSacDecision('REJECTED')">Rejected</button>`;
         }else{
           copy='Screening is complete. Assign this applicant to an available SAC session.';
           const opts=sessions.map(x=>{const id=x['SAC Session ID']||x['Session ID']||'';const name=x['SAC Name']||id;return `<option value="${esc(id)}">${esc(name)}</option>`}).join('');
