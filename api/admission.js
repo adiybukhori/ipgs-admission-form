@@ -62,8 +62,7 @@ async function safetyStoreChunk(data) {
       headers: {
         apikey: SUPABASE_PUBLISHABLE_KEY,
         Authorization: `Bearer ${SUPABASE_PUBLISHABLE_KEY}`,
-        'Content-Type': 'application/octet-stream',
-        'x-upsert': 'true'
+        'Content-Type': 'application/octet-stream'
       },
       body: buffer
     }
@@ -71,7 +70,10 @@ async function safetyStoreChunk(data) {
 
   if (!response.ok) {
     const text = await response.text();
-    throw new Error(text || 'Unable to secure document upload.');
+    const duplicate = response.status === 400 && /already exists|duplicate|resource already exists/i.test(text);
+    if (!duplicate) {
+      throw new Error(text || 'Unable to secure document upload.');
+    }
   }
 
   await supabaseRpc('admission_record_chunk', {
