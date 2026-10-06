@@ -33,7 +33,35 @@
     .orientation-actions{display:flex;gap:5px;flex-wrap:wrap;align-items:center}
     .orientation-actions .primary,.orientation-actions .ghost{padding:7px 9px;border-radius:9px;font-size:11px;line-height:1.15;min-height:31px}
 
-    .login-btn{width:100%;margin-top:8px}
+    .login-btn{width:100%;margin-top:8px;position:relative;transition:transform .18s ease,opacity .18s ease,background .18s ease}
+    .login-btn:disabled{cursor:wait;opacity:.86}
+    .login-btn.is-loading{transform:translateY(1px)}
+    .login-overlay{position:fixed;inset:0;z-index:9999;display:grid;place-items:center;padding:24px;background:rgba(25,29,45,.18);backdrop-filter:blur(3px);-webkit-backdrop-filter:blur(3px);opacity:0;visibility:hidden;pointer-events:none;transition:opacity .24s ease,visibility .24s ease}
+    .login-overlay.active{opacity:1;visibility:visible;pointer-events:all}
+    .login-overlay.ready{background:rgba(25,29,45,.12)}
+    .login-loader{width:min(470px,92vw);text-align:center;padding:34px 28px 30px;border:1px solid rgba(255,255,255,.72);border-radius:26px;background:rgba(255,255,255,.94);box-shadow:0 24px 70px rgba(23,32,51,.18);transform:translateY(10px) scale(.985);opacity:.25;transition:transform .32s cubic-bezier(.2,.8,.2,1),opacity .25s ease}
+    .login-overlay.active .login-loader{transform:translateY(0) scale(1);opacity:1}
+    .login-brand-stage{height:92px;display:flex;align-items:center;justify-content:center;gap:0;position:relative;margin-bottom:8px}
+    .login-logo-card{width:182px;height:72px;display:flex;align-items:center;justify-content:center;padding:10px 14px;background:#fff;border:1px solid #e7eaf0;border-radius:16px;box-shadow:0 9px 28px rgba(49,32,109,.08);will-change:transform,opacity}
+    .login-logo-card img{display:block;max-width:100%;max-height:50px;object-fit:contain}
+    .login-logo-card.iuc{animation:iucConverge 1.15s cubic-bezier(.2,.8,.2,1) both}
+    .login-logo-card.ipgs{animation:ipgsConverge 1.15s cubic-bezier(.2,.8,.2,1) both}
+    .login-brand-spark{width:16px;height:16px;margin:0 -2px;border-radius:50%;background:radial-gradient(circle,#fff 0 18%,#f7c85b 24%,#6e53c7 55%,rgba(75,53,162,0) 72%);opacity:0;transform:scale(.35);filter:drop-shadow(0 0 10px rgba(94,72,181,.55));animation:brandSpark 1.15s ease .62s both;z-index:3}
+    .login-loader-kicker{font-size:11px;font-weight:900;letter-spacing:.18em;text-transform:uppercase;color:var(--purple);margin-top:3px}
+    .login-loader-title{font-size:20px;font-weight:900;color:var(--ink);margin-top:7px}
+    .login-loader-status{min-height:20px;margin-top:7px;font-size:13px;color:var(--muted)}
+    .login-pulse{display:flex;justify-content:center;align-items:center;gap:6px;margin-top:16px;height:12px}
+    .login-pulse span{width:7px;height:7px;border-radius:50%;background:var(--purple2);animation:loginDot 1.15s ease-in-out infinite}
+    .login-pulse span:nth-child(2){animation-delay:.16s}.login-pulse span:nth-child(3){animation-delay:.32s}
+    .login-overlay.ready .login-logo-card{animation:brandReady .42s ease both}
+    .login-overlay.ready .login-brand-spark{opacity:1;animation:readySpark .42s ease both}
+    @keyframes iucConverge{0%{opacity:0;transform:translateX(-48px) scale(.94)}55%{opacity:1}78%{transform:translateX(4px) scale(1)}100%{opacity:1;transform:translateX(0) scale(1)}}
+    @keyframes ipgsConverge{0%{opacity:0;transform:translateX(48px) scale(.94)}55%{opacity:1}78%{transform:translateX(-4px) scale(1)}100%{opacity:1;transform:translateX(0) scale(1)}}
+    @keyframes brandSpark{0%,48%{opacity:0;transform:scale(.3)}70%{opacity:1;transform:scale(1.25)}100%{opacity:.78;transform:scale(.9)}}
+    @keyframes loginDot{0%,80%,100%{transform:scale(.7);opacity:.38}40%{transform:scale(1);opacity:1}}
+    @keyframes brandReady{0%{transform:scale(1)}55%{transform:scale(1.025)}100%{transform:scale(1)}}
+    @keyframes readySpark{0%{transform:scale(.8);opacity:.65}50%{transform:scale(1.55);opacity:1}100%{transform:scale(1);opacity:.82}}
+    @media(prefers-reduced-motion:reduce){.login-overlay,.login-loader,.login-logo-card,.login-brand-spark,.login-pulse span{animation:none!important;transition:none!important}.login-logo-card,.login-brand-spark{opacity:1;transform:none}}
     .message{font-size:13px;margin-top:12px;padding:10px 12px;border-radius:10px}
     .message.error{background:var(--redSoft);color:var(--red)}
     .app{min-height:100vh;display:grid;grid-template-columns:250px 1fr}
@@ -505,8 +533,22 @@
       <p>Operational dashboard for postgraduate admission, workflow monitoring and management reporting.</p>
       <div class="field"><label>Username</label><input id="username" value="ipgs" autocomplete="username" /></div>
       <div class="field"><label>Password</label><input id="password" type="password" autocomplete="current-password" /></div>
-      <button class="primary login-btn" onclick="login()">Sign in</button>
+      <button id="loginButton" class="primary login-btn" onclick="login()"><span id="loginButtonText">Sign in</span></button>
       <div id="loginMessage"></div>
+    </div>
+  </div>
+
+  <div id="loginOverlay" class="login-overlay" aria-hidden="true">
+    <div class="login-loader" role="status" aria-live="polite" aria-label="Signing in">
+      <div class="login-brand-stage" aria-hidden="true">
+        <div class="login-logo-card iuc"><img src="https://lh3.googleusercontent.com/d/135uWJ59t0Gs5fey1Ef7548V-HBWsOiCk=s1000" alt=""></div>
+        <div class="login-brand-spark"></div>
+        <div class="login-logo-card ipgs"><img src="https://lh3.googleusercontent.com/d/1iKsYwAVivYw9uRl2kLzt0LcKK7CAJPvd=s1000" alt=""></div>
+      </div>
+      <div class="login-loader-kicker">IUC · IPGS</div>
+      <div class="login-loader-title">Admission Command Center</div>
+      <div id="loginLoadingText" class="login-loader-status">Authenticating credentials…</div>
+      <div class="login-pulse" aria-hidden="true"><span></span><span></span><span></span></div>
     </div>
   </div>
 
@@ -1053,11 +1095,43 @@
       document.getElementById('password').addEventListener('keydown', e => { if (e.key === 'Enter') login(); });
     });
     function esc(v=''){return String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[c]))}
-    function login(){const user=document.getElementById('username').value.trim(),pass=document.getElementById('password').value;if(user!=='ipgs'||!pass)return loginMessage('Invalid username or password.');password=pass;loadData(true,true)}
+    let loginLoadingTimer=null,loginLoadingStep=0;
+    const loginLoadingMessages=['Authenticating credentials…','Securing your admin session…','Loading admission workspace…'];
+    function setLoginLoading(active,status=''){
+      const overlay=document.getElementById('loginOverlay'),btn=document.getElementById('loginButton'),btnText=document.getElementById('loginButtonText'),statusEl=document.getElementById('loginLoadingText');
+      if(!overlay||!btn||!statusEl)return;
+      if(active){
+        document.getElementById('loginMessage').innerHTML='';
+        overlay.classList.remove('ready');overlay.classList.add('active');overlay.setAttribute('aria-hidden','false');
+        btn.disabled=true;btn.classList.add('is-loading');if(btnText)btnText.textContent='Signing in…';
+        loginLoadingStep=0;statusEl.textContent=status||loginLoadingMessages[0];
+        if(loginLoadingTimer)clearInterval(loginLoadingTimer);
+        loginLoadingTimer=setInterval(()=>{loginLoadingStep=(loginLoadingStep+1)%loginLoadingMessages.length;statusEl.textContent=loginLoadingMessages[loginLoadingStep]},1300);
+      }else{
+        if(loginLoadingTimer){clearInterval(loginLoadingTimer);loginLoadingTimer=null}
+        overlay.classList.remove('active','ready');overlay.setAttribute('aria-hidden','true');
+        btn.disabled=false;btn.classList.remove('is-loading');if(btnText)btnText.textContent='Sign in';
+      }
+    }
+    function finishLoginLoading(success=false){
+      const overlay=document.getElementById('loginOverlay'),statusEl=document.getElementById('loginLoadingText');
+      if(loginLoadingTimer){clearInterval(loginLoadingTimer);loginLoadingTimer=null}
+      if(success&&overlay&&statusEl){
+        statusEl.textContent='Workspace ready';overlay.classList.add('ready');
+        setTimeout(()=>setLoginLoading(false),240);
+      }else setLoginLoading(false);
+    }
+    async function login(){
+      const user=document.getElementById('username').value.trim(),pass=document.getElementById('password').value;
+      if(user!=='ipgs'||!pass)return loginMessage('Invalid username or password.');
+      const btn=document.getElementById('loginButton');if(btn?.disabled)return;
+      password=pass;setLoginLoading(true);
+      await loadData(true,true);
+    }
     function loginMessage(text){document.getElementById('loginMessage').innerHTML=`<div class="message error">${esc(text)}</div>`}
     function showApp(){document.getElementById('loginView').classList.add('hidden');document.getElementById('appView').classList.remove('hidden')}
     function logout(){sessionStorage.removeItem('ipgsAdminPassword');sessionStorage.removeItem('ipgsAdminSessionId');adminSessionId='';password='';db={};records=[];selected=null;document.getElementById('appView').classList.add('hidden');document.getElementById('loginView').classList.remove('hidden');document.getElementById('password').value=''}
-    async function loadData(force=false,fromLogin=false){const freshness=document.getElementById('freshness');freshness.textContent='Loading…';try{const res=await fetch(API,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({password,sessionId:adminSessionId,force})});const out=await res.json();if(!res.ok||!out.ok){if(res.status===401){sessionStorage.removeItem('ipgsAdminPassword');password='';document.getElementById('appView').classList.add('hidden');document.getElementById('loginView').classList.remove('hidden');return loginMessage(out.message||'Invalid admin password.')}throw new Error(out.message||'Unable to load data.')}sessionStorage.setItem('ipgsAdminPassword',password);db=out.data||{};buildRecords();showApp();renderAll();const dt=new Date(out.loadedAt||Date.now());freshness.textContent='Updated '+dt.toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'})}catch(e){freshness.textContent='Load failed';if(fromLogin)loginMessage(e.message||'Unable to sign in.');else alert(e.message||'Unable to load admission data.')}}
+    async function loadData(force=false,fromLogin=false){const freshness=document.getElementById('freshness');freshness.textContent='Loading…';try{const res=await fetch(API,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({password,sessionId:adminSessionId,force})});const out=await res.json();if(!res.ok||!out.ok){if(res.status===401){sessionStorage.removeItem('ipgsAdminPassword');password='';document.getElementById('appView').classList.add('hidden');document.getElementById('loginView').classList.remove('hidden');if(fromLogin)finishLoginLoading(false);return loginMessage(out.message||'Invalid admin password.')}throw new Error(out.message||'Unable to load data.')}sessionStorage.setItem('ipgsAdminPassword',password);db=out.data||{};buildRecords();showApp();renderAll();const dt=new Date(out.loadedAt||Date.now());freshness.textContent='Updated '+dt.toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'});if(fromLogin)finishLoginLoading(true)}catch(e){freshness.textContent='Load failed';if(fromLogin){finishLoginLoading(false);loginMessage(e.message||'Unable to sign in.')}else alert(e.message||'Unable to load admission data.')}}
     function legacyDateValue(value){const s=String(value||'').trim();if(!s)return 0;const direct=Date.parse(s);if(Number.isFinite(direct))return direct;const m=s.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})(?:\s+(\d{1,2}):(\d{2})(?::(\d{2}))?)?/);if(!m)return 0;return new Date(Number(m[3]),Number(m[2])-1,Number(m[1]),Number(m[4]||0),Number(m[5]||0),Number(m[6]||0)).getTime()}
     function applyCanonicalDocumentBundles(referenceNo,files){
       const bundles=(db.V2_DOCUMENT_BUNDLES||[]).filter(b=>String(b.reference_no||'')===String(referenceNo||''));
