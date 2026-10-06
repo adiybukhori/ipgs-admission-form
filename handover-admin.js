@@ -633,6 +633,8 @@
   window.goHandover=function(btn){
     go('handover',btn);
     const title=document.getElementById('topTitle');if(title)title.textContent='Academic Handover';
+    if(typeof window.renderAcademicHandover==='function')window.renderAcademicHandover();
+    return false;
   };
 
   const baseRenderAll=window.renderAll;
