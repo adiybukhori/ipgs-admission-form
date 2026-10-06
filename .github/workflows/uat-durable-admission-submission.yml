@@ -1,0 +1,89 @@
+name: UAT Durable Admission Submission
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'api/admission.js'
+      - 'admission-upload-v2.js'
+      - '.github/workflows/uat-durable-admission-submission.yml'
+  workflow_dispatch:
+
+jobs:
+  uat:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Validate frontend syntax
+        run: node --check admission-upload-v2.js
+
+      - name: Validate API bundle syntax
+        run: npx --yes esbuild api/admission.js --bundle --platform=node --outfile=/tmp/admission-api.js
+
+      - name: Wait for production deployment
+        run: sleep 75
+
+      - name: Durable receipt end-to-end smoke test
+        shell: bash
+        run: |
+          set -euo pipefail
+          ENDPOINT="https://ipgs-admission-form.innovative.edu.my/api/admission"
+          RUN="${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}"
+          SUBMISSION_KEY="uat-durable-${RUN}-123456"
+          declare -A UPLOAD_IDS
+          UPLOAD_IDS[identityDocument]="uat-id-${RUN}-123456"
+          UPLOAD_IDS[transcript]="uat-tr-${RUN}-123456"
+          UPLOAD_IDS[certificate]="uat-ce-${RUN}-123456"
+          UPLOAD_IDS[cvResume]="uat-cv-${RUN}-123456"
+
+          for field in identityDocument transcript certificate cvResume; do
+            upload_id="${UPLOAD_IDS[$field]}"
+            body="$(jq -nc --arg uid "$upload_id" --arg field "$field" '{action:"v2SubmitAdmission",data:{__admissionUploadChunk:true,uploadId:$uid,field:$field,fileName:($field+".pdf"),mimeType:"application/pdf",size:1,chunkIndex:0,chunkCount:1,base64:"AA=="}}')"
+            response="$(curl --fail-with-body --silent --show-error -H 'Content-Type: text/plain;charset=utf-8' --data "$body" "$ENDPOINT")"
+            echo "$field => $response"
+            echo "$response" | jq -e '.ok == true and .securelyReceived == true' >/dev/null
+          done
+
+          final_body="$(jq -nc \
+            --arg key "$SUBMISSION_KEY" \
+            --arg id "${UPLOAD_IDS[identityDocument]}" \
+            --arg tr "${UPLOAD_IDS[transcript]}" \
+            --arg ce "${UPLOAD_IDS[certificate]}" \
+            --arg cv "${UPLOAD_IDS[cvResume]}" \
+            --arg run "$RUN" \
+            '{
+              action:"v2SubmitAdmission",
+              data:{
+                applicantType:"Local Student",
+                fullName:("UAT DURABLE RECEIPT "+$run),
+                idPassport:("UAT-"+$run),
+                email:("uat+"+$run+"@example.com"),
+                capturedEmail:("uat+"+$run+"@example.com"),
+                programme:"Master of Business Administration",
+                intake:"September",
+                studyMode:"Part-Time",
+                applicationCategory:"New Student",
+                documents:{
+                  identityDocument:{fileName:"identity.pdf",mimeType:"application/pdf",size:1,stagedUploadId:$id,chunkCount:1},
+                  transcript:{fileName:"transcript.pdf",mimeType:"application/pdf",size:1,stagedUploadId:$tr,chunkCount:1},
+                  certificate:{fileName:"certificate.pdf",mimeType:"application/pdf",size:1,stagedUploadId:$ce,chunkCount:1},
+                  cvResume:{fileName:"cv.pdf",mimeType:"application/pdf",size:1,stagedUploadId:$cv,chunkCount:1}
+                },
+                meta:{submittedAt:"2026-10-06T00:00:00.000Z",source:"UAT GitHub Actions",uploadTransport:"durable-supabase-v3-20261006",submissionKey:$key}
+              }
+            }')"
+
+          first="$(curl --fail-with-body --silent --show-error -H 'Content-Type: text/plain;charset=utf-8' --data "$final_body" "$ENDPOINT")"
+          echo "FINAL 1 => $first"
+          echo "$first" | jq -e '.ok == true and .received == true and (.receiptNo | startswith("RCV-"))' >/dev/null
+          receipt1="$(echo "$first" | jq -r '.receiptNo')"
+
+          second="$(curl --fail-with-body --silent --show-error -H 'Content-Type: text/plain;charset=utf-8' --data "$final_body" "$ENDPOINT")"
+          echo "FINAL 2 => $second"
+          echo "$second" | jq -e '.ok == true and .received == true' >/dev/null
+          receipt2="$(echo "$second" | jq -r '.receiptNo')"
+
+          test "$receipt1" = "$receipt2"
+          echo "Durable receipt and idempotency test passed: $receipt1"
