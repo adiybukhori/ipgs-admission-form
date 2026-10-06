@@ -1702,7 +1702,6 @@
 
       'highestQualification',
       'lastInstitution',
-      'fieldOfStudy',
       'yearOfCompletion',
 
       'employmentStatus',
@@ -1725,6 +1724,10 @@
 
       if (!formState.yearOfCompletion) {
         return 'Please enter your year of completion.';
+      }
+
+      if (!formState.fieldOfStudy) {
+        return 'Please select your programme / field of study.';
       }
     }
 
@@ -1754,6 +1757,10 @@
       if (!formState.yearOfCompletion) {
         return 'Please enter your year of completion.';
       }
+
+      if (!formState.fieldOfStudy) {
+        return 'Please select your field / area of skills.';
+      }
     }
 
     if (formState.entryQualificationType === 'Professional / Other Qualification') {
@@ -1767,6 +1774,10 @@
 
       if (!formState.yearOfCompletion) {
         return 'Please enter your year of completion.';
+      }
+
+      if (!formState.fieldOfStudy) {
+        return 'Please select your field / qualification area.';
       }
     }
 
