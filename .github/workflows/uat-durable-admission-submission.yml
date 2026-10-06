@@ -23,7 +23,7 @@ jobs:
         run: npx --yes esbuild api/admission.js --bundle --platform=node --outfile=/tmp/admission-api.js
 
       - name: Wait for production deployment
-        run: sleep 75
+        run: sleep 20
 
       - name: Durable receipt end-to-end smoke test
         shell: bash
