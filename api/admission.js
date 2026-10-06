@@ -235,20 +235,8 @@ export default async function handler(req, res) {
       cleanMessage(legacy.data && legacy.data.message)
     );
 
-    // One immediate recovery pass: replay the safely buffered files and finalise again.
-    const recovered = await triggerRecovery(submissionKey);
-    if (recovered && recovered.ok && recovered.completed) {
-      return res.status(200).json({
-        ok: true,
-        received: true,
-        processingComplete: true,
-        recovered: true,
-        receiptNo: receipt.receiptNo,
-        reference: recovered.reference || receipt.receiptNo
-      });
-    }
-
-    // Student data + documents are already durable. Internal recovery can continue safely.
+    // Student data + documents are already durable.
+    // Database trigger + scheduled recovery worker will continue internally without delaying the student.
     return res.status(200).json({
       ok: true,
       received: true,
