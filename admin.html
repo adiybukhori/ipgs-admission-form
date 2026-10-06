@@ -41,27 +41,39 @@
     .login-overlay.ready{background:rgba(25,29,45,.12)}
     .login-loader{width:min(470px,92vw);text-align:center;padding:34px 28px 30px;border:1px solid rgba(255,255,255,.72);border-radius:26px;background:rgba(255,255,255,.94);box-shadow:0 24px 70px rgba(23,32,51,.18);transform:translateY(10px) scale(.985);opacity:.25;transition:transform .32s cubic-bezier(.2,.8,.2,1),opacity .25s ease}
     .login-overlay.active .login-loader{transform:translateY(0) scale(1);opacity:1}
-    .login-brand-stage{height:92px;display:flex;align-items:center;justify-content:center;gap:0;position:relative;margin-bottom:8px}
-    .login-logo-card{width:182px;height:72px;display:flex;align-items:center;justify-content:center;padding:10px 14px;background:#fff;border:1px solid #e7eaf0;border-radius:16px;box-shadow:0 9px 28px rgba(49,32,109,.08);will-change:transform,opacity}
+    .login-brand-stage{height:106px;display:flex;align-items:center;justify-content:center;gap:0;position:relative;margin-bottom:8px;isolation:isolate}
+    .login-brand-stage::before,.login-brand-stage::after{content:"";position:absolute;left:50%;top:50%;border-radius:50%;pointer-events:none;opacity:0;z-index:0}
+    .login-brand-stage::before{width:76px;height:76px;margin:-38px 0 0 -38px;border:1px solid rgba(75,53,162,.22)}
+    .login-brand-stage::after{width:104px;height:104px;margin:-52px 0 0 -52px;border:1px solid rgba(247,200,91,.20)}
+    .login-logo-card{width:182px;height:72px;display:flex;align-items:center;justify-content:center;padding:10px 14px;background:#fff;border:1px solid #e7eaf0;border-radius:16px;box-shadow:0 9px 28px rgba(49,32,109,.08);will-change:transform,opacity,filter;opacity:0;position:relative;z-index:2}
     .login-logo-card img{display:block;max-width:100%;max-height:50px;object-fit:contain}
-    .login-logo-card.iuc{animation:iucConverge 1.15s cubic-bezier(.2,.8,.2,1) both}
-    .login-logo-card.ipgs{animation:ipgsConverge 1.15s cubic-bezier(.2,.8,.2,1) both}
-    .login-brand-spark{width:16px;height:16px;margin:0 -2px;border-radius:50%;background:radial-gradient(circle,#fff 0 18%,#f7c85b 24%,#6e53c7 55%,rgba(75,53,162,0) 72%);opacity:0;transform:scale(.35);filter:drop-shadow(0 0 10px rgba(94,72,181,.55));animation:brandSpark 1.15s ease .62s both;z-index:3}
+    .login-brand-spark{width:18px;height:18px;margin:0 -3px;border-radius:50%;background:radial-gradient(circle,#fff 0 18%,#f7c85b 24%,#6e53c7 55%,rgba(75,53,162,0) 72%);opacity:0;transform:scale(.35);filter:drop-shadow(0 0 12px rgba(94,72,181,.62));z-index:4}
+    .login-overlay.active .login-logo-card.iuc{animation:iucConverge .95s cubic-bezier(.16,.84,.24,1) both,logoFloatLeft 2.1s ease-in-out .95s infinite}
+    .login-overlay.active .login-logo-card.ipgs{animation:ipgsConverge .95s cubic-bezier(.16,.84,.24,1) both,logoFloatRight 2.1s ease-in-out .95s infinite}
+    .login-overlay.active .login-brand-spark{animation:brandSpark 1s ease .48s both,sparkPulse 1.5s ease-in-out 1.15s infinite}
+    .login-overlay.active .login-brand-stage::before{animation:ringPulse 1.8s ease-out .55s infinite}
+    .login-overlay.active .login-brand-stage::after{animation:ringPulse 1.8s ease-out .9s infinite}
     .login-loader-kicker{font-size:11px;font-weight:900;letter-spacing:.18em;text-transform:uppercase;color:var(--purple);margin-top:3px}
     .login-loader-title{font-size:20px;font-weight:900;color:var(--ink);margin-top:7px}
     .login-loader-status{min-height:20px;margin-top:7px;font-size:13px;color:var(--muted)}
     .login-pulse{display:flex;justify-content:center;align-items:center;gap:6px;margin-top:16px;height:12px}
     .login-pulse span{width:7px;height:7px;border-radius:50%;background:var(--purple2);animation:loginDot 1.15s ease-in-out infinite}
     .login-pulse span:nth-child(2){animation-delay:.16s}.login-pulse span:nth-child(3){animation-delay:.32s}
-    .login-overlay.ready .login-logo-card{animation:brandReady .42s ease both}
+    .login-overlay.ready .login-logo-card.iuc,.login-overlay.ready .login-logo-card.ipgs{animation:brandReady .42s ease both}
     .login-overlay.ready .login-brand-spark{opacity:1;animation:readySpark .42s ease both}
-    @keyframes iucConverge{0%{opacity:0;transform:translateX(-48px) scale(.94)}55%{opacity:1}78%{transform:translateX(4px) scale(1)}100%{opacity:1;transform:translateX(0) scale(1)}}
-    @keyframes ipgsConverge{0%{opacity:0;transform:translateX(48px) scale(.94)}55%{opacity:1}78%{transform:translateX(-4px) scale(1)}100%{opacity:1;transform:translateX(0) scale(1)}}
-    @keyframes brandSpark{0%,48%{opacity:0;transform:scale(.3)}70%{opacity:1;transform:scale(1.25)}100%{opacity:.78;transform:scale(.9)}}
+    .login-overlay.ready .login-brand-stage::before,.login-overlay.ready .login-brand-stage::after{animation:none;opacity:0}
+    @keyframes iucConverge{0%{opacity:0;transform:translateX(-150px) rotate(-3deg) scale(.88);filter:blur(2px)}48%{opacity:1;filter:blur(0)}78%{transform:translateX(10px) rotate(.5deg) scale(1.025)}100%{opacity:1;transform:translateX(0) rotate(0) scale(1);filter:blur(0)}}
+    @keyframes ipgsConverge{0%{opacity:0;transform:translateX(150px) rotate(3deg) scale(.88);filter:blur(2px)}48%{opacity:1;filter:blur(0)}78%{transform:translateX(-10px) rotate(-.5deg) scale(1.025)}100%{opacity:1;transform:translateX(0) rotate(0) scale(1);filter:blur(0)}}
+    @keyframes logoFloatLeft{0%,100%{transform:translate3d(0,0,0) scale(1)}50%{transform:translate3d(-5px,-4px,0) scale(1.012);box-shadow:0 13px 34px rgba(49,32,109,.15)}}
+    @keyframes logoFloatRight{0%,100%{transform:translate3d(0,0,0) scale(1)}50%{transform:translate3d(5px,4px,0) scale(1.012);box-shadow:0 13px 34px rgba(197,145,41,.14)}}
+    @keyframes brandSpark{0%,30%{opacity:0;transform:scale(.2) rotate(0)}70%{opacity:1;transform:scale(1.5) rotate(100deg)}100%{opacity:.88;transform:scale(1) rotate(180deg)}}
+    @keyframes sparkPulse{0%,100%{transform:scale(.9);opacity:.62;filter:drop-shadow(0 0 8px rgba(94,72,181,.48))}50%{transform:scale(1.3);opacity:1;filter:drop-shadow(0 0 18px rgba(94,72,181,.82))}}
+    @keyframes ringPulse{0%{opacity:.55;transform:scale(.55)}70%{opacity:.12}100%{opacity:0;transform:scale(1.75)}}
     @keyframes loginDot{0%,80%,100%{transform:scale(.7);opacity:.38}40%{transform:scale(1);opacity:1}}
-    @keyframes brandReady{0%{transform:scale(1)}55%{transform:scale(1.025)}100%{transform:scale(1)}}
-    @keyframes readySpark{0%{transform:scale(.8);opacity:.65}50%{transform:scale(1.55);opacity:1}100%{transform:scale(1);opacity:.82}}
-    @media(prefers-reduced-motion:reduce){.login-overlay,.login-loader,.login-logo-card,.login-brand-spark,.login-pulse span{animation:none!important;transition:none!important}.login-logo-card,.login-brand-spark{opacity:1;transform:none}}
+    @keyframes brandReady{0%{opacity:1;transform:scale(1)}55%{opacity:1;transform:scale(1.045)}100%{opacity:1;transform:scale(1)}}
+    @keyframes readySpark{0%{transform:scale(.8);opacity:.65}50%{transform:scale(1.75);opacity:1}100%{transform:scale(1);opacity:.9}}
+    @media(max-width:560px){.login-logo-card{width:145px;height:66px}.login-brand-stage{height:96px}}
+    @media(prefers-reduced-motion:reduce){.login-overlay,.login-loader,.login-logo-card,.login-brand-spark,.login-pulse span,.login-brand-stage::before,.login-brand-stage::after{animation:none!important;transition:none!important}.login-logo-card,.login-brand-spark{opacity:1;transform:none}}
     .message{font-size:13px;margin-top:12px;padding:10px 12px;border-radius:10px}
     .message.error{background:var(--redSoft);color:var(--red)}
     .app{min-height:100vh;display:grid;grid-template-columns:250px 1fr}
