@@ -163,7 +163,20 @@ export default async function handler(req, res) {
       return res.status(400).json({ ok: false, message: 'Invalid admission request.' });
     }
 
-    if (!payload || payload.action !== 'v2SubmitAdmission') {
+    if (!payload || !payload.action) {
+      return res.status(400).json({ ok: false, message: 'Unsupported admission action.' });
+    }
+
+    if (payload.action === 'v2SubmissionStatus') {
+      const receiptNo = String(payload.receiptNo || payload.data?.receiptNo || '').trim();
+      if (!receiptNo) {
+        return res.status(400).json({ ok: false, message: 'Receipt number is required.' });
+      }
+      const status = await supabaseRpc('admission_receipt_status', { p_receipt_no: receiptNo });
+      return res.status(200).json(status);
+    }
+
+    if (payload.action !== 'v2SubmitAdmission') {
       return res.status(400).json({ ok: false, message: 'Unsupported admission action.' });
     }
 
