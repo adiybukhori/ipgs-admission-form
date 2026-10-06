@@ -1,19 +1,33 @@
-// Admission V2 large-file transport.
-// Files are uploaded to the existing Apps Script backend in small chunks,
-// then the final admission request contains metadata only. This keeps each
-// Vercel Function request comfortably below the platform payload limit.
+// Admission V2 durable large-file transport.
+// Every chunk is safety-buffered server-side before the form can be acknowledged.
+// The same submission key is reused across retries to prevent duplicate applications.
 (function () {
   'use strict';
 
   const CHUNK_SIZE = 1024 * 1024; // 1 MiB raw ~= 1.34 MiB base64.
   const legacyBuildPayload = buildPayload;
 
-  function makeUploadId() {
+  function makeId() {
     if (window.crypto && typeof window.crypto.randomUUID === 'function') {
       return window.crypto.randomUUID();
     }
     const random = Math.random().toString(36).slice(2) + Math.random().toString(36).slice(2);
     return Date.now().toString(36) + '-' + random;
+  }
+
+  function getSubmissionKey() {
+    const keyName = 'iuc_admission_submission_key';
+    try {
+      let value = sessionStorage.getItem(keyName);
+      if (!value) {
+        value = makeId();
+        sessionStorage.setItem(keyName, value);
+      }
+      return value;
+    } catch (_) {
+      if (!window.__iucAdmissionSubmissionKey) window.__iucAdmissionSubmissionKey = makeId();
+      return window.__iucAdmissionSubmissionKey;
+    }
   }
 
   function bufferToBase64(buffer) {
@@ -41,17 +55,17 @@
     try {
       result = JSON.parse(text);
     } catch (_) {
-      result = { ok: false, message: text || 'Invalid upload response.' };
+      result = { ok: false, message: 'We could not securely receive this document. Please try again.' };
     }
 
-    if (!response.ok || !result || !result.ok) {
-      throw new Error((result && result.message) || 'Document upload failed.');
+    if (!response.ok || !result || !result.ok || !result.securelyReceived) {
+      throw new Error('We could not securely receive one of your documents. Please try again.');
     }
     return result;
   }
 
   async function uploadDocument(key, file, position, total) {
-    const uploadId = makeUploadId();
+    const uploadId = makeId();
     const chunkCount = Math.max(1, Math.ceil(file.size / CHUNK_SIZE));
     const mimeType = file.type || 'application/octet-stream';
 
@@ -64,7 +78,7 @@
       if (typeof setStatus === 'function') {
         setStatus('info', `
           <div class="submit-progress-wrap">
-            <div class="submit-progress-title">Uploading documents...</div>
+            <div class="submit-progress-title">Securing your documents...</div>
             <div class="small">Document ${position} of ${total} · Part ${chunkIndex + 1} of ${chunkCount}</div>
             <div class="submit-progress-track"><div class="submit-progress-fill"></div></div>
           </div>
@@ -92,13 +106,12 @@
     };
   }
 
-  buildPayload = async function buildPayloadWithChunkedUploads() {
-    // The Apps Script-hosted copy uses google.script.run and is not subject
-    // to Vercel's request-body limit, so retain the proven legacy path there.
+  buildPayload = async function buildPayloadWithDurableUploads() {
     if (typeof google !== 'undefined' && google.script && google.script.run) {
       return legacyBuildPayload();
     }
 
+    const submissionKey = getSubmissionKey();
     const selected = fileKeys
       .map(key => ({ key, file: formState.documents[key] }))
       .filter(item => !!item.file);
@@ -116,18 +129,25 @@
       submittedAt: new Date().toISOString(),
       source: 'IUC Admission Standalone Frontend',
       userAgent: navigator.userAgent,
-      uploadTransport: 'chunked-v2-20261006'
+      uploadTransport: 'durable-supabase-v3-20261006',
+      submissionKey
     };
 
     if (typeof setStatus === 'function') {
       setStatus('info', `
         <div class="submit-progress-wrap">
-          <div class="submit-progress-title">Finalising your application...</div>
-          <div class="small">Your documents are uploaded. Please wait while the admission record is being generated.</div>
+          <div class="submit-progress-title">Confirming your application...</div>
+          <div class="small">Your information and documents are being securely confirmed.</div>
           <div class="submit-progress-track"><div class="submit-progress-fill"></div></div>
         </div>
       `);
     }
     return payload;
   };
+
+  window.addEventListener('pageshow', function () {
+    // Deliberately keep the same session key after refresh/back navigation.
+    // This makes retries idempotent instead of creating duplicate applications.
+    getSubmissionKey();
+  });
 })();
