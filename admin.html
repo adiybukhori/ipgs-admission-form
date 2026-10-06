@@ -582,7 +582,7 @@
         <button data-section="activation" onclick="goActivation(this)">⚙ <span>Prospect / Activation</span></button>
         <button data-section="activated" onclick="goActivated(this)">✓ <span>Activated</span></button>
         <button data-section="orientation" onclick="goOrientation(this)">◉ <span>Orientation</span></button>
-        <button data-section="handover" onclick="goHandover(this)">⇄ <span>Academic Handover</span></button>
+        <button type="button" data-section="handover" onclick="goHandover(this); return false;">⇄ <span>Academic Handover</span></button>
         <button type="button" onclick="window.location.href='/agents.html'">◈ <span>Academic Consultants</span></button>
         <button data-section="feeStructure" onclick="go('feeStructure',this)">▤ <span>Fee Structure</span></button>
         <button data-section="reports" onclick="go('reports',this)">▥ <span>Reports</span></button>
@@ -2287,7 +2287,7 @@
     function exportApplicationsCsv(){const list=filteredApplications(),rows=[['Reference','Student Name','ID / Passport','Email','Programme','Intake','Stage','Decision','Status','Last Updated']];list.forEach(r=>rows.push([r.ref,r.app['Student Name'],r.app['ID / Passport No'],r.app['Personal Email'],r.app['Programme'],r.app['Intake'],stage(r),decision(r),status(r),val(r,'Last Updated',r.app['Last Updated'])]));const csv=rows.map(row=>row.map(v=>`"${String(v||'').replaceAll('"','""')}"`).join(',')).join('\n'),blob=new Blob([csv],{type:'text/csv;charset=utf-8'}),a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='IPGS_Admission_Report.csv';a.click();URL.revokeObjectURL(a.href)}
   </script>
   <script src="/orientation-admin.js"></script>
-  <script src="/handover-admin.js"></script>
+  <script src="/handover-admin.js?v=20261006-inline"></script>
   <script src="/activation-admin.js"></script>
   <script src="/fee-structure-admin.js"></script>
   <script src="/system-guide-training.js"></script>
