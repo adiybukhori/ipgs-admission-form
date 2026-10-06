@@ -184,6 +184,33 @@ export default async function handler(req, res) {
 
     // 1) DOCUMENT CHUNK: first make a durable safety copy in Supabase.
     if (data.__admissionUploadChunk === true) {
+      const allowedFields = new Set([
+        'identityDocument','passportPhoto','apelCertificate','transcript','certificate',
+        'otherSupportingDocument','englishCertificate','cvResume','passportCopyInternational',
+        'completedAdmissionForm','completedHealthDeclaration','emgsPaymentReceipt',
+        'preliminaryResearchIntent'
+      ]);
+      const allowedMime = new Set(['application/pdf','image/jpeg','image/png']);
+      const field = String(data.field || '');
+      const mimeType = String(data.mimeType || '').toLowerCase();
+      const size = Number(data.size || 0);
+      const chunkIndex = Number(data.chunkIndex);
+      const chunkCount = Number(data.chunkCount);
+      const uploadId = String(data.uploadId || '');
+
+      if (!allowedFields.has(field) ||
+          !allowedMime.has(mimeType) ||
+          !/^[A-Za-z0-9._-]{8,120}$/.test(uploadId) ||
+          !Number.isInteger(chunkIndex) || !Number.isInteger(chunkCount) ||
+          chunkIndex < 0 || chunkCount < 1 || chunkCount > 8 || chunkIndex >= chunkCount ||
+          size < 1 || size > 7 * 1024 * 1024 ||
+          (field === 'passportPhoto' && size > 2 * 1024 * 1024) ||
+          typeof data.base64 !== 'string' || data.base64.length > 1500000) {
+        return res.status(400).json({
+          ok: false,
+          message: 'We could not securely receive this document. Please check the file and try again.'
+        });
+      }
       if (!data.uploadId || !data.field || !data.fileName ||
           !Number.isInteger(Number(data.chunkIndex)) || !Number.isInteger(Number(data.chunkCount)) ||
           !data.base64) {
