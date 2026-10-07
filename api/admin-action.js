@@ -17,7 +17,7 @@ async function validateDirectAdmin(password){
   }catch(_){return false;}
 }
 async function callAppsScriptV2(action,data,password,updatedBy){
-  const token=String(password||process.env.V2_ADMIN_API_PASSWORD||'');
+  const token=String(process.env.V2_ADMIN_API_PASSWORD||password||'');
   const startedAt=Date.now();
   const r=await fetch(V2_WEB_APP,{method:'POST',headers:{'Content-Type':'text/plain;charset=utf-8'},body:JSON.stringify({action,token,data:data||{},updatedBy:updatedBy||'Admin Portal V2'}),redirect:'follow'});
   const text=await r.text();let parsed;try{parsed=JSON.parse(text)}catch(_){throw new Error(`Apps Script SAC backend returned HTTP ${r.status}.`)}
