@@ -24,6 +24,32 @@ async function callAppsScriptV2(action,data,password,updatedBy){
   if(!r.ok||!parsed||parsed.ok===false)throw new Error(parsed?.message||`Apps Script SAC backend returned HTTP ${r.status}.`);
   return {parsed,bridgeMs:Date.now()-startedAt};
 }
+
+async function recordInternalRemarkDirect(data,password,updatedBy){
+  if(!(await validateDirectAdmin(password))){const e=new Error('Invalid admin password.');e.code='ADMIN_AUTH_FAILED';throw e;}
+  const ref=String(data?.referenceNo||'').trim();
+  const eventType=String(data?.action||data?.activity||data?.type||'').toUpperCase();
+  if(!ref)throw new Error('Reference No is required.');
+  if(eventType!=='INTERNAL_REMARK')throw new Error('Direct activity write is limited to INTERNAL_REMARK.');
+  const remark=String(data?.remark||data?.note||data?.message||data?.details||data?.summary||data?.data?.remark||'').trim();
+  if(!remark)throw new Error('Remark is required.');
+  const payload={
+    remark,
+    summary:String(data?.summary||remark),
+    note:String(data?.note||remark),
+    message:String(data?.message||remark),
+    details:String(data?.details||remark),
+    status:String(data?.status||'RECORDED'),
+    caseTag:String(data?.['Case Tag']||data?.caseTag||data?.data?.caseTag||''),
+    agentId:String(data?.agentId||'ADMIN_PORTAL'),
+    executionId:String(data?.executionId||'')
+  };
+  const rows=await supabaseRequest('workflow_events','POST',[{
+    reference_no:ref,event_type:'INTERNAL_REMARK',actor:updatedBy||'Admin Portal V2',
+    source:'ADMIN_PORTAL_V2',payload
+  }]);
+  return {ok:true,referenceNo:ref,eventType:'INTERNAL_REMARK',remark,row:Array.isArray(rows)?rows[0]||null:null};
+}
 async function removeSacCandidateDirect(data,password,updatedBy){
   if(!(await validateDirectAdmin(password))){const e=new Error('Invalid admin password.');e.code='ADMIN_AUTH_FAILED';throw e;}
   const legacy=String(data?.sessionId||data?.sacSessionId||'');
@@ -260,6 +286,8 @@ export default async function handler(req, res) {
       const directStarted=Date.now();result=await recordSacDecisionDirect(body.data||{},password,body.updatedBy);bridgeMs=Date.now()-directStarted;transport='SUPABASE_WORKFLOW_ATOMIC';bridgeWarning=null;
     }else if(action==='v2UpdateAssessment'){
       const directStarted=Date.now();result=await recordAssessmentResultDirect(body.data||{},password,body.updatedBy);bridgeMs=Date.now()-directStarted;transport='SUPABASE_WORKFLOW_ATOMIC';bridgeWarning=null;
+    }else if(action==='v2RecordAgentActivity'&&String(body.data?.action||body.data?.activity||body.data?.type||'').toUpperCase()==='INTERNAL_REMARK'){
+      const directStarted=Date.now();result=await recordInternalRemarkDirect(body.data||{},password,body.updatedBy);bridgeMs=Date.now()-directStarted;transport='SUPABASE_INTERNAL_REMARK';bridgeWarning=null;
     }else{
       ({parsed:result,bridgeMs,transport,bridgeWarning}=await callV2(action, body.data || {}, password, body.sessionId, body.updatedBy));
     }
