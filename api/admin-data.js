@@ -1,7 +1,7 @@
 import { timingSafeEqual } from 'crypto';
 
 const SPREADSHEET_ID = '1O-Y-q7_q78xKM1p5e2C3EWyQfYr5rXvhO0oWbVaw5Mw';
-const ADMIN_BRIDGE = 'https://anasbukhori.app.n8n.cloud/webhook/iuc-admission-v2-admin-bridge';
+const ADMIN_BRIDGE = String(process.env.N8N_ADMIN_BRIDGE_URL||'').trim();
 const LEGACY_AUTH_WEB_APP = 'https://script.google.com/macros/s/AKfycbw22-UOsHkaap3dzU16aOjA6XFr7jWGr9qQPfp8F1CQrXboP7YdRZJKKJhHijC3us4/exec';
 
 const SHEETS = [
@@ -43,11 +43,13 @@ async function validateAdminSession(password,sessionId){
   if(!password)return false;
   const localSecret=String(process.env.V2_ADMIN_API_PASSWORD||'');
   if(localSecret&&safeEqual(password,localSecret))return true;
-  try{
-    const response=await fetchWithTimeout(ADMIN_BRIDGE,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({password:String(password||''),sessionId:String(sessionId||''),action:'__AUTH_SESSION__',data:{},updatedBy:'ACC admin data auth'}),redirect:'follow'},4500);
-    const text=await response.text();let parsed;try{parsed=JSON.parse(text)}catch(_){parsed=null;}
-    if(response.ok&&parsed&&parsed.ok===true&&parsed.authenticated===true)return true;
-  }catch(_){}
+  if(ADMIN_BRIDGE){
+    try{
+      const response=await fetchWithTimeout(ADMIN_BRIDGE,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({password:String(password||''),sessionId:String(sessionId||''),action:'__AUTH_SESSION__',data:{},updatedBy:'ACC admin data auth'}),redirect:'follow'},4500);
+      const text=await response.text();let parsed;try{parsed=JSON.parse(text)}catch(_){parsed=null;}
+      if(response.ok&&parsed&&parsed.ok===true&&parsed.authenticated===true)return true;
+    }catch(_){}
+  }
   return validateLegacyAdminPassword(password);
 }
 
@@ -94,7 +96,7 @@ function overlaySupabaseWorkflow(data,states,assessments){
   if(Array.isArray(assessments)&&assessments.length){const refs=new Set(assessments.map(a=>String(a.reference_no||''))),keep=(data.V2_ASSESSMENT_PROGRESS||[]).filter(r=>!refs.has(String(r['Reference No']||''))),mapped=assessments.map(a=>({'Reference No':a.reference_no,'Assessment Type':a.assessment_type,'Sequence':String(a.sequence||1),'Component':'OVERALL','Status':a.status,'Panel Result':a.panel_result||'','Remarks':a.remarks||'','Updated At':a.updated_at||'','Updated By':a.completed_by||a.created_by||''}));data.V2_ASSESSMENT_PROGRESS=keep.concat(mapped);}
 }
 
-async function fetchLiveSacCandidates(password,sessionId,force=false){const now=Date.now();if(!force&&ADMIN_DATA_CACHE.sacCandidates&&(now-ADMIN_DATA_CACHE.sacCandidatesAt)<SAC_LIVE_CACHE_MS)return cloneCached(ADMIN_DATA_CACHE.sacCandidates);const response=await fetch(ADMIN_BRIDGE,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({password:String(password||''),sessionId:String(sessionId||''),action:'v2ListSacCandidates',data:{},updatedBy:'Admin Data Live SAC Authoritative Read'}),redirect:'follow'});const text=await response.text();let parsed;try{parsed=JSON.parse(text)}catch(_){throw new Error('SAC live read returned HTTP '+response.status+'.')}if(!response.ok||!parsed||parsed.ok===false)throw new Error(parsed?.message||('SAC live read returned HTTP '+response.status+'.'));const payload=parsed?.result?.result||parsed?.result||parsed;const rows=Array.isArray(payload?.candidates)?payload.candidates:[];ADMIN_DATA_CACHE.sacCandidates=cloneCached(rows);ADMIN_DATA_CACHE.sacCandidatesAt=now;return rows;}
+async function fetchLiveSacCandidates(password,sessionId,force=false){if(!ADMIN_BRIDGE)throw new Error('n8n admin bridge is not configured.');const now=Date.now();if(!force&&ADMIN_DATA_CACHE.sacCandidates&&(now-ADMIN_DATA_CACHE.sacCandidatesAt)<SAC_LIVE_CACHE_MS)return cloneCached(ADMIN_DATA_CACHE.sacCandidates);const response=await fetch(ADMIN_BRIDGE,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({password:String(password||''),sessionId:String(sessionId||''),action:'v2ListSacCandidates',data:{},updatedBy:'Admin Data Live SAC Authoritative Read'}),redirect:'follow'});const text=await response.text();let parsed;try{parsed=JSON.parse(text)}catch(_){throw new Error('SAC live read returned HTTP '+response.status+'.')}if(!response.ok||!parsed||parsed.ok===false)throw new Error(parsed?.message||('SAC live read returned HTTP '+response.status+'.'));const payload=parsed?.result?.result||parsed?.result||parsed;const rows=Array.isArray(payload?.candidates)?payload.candidates:[];ADMIN_DATA_CACHE.sacCandidates=cloneCached(rows);ADMIN_DATA_CACHE.sacCandidatesAt=now;return rows;}
 
 export default async function handler(req,res){
   res.setHeader('Cache-Control','no-store, max-age=0');
