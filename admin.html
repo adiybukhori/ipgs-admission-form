@@ -1950,20 +1950,20 @@
     function mergeTargetedApplicantData(referenceNo,delta){
       const ref=String(referenceNo||'').trim();
       if(!ref||!delta||typeof delta!=='object')return;
-      const targetSheets=['V2_APPLICATIONS','V2_WORKFLOW','V2_DOCUMENT_REVIEW','V2_AI_SCREENING','V2_QUALIFICATION_SCREENING','V2_SAC_CANDIDATES','V2_ASSESSMENT_PROGRESS','V2_AUDIT_LOG'];
+      const targetSheets=['V2_APPLICATIONS','V2_WORKFLOW','V2_DOCUMENT_REVIEW','V2_AI_SCREENING','V2_QUALIFICATION_SCREENING','V2_SAC_CANDIDATES','V2_ASSESSMENT_PROGRESS','V2_AUDIT_LOG','V2_AGENT_EVENTS','V2_DOCUMENT_BUNDLES','V2_DOCUMENT_VERSIONS'];
       targetSheets.forEach(name=>{
         if(!Array.isArray(delta[name]))return;
         const existing=Array.isArray(db[name])?db[name]:[];
-        db[name]=existing.filter(row=>String(row?.['Reference No']||'').trim()!==ref).concat(delta[name]);
+        db[name]=existing.filter(row=>String(row?.['Reference No']||row?.reference_no||'').trim()!==ref).concat(delta[name]);
       });
       buildRecords();
       selected=records.find(x=>x.ref===ref)||selected;
       renderSelectedApplicant();
     }
-    async function refreshApplicantRecord(referenceNo){
+    async function refreshApplicantRecord(referenceNo,mode='full'){
       const ref=String(referenceNo||'').trim();
       if(!ref)return null;
-      const res=await fetch(RECORD_API,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({password,referenceNo:ref})});
+      const res=await fetch(RECORD_API,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({password,sessionId:adminSessionId,referenceNo:ref,mode})});
       const out=await res.json().catch(()=>({ok:false,message:'Invalid targeted refresh response.'}));
       if(!res.ok||!out.ok)throw new Error(out.message||'Unable to refresh applicant.');
       mergeTargetedApplicantData(ref,out.data||{});
