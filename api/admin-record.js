@@ -1,5 +1,6 @@
 const SPREADSHEET_ID = '1O-Y-q7_q78xKM1p5e2C3EWyQfYr5rXvhO0oWbVaw5Mw';
-const ADMIN_BRIDGE = 'https://anasbukhori.app.n8n.cloud/webhook/iuc-admission-v2-admin-bridge';
+const ADMIN_BRIDGE = String(process.env.N8N_ADMIN_BRIDGE_URL||'').trim();
+const LEGACY_AUTH_WEB_APP = 'https://script.google.com/macros/s/AKfycbw22-UOsHkaap3dzU16aOjA6XFr7jWGr9qQPfp8F1CQrXboP7YdRZJKKJhHijC3us4/exec';
 
 const FULL_TARGET_SHEETS = [
   ['V2_APPLICATIONS', 'A'],
@@ -31,33 +32,50 @@ function toObjects(csv){const rows=parseCsv(csv);if(!rows.length)return[];const 
 function gvizLiteral(value){return String(value||'').replace(/'/g,"''");}
 function supabaseConfig(){const url=String(process.env.SUPABASE_URL||process.env.NEXT_PUBLIC_SUPABASE_URL||'').replace(/\/$/,'');const key=String(process.env.SUPABASE_SERVICE_ROLE_KEY||process.env.SUPABASE_SECRET_KEY||'');return url&&key?{url,key}:null;}
 async function fetchSupabaseOperational(referenceNo){
-  const cfg=supabaseConfig();if(!cfg)return {candidate:null,state:null,assessments:[],documentBundles:[],documentVersions:[]};
+  const cfg=supabaseConfig();if(!cfg)return {candidate:null,state:null,assessments:[],documentBundles:[],documentVersions:[],events:[]};
   const h={apikey:cfg.key,Authorization:`Bearer ${cfg.key}`,'Content-Type':'application/json'},q=encodeURIComponent(referenceNo);
-  const [cr,sr,ar,br,vr]=await Promise.all([
+  const [cr,sr,ar,br,vr,er]=await Promise.all([
     fetch(`${cfg.url}/rest/v1/sac_candidates?select=reference_no,student_name,programme,sac_session_id,decision,decision_at,decision_by&reference_no=eq.${q}&order=decision_at.desc.nullslast,updated_at.desc&limit=1`,{headers:h}),
     fetch(`${cfg.url}/rest/v1/workflow_state?select=*&reference_no=eq.${q}&limit=1`,{headers:h}),
     fetch(`${cfg.url}/rest/v1/assessment_cases?select=*&reference_no=eq.${q}&order=created_at.asc`,{headers:h}),
     fetch(`${cfg.url}/rest/v1/document_bundles?select=*&reference_no=eq.${q}&order=updated_at.desc`,{headers:h}),
-    fetch(`${cfg.url}/rest/v1/document_versions?select=*&reference_no=eq.${q}&order=document_type.asc,version_no.asc`,{headers:h})
+    fetch(`${cfg.url}/rest/v1/document_versions?select=*&reference_no=eq.${q}&order=document_type.asc,version_no.asc`,{headers:h}),
+    fetch(`${cfg.url}/rest/v1/workflow_events?select=*&reference_no=eq.${q}&event_type=eq.INTERNAL_REMARK&order=created_at.desc`,{headers:h})
   ]);
-  if(!cr.ok||!sr.ok||!ar.ok||!br.ok||!vr.ok)throw new Error('Supabase operational workflow read failed.');
-  const [c,s,a,b,v]=await Promise.all([cr.json(),sr.json(),ar.json(),br.json(),vr.json()]);
-  return {candidate:Array.isArray(c)?c[0]||null:null,state:Array.isArray(s)?s[0]||null:null,assessments:Array.isArray(a)?a:[],documentBundles:Array.isArray(b)?b:[],documentVersions:Array.isArray(v)?v:[]};
+  if(!cr.ok||!sr.ok||!ar.ok||!br.ok||!vr.ok||!er.ok)throw new Error('Supabase operational workflow read failed.');
+  const [c,s,a,b,v,e]=await Promise.all([cr.json(),sr.json(),ar.json(),br.json(),vr.json(),er.json()]);
+  return {candidate:Array.isArray(c)?c[0]||null:null,state:Array.isArray(s)?s[0]||null:null,assessments:Array.isArray(a)?a:[],documentBundles:Array.isArray(b)?b:[],documentVersions:Array.isArray(v)?v:[],events:Array.isArray(e)?e:[]};
 }
 function overlaySupabaseOperational(data,o){
-  const c=o?.candidate||null,st=o?.state||null,a=o?.assessments||[],b=o?.documentBundles||[],v=o?.documentVersions||[];
+  const c=o?.candidate||null,st=o?.state||null,a=o?.assessments||[],b=o?.documentBundles||[],v=o?.documentVersions||[],events=o?.events||[];
   data.V2_DOCUMENT_BUNDLES=b;
   data.V2_DOCUMENT_VERSIONS=v;
   if(c){const e=Array.isArray(data.V2_SAC_CANDIDATES)?data.V2_SAC_CANDIDATES[0]||{}:{};data.V2_SAC_CANDIDATES=[{...e,'Reference No':c.reference_no,'Student Name':c.student_name||e['Student Name']||'','Programme':c.programme||e['Programme']||'','Decision':c.decision||'PENDING','Decision At':c.decision_at||'','Decision By':c.decision_by||''}];}
   if(st){const w=Array.isArray(data.V2_WORKFLOW)&&data.V2_WORKFLOW[0]?data.V2_WORKFLOW[0]:{'Reference No':st.reference_no};data.V2_WORKFLOW=[{...w,'Application Stage':st.current_stage||w['Application Stage']||'','SAC Decision':st.sac_decision||w['SAC Decision']||'','SAC Supabase Decision':st.sac_decision||'','Assessment Status':st.assessment_status||'','Prerequisite Status':st.prerequisite_status||'','Offer Letter Status':st.offer_status||w['Offer Letter Status']||'','Acceptance Status':st.acceptance_status||w['Acceptance Status']||'','Workflow Version':String(st.workflow_version||''),'Workflow Source':'SUPABASE','Legacy Sync Status':st.legacy_sync_status||'','SAC Sync Status':st.legacy_sync_status==='SYNCED'?'SYNCED':'LEGACY_MIRROR_PENDING','Last Updated':st.updated_at||w['Last Updated']||'','Updated By':st.updated_by||w['Updated By']||''}];}
   if(a.length)data.V2_ASSESSMENT_PROGRESS=a.map(x=>({'Reference No':x.reference_no,'Assessment Type':x.assessment_type,'Sequence':String(x.sequence||1),'Component':'OVERALL','Status':x.status,'Panel Result':x.panel_result||'','Remarks':x.remarks||'','Updated At':x.updated_at||'','Updated By':x.completed_by||x.created_by||''}));
+  if(events.length){
+    const mapped=events.map(e=>({'Reference No':e.reference_no||'','Action':'INTERNAL_REMARK','Type':'INTERNAL_REMARK','Remark':e.payload?.remark||e.payload?.summary||'','Summary':e.payload?.summary||e.payload?.remark||'','Case Tag':e.payload?.caseTag||'','Status':e.payload?.status||'RECORDED','Timestamp':e.created_at||'','Updated By':e.actor||'Admin Portal V2'}));
+    const existing=Array.isArray(data.V2_AGENT_EVENTS)?data.V2_AGENT_EVENTS:[];
+    const keys=new Set(existing.map(x=>[x['Reference No'],x['Action'],x['Remark'],x['Timestamp']].join('|')));
+    data.V2_AGENT_EVENTS=existing.concat(mapped.filter(x=>!keys.has([x['Reference No'],x['Action'],x['Remark'],x['Timestamp']].join('|'))));
+  }
 }
 
 async function validateAdminSession(password,sessionId){
   if(!password)return false;
-  const response=await fetch(ADMIN_BRIDGE,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({password:String(password||''),sessionId:String(sessionId||''),action:'__AUTH_SESSION__',data:{},updatedBy:'ACC targeted refresh auth'}),redirect:'follow'});
-  const text=await response.text();let parsed;try{parsed=JSON.parse(text)}catch(_){return false}
-  return response.ok&&parsed&&parsed.ok===true&&parsed.authenticated===true;
+  const local=String(process.env.V2_ADMIN_API_PASSWORD||'');
+  if(local&&local===String(password))return true;
+  if(ADMIN_BRIDGE){
+    try{
+      const response=await fetch(ADMIN_BRIDGE,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({password:String(password||''),sessionId:String(sessionId||''),action:'__AUTH_SESSION__',data:{},updatedBy:'ACC targeted refresh auth'}),redirect:'follow'});
+      const text=await response.text();let parsed;try{parsed=JSON.parse(text)}catch(_){parsed=null}
+      if(response.ok&&parsed&&parsed.ok===true&&parsed.authenticated===true)return true;
+    }catch(_){}
+  }
+  try{
+    const response=await fetch(`${LEGACY_AUTH_WEB_APP}?action=applications&token=${encodeURIComponent(String(password||''))}&_=${Date.now()}`,{redirect:'follow'});
+    const text=await response.text();const parsed=JSON.parse(text);return response.ok&&parsed?.ok===true;
+  }catch(_){return false;}
 }
 async function fetchReferenceRows(sheet,column,referenceNo){const tq=`select * where ${column} = '${gvizLiteral(referenceNo)}'`;const url=`https://docs.google.com/spreadsheets/d/${SPREADSHEET_ID}/gviz/tq?tqx=out:csv&sheet=${encodeURIComponent(sheet)}&tq=${encodeURIComponent(tq)}&_=${Date.now()}`;const response=await fetch(url,{redirect:'follow'});if(!response.ok)throw new Error(`${sheet} returned HTTP ${response.status}`);return toObjects(await response.text());}
 async function fetchWholeSheet(sheet){const url=`https://docs.google.com/spreadsheets/d/${SPREADSHEET_ID}/gviz/tq?tqx=out:csv&sheet=${encodeURIComponent(sheet)}&_=${Date.now()}`;const response=await fetch(url,{redirect:'follow'});if(!response.ok)throw new Error(`${sheet} returned HTTP ${response.status}`);return toObjects(await response.text());}
