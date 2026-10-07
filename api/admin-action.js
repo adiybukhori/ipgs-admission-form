@@ -1,4 +1,4 @@
-const ADMIN_BRIDGE = 'https://anasbukhori.app.n8n.cloud/webhook/iuc-admission-v2-admin-bridge';
+const ADMIN_BRIDGE = String(process.env.N8N_ADMIN_BRIDGE_URL||'').trim();
 const V2_WEB_APP = 'https://script.google.com/macros/s/AKfycbxasT_HgtRSvTbR_bsa8p17Cm-C2PKn20Ok1kU-AyJmxiKX8kX5EGOtRLwVwNlAL7JB/exec';
 const AUTH_WEB_APP = 'https://script.google.com/macros/s/AKfycbw22-UOsHkaap3dzU16aOjA6XFr7jWGr9qQPfp8F1CQrXboP7YdRZJKKJhHijC3us4/exec';
 
@@ -162,27 +162,34 @@ async function recordAssessmentResultDirect(data,password,updatedBy){
 async function callV2(action, data, password, sessionId, updatedBy) {
   const startedAt = Date.now();
   let bridgeError = null;
-  try {
-    const response = await fetch(ADMIN_BRIDGE, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({password:String(password||''),sessionId:String(sessionId||''),action,data:data||{},updatedBy:updatedBy||'Admin Portal V2'}),
-      redirect: 'follow'
-    });
-    const text = await response.text();
-    let parsed = null; try { parsed = text ? JSON.parse(text) : null; } catch (_) {}
-    if (response.ok && parsed && parsed.ok !== false) return { parsed, bridgeMs: Date.now() - startedAt, transport:'N8N_BRIDGE' };
-    bridgeError = new Error(parsed?.message || `Admin bridge returned HTTP ${response.status}.`);
-    bridgeError.status = response.status;
-  } catch (error) { bridgeError = error; }
 
-  // Production safety fallback: execute the EXISTING Apps Script V2 workflow engine.
-  // This preserves V2_WORKFLOW, IA/prerequisite/offer gates and audit logic; Supabase is only mirrored after success.
+  if (ADMIN_BRIDGE) {
+    try {
+      const response = await fetch(ADMIN_BRIDGE, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({password:String(password||''),sessionId:String(sessionId||''),action,data:data||{},updatedBy:updatedBy||'Admin Portal V2'}),
+        redirect: 'follow'
+      });
+      const text = await response.text();
+      let parsed = null; try { parsed = text ? JSON.parse(text) : null; } catch (_) {}
+      if (response.ok && parsed && parsed.ok !== false) return { parsed, bridgeMs: Date.now() - startedAt, transport:'N8N_BRIDGE' };
+      bridgeError = new Error(parsed?.message || `Admin bridge returned HTTP ${response.status}.`);
+      bridgeError.status = response.status;
+    } catch (error) { bridgeError = error; }
+  }
+
   try {
     const direct = await callAppsScriptV2(action, data, password, updatedBy);
-    return { parsed: direct.parsed, bridgeMs: Date.now() - startedAt, transport:'APPS_SCRIPT_FALLBACK', bridgeWarning:String(bridgeError?.message||'n8n bridge unavailable') };
+    return {
+      parsed: direct.parsed,
+      bridgeMs: Date.now() - startedAt,
+      transport: ADMIN_BRIDGE ? 'APPS_SCRIPT_FALLBACK' : 'APPS_SCRIPT_DIRECT',
+      bridgeWarning: ADMIN_BRIDGE ? String(bridgeError?.message||'n8n bridge unavailable') : null
+    };
   } catch (directError) {
-    const error = new Error(`Workflow command failed. Bridge: ${String(bridgeError?.message||'unavailable')} | V2 backend: ${String(directError?.message||'failed')}`);
+    const bridgePart = ADMIN_BRIDGE ? `Bridge: ${String(bridgeError?.message||'unavailable')} | ` : '';
+    const error = new Error(`Workflow command failed. ${bridgePart}V2 backend: ${String(directError?.message||'failed')}`);
     error.code = /password|auth/i.test(String(directError?.message||'')) ? 'ADMIN_AUTH_FAILED' : 'V2_ACTION_FAILED';
     throw error;
   }
