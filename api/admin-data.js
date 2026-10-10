@@ -132,6 +132,17 @@ export default async function handler(req,res){
       if(!Array.isArray(data.V2_SAC_CANDIDATES)||!data.V2_SAC_CANDIDATES.length)data.V2_SAC_CANDIDATES=sheetSacCandidates;
     }
   }
+  // ACC move/category data is independent from SAC; failure must not corrupt the SAC read.
+  if(scope!=='sac'){
+    try{
+      data.ACC_APPLICATION_ADMIN=await supabaseGet('acc_application_admin?select=*');
+      data.ACC_APPLICATION_ADMIN_STATUS='READY';
+    }catch(error){
+      data.ACC_APPLICATION_ADMIN=[];
+      data.ACC_APPLICATION_ADMIN_STATUS='ERROR';
+      warnings.push('ACC Application metadata unavailable: '+(error?.message||'Unable to read')+'. Queue withheld until refresh.');
+    }
+  }
   const sacMs=Date.now()-sacStarted;
   if(scope!=='sac'){data.V1_MASTER_DATABASE=[];data.V1_LEGACY_META=[{source:'ARCHIVED_AFTER_UNIFIED_MIGRATION',count:0,readOnly:true,cacheHit:false}];}
   sortSacSessions(data);const totalMs=Date.now()-startedAt;res.setHeader('Server-Timing',`auth;dur=${authMs}, sheets;dur=${sheetsMs}, sac;dur=${sacMs}, total;dur=${totalMs}`);

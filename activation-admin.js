@@ -101,6 +101,37 @@
 
 
 
+
+  // ACC Application queue controls. Changes persist via authenticated API.
+  window.openAccAgentModal=function(ref){
+    const r=liveActivationRecords().find(x=>String(x.ref)===String(ref));
+    if(!r)return alert('Application not found.');
+    const currentCode=String(r.appAdmin?.agent_code||r.app?.['Agent Code']||'').trim();
+    const choices=[{code:'DIRECT',name:'Direct / Registry'}].concat(
+      (db.AGENT_MASTER||[]).map(a=>({code:String(a['Agent Code']||'').trim(),name:String(a['Agent Name']||'').trim()})).filter(a=>a.code&&a.name));
+    if(currentCode&&!choices.some(a=>a.code===currentCode))choices.push({code:currentCode,name:String(r.appAdmin?.agent_name||r.app?.['Agent Name']||currentCode)});
+    const options='<option value="">Select Agent</option>'+choices.map(a=>'<option value="'+esc(a.code)+'" '+(a.code===currentCode?'selected':'')+'>'+esc(a.name)+' ('+esc(a.code)+')</option>').join('');
+    const body='<div class="message" style="display:block;background:var(--blueSoft);color:var(--blue);margin-bottom:14px">Select the agent that matches the Student Category in SkyVialing. This does not automatically update SkyVialing.</div>'+
+      '<div class="field"><label>Student Category / Agent</label><select id="accAgentSelection">'+options+'</select></div>';
+    modalShell('Student Category / Agent',String(r.app['Student Name']||'')+' · '+ref,body,'Save Agent');
+    document.getElementById('activationModalPrimary').onclick=async()=>{
+      const agentCode=String(document.getElementById('accAgentSelection')?.value||'');
+      if(!agentCode)return alert('Please select an agent / student category.');
+      const result=await activationAction('v2SetApplicationAgent',{referenceNo:ref,agentCode},'Update Student Category / Agent?');
+      if(result){closeActivationModal();alert('Student Category / Agent saved.')}
+    };
+  };
+  window.moveApplicationToActivated=async function(ref){
+    const r=liveActivationRecords().find(x=>String(x.ref)===String(ref));
+    if(!r)return alert('Application not found.');
+    const active=String(r.workflow?.['SKY Activation Status']||r.app?.['SKY Activation Status']||'').toUpperCase()==='ACTIVATED';
+    if(!active)return alert('Confirm activation in SkyVialing before moving this application.');
+    if(r.appAdmin?.moved_to_activated===true)return alert('Already moved to Activated.');
+    const result=await activationAction('v2MoveApplicationToActivated',{referenceNo:ref},
+      'Move '+String(r.app['Student Name']||ref)+' out of Application and into Activated? SAC, acceptance and documents will remain unchanged.');
+    if(result)alert('Moved to Activated. Student is no longer in the Application listing.');
+  };
+
   window.openSkyActivationModal=function(ref){
     const r=liveActivationRecords().find(x=>String(x.ref)===String(ref));
     if(!r)return activationMsg('Application record not found.','error');
@@ -183,8 +214,8 @@
       const handover=String(w['Academic Handover Status']||'NOT_READY').toUpperCase();
       const skyId=w['SKY Student ID']||a['SKY Student ID']||'-';
       const activatedAt=w['SKY Activated At']||a['SKY Activated At']||'';
-      return `<tr><td><div class="student">${esc(a['Student Name']||'-')}</div><div class="subline">${esc(r.ref)}</div></td><td>${esc(a['Programme']||'-')}<div class="subline">${esc(a['Intake']||w['Intake']||'-')}</div></td><td><div class="student">${esc(skyId)}</div></td><td>${esc(formatDate(activatedAt)||'-')}</td><td><span class="badge ${orientation==='COMPLETED'?'green':'amber'}">${esc(pretty(orientation))}</span></td><td><span class="badge ${['HANDED_OVER','COMPLETED'].includes(handover)?'green':'purple'}">${esc(pretty(handover))}</span></td><td>${folder?`<a class="link" href="${esc(folder)}" target="_blank" rel="noopener">Open Folder</a>`:'-'}</td><td><button class="ghost" onclick="openRecord('${esc(r.ref)}')">Open</button></td></tr>`;
-    }).join('')||'<tr><td colspan="8" class="empty">No SKY-activated students yet.</td></tr>';
+      return `<tr><td><div class="student">${esc(a['Student Name']||'-')}</div><div class="subline">${esc(r.ref)}</div></td><td>${esc(a['Programme']||'-')}<div class="subline">${esc(a['Intake']||w['Intake']||'-')}</div></td><td><div class="student">${esc(skyId)}</div></td><td><div class="student">${esc(r.appAdmin?.agent_name||a['Agent Name']||'Not assigned')}</div><div class="subline">${esc(w['Fee Group']||a['Fee Group']||'No fee group')}</div></td><td>${esc(formatDate(activatedAt)||'-')}</td><td><span class="badge ${r.appAdmin?.moved_to_activated===true?'green':'amber'}">${r.appAdmin?.moved_to_activated===true?'Moved':'Still in Application'}</span></td><td><span class="badge ${orientation==='COMPLETED'?'green':'amber'}">${esc(pretty(orientation))}</span></td><td><span class="badge ${['HANDED_OVER','COMPLETED'].includes(handover)?'green':'purple'}">${esc(pretty(handover))}</span></td><td>${folder?`<a class="link" href="${esc(folder)}" target="_blank" rel="noopener">Open Folder</a>`:'-'}</td><td><button class="ghost" onclick="openRecord('${esc(r.ref)}')">Open</button></td></tr>`;
+    }).join('')||'<tr><td colspan="10" class="empty">No SKY-activated students yet.</td></tr>';
   };
 
   window.goActivated=function(btn){go('activated',btn);const title=document.getElementById('topTitle');if(title)title.textContent='Activated Students';};

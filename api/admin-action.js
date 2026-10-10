@@ -4,7 +4,7 @@ const AUTH_WEB_APP = 'https://script.google.com/macros/s/AKfycbw22-UOsHkaap3dzU1
 
 const ALLOWED_ACTIONS = new Set([
   'v2ListWorkflow','v2UpsertFeeStructure','v2SetFeeStructureStatus','v2UpsertAgent','v2AgentAdminStatus','v2UpdateStage','v2RunDocumentReview','v2RegeneratePgAdm01','v2CompleteManualDocumentReview','v2RunQualificationScreening','v2RunAutoAiScreening','v2CompleteManualQualificationScreening','v2RecordAiScreeningResult','v2ConfirmAiScreening','v2GenerateAiScreeningReport','v2RunComplianceDocumentQuality','v2SendDocumentReplacementRequest','v2SendMissingDocumentRequest','v2PrepareSacCoordination','v2PrepareIaCoordination','v2PreparePrerequisiteCoordination','v2PrepareOrientationForAccepted','v2RunOrientationSessionSupervisor','v2PrepareSkyActivation','v2PrepareAcademicHandover','v2PrepareStudentAccessDelivery','v2RunManagementIntelligence','v2AgenticStatus','v2GetAgentCaseState','v2AgentActionGateway','v2RecordAgentActivity','v2CreateHumanTask','v2ResolveHumanTask','v2ListOpenHumanTasks',
-  'v2IssueOffer','v2PrepareAcceptancePack','v2ResendAcceptanceConfirmation','v2CreateSacSession','v2AssignSacCandidate','v2RemoveSacCandidate','v2PrepareSacPack','v2PrepareSacPackAsync','v2GetSacPackPrepareStatus','v2GetSacPackFile','v2SaveSacPackPdf','v2ListSacCandidates','v2RecordSacDecision','v2CreateSacSessionManual','v2UpdateSacSessionManual','v2DeleteSacSessionManual','v2SendSacCalendarInvitationManual','v2RecordSacDecisionManual','v2FinalizeSacSessionManual','v2SacManualPhase1Status','v2SacResultStatus','v2PrepareSacResultDocument','v2PreviewSacResult','v2SendSacResultEmail','v2UpdateAssessment','v2CreateOrientationSession','v2AssignOrientationBatch','v2SendOrientationInvitation','v2RemoveOrientationStudent','v2MoveOrientationStudent','v2UpdateOrientationAttendance','v2SendOrientationReminderNow','v2EndOrientationSession','v2EditOrientationSession','v2OpenOrientationAttendance','v2CloseOrientationAttendance','v2SetOrientationRecording','v2SendOrientationRecording','v2OrientationCompletionAssessment','v2CompleteOrientationAndGenerateReport','v2RegenerateOrientationReport','v2GetOrientationReportFile','v2CreateHandoverSession','v2AddHandoverStudents','v2SendHandoverSession','v2CreateAcademicHandoverBatch','v2ResendAcademicHandoverEmail','v2UpdateProvisioningTask','v2ResendProvisioningTaskEmails','v2SendStudentProvisioningAccess','v2RegistryUpsertProspect','v2RefreshFeeStructure','v2NotifyRegistryProspectReady','v2ActivateStudentInSky'
+  'v2IssueOffer','v2PrepareAcceptancePack','v2ResendAcceptanceConfirmation','v2CreateSacSession','v2AssignSacCandidate','v2RemoveSacCandidate','v2PrepareSacPack','v2PrepareSacPackAsync','v2GetSacPackPrepareStatus','v2GetSacPackFile','v2SaveSacPackPdf','v2ListSacCandidates','v2RecordSacDecision','v2CreateSacSessionManual','v2UpdateSacSessionManual','v2DeleteSacSessionManual','v2SendSacCalendarInvitationManual','v2RecordSacDecisionManual','v2FinalizeSacSessionManual','v2SacManualPhase1Status','v2SacResultStatus','v2PrepareSacResultDocument','v2PreviewSacResult','v2SendSacResultEmail','v2UpdateAssessment','v2CreateOrientationSession','v2AssignOrientationBatch','v2SendOrientationInvitation','v2RemoveOrientationStudent','v2MoveOrientationStudent','v2UpdateOrientationAttendance','v2SendOrientationReminderNow','v2EndOrientationSession','v2EditOrientationSession','v2OpenOrientationAttendance','v2CloseOrientationAttendance','v2SetOrientationRecording','v2SendOrientationRecording','v2OrientationCompletionAssessment','v2CompleteOrientationAndGenerateReport','v2RegenerateOrientationReport','v2GetOrientationReportFile','v2CreateHandoverSession','v2AddHandoverStudents','v2SendHandoverSession','v2CreateAcademicHandoverBatch','v2ResendAcademicHandoverEmail','v2UpdateProvisioningTask','v2ResendProvisioningTaskEmails','v2SendStudentProvisioningAccess','v2RegistryUpsertProspect','v2RefreshFeeStructure','v2NotifyRegistryProspectReady','v2ActivateStudentInSky','v2SetApplicationAgent','v2MoveApplicationToActivated'
 ]);
 
 async function validateDirectAdmin(password){
@@ -23,6 +23,74 @@ async function callAppsScriptV2(action,data,password,updatedBy){
   const text=await r.text();let parsed;try{parsed=JSON.parse(text)}catch(_){throw new Error(`Apps Script SAC backend returned HTTP ${r.status}.`)}
   if(!r.ok||!parsed||parsed.ok===false)throw new Error(parsed?.message||`Apps Script SAC backend returned HTTP ${r.status}.`);
   return {parsed,bridgeMs:Date.now()-startedAt};
+}
+
+
+const ACC_SPREADSHEET_ID='1O-Y-q7_q78xKM1p5e2C3EWyQfYr5rXvhO0oWbVaw5Mw';
+function accParseCsv(text){
+  const rows=[];let row=[],field='',quoted=false;
+  for(let i=0;i<text.length;i++){
+    const ch=text[i],next=text[i+1];
+    if(ch==='"'){if(quoted&&next==='"'){field+='"';i++;}else quoted=!quoted;continue}
+    if(ch===','&&!quoted){row.push(field);field='';continue}
+    if((ch==='\n'||ch==='\r')&&!quoted){if(ch==='\r'&&next==='\n')i++;row.push(field);if(row.some(v=>String(v||'').trim()!==''))rows.push(row);row=[];field='';continue}
+    field+=ch;
+  }
+  row.push(field);if(row.some(v=>String(v||'').trim()!==''))rows.push(row);
+  if(!rows.length)return[];
+  const headers=rows[0].map(x=>String(x||'').trim());
+  return rows.slice(1).map(line=>Object.fromEntries(headers.map((h,i)=>[h,line[i]||''])));
+}
+async function accVerifiedSheetRows(sheet){
+  const controller=new AbortController(),timer=setTimeout(()=>controller.abort(),10000);
+  try{
+    const url='https://docs.google.com/spreadsheets/d/'+ACC_SPREADSHEET_ID+'/gviz/tq?tqx=out:csv&sheet='+encodeURIComponent(sheet)+'&_='+Date.now();
+    const r=await fetch(url,{signal:controller.signal,redirect:'follow'});
+    if(!r.ok)throw new Error('Could not verify '+sheet+' (HTTP '+r.status+').');
+    const csv=await r.text(),rows=accParseCsv(csv);
+    if(sheet==='AGENT_MASTER'?!csv.includes('Agent Code'):(!csv.includes('Reference No')&&!csv.includes('Reference')))throw new Error('Unexpected '+sheet+' data. Please refresh and retry.');
+    return rows;
+  }finally{clearTimeout(timer)}
+}
+async function accApplyAdminAction(action,data,password,updatedBy){
+  if(!(await validateDirectAdmin(password))){const e=new Error('Invalid admin password.');e.code='ADMIN_AUTH_FAILED';throw e}
+  if(!supabaseConfig())throw new Error('ACC Supabase is not configured.');
+  const referenceNo=String(data?.referenceNo||'').trim();
+  if(!/^IUC-ADM-/i.test(referenceNo)||referenceNo.length>160)throw new Error('Valid V2 application reference is required.');
+  const actor=String(updatedBy||'Registry Admin Portal V2').slice(0,160);
+  if(action==='v2MoveApplicationToActivated'){
+    const rows=await accVerifiedSheetRows('V2_WORKFLOW');
+    const w=rows.filter(row=>String(row['Reference No']||row.Reference||'').trim()===referenceNo).slice(-1)[0];
+    if(!w)throw new Error('Workflow record not found. Refusing to move an unverified student.');
+    if(String(w['SKY Activation Status']||'').trim().toUpperCase()!=='ACTIVATED')throw new Error('Student must first be confirmed as Activated in SkyVialing.');
+    const applied=await supabaseRequest('rpc/acc_apply_application_admin_change','POST',{
+      p_reference_no:referenceNo,p_action:'MOVE_TO_ACTIVATED',p_actor:actor,
+      p_agent_code:null,p_agent_name:null
+    });
+    if(!applied||applied.moved_to_activated!==true)throw new Error('Could not persist move to Activated.');
+    return {ok:true,...applied};
+  }
+  if(action==='v2SetApplicationAgent'){
+    const apps=await accVerifiedSheetRows('V2_APPLICATIONS');
+    if(!apps.some(row=>String(row['Reference No']||row.Reference||'').trim()===referenceNo))throw new Error('Application not found.');
+    const code=String(data?.agentCode||'').trim();
+    if(!code||code.length>80)throw new Error('Please select an agent / student category.');
+    let name='Direct / Registry';
+    if(code!=='DIRECT'){
+      const agents=await accVerifiedSheetRows('AGENT_MASTER');
+      const agent=agents.find(row=>String(row['Agent Code']||'').trim()===code);
+      if(!agent)throw new Error('Agent code not found in ACC Agent Master.');
+      name=String(agent['Agent Name']||'').trim();
+      if(!name)throw new Error('Agent name is missing in Agent Master.');
+    }
+    const applied=await supabaseRequest('rpc/acc_apply_application_admin_change','POST',{
+      p_reference_no:referenceNo,p_action:'SET_AGENT',p_actor:actor,
+      p_agent_code:code,p_agent_name:name
+    });
+    if(!applied||applied.reference_no!==referenceNo)throw new Error('Could not persist student category.');
+    return {ok:true,...applied};
+  }
+  throw new Error('Unsupported ACC application action.');
 }
 
 async function recordInternalRemarkDirect(data,password,updatedBy){
@@ -272,7 +340,9 @@ export default async function handler(req, res) {
   const startedAt = Date.now();
   try {
     let result,bridgeMs,transport,bridgeWarning;
-    if(action==='v2CreateSacSessionManual'){
+    if(action==='v2SetApplicationAgent'||action==='v2MoveApplicationToActivated'){
+      const directStarted=Date.now();result=await accApplyAdminAction(action,body.data||{},password,body.updatedBy);bridgeMs=Date.now()-directStarted;transport='SUPABASE_ACC_APPLICATION_ADMIN';bridgeWarning=null;
+    }else if(action==='v2CreateSacSessionManual'){
       const directStarted=Date.now();result=await createSacSessionDirect(body.data||{},password,body.updatedBy);bridgeMs=Date.now()-directStarted;transport='SUPABASE_SAC_ADMIN';bridgeWarning=null;
     }else if(action==='v2AssignSacCandidate'){
       const directStarted=Date.now();result=await assignSacCandidateDirect(body.data||{},password,body.updatedBy);bridgeMs=Date.now()-directStarted;transport='SUPABASE_SAC_ADMIN';bridgeWarning=null;
