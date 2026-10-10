@@ -44,6 +44,12 @@
 
   function closeActivationModal(){document.getElementById('activationModal')?.remove()}
 
+  function showActivationModalError(message){
+    const el=document.getElementById('activationModalFeedback');
+    if(el){el.textContent=String(message||'Unable to save.');el.style.display='block';}
+    else alert(message);
+  }
+
   function modalShell(title,subtitle,body,primaryText){
     closeActivationModal();
     const overlay=document.createElement('div');
@@ -65,41 +71,41 @@
     overlay.addEventListener('click',e=>{if(e.target===overlay)closeActivationModal()});
   }
 
+  // Fee Structure and Fee Group refer to the SAME persisted fee-group code.
+  // Keep the backend field/action names unchanged to preserve the SkyVialing workflow.
   window.openRegistryProspectModal=function(ref){
     const r=liveActivationRecords().find(x=>String(x.ref)===String(ref));
-    if(!r)return activationMsg('Application record not found.','error');
+    if(!r)return alert('Application record not found.');
     const groups=feeGroups();
     const currentGroup=String(r.workflow?.['Fee Group']||r.app?.['Fee Group']||'');
-    const options=['<option value="">Select Fee Group</option>'].concat(
+    const options=['<option value="">Select Fee Structure</option>'].concat(
       groups.map(g=>'<option value="'+esc(g)+'" '+(g===currentGroup?'selected':'')+'>'+esc(g)+'</option>')
     ).join('');
     const body=
       '<div class="message" style="display:block;background:var(--blueSoft);color:var(--blue);margin-bottom:16px">'+
-        'Use this only when Registry needs to correct the Fee Group selected by Marketing / Academic Consultant. Prospect completion remains owned by Marketing.'+
+        'Choose the approved Fee Structure for this student. The selected code is the Fee Group used in the existing SkyVialing / Registry prospect workflow.'+
       '</div>'+
       '<div class="detail-grid">'+
         '<div class="field full"><label>Student</label><input value="'+esc(r.app['Student Name']||'-')+'" readonly></div>'+
-        '<div class="field full"><label>Fee Group</label><select id="registryFeeGroup">'+options+'</select></div>'+
-        '<div class="field full"><label>Remarks</label><textarea id="registryProspectRemarks" rows="3" style="width:100%;border:1px solid #d7dce6;border-radius:12px;padding:12px 13px;resize:vertical" placeholder="Reason for Fee Group correction (optional)">'+esc(r.app?.['Prospect Remarks']||'')+'</textarea></div>'+
+        '<div class="field full"><label>Fee Structure</label><select id="registryFeeGroup">'+options+'</select></div>'+
+        '<div class="field full"><label>Remarks</label><textarea id="registryProspectRemarks" rows="3" style="width:100%;border:1px solid #d7dce6;border-radius:12px;padding:12px 13px;resize:vertical" placeholder="Reason for Fee Structure selection or correction (optional)">'+esc(r.app?.['Prospect Remarks']||'')+'</textarea></div>'+
       '</div>';
-    modalShell('Exception Edit - Fee Group',r.ref,body,'Update Fee Group');
+    modalShell('Select / Edit Fee Structure',r.ref,body,'Save Fee Structure');
     document.getElementById('activationModalPrimary').onclick=async()=>{
       const feeGroup=document.getElementById('registryFeeGroup')?.value||'';
       const remarks=document.getElementById('registryProspectRemarks')?.value.trim()||'';
-      if(!feeGroup)return activationMsg('Fee Group is required.','error');
+      if(!feeGroup){showActivationModalError('Please select a Fee Structure.');return;}
       const result=await activationAction(
         'v2RegistryUpsertProspect',
         {referenceNo:ref,feeGroup,remarks},
-        'Update the Fee Group for this applicant?'
+        'Save this Fee Structure for the applicant?'
       );
       if(result){
         closeActivationModal();
-        activationMsg('Fee Group updated successfully. Prospect remains completed by Marketing.','ok');
+        alert('Fee Structure saved successfully.');
       }
     };
   };
-
-
 
 
   // ACC Application queue controls. Changes persist via authenticated API.
@@ -134,24 +140,33 @@
 
   window.openSkyActivationModal=function(ref){
     const r=liveActivationRecords().find(x=>String(x.ref)===String(ref));
-    if(!r)return activationMsg('Application record not found.','error');
-    const w=r.workflow||{};
+    if(!r)return alert('Application record not found.');
+    const w=r.workflow||{},a=r.app||{};
+    const prospectId=String(w['SKY Prospect ID']||a['SKY Prospect ID']||'').trim();
+    const feeStructure=String(w['Fee Group']||a['Fee Group']||'').trim();
+    const prospectStatus=String(w['Prospect Status']||a['Prospect Status']||'PENDING').toUpperCase();
+    const hasProspect=['PROSPECT_COMPLETED','PROSPECT_UPDATED'].includes(prospectStatus);
+    const note=!feeStructure
+      ? 'No Fee Structure has been recorded in ACC. Select it before confirming the activation. This is the same underlying Fee Group code.'
+      : !hasProspect
+      ? 'Prospect is not yet marked completed in ACC. Confirm that the student is truly activated in SkyVialing; ACC may require prospect completion before saving activation.'
+      : 'After you activate the student in SkyVialing, record that completed activation here. This does not mean the Acceptance Form has been received.';
     const body=`
-      <div class="message" style="display:block;background:var(--greenSoft);color:var(--green);margin-bottom:16px">
-        Prospect has been completed by Marketing / Consultant. After Registry activates the student in SKY, mark the operational task as done here.
-      </div>
+      <div class="message" style="display:block;background:var(--blueSoft);color:var(--blue);margin-bottom:16px">${esc(note)}</div>
       <div class="detail-grid">
-        <div class="field"><label>SKY Prospect ID</label><input value="${esc(w['SKY Prospect ID']||r.app?.['SKY Prospect ID']||'')}" readonly></div>
-        <div class="field"><label>Fee Group</label><input value="${esc(w['Fee Group']||r.app?.['Fee Group']||'')}" readonly></div>
-        <div class="field full"><label>SKY Student ID / Registration No. <span class="subline">(optional)</span></label><input id="activationSkyStudentId" value="${esc(w['SKY Student ID']||'')}" placeholder="Optional"></div>
+        <div class="field"><label>SKY Prospect ID</label><input value="${esc(prospectId)}" placeholder="Not recorded" readonly></div>
+        <div class="field"><label>Fee Structure</label><input value="${esc(feeStructure)}" placeholder="Not selected" readonly>${!feeStructure?'<button type="button" class="ghost" id="skySelectFeeStructure" style="margin-top:8px">Select Fee Structure</button>':''}</div>
+        <div class="field full"><label>SKY Student ID / Registration No. <span class="subline">(optional)</span></label><input id="activationSkyStudentId" value="${esc(w['SKY Student ID']||'')}" placeholder="Enter SKY Student ID if available"></div>
         <div class="field full"><label>Remarks</label><textarea id="activationRemarks" rows="3" style="width:100%;border:1px solid #d7dce6;border-radius:12px;padding:12px 13px;resize:vertical">${esc(w['SKY Activation Remarks']||'')}</textarea></div>
       </div>`;
-    modalShell('Mark Active in SKY',`${r.app['Student Name']||'-'} · ${ref}`,body,'Active in SKY Done');
+    modalShell('Mark Activated in SkyVialing',`${r.app['Student Name']||'-'} · ${ref}`,body,'Confirm SKY Activation');
+    document.getElementById('skySelectFeeStructure')?.addEventListener('click',()=>openRegistryProspectModal(ref));
     document.getElementById('activationModalPrimary').onclick=async()=>{
+      if(!feeStructure){showActivationModalError('Select and save the Fee Structure first.');return;}
       const skyStudentId=document.getElementById('activationSkyStudentId')?.value.trim()||'';
       const remarks=document.getElementById('activationRemarks')?.value.trim()||'';
-      const result=await activationAction('v2ActivateStudentInSky',{referenceNo:ref,skyStudentId,remarks},'Confirm that this student is ACTIVE in SKY?');
-      if(result){closeActivationModal();activationMsg('Active in SKY marked DONE.','ok')}
+      const result=await activationAction('v2ActivateStudentInSky',{referenceNo:ref,skyStudentId,remarks},'Confirm this student is already activated in SkyVialing?');
+      if(result){closeActivationModal();alert('SkyVialing activation recorded. You can now use Move to Activated on the Application row.');}
     };
   };
 
