@@ -84,10 +84,10 @@ function mapSupabaseCandidate(row,sessionLegacyId){return{
   'Missing Documents JSON':JSON.stringify(row.missing_documents||[]),'Pack Prepared At':row.pack_prepared_at||''
 }}
 async function fetchSupabaseSac(){
-  const [sessions,candidates,workflow,assessments,documentBundles,documentVersions,accApplicationAdmin]=await Promise.all([supabaseGet('sac_sessions?select=*&order=meeting_date.desc.nullslast,created_at.desc'),supabaseGet('sac_candidates?select=*&order=created_at.asc'),supabaseGet('workflow_state?select=*'),supabaseGet('assessment_cases?select=*&order=created_at.asc'),supabaseGet('document_bundles?select=*&order=updated_at.desc'),supabaseGet('document_versions?select=*&order=reference_no.asc,document_type.asc,version_no.asc'),supabaseGet('acc_application_admin?select=*')]);
+  const [sessions,candidates,workflow,assessments,documentBundles,documentVersions]=await Promise.all([supabaseGet('sac_sessions?select=*&order=meeting_date.desc.nullslast,created_at.desc'),supabaseGet('sac_candidates?select=*&order=created_at.asc'),supabaseGet('workflow_state?select=*'),supabaseGet('assessment_cases?select=*&order=created_at.asc'),supabaseGet('document_bundles?select=*&order=updated_at.desc'),supabaseGet('document_versions?select=*&order=reference_no.asc,document_type.asc,version_no.asc')]);
   const sessionById=new Map((sessions||[]).map(s=>[String(s.id),s]));
   const counts=new Map();for(const c of (candidates||[])){const id=String(c.sac_session_id||'');counts.set(id,(counts.get(id)||0)+1)}
-  return{sessions:(sessions||[]).filter(s=>!s.is_hidden).map(s=>mapSupabaseSession(s,counts.get(String(s.id))||0)),candidates:(candidates||[]).map(c=>mapSupabaseCandidate(c,sessionById.get(String(c.sac_session_id))?.legacy_session_id||'')),workflow:workflow||[],assessments:assessments||[],documentBundles:documentBundles||[],documentVersions:documentVersions||[],accApplicationAdmin:accApplicationAdmin||[]};
+  return{sessions:(sessions||[]).filter(s=>!s.is_hidden).map(s=>mapSupabaseSession(s,counts.get(String(s.id))||0)),candidates:(candidates||[]).map(c=>mapSupabaseCandidate(c,sessionById.get(String(c.sac_session_id))?.legacy_session_id||'')),workflow:workflow||[],assessments:assessments||[],documentBundles:documentBundles||[],documentVersions:documentVersions||[]};
 }
 function overlaySupabaseWorkflow(data,states,assessments){
   if(!Array.isArray(data.V2_WORKFLOW))data.V2_WORKFLOW=[];const byRef=new Map(data.V2_WORKFLOW.map(w=>[String(w['Reference No']||w['Reference']||''),w]));
@@ -118,7 +118,7 @@ export default async function handler(req,res){
     data.V2_SAC_CANDIDATES=supa.candidates;
     data.V2_DOCUMENT_BUNDLES=supa.documentBundles||[];
     data.V2_DOCUMENT_VERSIONS=supa.documentVersions||[];
-    if(scope!=='sac'){overlaySupabaseWorkflow(data,supa.workflow,supa.assessments);data.ACC_APPLICATION_ADMIN=supa.accApplicationAdmin||[];}
+    if(scope!=='sac')overlaySupabaseWorkflow(data,supa.workflow,supa.assessments);
     if(ADMIN_DATA_CACHE.v2){ADMIN_DATA_CACHE.v2.V2_SAC_SESSIONS=cloneCached(supa.sessions);ADMIN_DATA_CACHE.v2.V2_SAC_CANDIDATES=cloneCached(supa.candidates);}
   }catch(error){
     warnings.push('Supabase SAC read: '+(error?.message||'Unable to load')+' · falling back to Google Sheet / bridge');
@@ -130,6 +130,17 @@ export default async function handler(req,res){
       const sheetSacCandidates=Array.isArray(data.V2_SAC_CANDIDATES)?cloneCached(data.V2_SAC_CANDIDATES):[];
       try{const liveSacCandidates=await fetchLiveSacCandidates(body.password,body.sessionId,scope==='sac'&&force);if(Array.isArray(liveSacCandidates)&&liveSacCandidates.length)data.V2_SAC_CANDIDATES=liveSacCandidates;}catch(_){}
       if(!Array.isArray(data.V2_SAC_CANDIDATES)||!data.V2_SAC_CANDIDATES.length)data.V2_SAC_CANDIDATES=sheetSacCandidates;
+    }
+  }
+  // ACC move/category data is independent from SAC; failure must not corrupt the SAC read.
+  if(scope!=='sac'){
+    try{
+      data.ACC_APPLICATION_ADMIN=await supabaseGet('acc_application_admin?select=*');
+      data.ACC_APPLICATION_ADMIN_STATUS='READY';
+    }catch(error){
+      data.ACC_APPLICATION_ADMIN=[];
+      data.ACC_APPLICATION_ADMIN_STATUS='ERROR';
+      warnings.push('ACC Application metadata unavailable: '+(error?.message||'Unable to read')+'. Queue withheld until refresh.');
     }
   }
   const sacMs=Date.now()-sacStarted;
