@@ -30,6 +30,7 @@
       return out.result||out;
     }catch(e){
       activationMsg(e.message||'Unable to complete Prospect / SKY action.','error');
+      showActivationModalError(e.message||'Unable to complete Prospect / SKY action.');
       return null;
     }
   }
@@ -62,6 +63,7 @@
           <button class="ghost" type="button" onclick="document.getElementById('activationModal')?.remove()">Close</button>
         </div>
         ${body}
+        <div id="activationModalFeedback" role="alert" style="display:none;margin-top:12px;padding:10px 12px;border-radius:8px;background:var(--redSoft);color:var(--red);font-size:13px"></div>
         <div style="display:flex;gap:10px;justify-content:flex-end;margin-top:16px;flex-wrap:wrap">
           <button class="ghost" type="button" onclick="document.getElementById('activationModal')?.remove()">Cancel</button>
           <button class="primary" type="button" id="activationModalPrimary">${esc(primaryText)}</button>
@@ -147,7 +149,7 @@
     const prospectStatus=String(w['Prospect Status']||a['Prospect Status']||'PENDING').toUpperCase();
     const hasProspect=['PROSPECT_COMPLETED','PROSPECT_UPDATED'].includes(prospectStatus);
     const note=!feeStructure
-      ? 'No Fee Structure has been recorded in ACC. Select it before confirming the activation. This is the same underlying Fee Group code.'
+      ? 'No Fee Structure is currently recorded in ACC. You can select it here; it uses the existing fee code and can be assigned independently of Acceptance Form.'
       : !hasProspect
       ? 'Prospect is not yet marked completed in ACC. Confirm that the student is truly activated in SkyVialing; ACC may require prospect completion before saving activation.'
       : 'After you activate the student in SkyVialing, record that completed activation here. This does not mean the Acceptance Form has been received.';
@@ -162,7 +164,6 @@
     modalShell('Mark Activated in SkyVialing',`${r.app['Student Name']||'-'} · ${ref}`,body,'Confirm SKY Activation');
     document.getElementById('skySelectFeeStructure')?.addEventListener('click',()=>openRegistryProspectModal(ref));
     document.getElementById('activationModalPrimary').onclick=async()=>{
-      if(!feeStructure){showActivationModalError('Select and save the Fee Structure first.');return;}
       const skyStudentId=document.getElementById('activationSkyStudentId')?.value.trim()||'';
       const remarks=document.getElementById('activationRemarks')?.value.trim()||'';
       const result=await activationAction('v2ActivateStudentInSky',{referenceNo:ref,skyStudentId,remarks},'Confirm this student is already activated in SkyVialing?');
