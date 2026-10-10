@@ -665,7 +665,7 @@
         </section>
 
         <section id="activation" class="section">
-          <div class="hero"><div><h2>Prospect & SKY Activation</h2><p>Marketing → Registry operational workstream for SKY Prospect setup, Fee Group confirmation and student activation.</p></div><span class="badge purple">OPERATIONAL WORKSTREAM</span></div>
+          <div class="hero"><div><h2>Prospect & SKY Activation</h2><p>Marketing → Registry operational workstream for SKY Prospect setup, Fee Structure confirmation and student activation.</p></div><span class="badge purple">OPERATIONAL WORKSTREAM</span></div>
           <div class="kpis">
             <div class="kpi"><div class="label">PROSPECT PENDING</div><div id="activationProspectPendingKpi" class="value">0</div><div class="meta">Direct / consultant setup required</div></div>
             <div class="kpi"><div class="label">PROSPECT DONE</div><div id="activationProspectDoneKpi" class="value">0</div><div class="meta">Marketing handoff completed</div></div>
@@ -675,9 +675,9 @@
             <div class="panel-head"><h3>Prospect & Activation Tracking</h3><span>Prospect Done → Active in SKY Done</span></div>
             <div class="panel-body">
               <div id="activationMessage" class="message" style="display:none"></div>
-              <div class="warning-banner" style="margin-bottom:14px"><b>Operational rule:</b> this module is independent from Document Review, SAC, Offer, Acceptance and Orientation. Once Prospect is completed by Marketing and a Fee Group is selected, Registry may activate the student in SKY.</div>
+              <div class="warning-banner" style="margin-bottom:14px"><b>Operational rule:</b> this module is independent from Document Review, SAC, Offer, Acceptance and Orientation. Once Prospect is completed by Marketing and a Fee Structure is selected, Registry may activate the student in SKY.</div>
             </div>
-            <div class="table-wrap"><table><thead><tr><th>Student / Consultant</th><th>Prospect</th><th>Fee Group</th><th>Active in SKY</th><th>Status</th><th>Action</th></tr></thead><tbody id="activationBody"></tbody></table></div>
+            <div class="table-wrap"><table><thead><tr><th>Student / Consultant</th><th>Prospect</th><th>Fee Structure</th><th>Active in SKY</th><th>Status</th><th>Action</th></tr></thead><tbody id="activationBody"></tbody></table></div>
           </div>
         </section>
 
@@ -689,7 +689,7 @@
             <div class="kpi"><div class="label">HANDOVER PENDING</div><div id="activatedHandoverKpi" class="value">0</div><div class="meta">Awaiting Academic handover completion</div></div>
             <div class="kpi"><div class="label">HANDED OVER</div><div id="activatedHandedOverKpi" class="value">0</div><div class="meta">Academic handover sent / completed</div></div>
           </div>
-          <div class="panel"><div class="panel-head"><h3>Activated Student Queue</h3><span>SKY activation → Orientation → Academic Handover</span></div><div class="table-wrap"><table><thead><tr><th>Student</th><th>Programme / Intake</th><th>SKY Student ID</th><th>Agent / Fee Group</th><th>Activated</th><th>Application Move</th><th>Orientation</th><th>Academic Handover</th><th>Folder</th><th>Action</th></tr></thead><tbody id="activatedBody"></tbody></table></div></div>
+          <div class="panel"><div class="panel-head"><h3>Activated Student Queue</h3><span>SKY activation → Orientation → Academic Handover</span></div><div class="table-wrap"><table><thead><tr><th>Student</th><th>Programme / Intake</th><th>SKY Student ID</th><th>Agent / Fee Structure</th><th>Activated</th><th>Application Move</th><th>Orientation</th><th>Academic Handover</th><th>Folder</th><th>Action</th></tr></thead><tbody id="activatedBody"></tbody></table></div></div>
         </section>
 
         <section id="orientation" class="section">
@@ -749,13 +749,13 @@
           <div class="hero">
             <div>
               <h2>Fee Structure</h2>
-              <p>Master control for Fee Groups used by Academic Consultants / Marketing after SKY Prospect creation.</p>
+              <p>Master control for Fee Structures used by Academic Consultants / Marketing after SKY Prospect creation.</p>
             </div>
             <span class="badge green">AGENT MASTER SOURCE</span>
           </div>
 
           <div class="kpis">
-            <div class="kpi"><div class="label">TOTAL STRUCTURES</div><div id="feeTotalKpi" class="value">0</div><div class="meta">Fee Groups in master</div></div>
+            <div class="kpi"><div class="label">TOTAL STRUCTURES</div><div id="feeTotalKpi" class="value">0</div><div class="meta">Fee Structures in master</div></div>
             <div class="kpi"><div class="label">ACTIVE FOR AGENT</div><div id="feeActiveKpi" class="value">0</div><div class="meta">Available in agent dropdown</div></div>
             <div class="kpi"><div class="label">INACTIVE</div><div id="feeInactiveKpi" class="value">0</div><div class="meta">Hidden from agent selection</div></div>
             <div class="kpi"><div class="label">PDF READY</div><div id="feePdfKpi" class="value">0</div><div class="meta">Mapped Fee Structure file</div></div>
@@ -765,7 +765,7 @@
             <div class="panel-body" style="display:flex;align-items:center;justify-content:space-between;gap:14px;flex-wrap:wrap">
               <div>
                 <div class="student">Fee Structure Master</div>
-                <div class="subline">Add and maintain approved fee structures here. ACTIVE Fee Groups become selectable by agents automatically.</div>
+                <div class="subline">Add and maintain approved fee structures here. ACTIVE Fee Structures become selectable by agents automatically.</div>
               </div>
               <button class="primary" onclick="openFeeStructureModal()">+ Add Fee Structure</button>
             </div>
@@ -773,8 +773,8 @@
           </div>
 
           <div class="panel">
-            <div class="panel-head"><h3>Fee Structure List</h3><span>Fee Group Code is the operational value saved into Admission V2 / SKY handoff</span></div>
-            <div class="table-wrap"><table><thead><tr><th>Fee Group</th><th>Scope</th><th>Total Fee</th><th>Payment Plan</th><th>Agent Status</th><th></th></tr></thead><tbody id="feeStructureBody"></tbody></table></div>
+            <div class="panel-head"><h3>Fee Structure List</h3><span>Fee Structure Code is the operational value saved into Admission V2 / SKY handoff</span></div>
+            <div class="table-wrap"><table><thead><tr><th>Fee Structure</th><th>Scope</th><th>Total Fee</th><th>Payment Plan</th><th>Agent Status</th><th></th></tr></thead><tbody id="feeStructureBody"></tbody></table></div>
           </div>
         </section>
 
@@ -817,7 +817,7 @@
               <div class="guide-role-card"><h4>Orientation</h4><ol><li>Main page is for session monitoring.</li><li>Click <b>View Session</b> for student roster, communication, attendance & feedback, recording, completion and activity.</li><li>Completion generates the official Orientation report.</li></ol></div>
               <div class="guide-role-card"><h4>Academic Handover</h4><ol><li>Main page is for handover-session monitoring.</li><li>Click <b>View Handover</b> for students, communication, provisioning, Student Access and activity.</li><li>Academic Handover is managed separately from Orientation.</li></ol></div>
               <div class="guide-role-card"><h4>Academic Consultants</h4><ol><li>Maintain consultant / Marketing records.</li><li>Use unique referral links for attribution.</li><li>Do not overwrite an existing consultant when adding a new one.</li></ol></div>
-              <div class="guide-role-card"><h4>Fee Structure</h4><ol><li>Master source for agent Fee Group selection.</li><li>Maintain programme, level, study mode, intake, fee components, payment schedule and approved PDF.</li><li>Only ACTIVE structures appear to agents.</li></ol></div>
+              <div class="guide-role-card"><h4>Fee Structure</h4><ol><li>Master source for agent Fee Structure selection.</li><li>Maintain programme, level, study mode, intake, fee components, payment schedule and approved PDF.</li><li>Only ACTIVE structures appear to agents.</li></ol></div>
               <div class="guide-role-card"><h4>AI Operations Center</h4><ol><li>Current control room for live workload visibility and agent ownership.</li><li>AI agents shown as NOT ACTIVATED are monitoring / design placeholders only.</li><li>Autonomous execution will be enabled module by module after testing and approval.</li></ol></div>
               <div class="guide-role-card"><h4>Reports</h4><ol><li>Use operational distributions and funnel reporting.</li><li>Export data when required for internal analysis.</li><li>Session-specific official reports are viewed inside the relevant module.</li></ol></div>
               <div class="guide-role-card"><h4>System Guide</h4><ol><li>Use this page as the current staff operating reference.</li><li>When system behaviour changes, this guide must be updated together with the module.</li></ol></div>
@@ -838,7 +838,7 @@
 
                 <div class="guide-flow-row"><div class="guide-flow-no">01A</div><div class="guide-flow-stage">COL + Welcome Email</div><div class="guide-flow-arrow">→</div><div class="guide-flow-action"><span class="guide-role">System / IPGS Admission</span> Automatically generates <b>one Conditional Offer Letter (COL)</b>, saves it in the student folder and sends a congratulatory welcome email with the <b>COL + Admission Form PDF</b> attached. Any Research Intent or other follow-up item appears as a secondary notice and does not replace the main welcome message. The COL is conditional and is <b>not</b> the final Official Offer Letter / LOA.</div></div>
 
-                <div class="guide-flow-row"><div class="guide-flow-no">02</div><div class="guide-flow-stage">Consultant / SKY Prospect Setup</div><div class="guide-flow-arrow">→</div><div class="guide-flow-action"><span class="guide-role">Academic Consultant / Marketing</span> Receives the new-application notification, creates the Prospect in SKY, returns to the action page, enters the <b>SKY Prospect ID</b>, selects the applicable <b>Fee Group</b> from the live Fee Structure Master and marks <b>Prospect Done</b>. <b>Add Students / admission processing is not done by Marketing.</b></div></div>
+                <div class="guide-flow-row"><div class="guide-flow-no">02</div><div class="guide-flow-stage">Consultant / SKY Prospect Setup</div><div class="guide-flow-arrow">→</div><div class="guide-flow-action"><span class="guide-role">Academic Consultant / Marketing</span> Receives the new-application notification, creates the Prospect in SKY, returns to the action page, enters the <b>SKY Prospect ID</b>, selects the applicable <b>Fee Structure</b> from the live Fee Structure Master and marks <b>Prospect Done</b>. <b>Add Students / admission processing is not done by Marketing.</b></div></div>
 
                 <div class="guide-parallel">
                   <div class="guide-parallel-title">Admission review continues while SKY Prospect operations are being completed</div>
@@ -857,7 +857,7 @@
 
                 <div class="guide-flow-row"><div class="guide-flow-no">08</div><div class="guide-flow-stage">Electronic Acceptance</div><div class="guide-flow-arrow">→</div><div class="guide-flow-action"><span class="guide-role">Student</span> Opens the Acceptance link and signs electronically. <b>System:</b> stores the signed acceptance record and timestamp and updates Acceptance status.</div></div>
 
-                <div class="guide-gate"><b>Prospect / Activation rule:</b> this is a separate operational workstream with its own status and controls. Once the consultant has completed the SKY Prospect + Fee Group task, Registry may complete SKY activation and record the relevant SKY Student / Registration ID. Do not invent a cross-module gate that the Prospect / Activation module itself does not require.</div>
+                <div class="guide-gate"><b>Prospect / Activation rule:</b> this is a separate operational workstream with its own status and controls. Once the consultant has completed the SKY Prospect + Fee Structure task, Registry may complete SKY activation and record the relevant SKY Student / Registration ID. Do not invent a cross-module gate that the Prospect / Activation module itself does not require.</div>
 
                 <div class="guide-flow-row"><div class="guide-flow-no">09</div><div class="guide-flow-stage">Registry SKY Activation</div><div class="guide-flow-arrow">→</div><div class="guide-flow-action"><span class="guide-role">Registry</span> Open <b>Prospect / Activation</b>. Confirm Prospect Done, activate/register the student in SKY and mark <b>Active in SKY Done</b>. Record SKY Student ID / Registration No. when available.</div></div>
 
@@ -913,12 +913,12 @@
           </div>
 
           <div class="panel" style="margin-bottom:18px">
-            <div class="panel-head"><h3>Fee Structure Master</h3><span>Single source for agent Fee Group selection</span></div>
+            <div class="panel-head"><h3>Fee Structure Master</h3><span>Single source for agent Fee Structure selection</span></div>
             <div class="panel-body">
-              <div class="guide-callout blue" style="margin-bottom:14px"><b>Core rule:</b> do not type or invent a Fee Group outside the master. Academic Consultants select from the ACTIVE list supplied by the Fee Structure module.</div>
+              <div class="guide-callout blue" style="margin-bottom:14px"><b>Core rule:</b> do not type or invent a Fee Structure outside the master. Academic Consultants select from the ACTIVE list supplied by the Fee Structure module.</div>
               <div class="guide-grid">
                 <div><ul class="guide-list">
-                  <li><b>Fee Group Code</b> is the operational value saved to the Prospect / Admission record.</li>
+                  <li><b>Fee Structure Code</b> is the operational value saved to the Prospect / Admission record.</li>
                   <li><b>Fee Structure Name</b> is the staff-friendly description.</li>
                   <li>Scope is controlled by <b>Programme + Level + Study Mode + Intake</b>.</li>
                   <li>Intake names are standardised chronologically, e.g. January 2026, May 2026, September 2026.</li>
@@ -927,7 +927,7 @@
                 <div><ul class="guide-list">
                   <li><b>Fee Components</b> use standard categories: Coursework Fee, Research Fee, Mixed-Mode Fee, Registration Fee and Other Approved Non-Academic Fee.</li>
                   <li><b>Payment Schedule</b> records the approved payment sequence only. It does not collect money and does not create an invoice.</li>
-                  <li><b>Fee Structure PDF</b> is the approved Drive reference mapped to the Fee Group.</li>
+                  <li><b>Fee Structure PDF</b> is the approved Drive reference mapped to the Fee Structure.</li>
                   <li><b>ACTIVE</b> = available to agent. <b>INACTIVE</b> = hidden from new selection but historical records remain.</li>
                   <li>A Fee Structure cannot be activated without an accessible PDF.</li>
                 </ul></div>
@@ -967,9 +967,9 @@
             <div class="panel-head"><h3>Academic Consultant / Sales Flow</h3><span>Current operational sequence</span></div>
             <div class="panel-body">
               <div class="guide-mini-flow">
-                <span>Share Referral Link</span><i>→</i><span>Student Applies</span><i>→</i><span>Consultant Receives Notification</span><i>→</i><span>Create SKY Prospect</span><i>→</i><span>Enter SKY Prospect ID</span><i>→</i><span>Select ACTIVE Fee Group</span><i>→</i><span>Prospect Done</span><i>→</i><span>Registry Processes / Activates in SKY</span>
+                <span>Share Referral Link</span><i>→</i><span>Student Applies</span><i>→</i><span>Consultant Receives Notification</span><i>→</i><span>Create SKY Prospect</span><i>→</i><span>Enter SKY Prospect ID</span><i>→</i><span>Select ACTIVE Fee Structure</span><i>→</i><span>Prospect Done</span><i>→</i><span>Registry Processes / Activates in SKY</span>
               </div>
-              <div class="guide-callout amber" style="margin-top:12px"><b>If a Fee Group is missing from the consultant dropdown:</b> check Fee Structure status, approved PDF, Programme, Level, Study Mode and Intake. Do not create a substitute code manually.</div>
+              <div class="guide-callout amber" style="margin-top:12px"><b>If a Fee Structure is missing from the consultant dropdown:</b> check Fee Structure status, approved PDF, Programme, Level, Study Mode and Intake. Do not create a substitute code manually.</div>
             </div>
           </div>
 
@@ -1003,7 +1003,7 @@
                 <li>Do not select PREREQ directly at SAC; follow the approved IA route.</li>
               </ul></div>
               <div><ul class="guide-list">
-                <li>If a Fee Group is not available to the agent, verify ACTIVE status, PDF and matching scope.</li>
+                <li>If a Fee Structure is not available to the agent, verify ACTIVE status, PDF and matching scope.</li>
                 <li>In Orientation, <b>Add Students</b> does not send invitation; use <b>Send Invitation</b> explicitly.</li>
                 <li>Attendance stays open until Registry closes it manually.</li>
                 <li>Do not put Academic Handover actions inside Orientation; use the Academic Handover module.</li>
@@ -1016,7 +1016,7 @@
           <div class="panel" style="margin-top:18px">
             <div class="panel-head"><h3>Recommended UAT</h3><span>Use controlled test records</span></div>
             <div class="panel-body">
-              <div class="guide-callout green"><b>Minimum regression check after a system change:</b> test one application journey, one consultant Prospect/Fee Group action, one Orientation session and one Academic Handover session. Confirm module actions, emails, status transitions, popups, PDFs, audit records and ACTIVE/INACTIVE master-data behaviour before treating a new change as production-ready.</div>
+              <div class="guide-callout green"><b>Minimum regression check after a system change:</b> test one application journey, one consultant Prospect/Fee Structure action, one Orientation session and one Academic Handover session. Confirm module actions, emails, status transitions, popups, PDFs, audit records and ACTIVE/INACTIVE master-data behaviour before treating a new change as production-ready.</div>
             </div>
           </div>
           </div>
