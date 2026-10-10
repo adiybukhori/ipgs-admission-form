@@ -48,7 +48,7 @@ async function accVerifiedSheetRows(sheet){
     const r=await fetch(url,{signal:controller.signal,redirect:'follow'});
     if(!r.ok)throw new Error('Could not verify '+sheet+' (HTTP '+r.status+').');
     const csv=await r.text(),rows=accParseCsv(csv);
-    if(!csv.includes('Reference No')&&!csv.includes('Reference'))throw new Error('Unexpected '+sheet+' data. Please refresh and retry.');
+    if(sheet==='AGENT_MASTER'?!csv.includes('Agent Code'):(!csv.includes('Reference No')&&!csv.includes('Reference')))throw new Error('Unexpected '+sheet+' data. Please refresh and retry.');
     return rows;
   }finally{clearTimeout(timer)}
 }
