@@ -79,16 +79,16 @@
     const r=liveActivationRecords().find(x=>String(x.ref)===String(ref));
     if(!r)return alert('Application record not found.');
     const groups=feeGroups();
-    const currentGroup=String(r.workflow?.['Fee Group']||r.app?.['Fee Group']||'');
     const skySnapshotFee=String(r.appAdmin?.sky_snapshot_fee_structure||'').trim();
+    const currentGroup=skySnapshotFee||String(r.workflow?.['Fee Group']||r.app?.['Fee Group']||'');
     const options=['<option value="">Select Fee Structure</option>'].concat(
       groups.map(g=>'<option value="'+esc(g)+'" '+(g===currentGroup?'selected':'')+'>'+esc(g)+'</option>')
     ).join('');
     const body=
       '<div class="message" style="display:block;background:var(--blueSoft);color:var(--blue);margin-bottom:16px">'+
-        'Choose the approved Fee Structure for this student. The selected code is the Fee Group used in the existing SkyVialing / Registry prospect workflow.'+
+        'Select the Fee Structure code exactly as recorded in SkyVialing. Fee Structure and Fee Group are the same code; actual charges and instalment terms remain in SkyVialing.'+
       '</div>'+
-      (skySnapshotFee?'<div class="message" style="display:block;background:var(--blueSoft);color:var(--blue);margin-bottom:12px">SkyVialing Snapshot (08/10/2026): <strong>'+esc(skySnapshotFee)+'</strong>. This is a reference only; it is not an approved ACC Fee Structure until verified and activated in Fee Structure Master.</div>':'')+
+      (skySnapshotFee?'<div class="message" style="display:block;background:var(--blueSoft);color:var(--blue);margin-bottom:12px">SkyVialing Snapshot (08/10/2026): <strong>'+esc(skySnapshotFee)+'</strong>. This code / revision is the authoritative SkyVialing reference. Verify charges and payment schedule in SkyVialing; the fee amounts have not been imported into ACC.</div>':'')+
       '<div class="detail-grid">'+
         '<div class="field full"><label>Student</label><input value="'+esc(r.app['Student Name']||'-')+'" readonly></div>'+
         '<div class="field full"><label>Fee Structure</label><select id="registryFeeGroup">'+options+'</select></div>'+
@@ -235,7 +235,7 @@
       const handover=String(w['Academic Handover Status']||'NOT_READY').toUpperCase();
       const skyId=w['SKY Student ID']||a['SKY Student ID']||'-';
       const activatedAt=w['SKY Activated At']||a['SKY Activated At']||'';
-      return `<tr><td><div class="student">${esc(a['Student Name']||'-')}</div><div class="subline">${esc(r.ref)}</div></td><td>${esc(a['Programme']||'-')}<div class="subline">${esc(a['Intake']||w['Intake']||'-')}</div></td><td><div class="student">${esc(skyId)}</div></td><td><div class="student">${esc(a['Agent Name']||r.appAdmin?.agent_name||r.appAdmin?.sky_snapshot_category||'Not assigned')}</div><div class="subline">${esc(w['Fee Group']||a['Fee Group']||r.appAdmin?.sky_snapshot_fee_structure||'No fee structure')}</div>${!w['Fee Group']&&!a['Fee Group']&&r.appAdmin?.sky_snapshot_fee_structure?'<div class="subline">SKY Snapshot · Pending approval</div>':''}</td><td>${esc(formatDate(activatedAt)||'-')}</td><td><span class="badge ${r.appAdmin?.moved_to_activated===true?'green':'amber'}">${r.appAdmin?.moved_to_activated===true?'Moved':'Still in Application'}</span></td><td><span class="badge ${orientation==='COMPLETED'?'green':'amber'}">${esc(pretty(orientation))}</span></td><td><span class="badge ${['HANDED_OVER','COMPLETED'].includes(handover)?'green':'purple'}">${esc(pretty(handover))}</span></td><td>${folder?`<a class="link" href="${esc(folder)}" target="_blank" rel="noopener">Open Folder</a>`:'-'}</td><td><button class="ghost" onclick="openRecord('${esc(r.ref)}')">Open</button></td></tr>`;
+      return `<tr><td><div class="student">${esc(a['Student Name']||'-')}</div><div class="subline">${esc(r.ref)}</div></td><td>${esc(a['Programme']||'-')}<div class="subline">${esc(a['Intake']||w['Intake']||'-')}</div></td><td><div class="student">${esc(skyId)}</div></td><td><div class="student">${esc(a['Agent Name']||r.appAdmin?.agent_name||r.appAdmin?.sky_snapshot_category||'Not assigned')}</div><div class="subline">${esc(r.appAdmin?.sky_snapshot_fee_structure||w['Fee Group']||a['Fee Group']||'No fee structure')}</div>${r.appAdmin?.sky_snapshot_fee_structure?'<div class="subline">SkyVialing reference code</div>':''}</td><td>${esc(formatDate(activatedAt)||'-')}</td><td><span class="badge ${r.appAdmin?.moved_to_activated===true?'green':'amber'}">${r.appAdmin?.moved_to_activated===true?'Moved':'Still in Application'}</span></td><td><span class="badge ${orientation==='COMPLETED'?'green':'amber'}">${esc(pretty(orientation))}</span></td><td><span class="badge ${['HANDED_OVER','COMPLETED'].includes(handover)?'green':'purple'}">${esc(pretty(handover))}</span></td><td>${folder?`<a class="link" href="${esc(folder)}" target="_blank" rel="noopener">Open Folder</a>`:'-'}</td><td><button class="ghost" onclick="openRecord('${esc(r.ref)}')">Open</button></td></tr>`;
     }).join('')||'<tr><td colspan="10" class="empty">No SKY-activated students yet.</td></tr>';
   };
 
