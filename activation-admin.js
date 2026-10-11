@@ -220,7 +220,7 @@
   };
 
   window.renderActivatedStudents=function(){
-    const list=liveActivationRecords().filter(r=>String(r.workflow?.['SKY Activation Status']||r.app?.['SKY Activation Status']||'').toUpperCase()==='ACTIVATED');
+    const list=liveActivationRecords().filter(r=>r.appAdmin?.moved_to_activated===true && String(r.workflow?.['SKY Activation Status']||r.app?.['SKY Activation Status']||'').toUpperCase()==='ACTIVATED');
     const set=(id,n)=>{const el=document.getElementById(id);if(el)el.textContent=n};
     const handed=list.filter(r=>['HANDED_OVER','COMPLETED'].includes(String(r.workflow?.['Academic Handover Status']||'').toUpperCase())).length;
     set('activatedTotalKpi',list.length);
