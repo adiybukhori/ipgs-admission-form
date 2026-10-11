@@ -37,7 +37,7 @@
 
   function feeGroups(){
     const seen=new Set();
-    return (db.FEE_GROUP_MASTER||[]).map(r=>String(r['Fee Group Code']||'').trim()).filter(code=>{
+    return (db.FEE_GROUP_MASTER||[]).filter(r=>!['INACTIVE','FALSE','NO','0'].includes(String(r['Active']||'ACTIVE').trim().toUpperCase())).map(r=>String(r['Fee Group Code']||'').trim()).filter(code=>{
       if(!code||seen.has(code))return false;
       seen.add(code);return true;
     }).sort();
@@ -116,7 +116,7 @@
     if(!r)return alert('Application not found.');
     const currentCode=String(r.appAdmin?.agent_code||r.app?.['Agent Code']||'').trim();
     const choices=[{code:'DIRECT',name:'Direct / Registry'}].concat(
-      (db.AGENT_MASTER||[]).map(a=>({code:String(a['Agent Code']||'').trim(),name:String(a['Agent Name']||'').trim()})).filter(a=>a.code&&a.name));
+      (db.AGENT_MASTER||[]).map(a=>({code:String(a['Agent Code']||'').trim(),name:String(a['SkyVialing Student Category']||a['Agent Name']||'').trim()})).filter(a=>a.code&&a.name));
     if(currentCode&&!choices.some(a=>a.code===currentCode))choices.push({code:currentCode,name:String(r.appAdmin?.agent_name||r.app?.['Agent Name']||currentCode)});
     const options='<option value="">Select Agent</option>'+choices.map(a=>'<option value="'+esc(a.code)+'" '+(a.code===currentCode?'selected':'')+'>'+esc(a.name)+' ('+esc(a.code)+')</option>').join('');
     const body='<div class="message" style="display:block;background:var(--blueSoft);color:var(--blue);margin-bottom:14px">Select the agent that matches the Student Category in SkyVialing. This does not automatically update SkyVialing.</div>'+

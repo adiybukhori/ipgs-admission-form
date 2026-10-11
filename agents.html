@@ -45,7 +45,7 @@
         <div class="head">Consultant Master</div>
         <div class="body">
           <div class="toolbar"><input id="search" class="search" placeholder="Search name, code, email or organisation" oninput="renderAgents()" /><button class="btn ghost" onclick="loadAgents()">Refresh</button></div>
-          <div class="table-wrap"><table><thead><tr><th>Consultant</th><th>Code</th><th>Organisation</th><th>Status</th><th>Referral Link</th><th>Action</th></tr></thead><tbody id="agentBody"><tr><td colspan="6">Loading…</td></tr></tbody></table></div>
+          <div class="table-wrap"><table><thead><tr><th>Consultant / Category</th><th>Code</th><th>Organisation / SKY Student Category / Remarks</th><th>Status</th><th>Referral Link</th><th>Action</th></tr></thead><tbody id="agentBody"><tr><td colspan="6">Loading…</td></tr></tbody></table></div>
         </div>
       </section>
     </div>
@@ -85,12 +85,29 @@
 
   function renderAgents(){
     const q=String(document.getElementById('search').value||'').toLowerCase();
-    const rows=agents.filter(a=>[a['Agent Name'],a['Agent Code'],a['Agent Email'],a['Organisation']].join(' ').toLowerCase().includes(q));
+    const rows=agents.filter(a=>[a['Agent Name'],a['Agent Code'],a['Agent Email'],a['Organisation'],a['SkyVialing Student Category'],a['Remarks']].join(' ').toLowerCase().includes(q));
     document.getElementById('agentBody').innerHTML=rows.map(a=>{
       const active=String(a['Active']||'').toLowerCase()==='active';
-      const link=referralLink(a);
-      return `<tr><td><div class="name">${esc(a['Agent Name']||'-')}</div><div class="sub">${esc(a['Agent Email']||'-')}</div></td><td>${esc(a['Agent Code']||'-')}</td><td>${esc(a['Organisation']||'-')}</td><td><span class="badge ${active?'active':''}">${active?'Active':'Inactive'}</span></td><td><button class="smallbtn" onclick="copyText('${esc(link)}')">Copy Link</button></td><td><div class="actions"><button class="smallbtn" onclick='editAgent(${JSON.stringify(a).replace(/'/g,"&#39;")})'>Edit</button></div></td></tr>`;
-    }).join('')||'<tr><td colspan="6">No consultants found.</td></tr>';
+      const imported=String(a['Agent Code']||'').startsWith('SKY_');
+      const snapshotCategory=String(a['SkyVialing Student Category']||'').trim();
+      const remarks=String(a['Remarks']||'').trim();
+      const link=imported?'':referralLink(a);
+      const action=imported
+        ? '<span class="sub" title="Contact and official agent status pending verification">Category record · contact pending</span>'
+        : '<button class="smallbtn" onclick=\'editAgent('+JSON.stringify(a).replace(/'/g,"&#39;")+')\'>Edit</button>';
+      return `<tr>
+        <td><div class="name">${esc(a['Agent Name']||'-')}</div><div class="sub">${esc(a['Agent Email']||'No agent contact recorded')}</div></td>
+        <td>${esc(a['Agent Code']||'-')}</td>
+        <td>
+          <div>${esc(a['Organisation']||'-')}</div>
+          ${snapshotCategory?`<div class="sub"><b>SKY Student Category:</b> ${esc(snapshotCategory)}</div>`:''}
+          ${remarks?`<div class="sub" style="white-space:normal;max-width:350px"><b>Remarks:</b> ${esc(remarks)}</div>`:''}
+        </td>
+        <td><span class="badge ${active?'active':''}">${active?'Active':'Inactive'}</span>${imported?'<div class="sub">Snapshot reference only</div>':''}</td>
+        <td>${link?`<button class="smallbtn" onclick="copyText('${esc(link)}')">Copy Link</button>`:'<span class="sub">Not available</span>'}</td>
+        <td><div class="actions">${action}</div></td>
+      </tr>`;
+    }).join('')||'<tr><td colspan="6">No consultants or SkyVialing categories found.</td></tr>';
   }
 
   function editAgent(a){
