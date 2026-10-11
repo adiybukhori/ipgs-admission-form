@@ -37,7 +37,7 @@
 
   function feeGroups(){
     const seen=new Set();
-    return (db.FEE_GROUP_MASTER||[]).map(r=>String(r['Fee Group Code']||'').trim()).filter(code=>{
+    return (db.FEE_GROUP_MASTER||[]).filter(r=>!['INACTIVE','FALSE','NO','0'].includes(String(r['Active']||'ACTIVE').trim().toUpperCase())).map(r=>String(r['Fee Group Code']||'').trim()).filter(code=>{
       if(!code||seen.has(code))return false;
       seen.add(code);return true;
     }).sort();
