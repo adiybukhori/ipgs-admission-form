@@ -142,6 +142,14 @@
     if(result)alert('Moved to Activated. Student is no longer in the Application listing.');
   };
 
+  window.returnActivatedToApplications=async function(ref){
+    const r=liveActivationRecords().find(x=>String(x.ref)===String(ref));
+    if(!r)return alert('Student record not found.');
+    if(r.appAdmin?.moved_to_activated!==true)return alert('Student is already in Applications.');
+    const result=await activationAction('v2ReturnApplicationFromActivated',{referenceNo:ref},
+      'Return '+String(r.app?.['Student Name']||ref)+' to Applications? SKY activation and student ID will be preserved.');
+    if(result)alert('Student returned to Applications. SKY activation status remains unchanged.');
+  };
   window.openSkyActivationModal=function(ref){
     const r=liveActivationRecords().find(x=>String(x.ref)===String(ref));
     if(!r)return alert('Application record not found.');
@@ -235,7 +243,7 @@
       const handover=String(w['Academic Handover Status']||'NOT_READY').toUpperCase();
       const skyId=w['SKY Student ID']||a['SKY Student ID']||'-';
       const activatedAt=w['SKY Activated At']||a['SKY Activated At']||'';
-      return `<tr><td><div class="student">${esc(a['Student Name']||'-')}</div><div class="subline">${esc(r.ref)}</div></td><td>${esc(a['Programme']||'-')}<div class="subline">${esc(a['Intake']||w['Intake']||'-')}</div></td><td><div class="student">${esc(skyId)}</div></td><td><div class="student">${esc(a['Agent Name']||r.appAdmin?.agent_name||r.appAdmin?.sky_snapshot_category||'Not assigned')}</div><div class="subline">${esc(r.appAdmin?.sky_snapshot_fee_structure||w['Fee Group']||a['Fee Group']||'No fee structure')}</div>${r.appAdmin?.sky_snapshot_fee_structure?'<div class="subline">SkyVialing reference code</div>':''}</td><td>${esc(formatDate(activatedAt)||'-')}</td><td><span class="badge ${r.appAdmin?.moved_to_activated===true?'green':'amber'}">${r.appAdmin?.moved_to_activated===true?'Moved':'Still in Application'}</span></td><td><span class="badge ${orientation==='COMPLETED'?'green':'amber'}">${esc(pretty(orientation))}</span></td><td><span class="badge ${['HANDED_OVER','COMPLETED'].includes(handover)?'green':'purple'}">${esc(pretty(handover))}</span></td><td>${folder?`<a class="link" href="${esc(folder)}" target="_blank" rel="noopener">Open Folder</a>`:'-'}</td><td><button class="ghost" onclick="openRecord('${esc(r.ref)}')">Open</button></td></tr>`;
+      return `<tr><td><div class="student">${esc(a['Student Name']||'-')}</div><div class="subline">${esc(r.ref)}</div></td><td>${esc(a['Programme']||'-')}<div class="subline">${esc(a['Intake']||w['Intake']||'-')}</div></td><td><div class="student">${esc(skyId)}</div></td><td><div class="student">${esc(a['Agent Name']||r.appAdmin?.agent_name||r.appAdmin?.sky_snapshot_category||'Not assigned')}</div><div class="subline">${esc(r.appAdmin?.sky_snapshot_fee_structure||w['Fee Group']||a['Fee Group']||'No fee structure')}</div>${r.appAdmin?.sky_snapshot_fee_structure?'<div class="subline">SkyVialing reference code</div>':''}</td><td>${esc(formatDate(activatedAt)||'-')}</td><td><span class="badge ${r.appAdmin?.moved_to_activated===true?'green':'amber'}">${r.appAdmin?.moved_to_activated===true?'Moved':'Still in Application'}</span></td><td><span class="badge ${orientation==='COMPLETED'?'green':'amber'}">${esc(pretty(orientation))}</span></td><td><span class="badge ${['HANDED_OVER','COMPLETED'].includes(handover)?'green':'purple'}">${esc(pretty(handover))}</span></td><td>${folder?`<a class="link" href="${esc(folder)}" target="_blank" rel="noopener">Open Folder</a>`:'-'}</td><td><div style="display:flex;gap:6px;flex-wrap:wrap"><button class="ghost" onclick="openRecord('${esc(r.ref)}')">Open</button><button class="ghost" onclick="returnActivatedToApplications('${esc(r.ref)}')">Return to Applications</button></div></td></tr>`;
     }).join('')||'<tr><td colspan="10" class="empty">No SKY-activated students yet.</td></tr>';
   };
 
