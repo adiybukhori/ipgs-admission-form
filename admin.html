@@ -28,6 +28,7 @@
     .field input:focus,.field select:focus,.searchbox:focus{border-color:#9688d1;box-shadow:0 0 0 3px rgba(75,53,162,.09)}
     .primary{border:0;border-radius:12px;background:var(--purple);color:#fff;font-weight:800;padding:12px 16px}
     .primary:hover{background:var(--purple2)}
+    .primary:disabled{opacity:.45;cursor:not-allowed;filter:grayscale(.7)}
     .ghost{border:1px solid var(--line);border-radius:11px;background:white;color:var(--ink);font-weight:700;padding:10px 13px}
     .ghost:hover{background:#f8f9fb}
     .orientation-actions{display:flex;gap:5px;flex-wrap:wrap;align-items:center}
@@ -1161,7 +1162,19 @@
       const remarkEvents=agentEvents.filter(x=>{const action=String(x['Action']||x['Event']||x['Activity']||x['Type']||'').toUpperCase();return action.includes('INTERNAL_REMARK')});
       const normalizedRemarkEvents=remarkEvents.map(x=>({...x,'Action':'INTERNAL_REMARK','Type':'INTERNAL_REMARK','Remark':x['Remark']||x['Details']||x['Message']||x['Note']||x['Description']||x['Summary']||x['remark']||x['details']||x['message']||x['note']||x['summary']||'','Timestamp':x['Timestamp']||x['Created At']||x['Updated At']||x['timestamp']||x['createdAt']||x['updatedAt']||'','Updated By':x['Updated By']||x['Actor']||x['Agent ID']||x['updatedBy']||x['agentId']||'Admin Portal V2'}));
       const wfMap=byRef(workflows),docMap=byRef(docReviews),screenMap=byRef(screenings),aiMap=byRef(aiScreenings),sacMap=byRef(sacCandidates),assessMap=byRef(assessments),agentMap=byRef(agentEvents),auditMap=byRef([...audits,...normalizedRemarkEvents]);
-      const v2Records=apps.map(app=>{const ref=app['Reference No']||'';let raw={};try{raw=JSON.parse(app['Raw Application JSON']||'{}')}catch(_){}let files=[];try{files=JSON.parse(app['Uploaded Files JSON']||'[]')}catch(_){}files=applyCanonicalDocumentBundles(ref,files);return{source:'V2',legacy:false,ref,app,appAdmin:accAdminByRef.get(String(ref))||{},raw,files,documentBundles:(db.V2_DOCUMENT_BUNDLES||[]).filter(b=>String(b.reference_no||'')===String(ref)),documentVersions:(db.V2_DOCUMENT_VERSIONS||[]).filter(v=>String(v.reference_no||'')===String(ref)),workflow:(wfMap[ref]||[]).slice(-1)[0]||{},doc:(docMap[ref]||[]).slice(-1)[0]||{},screening:(screenMap[ref]||[]).slice(-1)[0]||{},ai:(aiMap[ref]||[]).slice(-1)[0]||{},sac:(sacMap[ref]||[]).slice(-1)[0]||{},assessment:(assessMap[ref]||[]).slice(-1)[0]||{},agentEvents:(agentMap[ref]||[]).slice(),audit:(auditMap[ref]||[]).slice().reverse()}});
+      const v2Records=apps.map(app=>{const ref=app['Reference No']||'',accAdmin=accAdminByRef.get(String(ref))||{};let raw={};try{raw=JSON.parse(app['Raw Application JSON']||'{}')}catch(_){}let files=[];try{files=JSON.parse(app['Uploaded Files JSON']||'[]')}catch(_){}files=applyCanonicalDocumentBundles(ref,files);return{source:'V2',legacy:false,ref,app,appAdmin:accAdmin,raw,files,documentBundles:(db.V2_DOCUMENT_BUNDLES||[]).filter(b=>String(b.reference_no||'')===String(ref)),documentVersions:(db.V2_DOCUMENT_VERSIONS||[]).filter(v=>String(v.reference_no||'')===String(ref)),workflow:(()=>{
+          const existing=(wfMap[ref]||[]).slice(-1)[0]||{};
+          // The separate ACC admin confirmation is operational, not an academic
+          // transition. It must not mutate SAC/acceptance/offer fields.
+          if(String(accAdmin.sky_activation_status||'').toUpperCase()!=='ACTIVATED')return existing;
+          return {...existing,
+            'SKY Activation Status':'ACTIVATED',
+            'SKY Student ID':accAdmin.sky_student_id||existing['SKY Student ID']||'',
+            'SKY Activated At':accAdmin.sky_activated_at||existing['SKY Activated At']||'',
+            'SKY Activation Remarks':accAdmin.sky_activation_remarks||existing['SKY Activation Remarks']||'',
+            'SKY Activation Source':'ACC_REGISTRY_MANUAL'
+          };
+        })(),doc:(docMap[ref]||[]).slice(-1)[0]||{},screening:(screenMap[ref]||[]).slice(-1)[0]||{},ai:(aiMap[ref]||[]).slice(-1)[0]||{},sac:(sacMap[ref]||[]).slice(-1)[0]||{},assessment:(assessMap[ref]||[]).slice(-1)[0]||{},agentEvents:(agentMap[ref]||[]).slice(),audit:(auditMap[ref]||[]).slice().reverse()}});
       const legacyRows=[]; // Archived V1 records are already migrated into V2_APPLICATIONS.
       const legacyRecords=legacyRows.map((row,index)=>{
         const ref=String(row['Ref No']||`V1-LEGACY-${index+1}`),acceptanceRaw=String(row['Acceptance Status']||'PENDING').toUpperCase(),accepted=/RECEIVED|ACCEPTED/.test(acceptanceRaw),intake=String(row['Intake']||[row['Session Month'],row['Session Year']].filter(Boolean).join(' ')||'');const offerSent=/YES|SENT|ISSUED/.test(String(row['Email Sent']||'').toUpperCase()),legacyOfferUrl=row['Offer Letter File']||row['Offer Letter URL']||row['LOA File']||row['LOA URL']||'',isApplicationRef=/^IUC-ADM-/i.test(ref),colUrl=isApplicationRef?legacyOfferUrl:'',officialOfferUrl=isApplicationRef?'':legacyOfferUrl,officialOfferIssued=!isApplicationRef&&(offerSent||/^LOA\//i.test(ref)||Boolean(officialOfferUrl));

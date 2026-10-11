@@ -144,30 +144,33 @@
     const r=liveActivationRecords().find(x=>String(x.ref)===String(ref));
     if(!r)return alert('Application record not found.');
     const w=r.workflow||{},a=r.app||{};
-    const prospectId=String(w['SKY Prospect ID']||a['SKY Prospect ID']||'').trim();
-    const feeStructure=String(w['Fee Group']||a['Fee Group']||'').trim();
-    const prospectStatus=String(w['Prospect Status']||a['Prospect Status']||'PENDING').toUpperCase();
-    const hasProspect=['PROSPECT_COMPLETED','PROSPECT_UPDATED'].includes(prospectStatus);
-    const note=!feeStructure
-      ? 'No Fee Structure is currently recorded in ACC. You can select it here; it uses the existing fee code and can be assigned independently of Acceptance Form.'
-      : !hasProspect
-      ? 'Prospect is not yet marked completed in ACC. Confirm that the student is truly activated in SkyVialing; ACC may require prospect completion before saving activation.'
-      : 'After you activate the student in SkyVialing, record that completed activation here. This does not mean the Acceptance Form has been received.';
     const body=`
-      <div class="message" style="display:block;background:var(--blueSoft);color:var(--blue);margin-bottom:16px">${esc(note)}</div>
+      <div class="message" style="display:block;background:var(--blueSoft);color:var(--blue);margin-bottom:16px">
+        Confirm that the student is already ACTIVE in SkyVialing. This action only records SKY activation in ACC; the student stays in Applications until Move to Activated is clicked. SAC and Acceptance Form remain unchanged.
+      </div>
       <div class="detail-grid">
-        <div class="field"><label>SKY Prospect ID</label><input value="${esc(prospectId)}" placeholder="Not recorded" readonly></div>
-        <div class="field"><label>Fee Structure</label><input value="${esc(feeStructure)}" placeholder="Not selected" readonly>${!feeStructure?'<button type="button" class="ghost" id="skySelectFeeStructure" style="margin-top:8px">Select Fee Structure</button>':''}</div>
-        <div class="field full"><label>SKY Student ID / Registration No. <span class="subline">(optional)</span></label><input id="activationSkyStudentId" value="${esc(w['SKY Student ID']||'')}" placeholder="Enter SKY Student ID if available"></div>
-        <div class="field full"><label>Remarks</label><textarea id="activationRemarks" rows="3" style="width:100%;border:1px solid #d7dce6;border-radius:12px;padding:12px 13px;resize:vertical">${esc(w['SKY Activation Remarks']||'')}</textarea></div>
+        <div class="field full">
+          <label>SKY Student ID / Registration No. <span class="subline">(optional)</span></label>
+          <input id="activationSkyStudentId" maxlength="120" value="${esc(r.appAdmin?.sky_student_id||w['SKY Student ID']||a['SKY Student ID']||'')}" placeholder="Enter SKY Student ID if available">
+        </div>
+        <div class="field full">
+          <label>Remarks (optional)</label>
+          <textarea id="activationRemarks" maxlength="1500" rows="3" style="width:100%;border:1px solid #d7dce6;border-radius:12px;padding:12px 13px;resize:vertical" placeholder="Activation remarks, if any">${esc(r.appAdmin?.sky_activation_remarks||w['SKY Activation Remarks']||'')}</textarea>
+        </div>
       </div>`;
-    modalShell('Mark Activated in SkyVialing',`${r.app['Student Name']||'-'} · ${ref}`,body,'Confirm SKY Activation');
-    document.getElementById('skySelectFeeStructure')?.addEventListener('click',()=>openRegistryProspectModal(ref));
+    modalShell('Mark Activated in SkyVialing',`${a['Student Name']||'-'} · ${ref}`,body,'Confirm SKY Activation');
     document.getElementById('activationModalPrimary').onclick=async()=>{
       const skyStudentId=document.getElementById('activationSkyStudentId')?.value.trim()||'';
       const remarks=document.getElementById('activationRemarks')?.value.trim()||'';
-      const result=await activationAction('v2ActivateStudentInSky',{referenceNo:ref,skyStudentId,remarks},'Confirm this student is already activated in SkyVialing?');
-      if(result){closeActivationModal();alert('SkyVialing activation recorded. You can now use Move to Activated on the Application row.');}
+      const result=await activationAction(
+        'v2ConfirmSkyActivationInAcc',
+        {referenceNo:ref,skyStudentId,remarks},
+        'Confirm that this student has already been activated in SkyVialing? The student will remain in Applications until you click Move to Activated.'
+      );
+      if(result){
+        closeActivationModal();
+        alert('SKY activation confirmed in ACC. Student remains in Applications until Move to Activated is clicked.');
+      }
     };
   };
 

@@ -4,7 +4,7 @@ const AUTH_WEB_APP = 'https://script.google.com/macros/s/AKfycbw22-UOsHkaap3dzU1
 
 const ALLOWED_ACTIONS = new Set([
   'v2ListWorkflow','v2UpsertFeeStructure','v2SetFeeStructureStatus','v2UpsertAgent','v2AgentAdminStatus','v2UpdateStage','v2RunDocumentReview','v2RegeneratePgAdm01','v2CompleteManualDocumentReview','v2RunQualificationScreening','v2RunAutoAiScreening','v2CompleteManualQualificationScreening','v2RecordAiScreeningResult','v2ConfirmAiScreening','v2GenerateAiScreeningReport','v2RunComplianceDocumentQuality','v2SendDocumentReplacementRequest','v2SendMissingDocumentRequest','v2PrepareSacCoordination','v2PrepareIaCoordination','v2PreparePrerequisiteCoordination','v2PrepareOrientationForAccepted','v2RunOrientationSessionSupervisor','v2PrepareSkyActivation','v2PrepareAcademicHandover','v2PrepareStudentAccessDelivery','v2RunManagementIntelligence','v2AgenticStatus','v2GetAgentCaseState','v2AgentActionGateway','v2RecordAgentActivity','v2CreateHumanTask','v2ResolveHumanTask','v2ListOpenHumanTasks',
-  'v2IssueOffer','v2PrepareAcceptancePack','v2ResendAcceptanceConfirmation','v2CreateSacSession','v2AssignSacCandidate','v2RemoveSacCandidate','v2PrepareSacPack','v2PrepareSacPackAsync','v2GetSacPackPrepareStatus','v2GetSacPackFile','v2SaveSacPackPdf','v2ListSacCandidates','v2RecordSacDecision','v2CreateSacSessionManual','v2UpdateSacSessionManual','v2DeleteSacSessionManual','v2SendSacCalendarInvitationManual','v2RecordSacDecisionManual','v2FinalizeSacSessionManual','v2SacManualPhase1Status','v2SacResultStatus','v2PrepareSacResultDocument','v2PreviewSacResult','v2SendSacResultEmail','v2UpdateAssessment','v2CreateOrientationSession','v2AssignOrientationBatch','v2SendOrientationInvitation','v2RemoveOrientationStudent','v2MoveOrientationStudent','v2UpdateOrientationAttendance','v2SendOrientationReminderNow','v2EndOrientationSession','v2EditOrientationSession','v2OpenOrientationAttendance','v2CloseOrientationAttendance','v2SetOrientationRecording','v2SendOrientationRecording','v2OrientationCompletionAssessment','v2CompleteOrientationAndGenerateReport','v2RegenerateOrientationReport','v2GetOrientationReportFile','v2CreateHandoverSession','v2AddHandoverStudents','v2SendHandoverSession','v2CreateAcademicHandoverBatch','v2ResendAcademicHandoverEmail','v2UpdateProvisioningTask','v2ResendProvisioningTaskEmails','v2SendStudentProvisioningAccess','v2RegistryUpsertProspect','v2RefreshFeeStructure','v2NotifyRegistryProspectReady','v2ActivateStudentInSky','v2SetApplicationAgent','v2MoveApplicationToActivated'
+  'v2IssueOffer','v2PrepareAcceptancePack','v2ResendAcceptanceConfirmation','v2CreateSacSession','v2AssignSacCandidate','v2RemoveSacCandidate','v2PrepareSacPack','v2PrepareSacPackAsync','v2GetSacPackPrepareStatus','v2GetSacPackFile','v2SaveSacPackPdf','v2ListSacCandidates','v2RecordSacDecision','v2CreateSacSessionManual','v2UpdateSacSessionManual','v2DeleteSacSessionManual','v2SendSacCalendarInvitationManual','v2RecordSacDecisionManual','v2FinalizeSacSessionManual','v2SacManualPhase1Status','v2SacResultStatus','v2PrepareSacResultDocument','v2PreviewSacResult','v2SendSacResultEmail','v2UpdateAssessment','v2CreateOrientationSession','v2AssignOrientationBatch','v2SendOrientationInvitation','v2RemoveOrientationStudent','v2MoveOrientationStudent','v2UpdateOrientationAttendance','v2SendOrientationReminderNow','v2EndOrientationSession','v2EditOrientationSession','v2OpenOrientationAttendance','v2CloseOrientationAttendance','v2SetOrientationRecording','v2SendOrientationRecording','v2OrientationCompletionAssessment','v2CompleteOrientationAndGenerateReport','v2RegenerateOrientationReport','v2GetOrientationReportFile','v2CreateHandoverSession','v2AddHandoverStudents','v2SendHandoverSession','v2CreateAcademicHandoverBatch','v2ResendAcademicHandoverEmail','v2UpdateProvisioningTask','v2ResendProvisioningTaskEmails','v2SendStudentProvisioningAccess','v2RegistryUpsertProspect','v2RefreshFeeStructure','v2NotifyRegistryProspectReady','v2ActivateStudentInSky','v2SetApplicationAgent','v2MoveApplicationToActivated','v2ConfirmSkyActivationInAcc'
 ]);
 
 async function validateDirectAdmin(password){
@@ -58,11 +58,34 @@ async function accApplyAdminAction(action,data,password,updatedBy){
   const referenceNo=String(data?.referenceNo||'').trim();
   if(!/^IUC-ADM-/i.test(referenceNo)||referenceNo.length>160)throw new Error('Valid V2 application reference is required.');
   const actor=String(updatedBy||'Registry Admin Portal V2').slice(0,160);
+  if(action==='v2ConfirmSkyActivationInAcc'){
+    // Registry confirms an activation already completed in external SkyVialing.
+    // This action does NOT activate SkyVialing itself, complete acceptance or change SAC.
+    const apps=await accVerifiedSheetRows('V2_APPLICATIONS');
+    if(!apps.some(row=>String(row['Reference No']||row.Reference||'').trim()===referenceNo))
+      throw new Error('Application not found. Please refresh.');
+    const skyStudentId=String(data?.skyStudentId||'').trim();
+    const remarks=String(data?.remarks||'').trim();
+    if(skyStudentId.length>120||remarks.length>1500)throw new Error('SKY Student ID or remarks too long.');
+    const applied=await supabaseRequest('rpc/acc_confirm_sky_activation','POST',{
+      p_reference_no:referenceNo,p_actor:actor,
+      p_sky_student_id:skyStudentId||null,p_remarks:remarks||null
+    });
+    if(!applied||applied.sky_activation_status!=='ACTIVATED'||applied.reference_no!==referenceNo)
+      throw new Error('Unable to persist SKY activation confirmation.');
+    return {ok:true,...applied};
+  }
   if(action==='v2MoveApplicationToActivated'){
-    const rows=await accVerifiedSheetRows('V2_WORKFLOW');
-    const w=rows.filter(row=>String(row['Reference No']||row.Reference||'').trim()===referenceNo).slice(-1)[0];
-    if(!w)throw new Error('Workflow record not found. Refusing to move an unverified student.');
-    if(String(w['SKY Activation Status']||'').trim().toUpperCase()!=='ACTIVATED')throw new Error('Student must first be confirmed as Activated in SkyVialing.');
+    // Early activation can be verified directly by Registry in ACC even when
+    // the legacy Prospect/Fee Structure workflow is incomplete.
+    const localRows=await supabaseRequest('acc_application_admin?select=sky_activation_status&reference_no=eq.'+encodeURIComponent(referenceNo)+'&limit=1');
+    const locallyConfirmed=Array.isArray(localRows)&&localRows.some(row=>String(row.sky_activation_status||'').toUpperCase()==='ACTIVATED');
+    if(!locallyConfirmed){
+      const rows=await accVerifiedSheetRows('V2_WORKFLOW');
+      const w=rows.filter(row=>String(row['Reference No']||row.Reference||'').trim()===referenceNo).slice(-1)[0];
+      if(!w||String(w['SKY Activation Status']||'').trim().toUpperCase()!=='ACTIVATED')
+        throw new Error('Student must first be confirmed as Activated in SkyVialing.');
+    }
     const applied=await supabaseRequest('rpc/acc_apply_application_admin_change','POST',{
       p_reference_no:referenceNo,p_action:'MOVE_TO_ACTIVATED',p_actor:actor,
       p_agent_code:null,p_agent_name:null
@@ -340,7 +363,7 @@ export default async function handler(req, res) {
   const startedAt = Date.now();
   try {
     let result,bridgeMs,transport,bridgeWarning;
-    if(action==='v2SetApplicationAgent'||action==='v2MoveApplicationToActivated'){
+    if(action==='v2SetApplicationAgent'||action==='v2MoveApplicationToActivated'||action==='v2ConfirmSkyActivationInAcc'){
       const directStarted=Date.now();result=await accApplyAdminAction(action,body.data||{},password,body.updatedBy);bridgeMs=Date.now()-directStarted;transport='SUPABASE_ACC_APPLICATION_ADMIN';bridgeWarning=null;
     }else if(action==='v2CreateSacSessionManual'){
       const directStarted=Date.now();result=await createSacSessionDirect(body.data||{},password,body.updatedBy);bridgeMs=Date.now()-directStarted;transport='SUPABASE_SAC_ADMIN';bridgeWarning=null;
