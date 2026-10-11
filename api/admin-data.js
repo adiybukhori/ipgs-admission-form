@@ -143,6 +143,21 @@ export default async function handler(req,res){
       warnings.push('ACC Application metadata unavailable: '+(error?.message||'Unable to read')+'. Queue withheld until refresh.');
     }
   }
+  // Internal admin notes are written to Supabase workflow_events by admin-action.
+  // Load them from that authoritative store rather than relying on stale Sheet agent events.
+  if(scope!=='sac'){
+    try{
+      const notes=await supabaseGet('workflow_events?select=reference_no,event_type,actor,payload,created_at&event_type=eq.INTERNAL_REMARK&order=created_at.desc&limit=1000');
+      const mapped=(Array.isArray(notes)?notes:[]).map(row=>{
+        const p=row.payload&&typeof row.payload==='object'?row.payload:{};
+        const remark=String(p.remark||p.note||p.message||p.details||p.summary||'');
+        return {'Reference No':row.reference_no||'','Action':'INTERNAL_REMARK','Type':'INTERNAL_REMARK','Remark':remark,'Summary':remark,'Timestamp':row.created_at||'','Updated By':row.actor||'Admin Portal V2','Case Tag':p.caseTag||''};
+      }).filter(row=>row['Reference No']&&row.Remark);
+      data.V2_AGENT_EVENTS=[...(data.V2_AGENT_EVENTS||[]),...mapped];
+    }catch(error){
+      warnings.push('Supabase admin notes unavailable: '+(error?.message||'Unable to read')+'.');
+    }
+  }
   const sacMs=Date.now()-sacStarted;
   if(scope!=='sac'){data.V1_MASTER_DATABASE=[];data.V1_LEGACY_META=[{source:'ARCHIVED_AFTER_UNIFIED_MIGRATION',count:0,readOnly:true,cacheHit:false}];}
   sortSacSessions(data);const totalMs=Date.now()-startedAt;res.setHeader('Server-Timing',`auth;dur=${authMs}, sheets;dur=${sheetsMs}, sac;dur=${sacMs}, total;dur=${totalMs}`);
