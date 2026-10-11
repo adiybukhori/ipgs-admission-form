@@ -332,7 +332,7 @@
           <div class="detail-grid">
             <div class="panel" style="box-shadow:none"><div class="panel-head"><h3>Fee Summary</h3></div><div class="panel-body">
               <div class="detail-grid">
-                <div><div class="subline">Total Fee</div><div class="student">${String(row['Total Fee']??'').trim()?money(row['Total Fee']):'Pending approval'}</div></div>
+                <div><div class="subline">Total Fee</div><div class="student">${String(row['Total Fee']??'').trim()?money(row['Total Fee']):'Refer to SkyVialing'}</div></div>
                 <div><div class="subline">Study Mode</div><div class="student">${esc(row['Study Mode']||'-')}</div></div>
                 <div><div class="subline">Level</div><div class="student">${esc(row['Level']||'-')}</div></div>
                 <div><div class="subline">Intake</div><div class="student">${esc(canonicalIntake(row['Intake Scope']||'ALL'))}</div></div>
@@ -371,14 +371,14 @@
       const code=String(row['Fee Group Code']||'');
       const plan=schedule(row);
       const isActive=active(row);
-      const fromSkySnapshot=String(row['Notes']||'').startsWith('Imported from SkyVialing Snapshot');
+      const fromSkySnapshot=String(row['Notes']||'').startsWith('SkyVialing fee structure CODE / Revision');
       const amountVerified=String(row['Total Fee']??'').trim()!=='';
       return `<tr>
-        <td><div class="student">${esc(code)}</div><div class="subline">${esc(row['Fee Structure Name']||'')}</div>${fromSkySnapshot?'<div class="subline">SkyVialing Snapshot 08/10/2026 · pending verification</div>':''}</td>
+        <td><div class="student">${esc(code)}</div><div class="subline">${esc(row['Fee Structure Name']||'')}</div>${fromSkySnapshot?'<div class="subline">SkyVialing code / revision · Registry recognised</div>':''}</td>
         <td>${esc(row['Programme']||'ALL')}<div class="subline">${esc([row['Study Mode'],canonicalIntake(row['Intake Scope']||'ALL')].filter(Boolean).join(' · '))}</div></td>
-        <td><div class="student">${amountVerified?money(row['Total Fee']):'Pending approval'}</div><div class="subline">${amountVerified?components(row).length+' fee component(s)':'Fee amount not verified'}</div></td>
+        <td><div class="student">${amountVerified?money(row['Total Fee']):'Refer to SkyVialing'}</div><div class="subline">${amountVerified?components(row).length+' fee component(s)':'Amount and schedule retained in SkyVialing'}</div></td>
         <td>${plan.length}<div class="subline">${plan.length?'schedule item(s)':'No schedule'}</div></td>
-        <td><span class="badge ${isActive?'green':'amber'}">${isActive?'ACTIVE':'INACTIVE'}</span><div class="subline">${String(row['File ID PDF']||'').trim()?'PDF Ready':'PDF Missing'}</div></td>
+        <td><span class="badge ${isActive?'green':'amber'}">${isActive?'ACTIVE':'INACTIVE'}</span><div class="subline">${String(row['File ID PDF']||'').trim()?'PDF Ready':fromSkySnapshot?'See SkyVialing for charges / schedule':'PDF Missing'}</div></td>
         <td><button class="primary" onclick="openFeeStructureDetail('${esc(code)}')">View Fee Structure</button></td>
       </tr>`;
     }).join('')||'<tr><td colspan="6" class="empty">No Fee Structure has been configured yet.</td></tr>';
