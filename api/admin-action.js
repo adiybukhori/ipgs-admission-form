@@ -103,7 +103,7 @@ async function accApplyAdminAction(action,data,password,updatedBy){
       const agents=await accVerifiedSheetRows('AGENT_MASTER');
       const agent=agents.find(row=>String(row['Agent Code']||'').trim()===code);
       if(!agent)throw new Error('Agent code not found in ACC Agent Master.');
-      name=String(agent['Agent Name']||'').trim();
+      name=String(agent['SkyVialing Student Category']||agent['Agent Name']||'').trim();
       if(!name)throw new Error('Agent name is missing in Agent Master.');
     }
     const applied=await supabaseRequest('rpc/acc_apply_application_admin_change','POST',{
