@@ -26,6 +26,11 @@
       })});
       const out=await res.json().catch(()=>({ok:false,message:'Invalid response from action service.'}));
       if(!res.ok||!out.ok)throw new Error(out.message||'Unable to complete Prospect / SKY action.');
+      // Confirmation must not make the student disappear through a stale SKY filter.
+      if(action==='v2ConfirmSkyActivationInAcc'){
+        const filter=document.getElementById('skyStatusFilter');
+        if(filter)filter.value='';
+      }
       await loadData(true);
       return out.result||out;
     }catch(e){
