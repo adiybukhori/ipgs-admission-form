@@ -50,3 +50,5 @@ jobs:
         run: rm -f "$HOME/.clasprc.json" /tmp/LoaRepairV2.js
 
 # Recheck the approved template's hardcoded Study Mode, 2026-10-13.
+
+# Validate exact existing mode fallback and propagate controlled trial options.
