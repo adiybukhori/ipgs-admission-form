@@ -390,6 +390,20 @@ export default async function handler(req, res) {
     }else if(action==='v2RecordAgentActivity'&&String(body.data?.action||body.data?.activity||body.data?.type||'').toUpperCase()==='INTERNAL_REMARK'){
       const directStarted=Date.now();result=await recordInternalRemarkDirect(body.data||{},password,body.updatedBy);bridgeMs=Date.now()-directStarted;transport='SUPABASE_INTERNAL_REMARK';bridgeWarning=null;
     }else{
+      // Mixed-level package entries must never silently issue an LOA for both levels.
+      // Fail closed until the Apps Script issuer supports an MBA-only programme override
+      // and the Registry validates the award against SAC/entry eligibility.
+      if(action==='v2IssueOffer'){
+        const referenceNo=String(body.data?.referenceNo||'').trim();
+        if(!referenceNo)throw new Error('Application reference is required.');
+        const rows=await accVerifiedSheetRows('V2_APPLICATIONS');
+        const application=rows.find(row=>String(row['Reference No']||row.Reference||'').trim()===referenceNo);
+        if(!application)throw new Error('Application programme could not be verified. Offer was not sent.');
+        const programme=String(application.Programme||application.Program||'');
+        if(/(?:MBA|Master\\s+of\\s+Business\\s+Administration)/i.test(programme)&&/(?:PhD|Doctor\\s+of\\s+Philosophy)/i.test(programme)){
+          throw new Error('Mixed-level MBA + PhD package: offer is blocked pending verified MBA-only COL/LOA generation in the issuer. No email sent.');
+        }
+      }
       ({parsed:result,bridgeMs,transport,bridgeWarning}=await callV2(action, body.data || {}, password, body.sessionId, body.updatedBy));
     }
     let supabaseMirror='not_applicable';
