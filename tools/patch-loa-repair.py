@@ -6,6 +6,10 @@ def edit(name, fn):
     p = root / name
     text = p.read_text()
     if 'LOA_REPAIR_20261013' in text:
+        if name == 'WorkflowV2.js':
+            text = text.replace("if (action === 'v2LoaControlledTest') return v2LoaControlledTest();", "if (action === 'v2LoaControlledTest') { try { return v2LoaControlledTest(); } catch (e) { return {ok:false,message:String(e.message||e),stack:String(e.stack||'')}; } }")
+            text = text.replace("return {ok:true,build:V2_LOA_REPAIR_BUILD,officialTemplateId:CONFIG.officialLoaTemplateId,syntheticTestOnly:true};", "return v2LoaTestRunStatus_();")
+            p.write_text(text)
         return
     p.write_text(fn(text) + '\n// LOA_REPAIR_20261013\n')
 
@@ -47,7 +51,7 @@ def workflow(text):
     text = text.replace('v2VerifyAdminApiAccess_(payload.token);', 'v2VerifyAdminApiAccess_(payload.token, action);', 1)
     text = text.replace('function v2VerifyAdminApiAccess_(token) {', "function v2VerifyAdminApiAccess_(token, action) {\n  if (v2VerifyLoaServiceAccess_(token, action)) return true;", 1)
     anchor = "  if (action === 'v2ListWorkflow') return v2ListWorkflow_(payload);"
-    text = text.replace(anchor, anchor + "\n  if (action === 'v2LoaControlledTest') return v2LoaControlledTest();\n  if (action === 'v2LoaDiagnostics') return {ok:true,build:V2_LOA_REPAIR_BUILD,officialTemplateId:CONFIG.officialLoaTemplateId,syntheticTestOnly:true};", 1)
+    text = text.replace(anchor, anchor + "\n  if (action === 'v2LoaControlledTest') { try { return v2LoaControlledTest(); } catch (e) { return {ok:false,message:String(e.message||e),stack:String(e.stack||'')}; } }\n  if (action === 'v2LoaDiagnostics') return v2LoaTestRunStatus_();", 1)
     return text
 
 edit('OfferLetterV2.js', offer)
