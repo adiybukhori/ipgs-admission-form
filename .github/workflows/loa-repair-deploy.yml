@@ -1,0 +1,107 @@
+name: Deploy and Test LOA Repair
+on:
+  push:
+    branches: [apps-script-v2-dev]
+    paths: ['.github/workflows/loa-repair-deploy.yml']
+permissions:
+  contents: write
+concurrency:
+  group: acc-apps-script-loa-repair
+  cancel-in-progress: false
+jobs:
+  deploy-and-test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: apps-script-v2-dev
+          fetch-depth: 0
+      - name: Install authorised deployment client
+        run: npm install -g @google/clasp@3.4.1
+      - name: Restore existing Apps Script authorisation
+        env:
+          CLASPRC_JSON: ${{ secrets.CLASPRC_JSON }}
+        run: |
+          test -n "$CLASPRC_JSON"
+          printf '%s' "$CLASPRC_JSON" > "$HOME/.clasprc.json"
+          chmod 600 "$HOME/.clasprc.json"
+      - name: Backup current live source before changing LOA files
+        run: |
+          node tools/verify-clasp-target.mjs
+          cp apps-script-v2/LoaRepairV2.js /tmp/LoaRepairV2.js
+          rm apps-script-v2/LoaRepairV2.js
+          clasp list-deployments
+          clasp pull
+          git config user.name 'adiybukhori'
+          git config user.email 'muhammadadiy93@gmail.com'
+          git add apps-script-v2
+          if ! git diff --cached --quiet; then
+            git commit -m 'Backup exact live Apps Script source before LOA-only repair'
+          fi
+          git push origin HEAD:refs/heads/backup/loa-live-before-deploy-${{ github.run_id }}
+      - name: Patch only LOA, COL and acceptance document context
+        run: |
+          cp /tmp/LoaRepairV2.js apps-script-v2/LoaRepairV2.js
+          python tools/patch-loa-repair.py
+          node --input-type=module <<'NODE'
+          import fs from 'node:fs';
+          import crypto from 'node:crypto';
+          const token=crypto.randomBytes(32).toString('hex');
+          console.log('::add-mask::'+token);
+          fs.writeFileSync('/tmp/loa-service-token',token,{mode:0o600});
+          const hash=crypto.createHash('sha256').update(token).digest('hex');
+          const p='apps-script-v2/LoaRepairV2.js';
+          let text=fs.readFileSync(p,'utf8');
+          text=text.replace(/const V2_LOA_SERVICE_TOKEN_SHA256 = '[^']+';/,"const V2_LOA_SERVICE_TOKEN_SHA256 = '"+hash+"';");
+          fs.writeFileSync(p,text);
+          const publicKey=`-----BEGIN PUBLIC KEY-----
+          MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEA8V+0RbraO4XXYmG6mVKF
+          LXnXut1wvWaERgRoAGcGNlwAPAbDXtqrqm4l+5uk3/G4zsOF08YKJ90YK9npBGIi
+          2YuH1zvUmvZglUMbSOev2ttrLvMOKcvQ/kvaQzBd+sRH7r7YRLSGsAivvTOi1YVE
+          E1OvW9U6uDkwR+gLNmoOQd8JX3RNqb0V6OvPyG1qdpz6srX4ouP4v38uELzx7ap7
+          uAj+gP6kibEIOieW15Lou3SlRf/w/w4tZurOvHznw8ocCcAkSZ5LK2Sz9F40cAOp
+          0YjV+/bcFiqjn61joOKZv30r73c32NeYXui1xIjF/8cKpwMyv1twqRvf7SJjZPeR
+          4QIDAQAB
+          -----END PUBLIC KEY-----`;
+          const envelope=crypto.publicEncrypt({key:publicKey,oaepHash:'sha256'},Buffer.from(token)).toString('base64');
+          console.log('LOA_TOKEN_ENVELOPE='+envelope);
+          NODE
+          node tools/test-loa-repair.cjs
+          for file in LoaRepairV2 OfferLetterV2 ConditionalOfferV2 NotificationEngineV2 AcceptancePackV2 WorkflowV2; do
+            node --check "apps-script-v2/$file.js"
+          done
+      - name: Persist reviewed LOA source
+        run: |
+          git add apps-script-v2/LoaRepairV2.js apps-script-v2/OfferLetterV2.js apps-script-v2/ConditionalOfferV2.js apps-script-v2/NotificationEngineV2.js apps-script-v2/AcceptancePackV2.js apps-script-v2/WorkflowV2.js
+          git commit -m 'Fix MBA-only LOA/COL issuance, scoped service authentication and duplicate delivery'
+          git push origin HEAD:apps-script-v2-dev
+      - name: Deploy to the existing locked Apps Script target
+        run: |
+          node tools/verify-clasp-target.mjs
+          clasp push --force
+          clasp create-deployment --deploymentId AKfycbxasT_HgtRSvTbR_bsa8p17Cm-C2PKn20Ok1kU-AyJmxiKX8kX5EGOtRLwVwNlAL7JB --description 'LOA repair: MBA-only COL/LOA, precise test inbox and idempotent delivery'
+      - name: Test production backend with synthetic applicant and authorised inbox only
+        run: |
+          node --input-type=module <<'NODE'
+          import fs from 'node:fs';
+          const token=fs.readFileSync('/tmp/loa-service-token','utf8');
+          const url='https://script.google.com/macros/s/AKfycbxasT_HgtRSvTbR_bsa8p17Cm-C2PKn20Ok1kU-AyJmxiKX8kX5EGOtRLwVwNlAL7JB/exec';
+          const call=async (action,credential)=>{
+            const r=await fetch(url,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({action,token:credential}),signal:AbortSignal.timeout(300000)});
+            const j=await r.json();
+            if(j.acceptanceSigningUrl) delete j.acceptanceSigningUrl;
+            return j;
+          };
+          const bad=await call('v2LoaDiagnostics','INVALID-LOA-TEST-TOKEN');
+          if(bad.ok!==false)throw new Error('Invalid token was not rejected');
+          console.log('LOA_INVALID_TOKEN_REJECTED');
+          const diagnostics=await call('v2LoaDiagnostics',token);
+          console.log('LOA_DIAGNOSTICS='+JSON.stringify(diagnostics));
+          if(diagnostics.ok!==true)throw new Error(diagnostics.message||'LOA diagnostics failed');
+          const result=await call('v2LoaControlledTest',token);
+          console.log('LOA_CONTROLLED_TEST='+JSON.stringify(result));
+          if(result.ok!==true)throw new Error(result.message||'LOA controlled test failed');
+          NODE
+      - name: Remove temporary credential files
+        if: always()
+        run: rm -f "$HOME/.clasprc.json" /tmp/loa-service-token /tmp/LoaRepairV2.js
