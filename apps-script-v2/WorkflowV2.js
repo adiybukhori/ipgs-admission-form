@@ -351,8 +351,8 @@ function handleV2Post_(payload) {
   if (action === 'v2SubmitOrientationFeedback') return v2SubmitOrientationFeedback_(payload.data || payload);
   v2VerifyAdminApiAccess_(payload.token, action);
   if (action === 'v2ListWorkflow') return v2ListWorkflow_(payload);
-  if (action === 'v2LoaControlledTest') return v2LoaControlledTest();
-  if (action === 'v2LoaDiagnostics') return {ok:true,build:V2_LOA_REPAIR_BUILD,officialTemplateId:CONFIG.officialLoaTemplateId,syntheticTestOnly:true};
+  if (action === 'v2LoaControlledTest') { try { return v2LoaControlledTest(); } catch (e) { return {ok:false,message:String(e.message||e),stack:String(e.stack||'')}; } }
+  if (action === 'v2LoaDiagnostics') return v2LoaTestRunStatus_();
   if (action === 'v2UpsertFeeStructure') return v2UpsertFeeStructure_(payload.data || {}, payload.updatedBy || 'Admin Portal V2');
   if (action === 'v2SetFeeStructureStatus') return v2SetFeeStructureStatus_(payload.data || {}, payload.updatedBy || 'Admin Portal V2');
   if (action === 'v2UpsertAgent') return v2UpsertAgent_(payload.data || {}, payload.updatedBy);
