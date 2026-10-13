@@ -349,8 +349,10 @@ function handleV2Post_(payload) {
   if (action === 'v2ResolveOrientationAttendanceIdentity') return v2ResolveOrientationAttendanceIdentity_(payload.data || payload);
   if (action === 'v2SubmitOrientationAttendance') return v2SubmitOrientationAttendance_(payload.data || payload);
   if (action === 'v2SubmitOrientationFeedback') return v2SubmitOrientationFeedback_(payload.data || payload);
-  v2VerifyAdminApiAccess_(payload.token);
+  v2VerifyAdminApiAccess_(payload.token, action);
   if (action === 'v2ListWorkflow') return v2ListWorkflow_(payload);
+  if (action === 'v2LoaControlledTest') return v2LoaControlledTest();
+  if (action === 'v2LoaDiagnostics') return {ok:true,build:V2_LOA_REPAIR_BUILD,officialTemplateId:CONFIG.officialLoaTemplateId,syntheticTestOnly:true};
   if (action === 'v2UpsertFeeStructure') return v2UpsertFeeStructure_(payload.data || {}, payload.updatedBy || 'Admin Portal V2');
   if (action === 'v2SetFeeStructureStatus') return v2SetFeeStructureStatus_(payload.data || {}, payload.updatedBy || 'Admin Portal V2');
   if (action === 'v2UpsertAgent') return v2UpsertAgent_(payload.data || {}, payload.updatedBy);
@@ -458,7 +460,8 @@ function handleV2Post_(payload) {
   throw new Error('Unsupported V2 POST action.');
 }
 
-function v2VerifyAdminApiAccess_(token) {
+function v2VerifyAdminApiAccess_(token, action) {
+  if (v2VerifyLoaServiceAccess_(token, action)) return true;
   assertDevIdentity_();
   const properties = PropertiesService.getScriptProperties();
   const expected = String(properties.getProperty('V2_ADMIN_API_PASSWORD') || CONFIG.adminApiPassword || '').trim();
@@ -5064,3 +5067,4 @@ function v2AssessmentPortalUiPreflight() {
   Logger.log(JSON.stringify(report));
   return report;
 }
+// LOA_REPAIR_20261013

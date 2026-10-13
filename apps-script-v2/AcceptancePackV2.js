@@ -87,7 +87,7 @@ function v2AcceptancePackContext_(referenceNo) {
     studentFolder: DriveApp.getFolderById(folderId),
     studentName: String(app['Student Name'] || '').trim(),
     idPassport: String(app['ID / Passport No'] || '').trim(),
-    programme: String(app['Programme'] || '').trim(),
+    programme: v2CurrentOfferProgramme_(app['Programme']),
     intake: v2OfferDisplayIntake_(app['Intake'] || ''),
     studyMode: String(app['Study Mode'] || app['Mode of Study'] || '').trim()
   };
@@ -916,3 +916,5 @@ function v2AcceptancePackControlledTest() {
   Logger.log(JSON.stringify(report));
   return report;
 }
+
+// LOA_REPAIR_20261013

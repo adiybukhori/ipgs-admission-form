@@ -77,7 +77,7 @@ function v2NotificationSend_(eventName, intendedRecipients, subject, textBody, h
   }
 
   let recipients = v2NotificationUniqueEmails_(intendedRecipients || []);
-  if (mode === 'TEST') recipients = v2NotificationUniqueEmails_([v2NotificationTestRecipient_()]);
+  if (mode === 'TEST') recipients = v2NotificationUniqueEmails_([opts.testRecipient || v2NotificationTestRecipient_()]);
   if (!recipients.length) {
     return {sent:false, status:'SKIPPED_NO_RECIPIENT', mode:mode, event:eventName, recipients:[]};
   }
@@ -200,7 +200,7 @@ function v2SendApplicationNotifications_(payload, reference, intake, pdf, col, o
   const now = new Date().toISOString();
   const student = String(payload.fullName || 'Applicant').trim();
   const friendlyName = v2ApplicantFriendlyName_(student);
-  const programmeRaw = String(payload.programme || '').trim();
+  const programmeRaw = v2CurrentOfferProgramme_(payload.programme);
   const programme = programmeRaw.indexOf(' - ') >= 0 ? programmeRaw.split(' - ').slice(1).join(' - ').trim() : programmeRaw;
   const intakeNameRaw = String(intake && intake.name || payload.intake || '').trim();
 
@@ -620,7 +620,7 @@ function v2SendOfferNotificationCentral_(referenceNo, acceptanceUrl, pdfFileId, 
 
   const opts = options || {};
   const student = String(application.record['Student Name'] || 'Student');
-  const programme = String(application.record['Programme'] || '');
+  const programme = v2CurrentOfferProgramme_(application.record['Programme']);
   const intake = v2OfferDisplayIntake_(application.record['Intake'] || '');
   const recipient = String(application.record['Personal Email'] || '').trim();
   const subject = '[IUC IPGS] Congratulations! Your Official Offer Letter - ' + programme;
@@ -637,12 +637,12 @@ function v2SendOfferNotificationCentral_(referenceNo, acceptanceUrl, pdfFileId, 
     'OFFER_ISSUED', [recipient], subject,
     'Your IUC Official Offer Letter is attached. Acceptance link: ' + acceptanceUrl,
     html,
-    {attachments:[attachment], modeOverride:(opts.testMode === true ? 'TEST' : opts.modeOverride)}
+    {attachments:[attachment], testRecipient:opts.testRecipient, modeOverride:(opts.testMode === true ? 'TEST' : opts.modeOverride)}
   );
   const now = new Date().toISOString();
   v2NotificationUpdateWorkflow_(reference, {
     'Offer Email Status': result.status,
-    'Offer Email Sent At': result.sent ? now : '',
+    'Offer Email Sent At': result.sent && result.mode === 'LIVE' ? now : '',
     'Last Updated': now
   });
   if (typeof v2Audit_ === 'function') {
@@ -664,7 +664,7 @@ function v2SendAcceptanceConfirmationCentral_(referenceNo, signedDocumentUrls) {
   const workflow = v2Find_('V2_WORKFLOW','Reference No',reference);
   if (!application || !workflow) throw new Error('Application/workflow record not found for acceptance confirmation.');
   const student = String(application.record['Student Name'] || 'Student');
-  const programme = String(application.record['Programme'] || '');
+  const programme = v2CurrentOfferProgramme_(application.record['Programme']);
   const intake = v2OfferDisplayIntake_(application.record['Intake'] || '');
   const recipient = String(application.record['Personal Email'] || '').trim();
   const acceptedAt = String(workflow.record['Acceptance Received At'] || workflow.record['Acceptance Signed At'] || '');
@@ -1009,3 +1009,4 @@ function TEST_HUZAIFAH_PRODUCTION_EMAILS() {
 
   return result;
 }
+// LOA_REPAIR_20261013

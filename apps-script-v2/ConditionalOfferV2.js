@@ -21,7 +21,7 @@ function v2GenerateSubmissionCol_(studentFolder, payload, reference, intake, sub
   if (!studentFolder) throw new Error('Student folder is required for COL generation.');
 
   const studentName = String(payload.fullName || '').trim();
-  const programme = String(payload.programme || '').trim();
+  const programme = v2CurrentOfferProgramme_(payload.programme);
   const studyMode = String(payload.studyMode || '').trim();
   const intakeName = String(intake && intake.name || payload.intake || '').trim();
   const idPassport = String(payload.idPassport || '').trim();
@@ -60,8 +60,9 @@ function v2GenerateSubmissionCol_(studentFolder, payload, reference, intake, sub
   body.replaceText('{{MODE_OF_STUDY}}', v2ColDocReplacement_(studyMode));
   body.replaceText('{{INTAKE}}', v2ColDocReplacement_(intakeName));
   body.replaceText('{{COUNTRY}}', v2ColDocReplacement_(payload.country || payload.nationality || ''));
-  body.replaceText('{{DURATION_STUDY}}', v2ColDocReplacement_(v2ColStudyDuration_(payload.levelOfStudy, programme)));
+  body.replaceText('{{DURATION_STUDY}}', v2ColDocReplacement_(v2ColStudyDuration_(v2IsMbaPhdPackage_(payload.programme) ? 'Master' : payload.levelOfStudy, programme)));
 
+  v2AssertCurrentAwardDocument_(body, payload.programme);
   doc.saveAndClose();
 
   const pdfBlob = DriveApp.getFileById(docCopy.getId())
@@ -169,3 +170,5 @@ function v2ColHtml_(value) {
     .replace(/"/g,'&quot;')
     .replace(/'/g,'&#39;');
 }
+
+// LOA_REPAIR_20261013
