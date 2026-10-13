@@ -1,0 +1,50 @@
+name: LOA Followup Deploy
+on:
+  push:
+    branches: [apps-script-v2-dev]
+    paths: ['.github/workflows/loa-repair-followup.yml']
+permissions:
+  contents: write
+concurrency:
+  group: acc-apps-script-loa-repair
+  cancel-in-progress: false
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: apps-script-v2-dev
+          fetch-depth: 0
+      - run: npm install -g @google/clasp@3.4.1
+      - name: Restore existing connection
+        env:
+          CLASPRC_JSON: ${{ secrets.CLASPRC_JSON }}
+        run: |
+          printf '%s' "$CLASPRC_JSON" > "$HOME/.clasprc.json"
+          chmod 600 "$HOME/.clasprc.json"
+      - name: Backup live source and apply scoped followup
+        run: |
+          node tools/verify-clasp-target.mjs
+          cp apps-script-v2/LoaRepairV2.js /tmp/LoaRepairV2.js
+          clasp pull
+          git config user.name 'adiybukhori'
+          git config user.email 'muhammadadiy93@gmail.com'
+          git add apps-script-v2
+          if ! git diff --cached --quiet; then
+            git commit -m 'Snapshot live LOA source before protected diagnostic followup'
+          fi
+          git push origin HEAD:refs/heads/backup/loa-followup-${{ github.run_id }}
+          cp /tmp/LoaRepairV2.js apps-script-v2/LoaRepairV2.js
+          python tools/patch-loa-repair.py
+          node tools/test-loa-repair.cjs
+          node --check apps-script-v2/LoaRepairV2.js
+          node --check apps-script-v2/WorkflowV2.js
+          git add apps-script-v2/LoaRepairV2.js apps-script-v2/WorkflowV2.js
+          git commit -m 'Add protected synthetic LOA status and detailed trial diagnostics'
+          git push origin HEAD:apps-script-v2-dev
+          clasp push --force
+          clasp create-deployment --deploymentId AKfycbxasT_HgtRSvTbR_bsa8p17Cm-C2PKn20Ok1kU-AyJmxiKX8kX5EGOtRLwVwNlAL7JB --description 'LOA followup: synthetic test status and protected failure details'
+      - name: Cleanup
+        if: always()
+        run: rm -f "$HOME/.clasprc.json" /tmp/LoaRepairV2.js
