@@ -36,7 +36,8 @@ function v2NotificationTestRecipient_() {
 function v2NotificationAdminRecipients_() {
   return v2NotificationUniqueEmails_([
     'adiybukhori.ipgs@innovative.edu.my',
-    'abu.huzaifah.ipgs@innovative.edu.my'
+    'abu.huzaifah.ipgs@innovative.edu.my',
+    'fadhilhasif@innovative.edu.my'
   ]);
 }
 
