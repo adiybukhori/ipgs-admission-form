@@ -1698,8 +1698,8 @@ function v2GenerateOfferLetter_(referenceNo, actor) {
 
   // Academic enrolment mode is required on the official Offer Letter.
   body.replaceText(
-    'Study Mode\s*:\s*Full[ -]?Time',
-    'Mode of Study     : ' + studyMode
+    'Full[ -]?Time',
+    studyMode
   );
 
 
