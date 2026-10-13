@@ -400,7 +400,7 @@ export default async function handler(req, res) {
         const application=rows.find(row=>String(row['Reference No']||row.Reference||'').trim()===referenceNo);
         if(!application)throw new Error('Application programme could not be verified. Offer was not sent.');
         const programme=String(application.Programme||application.Program||'');
-        if(/(?:MBA|Master\\s+of\\s+Business\\s+Administration)/i.test(programme)&&/(?:PhD|Doctor\\s+of\\s+Philosophy)/i.test(programme)){
+        if(/(?:MBA|Master\s+of\s+Business\s+Administration)/i.test(programme)&&/(?:PhD|Doctor\s+of\s+Philosophy)/i.test(programme)){
           throw new Error('Mixed-level MBA + PhD package: offer is blocked pending verified MBA-only COL/LOA generation in the issuer. No email sent.');
         }
       }
