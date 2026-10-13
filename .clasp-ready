@@ -1,2 +1,4 @@
 sync-request: 2026-10-01 SAC pack repair snapshot
 purpose: pull current Apps Script HEAD before targeted SAC pack repair
+
+LOA repair: capture live source backup before changes, 2026-10-13.
