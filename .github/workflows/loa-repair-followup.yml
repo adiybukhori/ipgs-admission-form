@@ -40,7 +40,7 @@ jobs:
           node tools/test-loa-repair.cjs
           node --check apps-script-v2/LoaRepairV2.js
           node --check apps-script-v2/WorkflowV2.js
-          git add apps-script-v2/LoaRepairV2.js apps-script-v2/WorkflowV2.js
+          git add apps-script-v2/LoaRepairV2.js apps-script-v2/WorkflowV2.js apps-script-v2/OfferLetterV2.js
           git commit -m 'Add protected synthetic LOA status and detailed trial diagnostics'
           git push origin HEAD:apps-script-v2-dev
           clasp push --force
@@ -48,3 +48,5 @@ jobs:
       - name: Cleanup
         if: always()
         run: rm -f "$HOME/.clasprc.json" /tmp/LoaRepairV2.js
+
+# Recheck the approved template's hardcoded Study Mode, 2026-10-13.
