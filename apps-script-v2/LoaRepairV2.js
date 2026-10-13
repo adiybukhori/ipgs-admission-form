@@ -26,7 +26,7 @@ function v2VerifyLoaServiceAccess_(token, action) {
   return digest === V2_LOA_SERVICE_TOKEN_SHA256;
 }
 
-function v2LoaControlledTest(options) {
+function v2LoaControlledTest() {
   assertDevIdentity_();
   const reference = 'IUC-ADM-LOA-UAT-20261013';
   const name = 'REGISTRY LOA TEST - MBA PATHWAY';
@@ -42,13 +42,6 @@ function v2LoaControlledTest(options) {
     application = v2Find_('V2_APPLICATIONS','Reference No',reference);
   }
   if (application.record['Version'] !== V2_LOA_REPAIR_BUILD || application.record['Student Name'] !== name || application.record['Personal Email'] !== V2_LOA_TEST_RECIPIENT) throw new Error('Controlled test identity mismatch.');
-  const props = PropertiesService.getScriptProperties();
-  if (options && options.refreshSyntheticOffer === true && props.getProperty('V2_LOA_SYNTHETIC_MODE_REVISION') !== '2') {
-    const old = v2Find_('V2_WORKFLOW','Reference No',reference);
-    if (!old || old.record['Application Status'] !== 'TEST' || old.record['Acceptance Status'] === 'ACCEPTED') throw new Error('Synthetic refresh is not permitted.');
-    v2UpdateRow_(old.sheet,old.rowNumber,{'Application Stage':'ELIGIBLE_FOR_OFFER','Offer Letter Status':'NOT_ISSUED','Offer Letter PDF URL':'','Offer Programme':'','Acceptance Token Hash':'','Acceptance Signing URL':''});
-    props.setProperty('V2_LOA_SYNTHETIC_MODE_REVISION','2');
-  }
   const folder = DriveApp.getFolderById(v2OfferExtractDriveId_(application.record['Student Folder URL']));
   const col = v2GenerateSubmissionCol_(folder,{fullName:name,programme:programme,levelOfStudy:'Doctorate',studyMode:'Part Time',idPassport:'LOA-UAT-20261013',fullAddress:'REGISTRY TEST ADDRESS'},reference,{name:'October 2026'},new Date());
   const issued = v2IssueOffer_(reference,'Authorised Registry Synthetic Test',{sendEmail:true,testMode:true,testRecipient:V2_LOA_TEST_RECIPIENT});
