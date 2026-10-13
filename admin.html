@@ -2155,13 +2155,14 @@
         const result=out.result||out;
         const ref=selected?.ref||data?.referenceNo||'';
         applyOptimisticActionResult(action,data,result);
-        opsMsg('Saved successfully. Syncing this applicant…','ok');
+        const savedMessage=action==='v2IssueOffer'?(result.duplicateEmailSuppressed?'LOA already sent. Existing PDF and acceptance link retained; no duplicate email.':result.emailSent?`LOA for ${result.offerProgramme||'the approved programme'} generated and emailed successfully.`:`LOA saved. Email status: ${result.emailStatus||'NOT_SENT'}.`):'Saved successfully.';
+        opsMsg(savedMessage+' Syncing this applicant…','ok');
         if(ref){
           refreshApplicantRecord(ref)
-            .then(()=>opsMsg('Saved successfully.','ok'))
-            .catch(()=>opsMsg('Saved successfully. Use Refresh if you need to verify the latest backend data.','ok'));
+            .then(()=>opsMsg(savedMessage,'ok'))
+            .catch(()=>opsMsg(savedMessage+' Use Refresh to verify the latest backend data.','ok'));
         }else{
-          opsMsg('Saved successfully.','ok');
+          opsMsg(savedMessage,'ok');
         }
         return result;
       }catch(e){opsMsg(e.message||'Unable to complete action.','error');return null}
@@ -2220,7 +2221,13 @@
     function generateAiScreeningReport(){if(!selected)return;runAdminAction('v2GenerateAiScreeningReport',{referenceNo:selected.ref,finalize:true},`Generate or refresh the official AI Admission Screening Report for ${selected.app['Student Name']||selected.ref}? The backend will keep it pending if a human exception is still required.`)}
     async function runQualificationScreening(){if(!selected)return;const field=document.getElementById('opsFieldClassification')?.value||'',exp=document.getElementById('opsWorkExperience')?.value||'';if(!field||!exp)return opsMsg('Select Field Relationship and Relevant Work Experience first.','error');const btn=document.getElementById('manualScreeningBtn');if(btn){btn.disabled=true;btn.textContent='Checking…'}const started=performance.now();try{const result=await runAdminAction('v2RunQualificationScreening',{referenceNo:selected.ref,fieldClassification:field,relevantWorkExperience:exp,remarks:'Manual second-layer screening from Admin Portal'},`Run MANUAL qualification screening for ${selected.app['Student Name']||selected.ref}? If AI has already completed screening, the resolved stage will be preserved.`);if(result){const totalMs=Math.round(performance.now()-started);const backendMs=Number(result.performanceMs||0);opsMsg(`Screening saved in ${(totalMs/1000).toFixed(1)}s${backendMs? ` · backend ${(backendMs/1000).toFixed(1)}s`:''}.`,'ok')}}finally{const current=document.getElementById('manualScreeningBtn');if(current){current.disabled=false;current.textContent='Run Manual Screening'}}}
     function completeManualScreening(){if(!selected)return;const field=document.getElementById('opsFieldClassification')?.value||'',exp=document.getElementById('opsWorkExperience')?.value||'',route=document.getElementById('opsManualRecommendation')?.value||'';if(!field||!exp||!route)return opsMsg('Select Field Relationship, Work Experience and Manual Recommendation first.','error');runAdminAction('v2CompleteManualQualificationScreening',{referenceNo:selected.ref,fieldClassification:field,relevantWorkExperience:exp,recommendedRoute:route,remarks:'Registry manual second-layer resolution'},`Complete manual screening as ${pretty(route)}? This will move the case to Ready for SAC if screening is still pending.`)}
-    function issueOffer(){if(!selected)return;runAdminAction('v2IssueOffer',{referenceNo:selected.ref,sendEmail:true,testMode:false},`Generate the official Offer Letter and SEND it to ${selected.app['Personal Email']||'the student'} with the secure Acceptance link?`)}
+    function issueOffer(){
+      if(!selected)return;
+      const programme=String(selected.app?.['Programme']||'');
+      const isPackage=/\bMBA\b|Master\s+of\s+Business\s+Administration/i.test(programme)&&/\bPhD\b|Doctor\s+of\s+Philosophy/i.test(programme);
+      const currentAward=isPackage?'Master of Business Administration (MBA) only':programme;
+      runAdminAction('v2IssueOffer',{referenceNo:selected.ref,sendEmail:true,testMode:false},`Generate the official Offer Letter for ${currentAward} and SEND it to ${selected.app['Personal Email']||'the student'} with the secure Acceptance link?${isPackage?' PhD progression requires a separate admission approval.':''}`);
+    }
     function assignSacSession(){if(!selected)return;const el=document.getElementById('opsSacSession'),sessionId=el?.value||'';if(!sessionId)return opsMsg('Select a SAC session first.','error');runAdminAction('v2AssignSacCandidate',{referenceNo:selected.ref,sessionId,studentName:selected.app?.['Student Name']||'',programme:selected.app?.['Programme']||'',screeningRecommendation:selected.screen?.['Recommendation']||selected.screen?.['Screening Recommendation']||'',proceedWithPendingDocuments:true,confirmed:true,overrideBy:'Admin Portal V2 - nonblocking document policy'},`Assign ${selected.app['Student Name']||selected.ref} to the selected SAC session? Pending documents remain follow-up only.`)}
     function recordSacDecision(decision){if(!selected)return;const sessionId=currentSacSession(selected);if(!sessionId)return opsMsg('SAC Session ID is missing for this applicant.','error');runAdminAction('v2RecordSacDecisionManual',{referenceNo:selected.ref,sessionId,decision,confirmed:true,remarks:''},`Confirm authorised manual SAC decision: ${pretty(decision)}? This changes the admission route and cannot use Prerequisite directly.`)}
     function sacPageMsg(text,type='info'){const el=document.getElementById('sacCreateMessage');if(!el)return;el.style.display='block';el.className='message '+(type==='error'?'error':'');el.style.background=type==='ok'?'var(--greenSoft)':type==='error'?'var(--redSoft)':'var(--blueSoft)';el.style.color=type==='ok'?'var(--green)':type==='error'?'var(--red)':'var(--blue)';el.textContent=text}
@@ -2482,3 +2489,4 @@
   <script src="/system-guide-training-v2.js"></script>
 <script src="/ia-dashboard-admin.js"></script></body>
 </html>
+
