@@ -53,3 +53,10 @@ function v2LoaControlledTest() {
   if (!duplicate.duplicateEmailSuppressed || issued.offerProgramme !== 'Master of Business Administration (MBA)' || acceptance.programme !== issued.offerProgramme || pdf.getMimeType() !== MimeType.PDF || workflow['Application Stage'] !== 'OFFER_ISSUED') throw new Error('Controlled LOA verification failed.');
   return {ok:true,build:V2_LOA_REPAIR_BUILD,referenceNo:reference,recipient:V2_LOA_TEST_RECIPIENT,offerProgramme:issued.offerProgramme,colReference:col.reference,colPdfUrl:col.url,loaPdfUrl:issued.offerLetterPdfUrl,loaPdfBytes:pdf.getBlob().getBytes().length,templateId:CONFIG.officialLoaTemplateId,acceptanceProgramme:acceptance.programme,acceptanceLinkVerified:true,acceptancePackStatus:issued.acceptancePackStatus,acceptancePackDocumentCount:issued.acceptancePackDocumentCount,emailSent:issued.emailSent,emailStatus:issued.emailStatus,duplicateEmailSuppressed:duplicate.duplicateEmailSuppressed,samePdf:issued.offerLetterPdfUrl===duplicate.offerLetterPdfUrl,sameAcceptanceLink:issued.acceptanceSigningUrl===duplicate.acceptanceSigningUrl,applicationStage:workflow['Application Stage'],realStudentsChanged:false};
 }
+
+function v2LoaTestRunStatus_() {
+  const reference = 'IUC-ADM-LOA-UAT-20261013';
+  const row = v2Find_('V2_WORKFLOW','Reference No',reference);
+  const w = row ? row.record : {};
+  return {ok:true,build:V2_LOA_REPAIR_BUILD,officialTemplateId:CONFIG.officialLoaTemplateId,syntheticTestOnly:true,testRecordExists:!!row,offerProgramme:w['Offer Programme']||'',stage:w['Application Stage']||'',offerStatus:w['Offer Letter Status']||'',offerEmailStatus:w['Offer Email Status']||'',pdfUrl:w['Offer Letter PDF URL']||'',acceptanceLinkExists:!!w['Acceptance Signing URL'],packStatus:w['Acceptance Pack Status']||''};
+}
