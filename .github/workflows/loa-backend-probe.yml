@@ -12,23 +12,16 @@ jobs:
       - uses: actions/checkout@v4
         with:
           ref: apps-script-v2-dev
-      - name: Compare direct backend and ACC authentication without issuing letters
+      - name: Install existing deployment client
+        run: npm install -g @google/clasp@3.4.1
+      - name: Restore authorised Apps Script connection
+        env:
+          CLASPRC_JSON: ${{ secrets.CLASPRC_JSON }}
         run: |
-          node --input-type=module <<'NODE'
-          import fs from 'node:fs';
-          const code=fs.readFileSync('apps-script-v2/Code.js','utf8');
-          const token=code.match(/adminApiPassword\s*:\s*['"]([^'"]+)['"]/)[1];
-          console.log('::add-mask::'+token);
-          const direct='https://script.google.com/macros/s/AKfycbxasT_HgtRSvTbR_bsa8p17Cm-C2PKn20Ok1kU-AyJmxiKX8kX5EGOtRLwVwNlAL7JB/exec';
-          for (const [name,url,body] of [
-            ['DIRECT_BACKEND',direct,{action:'v2ListWorkflow',token}],
-            ['ACC_VERCEL','https://ipgs-admission-form.innovative.edu.my/api/admin-action',{action:'v2ListWorkflow',password:token,data:{}}],
-            ['INVALID_TOKEN',direct,{action:'v2ListWorkflow',token:'INVALID-READONLY-PROBE'}]
-          ]) {
-            try {
-              const r=await fetch(url,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body),signal:AbortSignal.timeout(60000)});
-              const j=await r.json();
-              console.log(JSON.stringify({probe:name,http:r.status,ok:j.ok,code:j.code||null,message:j.ok===false?j.message:null,transport:j.transport||null}));
-            } catch(e) { console.log(JSON.stringify({probe:name,error:e.message})); }
-          }
-          NODE
+          printf '%s' "$CLASPRC_JSON" > "$HOME/.clasprc.json"
+          chmod 600 "$HOME/.clasprc.json"
+      - name: Run read-only execution ping
+        run: clasp run-function v2ExecutionPing
+      - name: Cleanup
+        if: always()
+        run: rm -f "$HOME/.clasprc.json"
