@@ -1,6 +1,6 @@
 const fs=require('fs'),vm=require('vm'),crypto=require('crypto'),assert=require('assert');
 const token='a'.repeat(64);
-const helper=fs.readFileSync('apps-script-v2/LoaRepairV2.js','utf8').replace('PROVISIONED_BY_DEPLOY_WORKFLOW',crypto.createHash('sha256').update(token).digest('hex'));
+const helper=fs.readFileSync('apps-script-v2/LoaRepairV2.js','utf8').replace(/const V2_LOA_SERVICE_TOKEN_SHA256 = '[^']+';/,"const V2_LOA_SERVICE_TOKEN_SHA256 = '"+crypto.createHash('sha256').update(token).digest('hex')+"';");
 const wrapper=fs.readFileSync('tools/loa-issuer-wrapper.js','utf8');
 function fixture(){
   const props=new Map(),w={'Application Stage':'ELIGIBLE_FOR_OFFER','Offer Letter Status':'NOT_ISSUED'},a={'Programme':'MBA + PhD','Personal Email':'student@example.test'};
