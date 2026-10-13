@@ -6,13 +6,13 @@ def edit(name, fn):
     p = root / name
     text = p.read_text()
     if name == 'OfferLetterV2.js':
-        text = text.replace("    'Study Mode\\s*:\\s*Full[ -]?Time',\n    'Mode of Study     : ' + studyMode", "    'Full[ -]?Time',\n    studyMode")
+        text = re.sub(r"    'Study Mode.*Full\[ -\]\?Time',\n    'Mode of Study     : ' \+ studyMode", "    'Full[ -]?Time',\n    studyMode", text, count=1)
     if 'LOA_REPAIR_20261013' in text:
         if name == 'WorkflowV2.js':
             text = text.replace('v2LoaControlledTest();', 'v2LoaControlledTest(payload.data || {});')
             text = text.replace("if (action === 'v2LoaControlledTest') return v2LoaControlledTest(payload.data || {});", "if (action === 'v2LoaControlledTest') { try { return v2LoaControlledTest(payload.data || {}); } catch (e) { return {ok:false,message:String(e.message||e),stack:String(e.stack||'')}; } }")
             text = text.replace("return {ok:true,build:V2_LOA_REPAIR_BUILD,officialTemplateId:CONFIG.officialLoaTemplateId,syntheticTestOnly:true};", "return v2LoaTestRunStatus_();")
-            p.write_text(text)
+        p.write_text(text)
         return
     p.write_text(fn(text) + '\n// LOA_REPAIR_20261013\n')
 
