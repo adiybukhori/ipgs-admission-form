@@ -31,6 +31,15 @@ function v2WorkflowDiagnostics_() {
       handover:typeof v2CreateHandoverSession_==='function',sac:typeof v2CreateSacSessionManual_==='function'},
     reminderAutomation:reminderAutomation,
     orientationVerification:{sessionId:id,rowCount:rows.length,name:r['Orientation Name']||'',
-      status:r.Status||'',date:r['Session Date']||'',assignedCount:tracking.length},
+      status:r.Status||'',date:v2WorkflowDateKey_(r['Session Date']),assignedCount:tracking.length},
     realStudentsChanged:false};
+}
+
+function v2WorkflowDateKey_(value) {
+  if (value instanceof Date && !isNaN(value.getTime())) return Utilities.formatDate(value, CONFIG.timezone || 'Asia/Kuala_Lumpur', 'yyyy-MM-dd');
+  const text = String(value || '').trim();
+  const iso = text.match(/^(\d{4}-\d{2}-\d{2})/);
+  if (iso) return iso[1];
+  const local = text.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
+  return local ? local[3]+'-'+('0'+local[2]).slice(-2)+'-'+('0'+local[1]).slice(-2) : text;
 }
