@@ -3,7 +3,6 @@ import { PDFDocument } from 'pdf-lib';
 export const config = { maxDuration: 300 };
 
 const AUTH_WEB_APP = 'https://script.google.com/macros/s/AKfycbw22-UOsHkaap3dzU16aOjA6XFr7jWGr9qQPfp8F1CQrXboP7YdRZJKKJhHijC3us4/exec';
-const ADMIN_BRIDGE = 'https://anasbukhori.app.n8n.cloud/webhook/iuc-admission-v2-admin-bridge';
 const FILE_FETCH_CONCURRENCY = 8;
 const FILE_FETCH_TIMEOUT_MS = 25000;
 const SPREADSHEET_ID = '1O-Y-q7_q78xKM1p5e2C3EWyQfYr5rXvhO0oWbVaw5Mw';
@@ -22,7 +21,7 @@ async function validateAdminPassword(password) {
 }
 
 async function callAppsScriptV2(action, data, password, timeoutMs = 60000) {
-  const token = String(process.env.V2_ADMIN_API_PASSWORD || password || '');
+  const token = String(process.env.V2_WORKFLOW_API_TOKEN || process.env.V2_ADMIN_API_PASSWORD || password || '').trim();
   if (!token) throw new Error('V2 backend token is not configured.');
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), timeoutMs);
@@ -44,27 +43,7 @@ async function callAppsScriptV2(action, data, password, timeoutMs = 60000) {
 }
 
 async function callV2(action, data, password, timeoutMs = 60000, authSessionId = '') {
-  let bridgeError = null;
-  const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), Math.min(timeoutMs, 20000));
-  try {
-    const response = await fetch(ADMIN_BRIDGE, {
-      method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ password:String(password||''), sessionId:String(authSessionId||''), action, data:data||{}, updatedBy:'Admin Portal V2 - SAC Pack' }),
-      redirect: 'follow', signal: controller.signal
-    });
-    const text = await response.text(); let parsed = null; try { parsed = JSON.parse(text); } catch (_) {}
-    if (response.ok && parsed && parsed.ok !== false) return parsed;
-    bridgeError = new Error(parsed?.message || `Admin bridge returned HTTP ${response.status}.`);
-  } catch (error) {
-    bridgeError = error?.name === 'AbortError' ? new Error(action + ' bridge timed out.') : error;
-  } finally { clearTimeout(timer); }
-
-  try {
-    return await callAppsScriptV2(action, data, password, timeoutMs);
-  } catch (directError) {
-    throw new Error(`SAC pack backend failed. Bridge: ${bridgeError?.message || 'unavailable'} | V2 backend: ${directError?.message || 'failed'}`);
-  }
+  return callAppsScriptV2(action, data, password, timeoutMs);
 }
 
 function parseCsv(text){
@@ -293,3 +272,4 @@ export default async function handler(req, res) {
     return res.status(502).json({ ok: false, message: error?.message || 'Unable to generate SAC print pack.' });
   }
 }
+

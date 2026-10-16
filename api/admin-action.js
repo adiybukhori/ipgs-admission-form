@@ -1,9 +1,8 @@
-const ADMIN_BRIDGE = String(process.env.N8N_ADMIN_BRIDGE_URL||'').trim();
 const V2_WEB_APP = 'https://script.google.com/macros/s/AKfycbxasT_HgtRSvTbR_bsa8p17Cm-C2PKn20Ok1kU-AyJmxiKX8kX5EGOtRLwVwNlAL7JB/exec';
 const AUTH_WEB_APP = 'https://script.google.com/macros/s/AKfycbw22-UOsHkaap3dzU16aOjA6XFr7jWGr9qQPfp8F1CQrXboP7YdRZJKKJhHijC3us4/exec';
 
 const ALLOWED_ACTIONS = new Set([
-  'v2ListWorkflow','v2UpsertFeeStructure','v2SetFeeStructureStatus','v2UpsertAgent','v2AgentAdminStatus','v2UpdateStage','v2RunDocumentReview','v2RegeneratePgAdm01','v2CompleteManualDocumentReview','v2RunQualificationScreening','v2RunAutoAiScreening','v2CompleteManualQualificationScreening','v2RecordAiScreeningResult','v2ConfirmAiScreening','v2GenerateAiScreeningReport','v2RunComplianceDocumentQuality','v2SendDocumentReplacementRequest','v2SendMissingDocumentRequest','v2PrepareSacCoordination','v2PrepareIaCoordination','v2PreparePrerequisiteCoordination','v2PrepareOrientationForAccepted','v2RunOrientationSessionSupervisor','v2PrepareSkyActivation','v2PrepareAcademicHandover','v2PrepareStudentAccessDelivery','v2RunManagementIntelligence','v2AgenticStatus','v2GetAgentCaseState','v2AgentActionGateway','v2RecordAgentActivity','v2CreateHumanTask','v2ResolveHumanTask','v2ListOpenHumanTasks',
+  'v2WorkflowDiagnostics','v2ListWorkflow','v2UpsertFeeStructure','v2SetFeeStructureStatus','v2UpsertAgent','v2AgentAdminStatus','v2UpdateStage','v2RunDocumentReview','v2RegeneratePgAdm01','v2CompleteManualDocumentReview','v2RunQualificationScreening','v2RunAutoAiScreening','v2CompleteManualQualificationScreening','v2RecordAiScreeningResult','v2ConfirmAiScreening','v2GenerateAiScreeningReport','v2RunComplianceDocumentQuality','v2SendDocumentReplacementRequest','v2SendMissingDocumentRequest','v2PrepareSacCoordination','v2PrepareIaCoordination','v2PreparePrerequisiteCoordination','v2PrepareOrientationForAccepted','v2RunOrientationSessionSupervisor','v2PrepareSkyActivation','v2PrepareAcademicHandover','v2PrepareStudentAccessDelivery','v2RunManagementIntelligence','v2AgenticStatus','v2GetAgentCaseState','v2AgentActionGateway','v2RecordAgentActivity','v2CreateHumanTask','v2ResolveHumanTask','v2ListOpenHumanTasks',
   'v2IssueOffer','v2LoaDiagnostics','v2PrepareAcceptancePack','v2ResendAcceptanceConfirmation','v2CreateSacSession','v2AssignSacCandidate','v2RemoveSacCandidate','v2PrepareSacPack','v2PrepareSacPackAsync','v2GetSacPackPrepareStatus','v2GetSacPackFile','v2SaveSacPackPdf','v2ListSacCandidates','v2RecordSacDecision','v2CreateSacSessionManual','v2UpdateSacSessionManual','v2DeleteSacSessionManual','v2SendSacCalendarInvitationManual','v2RecordSacDecisionManual','v2FinalizeSacSessionManual','v2SacManualPhase1Status','v2SacResultStatus','v2PrepareSacResultDocument','v2PreviewSacResult','v2SendSacResultEmail','v2UpdateAssessment','v2CreateOrientationSession','v2AssignOrientationBatch','v2SendOrientationInvitation','v2RemoveOrientationStudent','v2MoveOrientationStudent','v2UpdateOrientationAttendance','v2SendOrientationReminderNow','v2EndOrientationSession','v2EditOrientationSession','v2OpenOrientationAttendance','v2CloseOrientationAttendance','v2SetOrientationRecording','v2SendOrientationRecording','v2OrientationCompletionAssessment','v2CompleteOrientationAndGenerateReport','v2RegenerateOrientationReport','v2GetOrientationReportFile','v2CreateHandoverSession','v2AddHandoverStudents','v2SendHandoverSession','v2CreateAcademicHandoverBatch','v2ResendAcademicHandoverEmail','v2UpdateProvisioningTask','v2ResendProvisioningTaskEmails','v2SendStudentProvisioningAccess','v2RegistryUpsertProspect','v2RefreshFeeStructure','v2NotifyRegistryProspectReady','v2ActivateStudentInSky','v2SetApplicationAgent','v2MoveApplicationToActivated','v2ReturnApplicationFromActivated','v2ConfirmSkyActivationInAcc'
 ]);
 
@@ -18,7 +17,7 @@ async function validateDirectAdmin(password){
 }
 async function callAppsScriptV2(action,data,password,updatedBy){
   const isLoa=action==='v2IssueOffer'||action==='v2LoaDiagnostics';
-  const token=isLoa?String(process.env.V2_LOA_API_TOKEN||'').trim():String(process.env.V2_ADMIN_API_PASSWORD||password||'');
+  const token=isLoa?String(process.env.V2_LOA_API_TOKEN||'').trim():String(process.env.V2_WORKFLOW_API_TOKEN||process.env.V2_ADMIN_API_PASSWORD||password||'').trim();
   if(isLoa&&!token)throw new Error('LOA service authentication is not configured.');
   const startedAt=Date.now();
   const r=await fetch(V2_WEB_APP,{method:'POST',headers:{'Content-Type':'text/plain;charset=utf-8'},body:JSON.stringify({action,token,data:data||{},updatedBy:updatedBy||'Admin Portal V2'}),redirect:'follow'});
@@ -287,41 +286,16 @@ async function recordAssessmentResultDirect(data,password,updatedBy){
 }
 
 async function callV2(action, data, password, sessionId, updatedBy) {
-  const startedAt = Date.now();
-  let bridgeError = null;
-
-  if (ADMIN_BRIDGE) {
-    try {
-      const response = await fetch(ADMIN_BRIDGE, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({password:String(password||''),sessionId:String(sessionId||''),action,data:data||{},updatedBy:updatedBy||'Admin Portal V2'}),
-        redirect: 'follow'
-      });
-      const text = await response.text();
-      let parsed = null; try { parsed = text ? JSON.parse(text) : null; } catch (_) {}
-      if (response.ok && parsed && parsed.ok !== false) return { parsed, bridgeMs: Date.now() - startedAt, transport:'N8N_BRIDGE' };
-      bridgeError = new Error(parsed?.message || `Admin bridge returned HTTP ${response.status}.`);
-      bridgeError.status = response.status;
-    } catch (error) { bridgeError = error; }
-  }
-
+  // One transport per command. Never replay a possibly completed write/email.
   try {
     const direct = await callAppsScriptV2(action, data, password, updatedBy);
-    return {
-      parsed: direct.parsed,
-      bridgeMs: Date.now() - startedAt,
-      transport: ADMIN_BRIDGE ? 'APPS_SCRIPT_FALLBACK' : 'APPS_SCRIPT_DIRECT',
-      bridgeWarning: ADMIN_BRIDGE ? String(bridgeError?.message||'n8n bridge unavailable') : null
-    };
-  } catch (directError) {
-    const bridgePart = ADMIN_BRIDGE ? `Bridge: ${String(bridgeError?.message||'unavailable')} | ` : '';
-    const error = new Error(`Workflow command failed. ${bridgePart}V2 backend: ${String(directError?.message||'failed')}`);
-    error.code = /password|auth/i.test(String(directError?.message||'')) ? 'ADMIN_AUTH_FAILED' : 'V2_ACTION_FAILED';
+    return {...direct, transport:'APPS_SCRIPT_DIRECT', bridgeWarning:null};
+  } catch (cause) {
+    const error = new Error('Workflow command failed. V2 backend: ' + String(cause?.message || 'failed'));
+    error.code = /password|auth/i.test(String(cause?.message || '')) ? 'BACKEND_AUTH_FAILED' : 'V2_ACTION_FAILED';
     throw error;
   }
 }
-
 
 function supabaseConfig(){const url=String(process.env.SUPABASE_URL||process.env.NEXT_PUBLIC_SUPABASE_URL||'').replace(/\/$/,'');const key=String(process.env.SUPABASE_SERVICE_ROLE_KEY||process.env.SUPABASE_SECRET_KEY||'');return url&&key?{url,key}:null;}
 async function supabaseRequest(path,method='GET',body){const cfg=supabaseConfig();if(!cfg)return null;const r=await fetch(`${cfg.url}/rest/v1/${path}`,{method,headers:{apikey:cfg.key,Authorization:`Bearer ${cfg.key}`,'Content-Type':'application/json',Prefer:'return=representation,resolution=merge-duplicates'},body:body===undefined?undefined:JSON.stringify(body)});const t=await r.text();let p=null;try{p=t?JSON.parse(t):null}catch(_){}if(!r.ok)throw new Error(p?.message||`Supabase mirror HTTP ${r.status}`);return p;}
@@ -373,7 +347,15 @@ export default async function handler(req, res) {
   const startedAt = Date.now();
   try {
     let result,bridgeMs,transport,bridgeWarning;
-    if(action==='v2IssueOffer'||action==='v2LoaDiagnostics'){
+    const workflowToken=String(process.env.V2_WORKFLOW_API_TOKEN||'').trim();
+    const serviceRequest=workflowToken && password===workflowToken;
+    const syntheticOrientation=action==='v2CreateOrientationSession' &&
+      body.data?.sessionId==='ORI-UAT-AUTH-20261016' &&
+      body.data?.name==='REGISTRY SYSTEM TEST - DO NOT INVITE' && body.data?.status==='CANCELLED';
+    if(serviceRequest && (action==='v2WorkflowDiagnostics'||syntheticOrientation)){
+      const direct=await callAppsScriptV2(action,body.data||{},password,'Authorised Registry System Verification');
+      result=direct.parsed;bridgeMs=direct.bridgeMs;transport='APPS_SCRIPT_WORKFLOW_VERIFICATION';bridgeWarning=null;
+    }else if(action==='v2IssueOffer'||action==='v2LoaDiagnostics'){
       // Staff authentication stays separate from the narrowly scoped issuer token.
       const serviceToken=String(process.env.V2_LOA_API_TOKEN||'').trim();
       const syntheticTrial=action==='v2IssueOffer'&&body.data?.referenceNo==='IUC-ADM-LOA-UAT-20261013'&&body.data?.testMode===true&&body.data?.testRecipient==='adiybukhori.ipgs@innovative.edu.my';
@@ -401,6 +383,7 @@ export default async function handler(req, res) {
     }else if(action==='v2RecordAgentActivity'&&String(body.data?.action||body.data?.activity||body.data?.type||'').toUpperCase()==='INTERNAL_REMARK'){
       const directStarted=Date.now();result=await recordInternalRemarkDirect(body.data||{},password,body.updatedBy);bridgeMs=Date.now()-directStarted;transport='SUPABASE_INTERNAL_REMARK';bridgeWarning=null;
     }else{
+      if(!(await validateDirectAdmin(password))){const e=new Error('Invalid admin password.');e.code='ADMIN_AUTH_FAILED';throw e;}
       ({parsed:result,bridgeMs,transport,bridgeWarning}=await callV2(action, body.data || {}, password, body.sessionId, body.updatedBy));
     }
     let supabaseMirror='not_applicable';
@@ -416,4 +399,5 @@ export default async function handler(req, res) {
     });
   }
 }
+
 

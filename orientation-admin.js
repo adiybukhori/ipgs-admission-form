@@ -456,9 +456,18 @@
     const programmeGroup=document.getElementById('oriProgrammeGroup')?.value.trim()||'ALL';
     if(!name||!intakeId||!sessionDate)return orientationMessage('Enter Orientation Name, Intake and Session Date first.','error');
 
-    const result=await orientationAction('v2CreateOrientationSession',{
-      name,intakeId,sessionDate,startTime,endTime,mode,venue,meetingLink,programmeGroup
-    },`Create ${name} on ${sessionDate}?`);
+    const saveButton=document.getElementById('orientationCreateSaveBtn');
+    if(saveButton?.disabled)return;
+    const modal=document.getElementById('orientationCreateModal');
+    const sessionId=modal?.dataset.sessionId || ('ORI-'+sessionDate.replace(/-/g,'')+'-'+crypto.randomUUID().slice(0,8).toUpperCase());
+    if(modal)modal.dataset.sessionId=sessionId;
+    if(saveButton)saveButton.disabled=true;
+    let result;
+    try{
+      result=await orientationAction('v2CreateOrientationSession',{
+        sessionId,name,intakeId,sessionDate,startTime,endTime,mode,venue,meetingLink,programmeGroup
+      },`Create ${name} on ${sessionDate}?`);
+    }finally{if(saveButton)saveButton.disabled=false;}
     if(!result)return;
     closeOrientationCreateModal();
 
