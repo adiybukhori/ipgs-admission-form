@@ -81,7 +81,7 @@ try{
   }
 }catch(error){document.getElementById('loading').textContent='Campus could not load: '+error.message;console.error(error);postParent('IPGS_CAMPUS_ERROR',{message:error.message});}
 
-document.getElementById('ambientToggle').onclick=()=>{life.setEnabled(!life.enabled,engine);document.getElementById('ambientToggle').textContent=life.enabled?'💬 Chats: On':'💬 Chats: Off';document.getElementById('ambientToggle').classList.toggle('active',life.enabled);};
+document.getElementById('ambientToggle').onclick=()=>{life.setEnabled(!life.enabled,engine);document.getElementById('ambientToggle').textContent=life.enabled?'💬 Life: On':'💬 Life: Off';document.getElementById('ambientToggle').classList.toggle('active',life.enabled);};
 document.getElementById('autoFollow').onclick=()=>{life.setAutoFollow(!life.autoFollow);document.getElementById('autoFollow').textContent=life.autoFollow?'🎥 Auto-follow: On':'🎥 Auto-follow';document.getElementById('autoFollow').classList.toggle('active',life.autoFollow);};
 document.getElementById('reset').onclick=()=>{if(engine.live){if(!embedded)refreshStandalone();return;}reset();hud.toast('Simulation reset');};
 document.getElementById('demo').onclick=()=>{if(embedded)return;liveLoaded=false;embeddedPassword='';reset();document.getElementById('liveMessage').textContent='';document.getElementById('mode').textContent='Simulation';};
