@@ -70,6 +70,7 @@ try{
     if(engine.live){if(!engine.paused){engine.clock+=dt;for(const a of [...engine.apps,...scene.staff])a.update(dt);}}
     else engine.update(dt);
     life.update(engine.paused?0:dt,engine);
+    if(now-lastWalkingLabelAt>650){const active=[...(engine.apps||[]),...scene.staff].filter(a=>a.ambientWalk).length;const indicator=document.getElementById('walkingIndicator');if(indicator)indicator.textContent=active?`🚶 ${active} walking`:'🚶 Standing by';lastWalkingLabelAt=now;}
     scene.render(engine.paused?0:dt);hud.render();requestAnimationFrame(frame);
   }
   requestAnimationFrame(frame);
