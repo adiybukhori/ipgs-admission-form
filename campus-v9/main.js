@@ -2,11 +2,13 @@ import{CampusScene}from'./CampusScene.js';
 import{WorkflowEngine}from'./WorkflowEngine.js';
 import{ActivityHUD}from'./ActivityHUD.js';
 import{WorkflowAdapter}from'./WorkflowAdapter.js';
+import{AmbientLife}from'./AmbientLife.js';
 
 const params=new URLSearchParams(location.search);
 const embedded=params.get('embedded')==='1';
 if(embedded)document.documentElement.dataset.embedded='1';
 const scene=new CampusScene(document.getElementById('campus'));
+const life=new AmbientLife(scene);
 let engine,hud,liveLoaded=false,liveBusy=false,embeddedPassword='';
 
 function reset(){
@@ -14,7 +16,7 @@ function reset(){
   engine=new WorkflowEngine(scene,e=>hud?.event(e));
   if(hud){hud.engine=engine;hud.select(engine.apps[0]||null);document.getElementById('activity').replaceChildren();}
   else hud=new ActivityHUD(engine,scene);
-  engine.screen('NEXT ORIENTATION','Waiting for the cohort');
+  engine.screen('NEXT ORIENTATION','Waiting for the cohort');life.reset();
   document.getElementById('pause').textContent='Ⅱ Pause';
   document.getElementById('speed').value='1';scene.follow=false;window.campusV9={scene,engine,hud};
 }
@@ -34,8 +36,10 @@ function postParent(type,payload={}){
 
 function applySharedSnapshot(message){
   const records=WorkflowAdapter.normalize(message.data||{});
+  const selectedId=hud?.selected?.id;
   const result=WorkflowAdapter.sync(engine,records,{instant:!liveLoaded});
-  liveLoaded=true;hud.select(engine.apps[0]||null);
+  liveLoaded=true;hud.select(engine.apps.find(a=>a.id===selectedId)||engine.apps[0]||null);
+  life.onMovements(result.movements,engine,hud);
   document.getElementById('liveMessage').textContent=`${records.length} live students · shared from AI Operations Center`;
   document.getElementById('mode').textContent='Live ACC';
   postParent('IPGS_CAMPUS_SYNCED',{total:records.length,counts:result.counts});
@@ -64,6 +68,7 @@ try{
     let dt=Math.min((now-last)/1000,.1);last=now;lastPaint=now;
     if(engine.live){if(!engine.paused){engine.clock+=dt;for(const a of [...engine.apps,...scene.staff])a.update(dt);}}
     else engine.update(dt);
+    life.update(engine.paused?0:dt,engine);
     scene.render(engine.paused?0:dt);hud.render();requestAnimationFrame(frame);
   }
   requestAnimationFrame(frame);
@@ -74,6 +79,8 @@ try{
   }
 }catch(error){document.getElementById('loading').textContent='Campus could not load: '+error.message;console.error(error);postParent('IPGS_CAMPUS_ERROR',{message:error.message});}
 
+document.getElementById('ambientToggle').onclick=()=>{life.setEnabled(!life.enabled,engine);document.getElementById('ambientToggle').textContent=life.enabled?'💬 Chats: On':'💬 Chats: Off';document.getElementById('ambientToggle').classList.toggle('active',life.enabled);};
+document.getElementById('autoFollow').onclick=()=>{life.setAutoFollow(!life.autoFollow);document.getElementById('autoFollow').textContent=life.autoFollow?'🎥 Auto-follow: On':'🎥 Auto-follow';document.getElementById('autoFollow').classList.toggle('active',life.autoFollow);};
 document.getElementById('reset').onclick=()=>{if(engine.live){if(!embedded)refreshStandalone();return;}reset();hud.toast('Simulation reset');};
 document.getElementById('demo').onclick=()=>{if(embedded)return;liveLoaded=false;embeddedPassword='';reset();document.getElementById('liveMessage').textContent='';document.getElementById('mode').textContent='Simulation';};
 document.getElementById('liveForm').onsubmit=async event=>{event.preventDefault();if(embedded)return;const input=document.getElementById('password'),button=event.target.querySelector('button');button.disabled=true;try{sessionStorage.setItem('ipgsAdminPassword',input.value);embeddedPassword=input.value;clearDemoForLive();await refreshStandalone();}finally{input.value='';button.disabled=false;}};
