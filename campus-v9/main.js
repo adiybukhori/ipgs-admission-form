@@ -10,6 +10,7 @@ if(embedded)document.documentElement.dataset.embedded='1';
 const scene=new CampusScene(document.getElementById('campus'));
 const life=new AmbientLife(scene);
 let engine,hud,liveLoaded=false,liveBusy=false,embeddedPassword='';
+let lastWalkingLabelAt=0;
 
 function reset(){
   scene.staff.forEach(a=>{a.path=[];a.onArrive=null;a.x=a.home.x;a.y=a.home.y;});
