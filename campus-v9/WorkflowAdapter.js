@@ -43,6 +43,47 @@ function fallbackStage(ctx){
   return['admission','WAITING_NEW_APPLICATION'];
 }
 
+
+const completed=v=>has(norm(v),['COMPLETED','COMPLETE','DONE','PASSED','APPROVED','ACCEPTED','RECEIVED']);
+const pending=v=>!v||has(norm(v),['PENDING','WAITING','NOT_ISSUED','NOT_STARTED','IN_PROGRESS','DRAFT']);
+const decisionStatus=v=>norm(v);
+function resolveLiveStage(ctx,app,sourceStage){
+  const workflow=ctx.workflow||{};
+  const sac=ctx.sac||{};
+  const sacSession=pick(sac,['SAC Session ID','Session ID','SAC ID'])||pick(workflow,['SAC Session ID','SAC Session']);
+  const sacAssigned=Boolean(sacSession);
+  const decision=decisionStatus(pick(workflow,['SAC Decision','SAC Supabase Decision'])||pick(sac,['Decision','SAC Decision']));
+  const isDecisionMade=Boolean(decision)&&!has(decision,['PENDING','NOT_STARTED','NOT_ASSIGNED','DRAFT']);
+  const assStatus=pick(workflow,['Assessment Status'])||pick(ctx.assessment,['Status']);
+  const prereqStatus=pick(workflow,['Prerequisite Status']);
+  const offerStatus=pick(workflow,['Offer Letter Status','LOA Status']);
+  const acceptanceStatus=pick(workflow,['Acceptance Status']);
+  const stage=norm(sourceStage);
+  // Academic handover requires authoritative handover evidence, not a Sky activation.
+  const handoverText=allText(ctx.handover);
+  if(ctx.handover&&handoverText&&!has(handoverText,['NOT STARTED','NOT_STARTED']))return ['handover',isClosed(handoverText)?'COMPLETED':'HANDOVER'];
+  // Open admissions: Sky activation and orientation never replace pending SAC/LOA/acceptance.
+  if(isDecisionMade&&has(decision,['NOT_QUALIFIED','REJECTED','UNSUCCESSFUL']))return ['sac','WAITING_HUMAN_DECISION'];
+  if(isDecisionMade&&has(decision,['PREREQUISITE','PREREQ'])&&!completed(prereqStatus))return ['prerequisite','WAITING_PREREQUISITE'];
+  if(isDecisionMade&&has(decision,['INTERNAL_ASSESSMENT','IA_REQUIRED','ASSESSMENT_REQUIRED'])&&!completed(assStatus))return ['ia','WAITING_IA'];
+  const assessed=norm(pick(ctx.assessment,['Assessment Type','Status']));
+  if(isDecisionMade&&has(assessed,['PREREQUISITE','PREREQ'])&&!isClosed(allText(ctx.assessment)))return ['prerequisite','WAITING_PREREQUISITE'];
+  if(isDecisionMade&&has(assessed,['INTERNAL_ASSESSMENT','IA_REQUIRED'])&&!isClosed(allText(ctx.assessment)))return ['ia','WAITING_IA'];
+  if(sacAssigned&&!isDecisionMade)return ['sac','WAITING_SAC_SESSION'];
+  if(isDecisionMade||has(stage,['OFFER','LOA','ACCEPTANCE','ACCEPTED'])||offerStatus||acceptanceStatus){
+    if(completed(acceptanceStatus)&&completed(offerStatus))return ['services','PROVISIONING'];
+    return ['offer',completed(offerStatus)?'WAITING_ACCEPTANCE':'PROCESSING'];
+  }
+  // Never infer SAC assignment from document review, screening or SKY_ACTIVATED.
+  return ['admission','WAITING_SAC_ASSIGNMENT'];
+}
+function currentOrientationVisit(ctx){
+  const row=ctx.orientation;
+  if(!row)return false;
+  const phase=norm(pick(row,['Session Status','Orientation Status','Status','Attendance Status']));
+  return ['IN_PROGRESS','ONGOING','SESSION_STARTED','LIVE_SESSION'].includes(phase);
+}
+
 function routeFor(station,assessmentText){
   if(station==='prerequisite'||has(assessmentText,['PREREQUISITE','PREREQ']))return ROUTES.prerequisite;
   if(station==='ia'||has(assessmentText,['INTERNAL ASSESSMENT','ASSESSMENT',' IA ']))return ROUTES.ia;
@@ -68,14 +109,16 @@ export class WorkflowAdapter{
       const ref=refOf(app),ctx={};for(const k of Object.keys(maps))ctx[k]=maps[k].get(ref)||null;
       const assessmentText=allText(ctx.assessment);
       const sourceStage=pick(ctx.workflow,['Application Stage','Stage','Workflow Stage','Current Stage'])||pick(app,['Application Stage','Stage','Status']);
-      let resolved=stageFromValue(sourceStage,assessmentText)||fallbackStage(ctx);
+      let resolved=resolveLiveStage(ctx,app,sourceStage);
+      const primaryStation=resolved[0];
+      if(currentOrientationVisit(ctx))resolved=['orientation','ORIENTATION_IN_PROGRESS'];
       const human=openHumanTask(ref,data);if(human)resolved=[resolved[0],'WAITING_HUMAN_DECISION'];
-      const [station,status]=resolved,route=routeFor(station,assessmentText);
+      const [station,status]=resolved,route=routeFor(primaryStation,assessmentText);
       const signal=newestAgentSignal(ref,data);
       const waitSince=pick(ctx.workflow,['Last Updated','Updated At','Modified At'])||pick(app,['Submitted At','Timestamp','Created At'])||null;
       return{
-        id:ref,name:nameOf(app),programme:pick(app,['Programme','Program','Programme Applied']),station,status,sourceStage:sourceStage||station.toUpperCase(),
-        reason:human?'Human decision / evidence is currently required':`Live Admission V2 · ${sourceStage||station}`,
+        id:ref,name:nameOf(app),programme:pick(app,['Programme','Program','Programme Applied']),station,status,primaryStation,sourceStage:sourceStage||primaryStation.toUpperCase(),
+        reason:human?'Human decision / evidence is currently required':station==='orientation'?`Orientation in progress · primary stage: ${primaryStation}`:`Live Admission V2 · ${sourceStage||primaryStation}`,
         waitingSince:waitSince,task:signal||BY_ID[station]?.tasks?.[0]||'Admission workflow',route,routeName:route===ROUTES.prerequisite?'prerequisite':route===ROUTES.ia?'ia':'direct',
         index:Math.max(0,route.indexOf(station)),next:station,profile:index%8,live:true
       };
