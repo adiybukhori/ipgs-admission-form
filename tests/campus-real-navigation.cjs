@@ -130,3 +130,19 @@ test('real overflow sit and converse, with unique lounge seats',()=>{
  assert.ok(e.apps.some(a=>a.overflow&&a.bubbleKind==='ambient'),'real students converse');
  assert.equal(s.ambient.length,0);
 });
+
+
+test('all 287 real ACC applicants fit with unique lounge space on mobile-scale campus',()=>{
+ const scene=world(),e=engine(scene);
+ const cohort=[...records(165,'admission'),...records(89,'sac'),...records(33,'offer')];
+ const out=sandbox.WorkflowAdapter.sync(e,cohort,{instant:true});
+ assert.equal(out.total,287);
+ assert.equal(e.apps.length,287);
+ assert.equal(scene.ambient.length,0,'no fictitious visitors');
+ const outside=e.apps.filter(a=>a.overflow);
+ assert.ok(outside.length>200);
+ const indices=outside.map(a=>scene.nav.index(a));
+ assert.equal(new Set(indices).size,indices.length,'no duplicate outdoor position');
+ assert.ok(outside.every(a=>sandbox.publicWaitingArea(a)));
+ assert.equal(new Set(e.apps.map(a=>a.id)).size,287);
+});
