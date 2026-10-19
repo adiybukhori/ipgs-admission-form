@@ -9,6 +9,7 @@ const sandbox={};vm.createContext(sandbox);
 function load(file,exports){
   let s=fs.readFileSync(path.join(root,'campus-v9',file),'utf8');
   s=s.replace(/^import[^\n]*\n/gm,'').replace(/export (const|class|function)/g,'$1');
+  s=s.replaceAll('import.meta.url',"'file:///campus-v9/'"); // load() is never invoked; VM only exercises build()
   s+='\n'+exports.map(name=>'globalThis.'+name+'='+name+';').join('\n');
   vm.runInContext(s,sandbox,{timeout:4000,filename:file});
 }
