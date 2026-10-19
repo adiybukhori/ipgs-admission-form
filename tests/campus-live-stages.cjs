@@ -10,6 +10,7 @@ const file = path.join(__dirname,'..','campus-v9','WorkflowAdapter.js');
 const script = fs.readFileSync(file,'utf8')
   .replace(/^import\{BY_ID,ROUTES\}from'\.\/config\.js';\s*/,'')
   .replace(/^import\{ApplicantActor\}from'\.\/ApplicantActor\.js';\s*/,'')
+  .replace(/^import\{CampusOccupancy\}from'\.\/CampusOccupancy\.js';\s*/,'')
   .replace('export class WorkflowAdapter','class WorkflowAdapter')
   + '\n globalThis.WorkflowAdapter = WorkflowAdapter;';
 const routes={direct:['admission','sac','offer','services','handover'],ia:['admission','sac','ia','offer','services','handover'],prerequisite:['admission','sac','prerequisite','offer','services','handover']};
