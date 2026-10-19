@@ -100,7 +100,7 @@ export class AmbientLife{
   wander(engine){
     // Move at most two students a short, collision-safe distance INSIDE
     // their current office; never walk between offices without an ACC event.
-    const apps=engine.apps||[];
+    const apps=engine.live?(engine.apps||[]):[];
     if(apps.filter(a=>a.ambientWalk).length>=2)return;
     const eligible=apps.filter(a=>!a.path?.length&&!a.sitting&&!a.ambientWalk&&a.station!=='orientation'&&BY_ID[a.station]);
     if(!eligible.length)return;
