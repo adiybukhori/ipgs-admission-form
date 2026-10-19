@@ -433,6 +433,9 @@
   const password=sessionStorage.getItem('ipgsAdminPassword')||'';
   let state={apps:[],workflow:[],docReview:[],aiScreening:[],qualification:[],sacSessions:[],sacCandidates:[],assessment:[],orientationSessions:[],orientation:[],handover:[],provisioning:[],activation:[],audit:[],agentEvents:[],agentExecutions:[],humanTasks:[],managementSnapshots:[],agentRuntime:null,decisions:0,exceptions:0};
   window.AI_OPS_STATE=state;
+  window.AI_OPS_DATA_STATE='loading';
+  window.AI_OPS_DATA_ERROR='';
+  let opsLoadBusy=false,opsLoadRetryTimer=null,opsLoadFailures=0;
 
   if(!password){ location.href='/admin.html'; }
 
@@ -444,12 +447,22 @@
   function containsAny(s,arr){ return arr.some(x=>s.includes(x)); }
 
   async function loadOps(){
+    if(opsLoadBusy)return;
+    opsLoadBusy=true;
+    clearTimeout(opsLoadRetryTimer);
+    window.AI_OPS_DATA_STATE='loading';
+    document.getElementById('dataChip').textContent=opsLoadFailures?'Retrying ACC data…':'Loading ACC data…';
     try{
-      const res=await fetch(DATA_API,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({password})});
+      const controller=new AbortController();
+      const timeout=setTimeout(()=>controller.abort(),35000);
+      let res;
+      try{res=await fetch(DATA_API,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({password}),signal:controller.signal});}
+      finally{clearTimeout(timeout);}
       const out=await res.json();
       if(res.status===401){ sessionStorage.removeItem('ipgsAdminPassword'); location.href='/admin.html'; return; }
       if(!res.ok||!out.ok) throw new Error(out.message||'Unable to load ACC data');
       const d=out.data||{};
+      if(!rows(d,'V2_APPLICATIONS').length)throw new Error('ACC returned no application records; retry or check the data service.');
       state.apps=rows(d,'V2_APPLICATIONS');
       state.workflow=rows(d,'V2_WORKFLOW');
       state.docReview=rows(d,'V2_DOCUMENT_REVIEW');
@@ -474,13 +487,27 @@
       document.getElementById('accConnector').textContent='CONNECTED';
       document.getElementById('accConnector').className='on';
       document.getElementById('brainNote').textContent='ACC context loaded · agentic bridge checking';
+      opsLoadFailures=0;
+      window.AI_OPS_DATA_STATE='ready';
+      window.AI_OPS_DATA_ERROR='';
+      window.dispatchEvent(new CustomEvent('ipgs-acc-data-updated'));
     }catch(e){
+      const message=e.name==='AbortError'?'ACC data request timed out.':(e.message||'Unable to load operational data.');
+      window.AI_OPS_DATA_STATE='unavailable';
+      window.AI_OPS_DATA_ERROR=message;
       document.getElementById('dataChip').textContent='ACC data unavailable';
       document.getElementById('accConnector').textContent='UNAVAILABLE';
       document.getElementById('accConnector').className='off';
-      renderFallback(e.message||'Unable to load operational data.');
-    }
+      renderFallback(message);
+      window.dispatchEvent(new CustomEvent('ipgs-acc-data-updated'));
+      opsLoadFailures++;
+      if(opsLoadFailures<=4){
+        const delay=Math.min(60000,opsLoadFailures*12000);
+        opsLoadRetryTimer=setTimeout(()=>loadOps(),delay);
+      }
+    }finally{opsLoadBusy=false;}
   }
+  window.retryOpsData=()=>{opsLoadFailures=0;return loadOps();};
 
   let agentRuntimeTimer=null;
   let agentRuntimeBusy=false;
