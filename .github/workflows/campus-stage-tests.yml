@@ -10,6 +10,7 @@ on:
       - 'main'
       - 'feature/living-campus-ambient-20261019'
       - 'fix/living-campus-visible-walk-20261019'
+      - 'fix/campus-mobile-acc-recovery-20261019'
     paths:
       - 'campus-v9/**'
       - 'tests/campus-*.cjs'
@@ -24,4 +25,4 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
-      - run: node --test tests/campus-live-stages.cjs tests/campus-living-ambient.cjs tests/campus-real-navigation.cjs
+      - run: node --test tests/campus-live-stages.cjs tests/campus-living-ambient.cjs tests/campus-real-navigation.cjs tests/campus-iframe-recovery.cjs
