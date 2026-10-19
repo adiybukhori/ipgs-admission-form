@@ -163,20 +163,21 @@ export class WorkflowAdapter{
     engine.live=true;engine.paused=false;
     const first=!engine.__liveInitialized;engine.__liveInitialized=true;
     const old=new Map((engine.apps||[]).map(a=>[a.id,a]));
-    const counts={},next=[];
+    const counts={},next=[],movements=[];
     for(let i=0;i<records.length;i++){
       const r=records[i],slot=counts[r.station]||0;counts[r.station]=slot+1;
       const target=this.target(engine,r,slot);let a=old.get(r.id);
       if(!a){
         const spawn=(first||instant)?target:this.target(engine,{...r,station:'admission'},counts.admission||0);
         a=new ApplicantActor(r,spawn.x,spawn.y,r.profile??i%8);
-        if(!(first||instant)&&r.station!=='admission')engine.move(a,target,()=>{if(r.station==='orientation')a.sit();else a.pose='idle';});
+        if(!(first||instant)&&r.station!=='admission'){a.workflowMove=true;engine.move(a,target,()=>{a.workflowMove=false;if(r.station==='orientation')a.sit();else a.pose='idle';});}
       }else{
         const previous=a.station;
         Object.assign(a,r);a.station=r.station;a.next=r.station;a.live=true;
         if(previous!==r.station){
-          a.path=[];a.onArrive=null;a.sitting=false;a.pose='walking';
-          engine.move(a,target,()=>{if(r.station==='orientation')a.sit();else a.pose='idle';});
+          a.path=[];a.onArrive=null;a.sitting=false;a.pose='walking';a.ambientWalk=false;a.ambientHome=null;a.workflowMove=true;
+          engine.move(a,target,()=>{a.workflowMove=false;if(r.station==='orientation')a.sit();else a.pose='idle';});
+          movements.push({actor:a,from:previous||'admission',to:r.station});
           engine.emit?.('LIVE_STAGE_CHANGED',a,`${previous||'admission'} → ${r.station}`);
         }else if(r.station==='orientation'&&!a.path.length)a.sit();
       }
@@ -184,6 +185,6 @@ export class WorkflowAdapter{
     }
     engine.apps=next;engine.scene.actors=next;
     engine.screen('LIVE ADMISSION V2',`${records.length} students · read-only process view`);
-    return{total:records.length,counts};
+    return{total:records.length,counts,movements};
   }
 }
