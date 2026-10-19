@@ -1,0 +1,25 @@
+name: Campus stage regression tests
+on:
+  pull_request:
+    paths:
+      - 'campus-v9/WorkflowAdapter.js'
+      - 'tests/campus-live-stages.cjs'
+      - '.github/workflows/campus-stage-tests.yml'
+  push:
+    branches:
+      - 'fix/live-campus-stage-movement-20261019'
+    paths:
+      - 'campus-v9/WorkflowAdapter.js'
+      - 'tests/campus-live-stages.cjs'
+      - '.github/workflows/campus-stage-tests.yml'
+permissions:
+  contents: read
+jobs:
+  regression:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: node --test tests/campus-live-stages.cjs

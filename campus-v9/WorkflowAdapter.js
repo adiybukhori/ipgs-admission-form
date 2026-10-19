@@ -43,6 +43,57 @@ function fallbackStage(ctx){
   return['admission','WAITING_NEW_APPLICATION'];
 }
 
+
+// Only explicit positive states count. "NOT_ISSUED" must never be treated as "ISSUED".
+const positiveStatus=(value,accepted)=> {
+  const s=norm(value);
+  if(!s||has(s,['NOT_','PENDING','WAITING','UNISSUED','UNRECEIVED','DRAFT','REQUIRED']))return false;
+  return accepted
+    ? ['ACCEPTED','RECEIVED','SIGNED','COMPLETED','COMPLETE'].includes(s)
+    : ['ISSUED','SENT','COMPLETED','COMPLETE','LOA_ISSUED','OFFER_ISSUED'].includes(s);
+};
+const isResolved=v=>['COMPLETE','COMPLETED','DONE','PASSED','APPROVED','ACCEPTED','RECEIVED'].includes(norm(v));
+const hasDecision=v=>{
+  const s=norm(v);
+  return !!s&&!has(s,['NOT_DETERMINED','NOT_ASSIGNED','PENDING','NOT_STARTED','DRAFT','UNDECIDED','IN_REVIEW','PENDING_REVIEW']);
+};
+function resolveLiveStage(ctx,sourceStage){
+  const workflow=ctx.workflow||{},sac=ctx.sac||{};
+  const sacSession=pick(sac,['SAC Session ID','Session ID','SAC ID'])||pick(workflow,['SAC Session ID','SAC Session']);
+  const decision=pick(workflow,['SAC Supabase Decision','SAC Decision'])||pick(sac,['Decision','SAC Decision']);
+  const decided=hasDecision(decision),d=norm(decision),stage=norm(sourceStage);
+  const iaStatus=pick(workflow,['Assessment Status'])||pick(ctx.assessment,['Status']);
+  const prereqStatus=pick(workflow,['Prerequisite Status']);
+  const offerStatus=pick(workflow,['Offer Letter Status','LOA Status']);
+  const acceptanceStatus=pick(workflow,['Acceptance Status'])||pick(ctx.application,['Acceptance Status']);
+  const provisionStatus=pick(workflow,['Provisioning Status'])||pick(ctx.provisioning,['Status']);
+  const handoverStatus=pick(workflow,['Academic Handover Status'])||pick(ctx.handover,['Status']);
+  const handoverActive=has(norm(handoverStatus),['IN_PROGRESS','COMPLETED','COMPLETE','HANDOVER','DONE']);
+  if(handoverActive)return ['handover',isResolved(handoverStatus)?'COMPLETED':'HANDOVER'];
+  if(decided&&has(d,['NOT_QUALIFIED','REJECTED','UNSUCCESSFUL']))return ['sac','WAITING_HUMAN_DECISION'];
+  if(decided&&has(d,['PREREQUISITE','PREREQ'])&&!isResolved(prereqStatus))return ['prerequisite','WAITING_PREREQUISITE'];
+  if(decided&&has(d,['INTERNAL_ASSESSMENT','IA_REQUIRED','ASSESSMENT_REQUIRED'])&&!isResolved(iaStatus))return ['ia','WAITING_IA'];
+  // SAC assignment, not application submission, triggers admission -> SAC.
+  if(sacSession&&!decided)return ['sac','WAITING_SAC_SESSION'];
+  // Historical V1 migrations may contain accepted/issued offers without a SAC session.
+  // Keep these at Offer & Acceptance rather than moving backwards to Admission.
+  const issued=positiveStatus(offerStatus,false),accepted=positiveStatus(acceptanceStatus,true);
+  const offerEvidence=decided||issued||accepted||has(stage,['OFFER','LOA','ACCEPTANCE','ACCEPTED']);
+  if(offerEvidence){
+    if(accepted&&has(norm(provisionStatus),['IN_PROGRESS','COMPLETED','COMPLETE','ACTIVE']))return ['services','PROVISIONING'];
+    return ['offer',accepted?'ACCEPTED':issued?'WAITING_ACCEPTANCE':'PROCESSING'];
+  }
+  // Document Check and Screening retain their offices but are inactive in LIVE.
+  // SkyVialing activation alone does not move an applicant past SAC.
+  return ['admission','WAITING_SAC_ASSIGNMENT'];
+}
+function currentOrientationVisit(ctx){
+  const row=ctx.orientation;
+  if(!row)return false;
+  const phase=norm(pick(row,['Session Status','Orientation Status','Status','Attendance Status']));
+  return ['IN_PROGRESS','ONGOING','SESSION_STARTED','LIVE_SESSION'].includes(phase);
+}
+
 function routeFor(station,assessmentText){
   if(station==='prerequisite'||has(assessmentText,['PREREQUISITE','PREREQ']))return ROUTES.prerequisite;
   if(station==='ia'||has(assessmentText,['INTERNAL ASSESSMENT','ASSESSMENT',' IA ']))return ROUTES.ia;
@@ -68,14 +119,17 @@ export class WorkflowAdapter{
       const ref=refOf(app),ctx={};for(const k of Object.keys(maps))ctx[k]=maps[k].get(ref)||null;
       const assessmentText=allText(ctx.assessment);
       const sourceStage=pick(ctx.workflow,['Application Stage','Stage','Workflow Stage','Current Stage'])||pick(app,['Application Stage','Stage','Status']);
-      let resolved=stageFromValue(sourceStage,assessmentText)||fallbackStage(ctx);
+      ctx.application=app;
+      let resolved=resolveLiveStage(ctx,sourceStage);
+      const primaryStation=resolved[0];
+      if(currentOrientationVisit(ctx))resolved=['orientation','ORIENTATION_IN_PROGRESS'];
       const human=openHumanTask(ref,data);if(human)resolved=[resolved[0],'WAITING_HUMAN_DECISION'];
-      const [station,status]=resolved,route=routeFor(station,assessmentText);
+      const [station,status]=resolved,route=routeFor(primaryStation,assessmentText);
       const signal=newestAgentSignal(ref,data);
       const waitSince=pick(ctx.workflow,['Last Updated','Updated At','Modified At'])||pick(app,['Submitted At','Timestamp','Created At'])||null;
       return{
-        id:ref,name:nameOf(app),programme:pick(app,['Programme','Program','Programme Applied']),station,status,sourceStage:sourceStage||station.toUpperCase(),
-        reason:human?'Human decision / evidence is currently required':`Live Admission V2 · ${sourceStage||station}`,
+        id:ref,name:nameOf(app),programme:pick(app,['Programme','Program','Programme Applied']),station,status,primaryStation,sourceStage:sourceStage||primaryStation.toUpperCase(),
+        reason:human?'Human decision / evidence is currently required':station==='orientation'?`Orientation in progress · primary stage: ${primaryStation}`:`Live Admission V2 · ${sourceStage||primaryStation}`,
         waitingSince:waitSince,task:signal||BY_ID[station]?.tasks?.[0]||'Admission workflow',route,routeName:route===ROUTES.prerequisite?'prerequisite':route===ROUTES.ia?'ia':'direct',
         index:Math.max(0,route.indexOf(station)),next:station,profile:index%8,live:true
       };
