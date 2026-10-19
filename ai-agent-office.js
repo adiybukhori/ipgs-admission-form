@@ -15,6 +15,7 @@ function addCampusStyles(){
     .campus-live-note{display:flex;gap:10px;align-items:center;flex-wrap:wrap;padding:11px 14px;border-top:1px solid var(--line);font-size:10px;color:#8f9ac3;background:rgba(7,9,20,.92)}
     .campus-live-note b{color:#bffbea}
     .campus-live-status{margin-left:auto;color:#bffbea;font-weight:800}
+    .campus-live-retry{font-size:10px;color:#e9f6ff;border:1px solid #40547f;padding:6px 9px;border-radius:8px;background:#183b69}
     @media(max-width:900px){.campus-live-frame{height:650px}}
     @media(max-width:620px){.campus-live-frame{height:590px}.campus-live-note{align-items:flex-start}.campus-live-status{margin-left:0;width:100%}}
   `;
@@ -49,11 +50,15 @@ function sendCampusData(){
   if(!campusFrame?.contentWindow||!campusReady)return false;
   const payload=campusDataPayload();
   if(!payload.V2_APPLICATIONS.length&&!payload.V2_WORKFLOW.length){
-    setCampusStatus('Waiting for ACC data…');
+    const failed=window.AI_OPS_DATA_STATE==='unavailable';
+    setCampusStatus(failed?'ACC unavailable · use Retry ACC Data':'Waiting for ACC data…');
+    const retry=document.getElementById('campusRetryData');
+    if(retry)retry.hidden=!failed;
     return false;
   }
   campusFrame.contentWindow.postMessage({type:'IPGS_CAMPUS_DATA',data:payload,loadedAt:new Date().toISOString()},location.origin);
   setCampusStatus(`Syncing ${payload.V2_APPLICATIONS.length||payload.V2_WORKFLOW.length} students…`);
+  const retry=document.getElementById('campusRetryData');if(retry)retry.hidden=true;
   return true;
 }
 
@@ -109,12 +114,15 @@ function injectCampusView(){
             <b>Admission V2 is authoritative.</b>
             <span>Campus View reuses data already loaded by this dashboard, so it does not call ACC a second time.</span>
             <span id="campusLiveStatus" class="campus-live-status">Starting…</span>
+            <button id="campusRetryData" class="campus-live-retry" type="button" hidden>Retry ACC Data</button>
           </div>
         </div>
       </div>
     </div>`;
   journey.parentNode.insertBefore(section,journey);
   campusFrame=document.getElementById('campusLiveFrame');
+  document.getElementById('campusRetryData').onclick=()=>{setCampusStatus('Retrying ACC connection…');window.retryOpsData?.();};
+  window.addEventListener('ipgs-acc-data-updated',()=>sendCampusData());
   scheduleCampusSync();
 
   window.addEventListener('message',event=>{
