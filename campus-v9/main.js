@@ -82,7 +82,7 @@ try{
     if(engine.live){if(!engine.paused){engine.clock+=dt;for(const a of [...engine.apps,...scene.staff])a.update(dt);}}
     else engine.update(dt);
     life.update(engine.paused?0:dt,engine);
-    if(now-lastWalkingLabelAt>650){const active=engine.live?engine.apps.filter(a=>a.overflow&&a.ambientWalk).length:0;const seated=engine.live?engine.apps.filter(a=>a.overflow&&a.sitting).length:0;const outside=engine.live?engine.apps.filter(a=>a.overflow).length:0;const indicator=document.getElementById('walkingIndicator');if(indicator)indicator.textContent=`🚶 ${active} walking · 🪑 ${seated} relaxing`;lastWalkingLabelAt=now;}
+    if(now-lastWalkingLabelAt>650){const active=engine.live?engine.apps.filter(a=>a.overflow&&a.ambientWalk).length:0;const seated=engine.live?engine.apps.filter(a=>a.overflow&&a.sitting).length:0;const outside=engine.live?engine.apps.filter(a=>a.overflow).length:0;const indicator=document.getElementById('walkingIndicator');if(indicator)indicator.textContent=`👥 ${outside} waiting · 🚶 ${active} walking · 🪑 ${seated} sitting`;lastWalkingLabelAt=now;}
     scene.render(engine.paused?0:dt);hud.render();requestAnimationFrame(frame);
   }
   requestAnimationFrame(frame);
