@@ -10,6 +10,7 @@ if(embedded)document.documentElement.dataset.embedded='1';
 const scene=new CampusScene(document.getElementById('campus'));
 const life=new AmbientLife(scene);
 let engine,hud,liveLoaded=false,liveBusy=false,embeddedPassword='';
+let lastWalkingLabelAt=0;
 
 function reset(){
   scene.staff.forEach(a=>{a.path=[];a.onArrive=null;a.x=a.home.x;a.y=a.home.y;});
@@ -69,6 +70,7 @@ try{
     if(engine.live){if(!engine.paused){engine.clock+=dt;for(const a of [...engine.apps,...scene.staff])a.update(dt);}}
     else engine.update(dt);
     life.update(engine.paused?0:dt,engine);
+    if(now-lastWalkingLabelAt>650){const active=[...(engine.apps||[]),...scene.staff].filter(a=>a.ambientWalk).length;const indicator=document.getElementById('walkingIndicator');if(indicator)indicator.textContent=active?`🚶 ${active} walking`:'🚶 Standing by';lastWalkingLabelAt=now;}
     scene.render(engine.paused?0:dt);hud.render();requestAnimationFrame(frame);
   }
   requestAnimationFrame(frame);
@@ -79,7 +81,7 @@ try{
   }
 }catch(error){document.getElementById('loading').textContent='Campus could not load: '+error.message;console.error(error);postParent('IPGS_CAMPUS_ERROR',{message:error.message});}
 
-document.getElementById('ambientToggle').onclick=()=>{life.setEnabled(!life.enabled,engine);document.getElementById('ambientToggle').textContent=life.enabled?'💬 Chats: On':'💬 Chats: Off';document.getElementById('ambientToggle').classList.toggle('active',life.enabled);};
+document.getElementById('ambientToggle').onclick=()=>{life.setEnabled(!life.enabled,engine);document.getElementById('ambientToggle').textContent=life.enabled?'💬 Life: On':'💬 Life: Off';document.getElementById('ambientToggle').classList.toggle('active',life.enabled);};
 document.getElementById('autoFollow').onclick=()=>{life.setAutoFollow(!life.autoFollow);document.getElementById('autoFollow').textContent=life.autoFollow?'🎥 Auto-follow: On':'🎥 Auto-follow';document.getElementById('autoFollow').classList.toggle('active',life.autoFollow);};
 document.getElementById('reset').onclick=()=>{if(engine.live){if(!embedded)refreshStandalone();return;}reset();hud.toast('Simulation reset');};
 document.getElementById('demo').onclick=()=>{if(embedded)return;liveLoaded=false;embeddedPassword='';reset();document.getElementById('liveMessage').textContent='';document.getElementById('mode').textContent='Simulation';};
