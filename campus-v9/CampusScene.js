@@ -1,6 +1,6 @@
 import{WORLD,STATIONS,BY_ID}from'./config.js';
 import{NavigationManager}from'./NavigationManager.js';
-import{StaffActor,ApplicantActor}from'./ApplicantActor.js';
+import{StaffActor}from'./ApplicantActor.js';
 import{round,text,ellipse,prop,drawActor,setFurnitureAtlas}from'./Art.js';
 export class CampusScene{
  constructor(canvas){this.canvas=canvas;this.ctx=canvas.getContext('2d');this.nav=new NavigationManager(WORLD.w,WORLD.h);this.props=[];this.staff=[];this.loungeSeats=[];this.orientationSeats=[];this.stationSeats={};this.actors=[];this.ambient=[];this.time=0;this.follow=false;this.camera={x:WORLD.w/2,y:WORLD.h/2,zoom:.35};this.cameraFitted=false;this.build();this.resize();this.input();}
@@ -49,23 +49,8 @@ export class CampusScene{
  for(let x=220;x<3500;x+=430){this.add('plant',x,2340,65,95);}
  // Queue ropes live beside the walkway, never across it.
  this.nav.block(70,610,10,340);this.nav.block(260,610,10,340);
- // Illustrative visitors in public corridors/lounges, never ACC student records.
- // Office students and staff remain stationary unless a genuine workflow changes.
- for(let i=0;i<12;i++){
-   const pod=i%4,chairIndex=pod*4,chair=this.loungeSeats[chairIndex];
-   const initial=i<4?chair:{
-     x:710+pod*680+(i%2?205:-205),
-     y:i%3===0?1090:1415
-   };
-   const pos=this.nav.point(this.nav.nearest(initial));
-   const guest=new ApplicantActor({id:'campus-visitor-'+i,name:['Visitor','Campus guest','Student visitor','Campus ambassador'][i%4],status:'VISITOR'},pos.x,pos.y,[2,5,3,4,6,7,1,0][i%8]);
-   guest.ambientGuest=true;
-   guest.ambientPhase=i<4?'seated':'idle';
-   guest.ambientNextAt=i<4?11+i*1.6:1+(i%5)*.65;
-   guest.ambientSeatIndex=i<4?chairIndex:null;
-   if(i<4)guest.sit(i%2?'phone':'reading');
-   this.ambient.push(guest);
- }
+ // Public waiting areas are populated exclusively by real overflow applicants from ACC.
+ // No anonymous NPC visitors are created. Demo applicants remain demo-only.
  for(const a of this.staff){let safe=this.nav.point(this.nav.nearest(a));a.x=safe.x;a.y=safe.y;a.home={...safe};}
  }
  drawBackground(c){
