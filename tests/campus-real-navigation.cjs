@@ -1,4 +1,4 @@
-// Integration test on the actual campus grid and seating layout.
+// Integration tests against actual Campus V9 offices, furniture and navigation.
 const test=require('node:test');
 const assert=require('node:assert/strict');
 const fs=require('node:fs');
@@ -13,92 +13,136 @@ function load(file,exports){
  s+='\n'+exports.map(n=>'globalThis.'+n+'='+n+';').join('\n');
  vm.runInContext(s,sandbox,{timeout:4000,filename:file});
 }
-load('config.js',['WORLD','STATIONS','BY_ID']);
+load('config.js',['WORLD','STATIONS','BY_ID','ROUTES']);
 load('NavigationManager.js',['NavigationManager']);
 load('ApplicantActor.js',['ApplicantActor','StaffActor']);
 load('CampusScene.js',['CampusScene']);
+load('CampusOccupancy.js',['CampusOccupancy','OFFICE_DISPLAY_CAPACITY','publicWaitingArea']);
 load('AmbientLife.js',['AmbientLife']);
-function makeWorld(){
+load('WorkflowAdapter.js',['WorkflowAdapter']);
+function world(){
  const s=Object.create(sandbox.CampusScene.prototype);
  s.nav=new sandbox.NavigationManager(sandbox.WORLD.w,sandbox.WORLD.h);
- s.props=[];s.staff=[];s.loungeSeats=[];s.orientationSeats=[];
- s.stationSeats={};s.actors=[];s.ambient=[];s.time=0;
- s.build();return s;
+ s.props=[];s.staff=[];s.loungeSeats=[];s.orientationSeats=[];s.stationSeats={};
+ s.actors=[];s.ambient=[];s.time=0;s.build();return s;
 }
-function addApplicant(scene,station,i){
- const s=sandbox.BY_ID[station];
- const candidate={x:s.point.x+(i%5-2)*54,y:s.point.y+(Math.floor(i/5)-1)*44};
- const p=scene.nav.point(scene.nav.nearest(candidate));
- return new sandbox.ApplicantActor({id:station+'-'+i,name:'Test '+i,station,status:'WAITING_SAC_ASSIGNMENT'},p.x,p.y,i%8);
+function engine(scene){
+ return {scene,apps:[],screen(){},emit(){},live:false,paused:false};
 }
-const outside=p=>p.x>275&&p.x<3510&&p.y>970&&p.y<1455
- &&!sandbox.STATIONS.some(s=>p.x>s.x&&p.x<s.x+s.w&&p.y>s.y&&p.y<s.y+s.h);
+function records(count,station,prefix){
+ return Array.from({length:count},(_,i)=>({
+  id:(prefix||station)+'/'+String(i+1).padStart(4,'0'),
+  name:'Applicant '+i,station,status:'WAITING_SAC_SESSION',
+  programme:'MBA',next:station,route:['admission','sac','offer'],
+  reason:'Waiting',profile:i%8,live:true
+ }));
+}
+test('real ACC applicants alone fill public lounge when offices reach visual capacity',()=>{
+ const scene=world(),e=engine(scene);
+ const arr=[...records(83,'admission'),...records(68,'sac'),...records(55,'offer')];
+ assert.equal(scene.ambient.length,0,'zero fabricated NPC avatars');
+ const out=sandbox.WorkflowAdapter.sync(e,arr,{instant:true});
+ assert.equal(out.total,206);
+ assert.equal(e.apps.length,206);
+ assert.equal(out.overflow,206-(10+12+12));
+ const ids=new Set(e.apps.map(a=>a.id));
+ assert.equal(ids.size,e.apps.length,'one avatar per real applicant');
+ const outdoor=e.apps.filter(a=>a.overflow);
+ assert.equal(outdoor.length,172);
+ const navIndex=new Set();
+ for(const a of outdoor){
+  assert.ok(sandbox.publicWaitingArea(a),'overflow outside office');
+  assert.equal(scene.nav.blocked[scene.nav.index(a)],0,'waiting spot walkable');
+  assert.ok(!navIndex.has(scene.nav.index(a)),'unique corridor spot');
+  navIndex.add(scene.nav.index(a));
+  assert.ok(['admission','sac','offer'].includes(a.station),'ACC stage preserved');
+  assert.equal(a.physicalZone,'waiting-lounge');
+ }
+ for(const a of e.apps.filter(a=>!a.overflow)){
+  const room=sandbox.BY_ID[a.station];
+  assert.ok(a.x>room.x&&a.x<room.x+room.w&&a.y>room.y&&a.y<room.y+room.h,
+    'within assigned office '+a.id);
+  assert.equal(a.physicalZone,'office');
+ }
+ const staff=scene.staff.map(a=>({a,x:a.x,y:a.y}));
+ const life=new sandbox.AmbientLife(scene);
+ scene.time=12;
+ for(let i=0;i<18;i++)life.wander(e);
+ assert.ok(outdoor.filter(a=>a.ambientWalk).length>=2,'several real overflow applicants walk');
+ assert.equal(e.apps.filter(a=>!a.overflow&&a.ambientWalk).length,0,'inside office never ambient-walks');
+ const walkers=outdoor.filter(a=>a.ambientWalk);
+ for(const a of walkers){
+  assert.ok(a.path.every(p=>sandbox.publicWaitingArea(p)),'route never crosses office');
+  assert.ok(a.path.every(p=>!scene.nav.blocked[scene.nav.index(p)]),'path avoids walls');
+  const last=a.path.at(-1),before={x:a.x,y:a.y};
+  a.update(.8);
+  assert.ok(Math.hypot(a.x-before.x,a.y-before.y)>6,'applicant physically moves');
+  assert.ok(sandbox.publicWaitingArea(last),'destination in corridor');
+  assert.equal(a.status,'WAITING_SAC_SESSION','never alters ACC status');
+ }
+ for(const p of staff){assert.equal(p.a.x,p.x);assert.equal(p.a.y,p.y);}
+});
 
-test('inside offices remain static while outdoor visitors visibly walk',()=>{
- const scene=makeWorld();
- const students=['admission','sac','offer'].flatMap(s=>Array.from({length:8},(_,i)=>addApplicant(scene,s,i)));
- scene.actors=students;
- const before=students.map(a=>({x:a.x,y:a.y,station:a.station,status:a.status}));
- const staffBefore=scene.staff.map(a=>({x:a.x,y:a.y,status:a.status}));
- assert.equal(scene.ambient.length,12,'12 outdoor NPCs');
- assert.equal(scene.ambient.filter(a=>a.sitting).length,4,'four visitors already sitting in lounge');
- const life=new sandbox.AmbientLife(scene),engine={apps:students,live:true,paused:false};
- scene.time=10;
- for(let i=0;i<15;i++)life.wander(engine);
- const walking=scene.ambient.filter(a=>a.ambientWalk);
- assert.ok(walking.length>=2,'visible exterior paths available for several visitors: '+walking.length);
- assert.ok(walking.length<=5,'crowd cap');
- for(const a of walking){
-   assert.equal(a.status,'VISITOR');
-   assert.ok(a.path.length>0);
-   assert.ok(a.path.every(outside),'all visible waypoints stay outside rooms');
-   assert.ok(a.path.every(p=>scene.nav.blocked[scene.nav.index(p)]===0),'no furniture intersections');
- }
- let moveDistance=0;
- const walkers=walking.map(a=>({a,x:a.x,y:a.y}));
- scene.time+=.5;life.update(.5,engine);
- for(const {a,x,y} of walkers)moveDistance+=Math.hypot(a.x-x,a.y-y);
- assert.ok(moveDistance>25,'actual on-screen visitor displacement');
- for(let i=0;i<students.length;i++){
-   const a=students[i],b=before[i];
-   assert.equal(a.x,b.x);assert.equal(a.y,b.y);
-   assert.equal(a.station,b.station);assert.equal(a.status,b.status);
-   assert.equal(Boolean(a.ambientWalk),false);
- }
- for(let i=0;i<scene.staff.length;i++){
-   const a=scene.staff[i],b=staffBefore[i];
-   assert.equal(a.x,b.x);assert.equal(a.y,b.y);assert.equal(a.status,b.status);
-   assert.equal(Boolean(a.ambientWalk),false);
+test('refresh retains real student identities and avoids shuffling position',()=>{
+ const s=world(),e=engine(s),arr=[...records(28,'admission'),...records(18,'sac')];
+ sandbox.WorkflowAdapter.sync(e,arr,{instant:true});
+ const before=new Map(e.apps.map(a=>[a.id,{x:a.x,y:a.y,stage:a.station,overflow:a.overflow}]));
+ sandbox.WorkflowAdapter.sync(e,arr.slice().reverse());
+ for(const a of e.apps){
+  const b=before.get(a.id);
+  assert.equal(a.x,b.x);assert.equal(a.y,b.y);
+  assert.equal(a.station,b.stage);assert.equal(a.overflow,b.overflow);
  }
 });
 
-test('visitors can lounge, chat and take unique seats without changing ACC students',()=>{
- const scene=makeWorld();
- const student=addApplicant(scene,'sac',0);
- scene.actors=[student];
- const life=new sandbox.AmbientLife(scene),engine={apps:[student],live:true,paused:false};
- const first=scene.ambient[0],initialSeated=first.ambientSeatIndex;
- assert.ok(first.sitting&&initialSeated!=null);
- for(let t=0;t<1000;t++){
-   scene.time+=.1;
-   life.update(.1,engine);
-   const reserved=scene.ambient.map(a=>a.ambientSeatIndex).filter(x=>x!=null);
-   assert.equal(new Set(reserved).size,reserved.length,'seat never double booked');
- }
- assert.ok(life.totalAmbientWalks>3,'visitors repeatedly walk');
- assert.ok(scene.ambient.some(a=>a.sitting),'some visitors sit during lounge cycle');
- for(const a of scene.ambient)assert.ok(outside(a),'no NPC wandered into office');
- assert.equal(student.station,'sac');assert.equal(student.status,'WAITING_SAC_ASSIGNMENT');
- assert.ok(scene.ambient.some(a=>a.bubbleKind==='ambient'),'visitor conversation triggered');
+test('student outside goes inside when a room place becomes available without new ACC stage',()=>{
+ const s=world(),e=engine(s),arr=records(13,'sac');
+ sandbox.WorkflowAdapter.sync(e,arr,{instant:true});
+ const overflow=e.apps.find(a=>a.overflow);
+ assert.ok(overflow,'SAC has actual student waiting outside');
+ // Remove the first of twelve inside by ID, creating a room vacancy.
+ const next=arr.filter(a=>a.id!==arr[0].id);
+ sandbox.WorkflowAdapter.sync(e,next);
+ const moved=e.apps.find(a=>a.id===overflow.id);
+ assert.equal(moved.station,'sac');
+ assert.equal(moved.status,'WAITING_SAC_SESSION');
+ assert.equal(moved.overflow,false);
+ assert.equal(moved.workflowMove,true);
+ assert.ok(moved.path.length,'visual admission to office triggered');
+ assert.ok(!moved.ambientWalk);
 });
 
-test('Life Off disables visitor motion but keeps office actors still',()=>{
- const scene=makeWorld(),student=addApplicant(scene,'offer',0),engine={apps:[student],live:true,paused:false};
- scene.actors=[student];const life=new sandbox.AmbientLife(scene);
- scene.time=10;life.wander(engine);
- life.setEnabled(false,engine);
- const positions=scene.ambient.map(a=>[a.x,a.y]);
- for(let i=0;i<100;i++){scene.time+=.1;life.update(.1,engine);}
- scene.ambient.forEach((a,i)=>{assert.equal(a.x,positions[i][0]);assert.equal(a.y,positions[i][1]);assert.equal(a.path.length,0);});
- assert.equal(student.ambientWalk,undefined);
+test('real overflow sit and converse, with unique lounge seats',()=>{
+ const s=world(),e=engine(s),arr=[...records(45,'admission'),...records(30,'sac')];
+ sandbox.WorkflowAdapter.sync(e,arr,{instant:true});
+ const life=new sandbox.AmbientLife(s);
+ let maxSeated=0;
+ for(let t=0;t<1100;t++){
+  s.time+=.1;
+  for(const a of e.apps)a.update(.1);
+  life.update(.1,e);
+  const reserved=e.apps.filter(a=>a.overflow&&a.ambientSeatIndex!=null).map(a=>a.ambientSeatIndex);
+  assert.equal(new Set(reserved).size,reserved.length,'single student per seat');
+  maxSeated=Math.max(maxSeated,e.apps.filter(a=>a.overflow&&a.sitting).length);
+ }
+ assert.ok(life.totalAmbientWalks>3,'repeated walking by real applicants');
+ assert.ok(maxSeated>0,'real student sits in lounge');
+ assert.ok(e.apps.some(a=>a.overflow&&a.bubbleKind==='ambient'),'real students converse');
+ assert.equal(s.ambient.length,0);
+});
+
+
+test('all 287 real ACC applicants fit with unique lounge space on mobile-scale campus',()=>{
+ const scene=world(),e=engine(scene);
+ const cohort=[...records(165,'admission'),...records(89,'sac'),...records(33,'offer')];
+ const out=sandbox.WorkflowAdapter.sync(e,cohort,{instant:true});
+ assert.equal(out.total,287);
+ assert.equal(e.apps.length,287);
+ assert.equal(scene.ambient.length,0,'no fictitious visitors');
+ const outside=e.apps.filter(a=>a.overflow);
+ assert.ok(outside.length>200);
+ const indices=outside.map(a=>scene.nav.index(a));
+ assert.equal(new Set(indices).size,indices.length,'no duplicate outdoor position');
+ assert.ok(outside.every(a=>sandbox.publicWaitingArea(a)));
+ assert.equal(new Set(e.apps.map(a=>a.id)).size,287);
 });
