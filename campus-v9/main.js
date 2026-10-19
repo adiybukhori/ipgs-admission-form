@@ -63,6 +63,18 @@ async function refreshStandalone({quiet=false}={}){
 
 try{
   await scene.load();reset();document.getElementById('loading').hidden=true;
+  // The campus iframe can initialize while its parent tab is hidden.
+  // Recalculate the real visible canvas size as soon as the iframe is shown.
+  scene.resize();
+  if(typeof ResizeObserver!=='undefined'){
+    const viewportObserver=new ResizeObserver(()=>{
+      const previousWidth=scene.width,previousHeight=scene.height;
+      scene.resize();
+      if(scene.width>70&&scene.height>70&&!scene.follow
+        &&(Math.abs(previousWidth-scene.width)>40||Math.abs(previousHeight-scene.height)>40))scene.fullMap();
+    });
+    viewportObserver.observe(scene.canvas);
+  }
   let last=performance.now(),lastPaint=0;
   function frame(now){
     if(embedded&&now-lastPaint<33){requestAnimationFrame(frame);return;}
