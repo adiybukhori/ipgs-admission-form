@@ -1,5 +1,6 @@
 import{BY_ID,ROUTES}from'./config.js';
 import{ApplicantActor}from'./ApplicantActor.js';
+import{CampusOccupancy}from'./CampusOccupancy.js';
 
 const TABLES={
   applications:'V2_APPLICATIONS',workflow:'V2_WORKFLOW',documents:'V2_DOCUMENT_REVIEW',ai:'V2_AI_SCREENING',qualification:'V2_QUALIFICATION_SCREENING',
@@ -144,8 +145,10 @@ export class WorkflowAdapter{
     return{records:this.normalize(result.data),raw:result.data,warnings:result.warnings||[],loadedAt:result.loadedAt};
   }
 
-  static target(engine,record,slot){
+  static target(engine,record,assignment){
+    if(assignment?.overflow)return assignment.point;
     const s=BY_ID[record.station]||BY_ID.admission;
+    const slot=assignment?.slot||0;
     let p;
     if(record.station==='orientation'&&engine.scene.orientationSeats?.length)p=engine.scene.orientationSeats[slot%engine.scene.orientationSeats.length];
     else{
@@ -164,27 +167,59 @@ export class WorkflowAdapter{
     const first=!engine.__liveInitialized;engine.__liveInitialized=true;
     const old=new Map((engine.apps||[]).map(a=>[a.id,a]));
     const counts={},next=[],movements=[];
+    if(!engine.__campusOccupancy||engine.__campusOccupancy.scene!==engine.scene)
+      engine.__campusOccupancy=new CampusOccupancy(engine.scene);
+    const allocations=engine.__campusOccupancy.assign(records);
+    const nav=engine.scene.nav;
+    // In LIVE, navigation failure must never change the applicant's ACC status.
+    const moveSafely=(actor,target,onArrival)=>{
+      try{actor.moveTo(target,nav,onArrival);}
+      catch(_){actor.x=target.x;actor.y=target.y;actor.path=[];actor.onArrive=null;actor.pose='idle';onArrival?.();}
+    };
     for(let i=0;i<records.length;i++){
-      const r=records[i],slot=counts[r.station]||0;counts[r.station]=slot+1;
-      const target=this.target(engine,r,slot);let a=old.get(r.id);
+      const r=records[i],assignment=allocations.get(r.id);
+      if(!assignment)continue;
+      counts[r.station]=(counts[r.station]||0)+1;
+      const target=this.target(engine,r,assignment);
+      let a=old.get(r.id);
       if(!a){
-        const spawn=(first||instant)?target:this.target(engine,{...r,station:'admission'},counts.admission||0);
-        a=new ApplicantActor(r,spawn.x,spawn.y,r.profile??i%8);
-        if(!(first||instant)&&r.station!=='admission'){a.workflowMove=true;engine.move(a,target,()=>{a.workflowMove=false;if(r.station==='orientation')a.sit();else a.pose='idle';});}
+        const spawn=(first||instant)?target:{x:170,y:625+(i%5)*38};
+        a=new ApplicantActor({...r,overflow:assignment.overflow,physicalZone:assignment.overflow?'waiting-lounge':'office'},spawn.x,spawn.y,r.profile??i%8);
+        a.ambientNextAt=engine.scene.time+1+(i%10)*.38;
+        if(assignment.overflow){a.ambientPhase='idle';a.ambientSeatIndex=null;}
+        if(!(first||instant)){
+          a.workflowMove=true;
+          moveSafely(a,target,()=>{a.workflowMove=false;if(r.station==='orientation'&&!assignment.overflow)a.sit();else a.pose='idle';});
+        }else if(r.station==='orientation'&&!assignment.overflow)a.sit();
       }else{
-        const previous=a.station;
-        Object.assign(a,r);a.station=r.station;a.next=r.station;a.live=true;
-        if(previous!==r.station){
-          a.path=[];a.onArrive=null;a.sitting=false;a.pose='walking';a.ambientWalk=false;a.ambientHome=null;a.workflowMove=true;
-          engine.move(a,target,()=>{a.workflowMove=false;if(r.station==='orientation')a.sit();else a.pose='idle';});
-          movements.push({actor:a,from:previous||'admission',to:r.station});
-          engine.emit?.('LIVE_STAGE_CHANGED',a,`${previous||'admission'} → ${r.station}`);
-        }else if(r.station==='orientation'&&!a.path.length)a.sit();
+        const previous=a.station,wasOverflow=Boolean(a.overflow);
+        const stageChanged=previous!==r.station,areaChanged=wasOverflow!==assignment.overflow;
+        Object.assign(a,r);
+        a.station=r.station;a.next=r.station;a.live=true;
+        a.overflow=assignment.overflow;
+        a.physicalZone=assignment.overflow?'waiting-lounge':'office';
+        if(stageChanged||areaChanged){
+          // A student whose stage changed OR whose office made room can move
+          // physically. Lounge idle movement never changes their ACC stage.
+          a.path=[];a.onArrive=null;a.sitting=false;a.pose='walking';
+          a.ambientWalk=false;a.ambientSeatIndex=null;a.ambientPhase='idle';
+          a.workflowMove=true;
+          moveSafely(a,target,()=>{
+            a.workflowMove=false;
+            if(r.station==='orientation'&&!assignment.overflow)a.sit();
+            else a.pose='idle';
+          });
+          if(stageChanged){
+            movements.push({actor:a,from:previous||'admission',to:r.station});
+            engine.emit?.('LIVE_STAGE_CHANGED',a,`${previous||'admission'} → ${r.station}`);
+          }
+        }else if(r.station==='orientation'&&!assignment.overflow&&!a.path.length)a.sit();
       }
       next.push(a);
     }
     engine.apps=next;engine.scene.actors=next;
-    engine.screen('LIVE ADMISSION V2',`${records.length} students · read-only process view`);
-    return{total:records.length,counts,movements};
+    const overflowCount=next.filter(a=>a.overflow).length;
+    engine.screen('LIVE ADMISSION V2',`${records.length} students · ${overflowCount} in public waiting area · read only`);
+    return{total:records.length,counts,movements,overflow:overflowCount};
   }
 }
