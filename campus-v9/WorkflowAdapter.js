@@ -45,6 +45,7 @@ function fallbackStage(ctx){
 
 
 const completed=v=>has(norm(v),['COMPLETED','COMPLETE','DONE','PASSED','APPROVED','ACCEPTED','RECEIVED']);
+const offerIssued=v=>has(norm(v),['ISSUED','SENT','COMPLETED','COMPLETE']);
 const pending=v=>!v||has(norm(v),['PENDING','WAITING','NOT_ISSUED','NOT_STARTED','IN_PROGRESS','DRAFT']);
 const decisionStatus=v=>norm(v);
 function resolveLiveStage(ctx,app,sourceStage){
@@ -71,8 +72,8 @@ function resolveLiveStage(ctx,app,sourceStage){
   if(isDecisionMade&&has(assessed,['INTERNAL_ASSESSMENT','IA_REQUIRED'])&&!isClosed(allText(ctx.assessment)))return ['ia','WAITING_IA'];
   if(sacAssigned&&!isDecisionMade)return ['sac','WAITING_SAC_SESSION'];
   if(isDecisionMade||has(stage,['OFFER','LOA','ACCEPTANCE','ACCEPTED'])||offerStatus||acceptanceStatus){
-    if(completed(acceptanceStatus)&&completed(offerStatus))return ['services','PROVISIONING'];
-    return ['offer',completed(offerStatus)?'WAITING_ACCEPTANCE':'PROCESSING'];
+    if(completed(acceptanceStatus)&&offerIssued(offerStatus))return ['services','PROVISIONING'];
+    return ['offer',offerIssued(offerStatus)?'WAITING_ACCEPTANCE':'PROCESSING'];
   }
   // Never infer SAC assignment from document review, screening or SKY_ACTIVATED.
   return ['admission','WAITING_SAC_ASSIGNMENT'];
