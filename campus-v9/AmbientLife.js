@@ -33,7 +33,7 @@ export class AmbientLife{
   reset(){
     this.chatIn=2;this.walkIn=.5;this.focusUntil=0;this.autoFocusActor=null;
     // Guests are never in engine.apps or ACC. Do not reposition real students.
-    for(const a of [...this.scene.actors,...this.scene.staff,...this.scene.ambient]){
+    for(const a of [...this.scene.actors,...this.scene.staff,...(this.scene.ambient||[])]){
       if(a.bubbleKind==='ambient'){a.bubble='';a.bubbleUntil=0;}
       if(a.ambientGuest&&a.ambientWalk){
         a.path=[];a.onArrive=null;a.ambientWalk=false;a.pose='idle';
@@ -44,7 +44,7 @@ export class AmbientLife{
   setEnabled(enabled,engine){
     this.enabled=Boolean(enabled);
     if(!this.enabled){
-      for(const a of [...(engine?.apps||[]),...this.scene.staff,...this.scene.ambient]){
+      for(const a of [...(engine?.apps||[]),...this.scene.staff,...(this.scene.ambient||[])]){
         if(a.bubbleKind==='ambient'){a.bubble='';a.bubbleUntil=0;}
         if(a.ambientGuest&&a.ambientWalk){
           a.path=[];a.onArrive=null;a.ambientWalk=false;a.pose='idle';
@@ -178,7 +178,7 @@ export class AmbientLife{
       }
     }
     if(!this.enabled)return;
-    for(const a of this.scene.ambient){
+    for(const a of (this.scene.ambient||[])){
       if(!a.ambientGuest)continue;
       a.update(dt*.78);
       if(a.ambientPhase==='seated'&&this.scene.time>=a.ambientNextAt){
