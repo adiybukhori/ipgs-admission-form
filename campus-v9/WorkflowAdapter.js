@@ -157,7 +157,26 @@ export class WorkflowAdapter{
       const col=slot%cols,row=Math.floor(slot/cols)%6;
       p={x:s.point.x+(col-(cols-1)/2)*spreadX,y:s.point.y+(row-1.5)*48};
     }
-    return engine.scene.nav.point(engine.scene.nav.nearest(p));
+    const nav=engine.scene.nav;
+    const inside=q=>q.x>s.x+25&&q.x<s.x+s.w-25
+      &&q.y>s.y+30&&q.y<s.y+s.h-25;
+    // Some furniture or wide desks occupy requested spots. Never snap an
+    // applicant to the corridor and still label them "inside office".
+    const intended={x:Math.max(s.x+40,Math.min(s.x+s.w-40,p.x)),
+      y:Math.max(s.y+45,Math.min(s.y+s.h-40,p.y))};
+    const near=nav.point(nav.nearest(intended));
+    if(inside(near))return near;
+    let best=null,distance=Infinity;
+    for(let y=s.y+40;y<s.y+s.h-35;y+=nav.cell)for(let x=s.x+35;x<s.x+s.w-35;x+=nav.cell){
+      const idx=nav.index({x,y});
+      if(nav.blocked[idx])continue;
+      const found=nav.point(idx);
+      if(!inside(found))continue;
+      const d=(found.x-intended.x)**2+(found.y-intended.y)**2;
+      if(d<distance){distance=d;best=found;}
+    }
+    if(!best)throw Error('No free display position inside '+s.id);
+    return best;
   }
 
   static apply(engine,records){return this.sync(engine,records,{instant:true});}
