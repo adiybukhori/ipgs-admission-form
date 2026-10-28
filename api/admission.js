@@ -251,6 +251,14 @@ export default async function handler(req, res) {
       });
     }
 
+    if (receipt && receipt.duplicate === true) {
+      return res.status(409).json({
+        ok: false,
+        duplicate: true,
+        message: 'An application with this IC or passport number already exists. Please contact the Registry Office to update your existing application instead of submitting a new one.'
+      });
+    }
+
     // 3) Acknowledge immediately after durable receipt.
     // Google Drive / Apps Script finalisation runs asynchronously through the Supabase recovery worker.
     return res.status(200).json({
