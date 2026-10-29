@@ -122,7 +122,7 @@
       documents[item.key] = await uploadDocument(item.key, item.file, i + 1, selected.length);
     }
 
-    const payload = JSON.parse(JSON.stringify(formState));
+    const payload = applyIntakeToPayload(JSON.parse(JSON.stringify(formState)));
     payload.isTransferApplicant = formState.applicationCategory === 'Transfer Student';
     payload.documents = documents;
     payload.meta = {

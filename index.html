@@ -293,6 +293,8 @@
       .page { padding: 14px; }
       .card-body, .card-header { padding: 20px; }
     }
+    .missing-answer { outline: 2px solid #c62828; outline-offset: 4px; border-radius: 5px; }
+    .missing-answer::after { content: "Please complete this field."; display: block; color: #b91c1c; font-size: 12px; margin-top: 6px; }
   </style>
 </head>
 <body>
@@ -368,9 +370,9 @@
 
     const PROGRAMME_OPTIONS = {
       Diploma: [],
-      "Postgraduate Diploma": ["DPLI - Postgraduate Diploma in Education"],
+      "Postgraduate Diploma": ["PGDT - Postgraduate Diploma in Teaching"],
       Bachelor: ["BBA - Bachelor in Business Administration"],
-      Master: ["MBA - Master of Business Administration", "MBM - Master in Business Management", "MHUM - Master in Hajj & Umrah Management"],
+      Master: ["MBA - Master of Business Administration", "MBM - Master in Business Management", "MHUM - Master in Hajj & Umrah Management", "MIS - Master in Islamic Studies"],
       Doctorate: ["PhD - Doctor of Philosophy in Management", "DBA - Doctorate of Business Administration"],
       Package: ["MBM + PhD - Master in Business Management & PhD (Package)", "MBA + PhD - Master of Business Administration & PhD (Package)"],
       Other: ["Other"]
@@ -420,6 +422,7 @@
       levelOfStudy: "",
       programme: "",
       intake: "",
+      intakeYear: "",
       studyMode: "",
       entryQualificationType: "",
       applicationCategory: "",
@@ -448,6 +451,9 @@
       yearOfCompletion: "",
       academicResult: "",
       certificateReferenceNo: "",
+      qualificationProgrammeName: "",
+      referralName: "",
+      directConfirmed: false,
     
       // Student Profiling
       employmentStatus: "",
@@ -667,6 +673,23 @@
       `;
     }
 
+    function researchIntake() { return /^(PhD|MIS)\b/i.test(formState.programme || ''); }
+    function intakeMonths() { return researchIntake() ? ['February','September'] : ['January','May','September']; }
+    function malaysiaYearMonth(date = new Date()) {
+      const parts = new Intl.DateTimeFormat('en-GB',{timeZone:'Asia/Kuala_Lumpur',year:'numeric',month:'numeric'}).formatToParts(date);
+      return {year:Number(parts.find(p=>p.type==='year').value),month:Number(parts.find(p=>p.type==='month').value)};
+    }
+    function intakeYears(date = new Date()) {
+      const {year,month}=malaysiaYearMonth(date);
+      return (month===12 ? [year+1] : month>=9 ? [year,year+1] : [year]).map(String);
+    }
+    function intakeGuide() {
+      const names=['January','February','March','April','May','June','July','August','September','October','November','December'];
+      return names.map((name,i)=>{const m=i+1; let target=researchIntake() ? (m>=11||m<=4?'February':'September') : (m===12||m<=3?'January':m<=7?'May':'September');
+        const suffix=m===12 || (researchIntake() && m===11) ? ' (following year)' : '';
+        return `<tr><td>${name}</td><td>${target}${suffix}</td></tr>`;}).join('');
+    }
+    function applyIntakeToPayload(payload) { payload.intake = formState.intake + ' ' + formState.intakeYear; return payload; }
     function renderProgrammePanel() {
       const programmeDisabled = !formState.levelOfStudy || formState.levelOfStudy === "Diploma";
       const internationalBlock = isInternational() ? `
@@ -737,7 +760,9 @@
               For PhD applications, please prepare a preliminary Research Intent (approximately 2–3 pages). If it is ready, you may upload it in the Document Upload section. <strong>If it is not ready yet, you may still submit your application and provide the document later.</strong> This document is required to complete your application assessment.
             </div>
           ` : ""}
-          <div class="field"><label>Intake <span class="required">*</span></label><select data-field="intake">${selectOptions(INTAKE_OPTIONS, "Select intake month", formState.intake)}</select></div>
+          <div class="field"><label>Intake Year <span class="required">*</span></label><select data-field="intakeYear">${selectOptions(intakeYears(), "Select intake year", formState.intakeYear)}</select></div>
+          <div class="field"><label>Intake <span class="required">*</span></label><select data-field="intake" ${!formState.programme?'disabled':''}>${selectOptions(intakeMonths(), formState.programme ? "Select intake month" : "Select programme first", formState.intake)}</select></div>
+          ${formState.programme ? `<details class="info-box" style="grid-column:1 / -1"><summary>Registration month and official intake guide</summary><p>Choose your official intake based on the month you register.</p><table style="width:100%;border-collapse:collapse;text-align:left"><thead><tr><th>Registration month</th><th>Official intake</th></tr></thead><tbody>${intakeGuide()}</tbody></table></details>` : ''}
           <div class="field">
             <label>Mode of Study <span class="required">*</span></label>
             <select data-field="studyMode">
@@ -759,7 +784,9 @@
               ${escapeHtml(getPartnerDisplayValue(AGENT_REFERRAL_CODE))}
               <div class="hint">This application is linked to the Academic Consultant referral link used to open this form.</div>
             </div>
-          ` : `<div class="field"><label>How did you hear about us / Referral Source<span class="required">*</span></label><select data-field="referralSource">${selectOptions(REFERRAL_SOURCES, "Select referral source", formState.referralSource)}</select></div>`}
+          ` : `<div class="field"><label>How did you hear about us / Referral Source<span class="required">*</span></label><select data-field="referralSource">${selectOptions(REFERRAL_SOURCES, "Select referral source", formState.referralSource)}</select><div class="hint"><strong>Important:</strong> If an agent, consultant, staff member or another person introduced or assisted you, select the appropriate source. Choose Direct only if you applied independently without a referral or assistance.</div></div>
+          ${formState.referralSource === 'Direct / Self Enquiry' ? `<div class="field"><label class="choice"><input type="checkbox" data-field="directConfirmed" ${formState.directConfirmed?'checked':''}><span>I confirm that no agent, consultant or representative referred or assisted me.</span></label></div>` : ''}
+          ${['Friend / Family','Innovative Staff'].includes(formState.referralSource) ? `<div class="field"><label>Name of person who referred you <span class="required">*</span></label><input type="text" data-field="referralName" value="${escapeHtml(formState.referralName)}"></div>` : ''}`}
           ${isPartnerFlow() && !AGENT_REFERRAL_CODE ? `
           <div class="field">
             <label>Registered Partner / Agent Code <span class="required">*</span></label>
@@ -926,8 +953,8 @@
           </div>
     
           <div class="field">
-            <label>Certificate / Reference No.</label>
-            <input type="text" data-field="certificateReferenceNo" value="${escapeHtml(formState.certificateReferenceNo)}" placeholder="Optional">
+            <label>Programme / Qualification Name <span class="required">*</span></label>
+            <input type="text" data-field="qualificationProgrammeName" value="${escapeHtml(formState.qualificationProgrammeName)}" placeholder="Example: Bachelor of Business Administration">
           </div>
         `;
       } else if (qType === "APEL") {
@@ -1299,7 +1326,7 @@
           <p><strong>Admission Entry Type:</strong> ${escapeHtml(formState.applicationCategory || '-')}</p>
           <p><strong>Level of Study:</strong> ${escapeHtml(formState.levelOfStudy || '-')}</p>
           <p><strong>Programme:</strong> ${escapeHtml(formState.programme || '-')}</p>
-          <p><strong>Intake:</strong> ${escapeHtml(formState.intake || '-')}</p>
+          <p><strong>Intake:</strong> ${escapeHtml(formState.intake ? formState.intake + ' ' + formState.intakeYear : '-')}</p>
           <p><strong>Mode of Study:</strong> ${escapeHtml(formState.studyMode || '-')}</p>
           <p><strong>Entry Qualification Type:</strong> ${escapeHtml(formState.entryQualificationType || '-')}</p>
           <p><strong>Supervisor:</strong> ${escapeHtml(formState.proposedSupervisor || '-')}</p>
@@ -1327,7 +1354,7 @@
           <p><strong>Field of Study / Qualification Area:</strong> ${escapeHtml(formState.fieldOfStudy || '-')}</p>
           <p><strong>Year of Completion:</strong> ${escapeHtml(formState.yearOfCompletion || '-')}</p>
           <p><strong>Academic Result / CGPA / Grade:</strong> ${escapeHtml(formState.academicResult || '-')}</p>
-          <p><strong>Certificate / Reference No.:</strong> ${escapeHtml(formState.certificateReferenceNo || '-')}</p>
+          ${formState.entryQualificationType === 'Academic Qualification' ? `<p><strong>Programme / Qualification Name:</strong> ${escapeHtml(formState.qualificationProgrammeName || '-')}</p>` : `<p><strong>Certificate / Reference No.:</strong> ${escapeHtml(formState.certificateReferenceNo || '-')}</p>`}
         </div>
 
         <div class="review-box">
@@ -1440,8 +1467,9 @@
              syncEmailFields_(field);
         }
 
-          if (field === 'levelOfStudy') formState.programme = '';
-          if (field === 'referralSource') formState.partnerCode = '';
+          if (field === 'levelOfStudy') { formState.programme = ''; formState.intake = ''; }
+          if (field === 'programme') formState.intake = '';
+          if (field === 'referralSource') { formState.partnerCode = ''; formState.referralName = ''; formState.directConfirmed = false; }
           render();
         };
       });
@@ -1521,6 +1549,7 @@
         levelOfStudy: "",
         programme: "",
         intake: "",
+      intakeYear: "",
         studyMode: "",
         entryQualificationType: "",
         applicationCategory: "",
@@ -1549,6 +1578,9 @@
         yearOfCompletion: "",
         academicResult: "",
         certificateReferenceNo: "",
+      qualificationProgrammeName: "",
+      referralName: "",
+      directConfirmed: false,
     
         // Student Profiling
         employmentStatus: "",
@@ -1669,6 +1701,8 @@
       !formState.levelOfStudy ||
       !formState.programme ||
       !formState.intake ||
+      !formState.intakeYear ||
+      !formState.referralSource ||
       !formState.studyMode ||
       !formState.entryQualificationType ||
       !formState.applicationCategory
@@ -1676,6 +1710,8 @@
       return 'Please complete all required fields in Programme Selection.';
     }
 
+    if (formState.referralSource === 'Direct / Self Enquiry' && !formState.directConfirmed) return 'Please confirm your direct application.';
+    if (['Friend / Family','Innovative Staff'].includes(formState.referralSource) && !formState.referralName.trim()) return 'Please provide the name of the person who referred you.';
     if (isPartnerFlow() && !formState.partnerCode) {
       return 'Please select the registered partner / agent code.';
     }
@@ -1713,6 +1749,7 @@
       return 'Please complete all required fields in Student Information.';
     }
 
+    if (formState.entryQualificationType === 'Academic Qualification' && !formState.qualificationProgrammeName.trim()) return 'Please enter your programme / qualification name.';
     if (formState.entryQualificationType === 'Academic Qualification') {
       if (!formState.highestQualification) {
         return 'Please select your highest academic qualification.';
@@ -1892,7 +1929,7 @@
         const file = formState.documents[key];
         if (file) documents[key] = await fileToBase64(file);
       }
-      const payload = JSON.parse(JSON.stringify(formState));
+      const payload = applyIntakeToPayload(JSON.parse(JSON.stringify(formState)));
       payload.isTransferApplicant = formState.applicationCategory === 'Transfer Student';
       payload.documents = documents;
       payload.meta = {
@@ -1929,6 +1966,7 @@
       const err = validateStep(5);
       if (err) {
         setStatus('info', err);
+        highlightMissing(5);
         return;
       }
       try {
@@ -2001,10 +2039,38 @@
       window.scrollTo({ top: 0, behavior: 'smooth' });
     };
 
+    function highlightMissing(step) {
+      document.querySelectorAll('.missing-answer').forEach(el=>{el.classList.remove('missing-answer'); el.removeAttribute('aria-invalid');});
+      const panel=panels[step]; const missing=[];
+      panel.querySelectorAll('.field').forEach(field=>{
+        if (!field.querySelector('.required')) return;
+        const controls=[...field.querySelectorAll('input:not([type=hidden]),select,textarea')].filter(el=>!el.disabled);
+        if (!controls.length) return;
+        const empty=controls.every(el=>el.type==='radio'||el.type==='checkbox' ? !el.checked : !String(el.value||'').trim());
+        if(empty){ field.classList.add('missing-answer'); controls[0].setAttribute('aria-invalid','true'); missing.push(field); }
+      });
+      if(step===0 && formState.referralSource==='Direct / Self Enquiry' && !formState.directConfirmed) { const el=panel.querySelector('[data-field="directConfirmed"]'); if(el){el.closest('.field').classList.add('missing-answer');missing.push(el);} }
+      const conditional=[];
+      if(step===1){
+        if(formState.employmentStatus==='Working' && !formState.employmentSector) conditional.push('[data-field=employmentSector]');
+        if(formState.employmentStatus==='Working' && !formState.salaryRange) conditional.push('[data-field=salaryRange]');
+        if(formState.employmentStatus==='Not Working' && !formState.nonWorkingCategory) conditional.push('[data-field=nonWorkingCategory]');
+        if(formState.healthDeclaration && formState.healthDeclaration !== 'I declare that I am physically and mentally fit to undertake my studies.' && !formState.healthDeclarationRemarks) conditional.push('[data-field=healthDeclarationRemarks]');
+        if(String(formState.okuStatus||'').startsWith('Yes') && !formState.okuCategory) conditional.push('[data-field=okuCategory]');
+      }
+      if(step===2 && !formState.emergencySameAsApplicant && !formState.emergencyAddress) conditional.push('[data-field=emergencyAddress]');
+      if(step===4 && formState.paymentArrangement==='Installment Plan' && !formState.installmentFrequency) conditional.push('[data-field=installmentFrequency]');
+      if(step===4 && formState.paymentSource==='Other' && !formState.paymentSourceOther) conditional.push('[data-field=paymentSourceOther]');
+      if(step===5 && !formState.declarationAccepted) conditional.push('[data-field=declarationAccepted]');
+      conditional.forEach(selector=>{const el=panel.querySelector(selector);if(el){const box=el.closest('.field')||el.closest('label')||el;box.classList.add('missing-answer');el.setAttribute('aria-invalid','true');missing.push(box);}});
+      if(step===3) ['transcript','certificate','cvResume',isInternational()?'passportCopyInternational':'identityDocument'].forEach(k=>{if(!formState.documents[k] && !(k==='passportCopyInternational' && formState.documents.identityDocument)){const el=panel.querySelector('#file_'+k); if(el){const row=el.closest('.file-row')||el.parentElement;row.classList.add('missing-answer');missing.push(row);}}});
+      if(missing[0]) {missing[0].scrollIntoView({behavior:'smooth',block:'center'}); const target=missing[0].querySelector('input,select,textarea')||missing[0]; if(target.focus) target.focus({preventScroll:true});}
+    }
     nextBtn.onclick = () => {
       const err = validateStep(currentStep);
       if (err) {
         setStatus('info', err);
+        highlightMissing(currentStep);
         return;
       }
       setStatus('', '');
@@ -2024,6 +2090,6 @@
     render();
     loadPartnerCodes();
   </script>
-  <script src="/admission-upload-v2.js?v=20261006-2"></script>
+  <script src="/admission-upload-v2.js?v=20261029-1"></script>
 </body>
 </html>
