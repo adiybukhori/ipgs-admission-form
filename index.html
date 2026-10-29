@@ -1966,6 +1966,7 @@
       const err = validateStep(5);
       if (err) {
         setStatus('info', err);
+        highlightMissing(5);
         return;
       }
       try {
@@ -2049,6 +2050,19 @@
         if(empty){ field.classList.add('missing-answer'); controls[0].setAttribute('aria-invalid','true'); missing.push(field); }
       });
       if(step===0 && formState.referralSource==='Direct / Self Enquiry' && !formState.directConfirmed) { const el=panel.querySelector('[data-field="directConfirmed"]'); if(el){el.closest('.field').classList.add('missing-answer');missing.push(el);} }
+      const conditional=[];
+      if(step===1){
+        if(formState.employmentStatus==='Working' && !formState.employmentSector) conditional.push('[data-field=employmentSector]');
+        if(formState.employmentStatus==='Working' && !formState.salaryRange) conditional.push('[data-field=salaryRange]');
+        if(formState.employmentStatus==='Not Working' && !formState.nonWorkingCategory) conditional.push('[data-field=nonWorkingCategory]');
+        if(formState.healthDeclaration && formState.healthDeclaration !== 'I declare that I am physically and mentally fit to undertake my studies.' && !formState.healthDeclarationRemarks) conditional.push('[data-field=healthDeclarationRemarks]');
+        if(String(formState.okuStatus||'').startsWith('Yes') && !formState.okuCategory) conditional.push('[data-field=okuCategory]');
+      }
+      if(step===2 && !formState.emergencySameAsApplicant && !formState.emergencyAddress) conditional.push('[data-field=emergencyAddress]');
+      if(step===4 && formState.paymentArrangement==='Installment Plan' && !formState.installmentFrequency) conditional.push('[data-field=installmentFrequency]');
+      if(step===4 && formState.paymentSource==='Other' && !formState.paymentSourceOther) conditional.push('[data-field=paymentSourceOther]');
+      if(step===5 && !formState.declarationAccepted) conditional.push('[data-field=declarationAccepted]');
+      conditional.forEach(selector=>{const el=panel.querySelector(selector);if(el){const box=el.closest('.field')||el.closest('label')||el;box.classList.add('missing-answer');el.setAttribute('aria-invalid','true');missing.push(box);}});
       if(step===3) ['transcript','certificate','cvResume',isInternational()?'passportCopyInternational':'identityDocument'].forEach(k=>{if(!formState.documents[k] && !(k==='passportCopyInternational' && formState.documents.identityDocument)){const el=panel.querySelector('#file_'+k); if(el){const row=el.closest('.file-row')||el.parentElement;row.classList.add('missing-answer');missing.push(row);}}});
       if(missing[0]) {missing[0].scrollIntoView({behavior:'smooth',block:'center'}); const target=missing[0].querySelector('input,select,textarea')||missing[0]; if(target.focus) target.focus({preventScroll:true});}
     }
