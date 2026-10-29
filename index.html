@@ -1354,7 +1354,7 @@
           <p><strong>Field of Study / Qualification Area:</strong> ${escapeHtml(formState.fieldOfStudy || '-')}</p>
           <p><strong>Year of Completion:</strong> ${escapeHtml(formState.yearOfCompletion || '-')}</p>
           <p><strong>Academic Result / CGPA / Grade:</strong> ${escapeHtml(formState.academicResult || '-')}</p>
-          <p><strong>Programme / Qualification Name:</strong> ${escapeHtml(formState.qualificationProgrammeName || '-')}</p>
+          ${formState.entryQualificationType === 'Academic Qualification' ? `<p><strong>Programme / Qualification Name:</strong> ${escapeHtml(formState.qualificationProgrammeName || '-')}</p>` : `<p><strong>Certificate / Reference No.:</strong> ${escapeHtml(formState.certificateReferenceNo || '-')}</p>`}
         </div>
 
         <div class="review-box">
