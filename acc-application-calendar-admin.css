@@ -1,5 +1,5 @@
 
-/* ACC Marketing Calendar — scoped styling, read-only */
+/* ACC Application Calendar — activation-coded date cells */
 #applicationCalendar .mkc-intro{display:flex;justify-content:space-between;align-items:center;gap:16px;flex-wrap:wrap;margin-bottom:17px}
 #applicationCalendar .mkc-status{font-size:12px;color:#64748b}
 #applicationCalendar .mkc-filters{display:flex;gap:9px;flex-wrap:wrap;margin-bottom:16px}
@@ -19,9 +19,15 @@
 #applicationCalendar .mkc-date{display:flex;min-width:0;min-height:85px;flex-direction:column;align-items:flex-start;gap:6px;border:1px solid #e0e7f2;border-radius:12px;background:#f8fafd;padding:9px;text-align:left;color:#48628d}
 #applicationCalendar .mkc-date strong{font-size:22px;line-height:1;font-weight:850;color:#2653cf}
 #applicationCalendar .mkc-date small{font-size:10px;color:#2653cf}
-#applicationCalendar .mkc-date.has-data{background:#edf2ff;border-color:#d6e1ff}
-#applicationCalendar .mkc-date.selected{background:#2855d8;border-color:#2855d8;box-shadow:0 5px 12px #2855d830}
-#applicationCalendar .mkc-date.selected,#applicationCalendar .mkc-date.selected strong,#applicationCalendar .mkc-date.selected small{color:#fff}
+#applicationCalendar .mkc-date.status-complete{background:#2757db;border-color:#2757db;color:#fff}
+#applicationCalendar .mkc-date.status-complete strong,#applicationCalendar .mkc-date.status-complete small{color:#fff}
+#applicationCalendar .mkc-date.status-partial{background:#fff0cc;border-color:#efbf69;color:#934d00}
+#applicationCalendar .mkc-date.status-partial strong,#applicationCalendar .mkc-date.status-partial small{color:#9a4d00}
+#applicationCalendar .mkc-date.status-zero{background:#ffe2e5;border-color:#f5a8af;color:#a32134}
+#applicationCalendar .mkc-date.status-zero strong,#applicationCalendar .mkc-date.status-zero small{color:#a32134}
+#applicationCalendar .mkc-date.status-empty{background:#f8fafd;border-color:#e0e7f2;color:#48628d}
+#applicationCalendar .mkc-date.selected{outline:3px solid #12244a;outline-offset:1px;box-shadow:0 4px 12px rgba(25,38,79,.14)}
+#applicationCalendar .mkc-date:hover{filter:brightness(.97)}
 #applicationCalendar .mkc-date:focus-visible{outline:3px solid #9bc3ff;outline-offset:1px}
 #applicationCalendar .mkc-legend{margin-top:15px;display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap;color:#7283a2;font-size:12px}
 #applicationCalendar .mkc-eyebrow{letter-spacing:.07em;text-transform:uppercase;font-weight:800;color:#7586a3;font-size:12px}
@@ -49,3 +55,11 @@
 #applicationCalendar .mkc-error{border:1px solid #f5ccd0;background:#fff3f4;color:#9f2535;padding:12px 15px;border-radius:10px;margin-bottom:15px}
 @media(max-width:1050px){#applicationCalendar .mkc-layout{grid-template-columns:1fr}}
 @media(max-width:620px){#applicationCalendar .mkc-card{padding:13px}#applicationCalendar .mkc-date{min-height:58px;padding:6px;gap:3px}#applicationCalendar .mkc-date strong{font-size:16px}#applicationCalendar .mkc-date small{font-size:8px}#applicationCalendar .mkc-grid,#applicationCalendar .mkc-week{gap:3px}#applicationCalendar .mkc-heading h3{font-size:18px}#applicationCalendar .mkc-total b{font-size:52px}}
+
+#applicationCalendar .mkc-color-legend{display:flex;gap:12px;align-items:center;flex-wrap:wrap;margin-top:12px;color:#687993;font-size:11px}
+#applicationCalendar .mkc-color-legend span{display:inline-flex;gap:5px;align-items:center;white-space:nowrap}
+#applicationCalendar .mkc-color-legend i{width:11px;height:11px;border-radius:3px;display:inline-block;border:1px solid rgba(0,0,0,.1)}
+#applicationCalendar .mkc-color-legend .complete{background:#2757db}
+#applicationCalendar .mkc-color-legend .partial{background:#fff0cc;border-color:#efbf69}
+#applicationCalendar .mkc-color-legend .zero{background:#ffe2e5;border-color:#f5a8af}
+#applicationCalendar .mkc-color-legend .empty{background:#f8fafd;border-color:#dce3ee}
