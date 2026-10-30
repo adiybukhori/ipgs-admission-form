@@ -61,11 +61,22 @@ function render(){
  const filtered=matching(getCurrentFilters()),[year,mon]=month.split('-').map(Number);
  const first=new Date(Date.UTC(year,mon-1,1)),days=new Date(Date.UTC(year,mon,0)).getUTCDate(),offset=(first.getUTCDay()+6)%7;
  el('mkcMonth').textContent=new Intl.DateTimeFormat('en-MY',{timeZone:'UTC',year:'numeric',month:'long'}).format(first);
- const counts=new Map();for(const group of filtered)counts.set(group.day,(counts.get(group.day)||0)+1);
+ const counts=new Map();
+ for(const group of filtered){
+   const item=counts.get(group.day)||{total:0,activated:0};
+   item.total++;
+   if(group.activation)item.activated++;
+   counts.set(group.day,item);
+ }
  const cells=Array.from({length:offset},()=>'<span aria-hidden="true"></span>');
  for(let n=1;n<=days;n++){
-   const day=month+'-'+String(n).padStart(2,'0'),count=counts.get(day)||0;
-   cells.push('<button type="button" class="mkc-date '+(count?'has-data ':'')+(day===selectedDay?'selected':'')+'" data-mkc-day="'+day+'" aria-pressed="'+(day===selectedDay)+'" aria-label="'+day+': '+count+' unique ACC applicants"><span>'+n+'</span>'+(count?'<strong>'+count+'</strong><small>applied</small>':'<small>—</small>')+'</button>');
+   const day=month+'-'+String(n).padStart(2,'0');
+   const summary=counts.get(day)||{total:0,activated:0};
+   const count=summary.total,activated=summary.activated;
+   const rate=count?Math.round(activated/count*100):0;
+   const color=!count?'status-empty':activated===count?'status-complete':activated===0?'status-zero':'status-partial';
+   const hint=count?(activated+' of '+count+' activated in ACC ('+rate+'%)'):'No ACC applications';
+   cells.push('<button type="button" class="mkc-date '+color+' '+(day===selectedDay?'selected':'')+'" data-mkc-day="'+day+'" title="'+escapeHtml(hint)+'" aria-pressed="'+(day===selectedDay)+'" aria-label="'+day+': '+count+' unique ACC applicants; '+hint+'"><span>'+n+'</span>'+(count?'<strong>'+count+'</strong><small>applied</small>':'<small>—</small>')+'</button>');
  }
  el('mkcGrid').innerHTML=cells.join('');
  const currentMonth=filtered.filter(x=>x.day.startsWith(month));
