@@ -39,7 +39,7 @@ async function validateLegacyAdminPassword(password){
   }catch(_){return false;}
 }
 
-async function validateAdminSession(password,sessionId){
+export async function validateAdminSession(password,sessionId){
   if(!password)return false;
   const localSecret=String(process.env.V2_ADMIN_API_PASSWORD||'');
   if(localSecret&&safeEqual(password,localSecret))return true;
