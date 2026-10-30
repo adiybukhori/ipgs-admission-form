@@ -49,7 +49,8 @@ function render(){
  }).join('')||'<tr><td colspan="6" class="mkc-empty">No marketing registrations found for this date.</td></tr>';
  $('mkcStatus').textContent='Source: Marketing Portal · Last refreshed '+(summaryAt?a.formatDate(summaryAt):'just now');
 }
-function setDay(day){if(!/^\\d{4}-\\d{2}-\\d{2}$/.test(day))return;selectedDay=day;calendarMonth=day.slice(0,7);render()}
+window.mkRenderCalendar=render;
+function setDay(day){if(!/^[0-9]{4}-[0-9]{2}-[0-9]{2}$/.test(day))return;selectedDay=day;calendarMonth=day.slice(0,7);render()}
 window.mkMoveMonth=function(step){if(!loaded)return;const [y,m]=calendarMonth.split('-').map(Number);calendarMonth=new Date(Date.UTC(y,m-1+step,1)).toISOString().slice(0,7);render()};
 window.mkCalendarToday=function(){if(!loaded)return;setDay(today())};
 window.mkScrollCandidates=function(){$('mkcCandidates')?.scrollIntoView({behavior:'smooth',block:'start'})};
