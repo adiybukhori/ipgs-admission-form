@@ -27,7 +27,7 @@ export default async function handler(req,res){
       intake:String(c.intake||''),registeredAt:String(c.registeredAt||''),
       registrationEvents:Array.isArray(c.registrationEvents)?c.registrationEvents.map(e=>({
         registeredAt:String(e.registeredAt||''),sourceTab:String(e.sourceTab||'')
-      })):[],
+      })):(c.registeredAt?[{registeredAt:String(c.registeredAt),sourceTab:String(c.sourceTab||'')}]:[]),
       sourceTab:String(c.sourceTab||''),registrationCount:Number(c.registrationCount||0),
       accFound:c.accFound===true,activated:c.activated===true,
       snapshotCategory:String(c.snapshotCategory||''),processingCategory:String(c.processingCategory||'')
