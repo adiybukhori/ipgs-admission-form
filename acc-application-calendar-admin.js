@@ -101,7 +101,7 @@ window.loadAccApplicationCalendar=async function(force=false){
  }else render();
 };
 window.mkRenderCalendar=render;
-window.mkMoveMonth=function(step){if(!ready)render();const [y,m]=month.split('-').map(Number);month=new Date(Date.UTC(y,m-1+step,1)).toISOString().slice(0,7);render()};
+window.mkMoveMonth=function(step){if(!ready)render();const [y,m]=month.split('-').map(Number);month=new Date(Date.UTC(y,m-1+step,1)).toISOString().slice(0,7);const [ny,nm]=month.split('-').map(Number);const last=new Date(Date.UTC(ny,nm,0)).getUTCDate();const current=Number(selectedDay.slice(-2))||1;selectedDay=month+'-'+String(Math.min(current,last)).padStart(2,'0');render()};
 window.mkCalendarToday=function(){selectedDay=kualaDay(new Date());month=selectedDay.slice(0,7);render()};
 window.mkScrollCandidates=function(){el('mkcCandidates')?.scrollIntoView({behavior:'smooth',block:'start'})};
 document.addEventListener('click',event=>{
