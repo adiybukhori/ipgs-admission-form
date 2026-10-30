@@ -561,6 +561,7 @@
 #applications .acc-mini-action{font-size:11px!important;padding:5px 7px!important}
 #applications .table-wrap td{padding:11px 8px}
 </style>
+  <link rel="stylesheet" href="/marketing-calendar-admin.css" />
 </head>
 <body>
   <div id="loginView" class="login-shell">
@@ -605,6 +606,7 @@
     </div>
       <div class="nav">
         <button class="active" data-section="dashboard" onclick="go('dashboard',this)"><span>Dashboard</span></button>
+        <button data-section="marketingCalendar" onclick="go('marketingCalendar',this)"><span>Marketing Calendar</span></button>
         <button data-section="applications" onclick="go('applications',this)"><span>Applications</span></button>
         <button data-section="sac" onclick="go('sac',this)"><span>SAC</span></button>
         <button data-section="assessment" onclick="go('assessment',this)"><span>IA / PREREQ</span></button>
@@ -638,6 +640,50 @@
           <div class="grid-2">
             <div class="panel"><div class="panel-head"><h3>Admission funnel</h3><span>Current workflow position</span></div><div class="panel-body"><div id="dashboardFunnel" class="funnel"></div></div></div>
             <div class="panel"><div class="panel-head"><h3>Intake distribution</h3><span>Applications by intake</span></div><div class="panel-body"><div id="intakeBars" class="chart-list"></div></div></div>
+          </div>
+        </section>
+
+        
+        <section id="marketingCalendar" class="section">
+          <div class="hero"><div><h2>Marketing Registration Calendar</h2><p>Daily marketing form registrations, unique candidates and verified Internal IPGS closing.</p></div></div>
+          <div class="mkc-intro">
+            <span class="mkc-status" id="mkcStatus" aria-live="polite">Open this module to load verified Marketing Portal data.</span>
+            <button type="button" class="mkc-btn" id="mkcReload" onclick="loadMarketingCalendar(true)">↻ Sync Marketing Calendar</button>
+          </div>
+          <div class="mkc-error" id="mkcError" role="alert" hidden></div>
+          <div class="mkc-filters">
+            <select aria-label="Filter programme" id="mkcProgramme" onchange="window.mkRenderCalendar()"><option value="">All Programmes</option></select>
+            <select aria-label="Filter intake" id="mkcIntake" onchange="window.mkRenderCalendar()"><option value="">All Intakes</option></select>
+            <select aria-label="Filter source" id="mkcSource" onchange="window.mkRenderCalendar()"><option value="">All Sources</option></select>
+          </div>
+          <div class="mkc-layout">
+            <div class="mkc-card">
+              <div class="mkc-heading">
+                <h3 id="mkcMonth">—</h3>
+                <div class="mkc-buttons"><button type="button" class="mkc-btn" onclick="mkMoveMonth(-1)" aria-label="Previous month">‹</button><button type="button" class="mkc-btn" onclick="mkCalendarToday()">Today</button><button type="button" class="mkc-btn" onclick="mkMoveMonth(1)" aria-label="Next month">›</button></div>
+              </div>
+              <div class="mkc-week" aria-hidden="true"><span>MON</span><span>TUE</span><span>WED</span><span>THU</span><span>FRI</span><span>SAT</span><span>SUN</span></div>
+              <div class="mkc-grid" id="mkcGrid" role="group" aria-label="Marketing registration dates"></div>
+              <div class="mkc-legend"><span>▣ Number of unique students registered</span><span id="mkcMonthTotal">—</span></div>
+            </div>
+            <div class="mkc-card">
+              <div class="mkc-eyebrow">Selected registration date</div>
+              <div class="mkc-selected-title" id="mkcDate">—</div>
+              <div class="mkc-total"><b id="mkcTotal">—</b><span>unique marketing registrations</span></div>
+              <div class="mkc-small" id="mkcSubmission">—</div>
+              <div class="mkc-metrics">
+                <div class="mkc-metric"><b id="mkcClosed">—</b><span>Closed · Internal IPGS</span></div>
+                <div class="mkc-metric"><b id="mkcNotClosed">—</b><span>Not Yet Closed</span></div>
+                <div class="mkc-metric"><b id="mkcRate">—</b><span>Closing Rate</span></div>
+              </div>
+              <div class="mkc-programmes" id="mkcProgrammes"></div>
+              <p class="mkc-caption">Counted by marketing form registration date (Malaysia time). Multiple submissions by the same IC/passport are counted once per date. Closed requires an Active Sky Snapshot record with Internal IPGS category. ACC submissions alone do not count as closing.</p>
+              <button type="button" class="mkc-btn mkc-btn-primary" onclick="mkScrollCandidates()">View candidates for this date ↓</button>
+            </div>
+          </div>
+          <div class="mkc-card mkc-table-card" id="mkcCandidates">
+            <div class="mkc-heading"><h3 id="mkcCandidateTitle">Candidates registered on selected date</h3><span class="mkc-small" id="mkcCandidateCount">—</span></div>
+            <div class="mkc-table-wrap"><table class="mkc-table"><thead><tr><th>Candidate</th><th>Registered (MYT)</th><th>Programme / Intake</th><th>ACC</th><th>Closing Status</th><th>Action</th></tr></thead><tbody id="mkcRows"></tbody></table></div>
           </div>
         </section>
 
@@ -1224,7 +1270,7 @@
     function classifyBadge(text=''){const x=String(text).toUpperCase();if(/ACCEPT|QUALIFIED|COMPLETE|FINAL|ISSUED|DIRECT|SKY_ACTIVATED|ACADEMIC_HANDOVER/.test(x))return'green';if(/REJECT|NOT QUAL|INCOMPLETE|DECLIN/.test(x))return'red';if(/PENDING|WAIT|REVIEW|NOT_|READY/.test(x))return'amber';if(/IA|PREREQ|ASSESS|SAC|ORIENTATION/.test(x))return'purple';return'blue'}
     function pretty(s=''){return String(s||'-').replaceAll('_',' ').replace(/\b\w/g,m=>m.toUpperCase())}
     function renderAll(){populateFilters();renderDashboard();renderApplications();renderSac();renderAssessment();renderReports()}
-    function go(id,btn){document.querySelectorAll('.section').forEach(x=>x.classList.remove('active'));document.getElementById(id).classList.add('active');document.querySelectorAll('.nav button').forEach(x=>x.classList.remove('active'));if(btn)btn.classList.add('active');const names={dashboard:'Dashboard',applications:'Applications',sac:'SAC Monitoring',assessment:'IA / Prerequisite',feeStructure:'Fee Structure',reports:'Reports',guide:'System Guide'};document.getElementById('topTitle').textContent=names[id]||'Admission';syncMobileShortcuts(id)} function goMobile(id){const btn=document.querySelector('.nav button[data-section="'+id+'"]');if(btn)go(id,btn)} function syncMobileShortcuts(id){document.querySelectorAll('[data-mobile-section]').forEach(x=>x.classList.toggle('active',x.dataset.mobileSection===id))}
+    function go(id,btn){document.querySelectorAll('.section').forEach(x=>x.classList.remove('active'));document.getElementById(id).classList.add('active');document.querySelectorAll('.nav button').forEach(x=>x.classList.remove('active'));if(btn)btn.classList.add('active');const names={dashboard:'Dashboard',applications:'Applications',sac:'SAC Monitoring',assessment:'IA / Prerequisite',feeStructure:'Fee Structure',reports:'Reports',marketingCalendar:'Marketing Calendar',guide:'System Guide'};document.getElementById('topTitle').textContent=names[id]||'Admission';syncMobileShortcuts(id);if(id==='marketingCalendar'&&typeof window.loadMarketingCalendar==='function')window.loadMarketingCalendar()} function goMobile(id){const btn=document.querySelector('.nav button[data-section="'+id+'"]');if(btn)go(id,btn)} function syncMobileShortcuts(id){document.querySelectorAll('[data-mobile-section]').forEach(x=>x.classList.toggle('active',x.dataset.mobileSection===id))}
     function renderDashboard(){const live=activeV2Records(),total=live.length,attentionGroups=getAttentionGroups(),attention=attentionGroups.reduce((n,x)=>n+x.count,0),offer=live.filter(r=>/ELIGIBLE_FOR_OFFER|OFFER_ISSUED/.test(stage(r))||(stage(r)==='MANUAL_REVIEW'&&String(r.workflow?.['Offer Letter Status']||'').toUpperCase()==='ISSUED')).length,accepted=live.filter(r=>/ACCEPTED|SKY_ACTIVATED|ORIENTATION|ACADEMIC_HANDOVER/.test(stage(r))).length;document.getElementById('kTotal').textContent=total;document.getElementById('kAttention').textContent=attention;document.getElementById('kOffer').textContent=offer;document.getElementById('kAccepted').textContent=accepted;document.getElementById('attentionList').innerHTML=attentionGroups.map(x=>`<div class="attention-item"><div><div class="name">${esc(x.name)}</div><div class="sub">${esc(x.sub)}</div></div><div class="count-pill">${x.count}</div></div>`).join('')||'<div class="empty">No pending cases.</div>';renderBars('programmeBars',countBy(live,r=>r.app['Programme']||'Unspecified'),7);renderBars('intakeBars',countBy(live,r=>r.app['Intake']||r.workflow?.['Intake']||'Unspecified'),7);renderFunnel('dashboardFunnel')}
     function getAttentionGroups(){const live=activeV2Records(),sacReady=live.filter(r=>stage(r)==='READY_FOR_SAC').length,sac=live.filter(r=>/SAC_REVIEW|SAC/.test(stage(r))).length,assessment=live.filter(r=>/INTERNAL_ASSESSMENT|ASSESSMENT|IA|PREREQ/.test(stage(r))).length,manualReview=live.filter(r=>stage(r)==='MANUAL_REVIEW').length,staleOffer=live.filter(r=>stage(r)==='OFFER_ISSUED'&&String(r.workflow?.['Acceptance Remarks']||'').toUpperCase().startsWith('STALE_OFFER_REVIEW')).length,acceptance=live.filter(r=>stage(r)==='OFFER_ISSUED'&&!String(r.workflow?.['Acceptance Remarks']||'').toUpperCase().startsWith('STALE_OFFER_REVIEW')&&!/ACCEPTED|DECLINED/.test(String(r.workflow?.['Acceptance Status']||'').toUpperCase())).length;return[{name:'Ready for SAC',sub:'Applications awaiting SAC assignment / decision',count:sacReady},{name:'SAC decisions',sub:'Candidates assigned and waiting for authorised decision',count:sac},{name:'IA / Prerequisite',sub:'Assessment cases in progress',count:assessment},{name:'Manual review',sub:'Special cases requiring registry verification',count:manualReview},{name:'Stale offer review',sub:'Past-intake offers requiring close, defer or reissue decision',count:staleOffer},{name:'Acceptance follow-up',sub:'Current or future intake offers awaiting acceptance',count:acceptance}].filter(x=>x.count>0)}
     function countBy(arr,getter){const m={};arr.forEach(x=>{const k=String(getter(x)||'Unspecified');m[k]=(m[k]||0)+1});return Object.entries(m).sort((a,b)=>b[1]-a[1])}
@@ -2487,6 +2533,8 @@
   <script src="/fee-structure-admin.js"></script>
   <script src="/system-guide-training.js"></script>
   <script src="/system-guide-training-v2.js"></script>
-<script src="/ia-dashboard-admin.js"></script></body>
+<script src="/ia-dashboard-admin.js"></script><script src="/marketing-analytics.js"></script>
+<script src="/marketing-calendar-admin.js"></script>
+</body>
 </html>
 
