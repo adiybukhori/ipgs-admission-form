@@ -12,7 +12,7 @@ const field = (r,...keys) => keys.map(k=>r?.[k]).find(v=>text(v)) || '';
 function authorized(req) {
   const expected=text(process.env.DANIA_ACC_READ_TOKEN_SHA256).toLowerCase();
   if(!/^[a-f0-9]{64}$/.test(expected))return null;
-  const match=/^Bearer ([a-f0-9]{64})$/i.exec(text(req.headers?.authorization));
+  const match=/^Bearer ([A-Za-z0-9_-]{32,128})$/.exec(text(req.headers?.authorization));
   if(!match)return false;
   const hashed=createHash('sha256').update(match[1]).digest('hex');
   return timingSafeEqual(Buffer.from(hashed,'hex'),Buffer.from(expected,'hex'));
