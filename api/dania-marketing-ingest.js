@@ -1,3 +1,4 @@
+// Deploy refreshed HMAC production relay configuration.
 import { createHmac, timingSafeEqual } from 'node:crypto';
 const json = v => JSON.stringify(v);
 const text = v => String(v ?? '').trim();
