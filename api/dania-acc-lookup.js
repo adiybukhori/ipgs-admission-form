@@ -1,5 +1,6 @@
 import { createHash, timingSafeEqual } from 'node:crypto';
 import adminDataHandler from './admin-data.js';
+// Server keeps only the digest; DANIA's raw bearer remains on the VPS.
 
 const required = ['V2_APPLICATIONS','V2_WORKFLOW'];
 const also = ['V2_DOCUMENT_REVIEW','V2_QUALIFICATION_SCREENING','V2_SAC_CANDIDATES','V2_AGENT_EVENTS'];
