@@ -53,7 +53,7 @@ async function validateAdminSession(password,sessionId){
   return validateLegacyAdminPassword(password);
 }
 
-async function fetchSheet(sheet){const url=`https://docs.google.com/spreadsheets/d/${SPREADSHEET_ID}/gviz/tq?tqx=out:csv&sheet=${encodeURIComponent(sheet)}&_=${Date.now()}`;const response=await fetch(url,{redirect:'follow'});if(!response.ok)throw new Error(`${sheet} returned HTTP ${response.status}`);return toObjects(await response.text());}
+async function fetchSheet(sheet){const url=`https://docs.google.com/spreadsheets/d/${SPREADSHEET_ID}/gviz/tq?tqx=out:csv&headers=1&sheet=${encodeURIComponent(sheet)}&_=${Date.now()}`;const response=await fetch(url,{redirect:'follow'});if(!response.ok)throw new Error(`${sheet} returned HTTP ${response.status}`);return toObjects(await response.text());}
 async function fetchSheets(names,warnings){const data={};const settled=await Promise.allSettled(names.map(async sheet=>[sheet,await fetchSheet(sheet)]));settled.forEach((result,index)=>{const sheet=names[index];if(result.status==='fulfilled'){const[name,rows]=result.value;data[name]=rows}else{data[sheet]=[];warnings.push(`${sheet}: ${result.reason?.message||'Unable to load'}`)}});return data;}
 
 function supabaseConfig(){
