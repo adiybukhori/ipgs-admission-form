@@ -19,7 +19,7 @@
     },
     {
       "parameters": {
-        "jsCode": "const req=$input.first().json; const h=req.headers||{}; const supplied=h['x-iuc-agent-secret']||h['X-IUC-Agent-Secret']||''; const expected='REPLACE_WITH_N8N_EVENT_SHARED_SECRET'; if(supplied!==expected) throw new Error('Invalid Admission Intelligence secret'); const e=req.body||req; if(!e.referenceNo) throw new Error('referenceNo required'); return [{json:{...e,agentId:'ADMISSION_INTELLIGENCE',executionId:'AI-'+e.referenceNo+'-'+(e.eventId||Date.now())}}];"
+        "jsCode": "const req=$input.first().json; const h=req.headers||{}; const supplied=h['x-iuc-agent-secret']||h['X-IUC-Agent-Secret']||''; const expected=$vars.N8N_EVENT_SHARED_SECRET; if(supplied!==expected) throw new Error('Invalid Admission Intelligence secret'); const e=req.body||req; if(!e.referenceNo) throw new Error('referenceNo required'); return [{json:{...e,agentId:'ADMISSION_INTELLIGENCE',executionId:'AI-'+e.referenceNo+'-'+(e.eventId||Date.now())}}];"
       },
       "id": "prepare",
       "name": "Prepare Agent Task",
@@ -39,7 +39,7 @@
           "parameters": [
             {
               "name": "X-IUC-Agent-Secret",
-              "value": "REPLACE_WITH_N8N_EVENT_SHARED_SECRET"
+              "value": "={{ $vars.N8N_EVENT_SHARED_SECRET }}"
             }
           ]
         },
@@ -80,7 +80,7 @@
           "parameters": [
             {
               "name": "X-IUC-Agent-Secret",
-              "value": "REPLACE_WITH_N8N_EVENT_SHARED_SECRET"
+              "value": "={{ $vars.N8N_EVENT_SHARED_SECRET }}"
             }
           ]
         },
@@ -108,7 +108,7 @@
           "parameters": [
             {
               "name": "X-IUC-Agent-Secret",
-              "value": "REPLACE_WITH_N8N_EVENT_SHARED_SECRET"
+              "value": "={{ $vars.N8N_EVENT_SHARED_SECRET }}"
             }
           ]
         },
@@ -123,20 +123,20 @@
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
       "position": [
-        420,
+        650,
         0
       ]
     },
     {
       "parameters": {
-        "jsCode": "const s=$input.first().json;\nconst ai=s.aiScreening||{};\nconst q=s.qualificationScreening||{};\nconst w=s.workflow||{};\nconst report=String(ai['Report Status']||'');\nconst stage=String(w['Application Stage']||'').toUpperCase();\nconst human=/REVIEW_REQUIRED|PENDING_HUMAN/.test(String(ai['Status']||'')+' '+report) || String(w['Manual Review Required']||'').toUpperCase()==='YES';\nconst completed=human || ['READY_FOR_SAC','QUALIFICATION_SCREENING'].includes(stage);\nif(!completed) throw new Error('Post-action verification failed');\nreturn [{json:{\n  ok:true,\n  referenceNo:s.referenceNo,\n  verified:true,\n  requiresHuman:human,\n  applicationStage:stage,\n  aiStatus:ai['Status']||'',\n  reportStatus:report,\n  recommendedRoute:q['Recommended Route']||w['Screening Recommendation']||'',\n  routeToSac:!human&&stage==='READY_FOR_SAC'\n}}];"
+        "jsCode": "const s=$input.first().json;\nconst ai=s.aiScreening||{};\nconst q=s.qualificationScreening||{};\nconst w=s.workflow||{};\nconst reportStatus=String(ai['Report Status']||ai['Screening Report Status']||'').toUpperCase();\nconst reportUrl=String(ai['Report PDF URL']||ai['Screening Report URL']||'').trim();\nconst stage=String(w['Application Stage']||'').toUpperCase();\nconst human=/REVIEW_REQUIRED|PENDING_HUMAN|AUTO_FAILED/.test(String(ai['Status']||'')+' '+reportStatus) || String(w['Manual Review Required']||'').toUpperCase()==='YES';\nconst reportReady=reportStatus==='FINAL' && Boolean(reportUrl);\nconst completed=human || ['READY_FOR_SAC','QUALIFICATION_SCREENING'].includes(stage);\nif(!completed) throw new Error('Post-action verification failed');\nif(!human && stage==='READY_FOR_SAC' && !reportReady){\n  throw new Error('SAC gate blocked: FINAL AI Screening Report PDF was not verified');\n}\nreturn [{json:{\n  ok:true,\n  referenceNo:s.referenceNo,\n  verified:true,\n  requiresHuman:human,\n  applicationStage:stage,\n  aiStatus:ai['Status']||'',\n  reportStatus,\n  reportUrl,\n  reportReady,\n  recommendedRoute:q['Recommended Route']||w['Screening Recommendation']||'',\n  routeToSac:!human&&stage==='READY_FOR_SAC'&&reportReady\n}}];"
       },
       "id": "verify-after",
       "name": "Verify Result",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        650,
+        880,
         0
       ]
     },
@@ -205,7 +205,7 @@
           "parameters": [
             {
               "name": "X-IUC-Agent-Secret",
-              "value": "REPLACE_WITH_N8N_EVENT_SHARED_SECRET"
+              "value": "={{ $vars.N8N_EVENT_SHARED_SECRET }}"
             }
           ]
         },
@@ -222,6 +222,34 @@
       "position": [
         1080,
         -100
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://anasbukhori.app.n8n.cloud/webhook/cs-adm-v2-action-gateway",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "X-IUC-Agent-Secret",
+              "value": "={{ $vars.N8N_EVENT_SHARED_SECRET }}"
+            }
+          ]
+        },
+        "sendBody": true,
+        "contentType": "raw",
+        "rawContentType": "application/json",
+        "body": "={{ JSON.stringify({operation:'screening_report',referenceNo:$('Prepare Agent Task').item.json.referenceNo,finalize:true}) }}",
+        "options": {}
+      },
+      "id": "generate-screening-report",
+      "name": "Generate Official Screening Report",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        420,
+        0
       ]
     }
   ],
@@ -274,7 +302,7 @@
       "main": [
         [
           {
-            "node": "Read State After",
+            "node": "Generate Official Screening Report",
             "type": "main",
             "index": 0
           }
@@ -326,6 +354,17 @@
         [
           {
             "node": "Return Agent Result",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Generate Official Screening Report": {
+      "main": [
+        [
+          {
+            "node": "Read State After",
             "type": "main",
             "index": 0
           }

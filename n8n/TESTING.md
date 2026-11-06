@@ -167,6 +167,16 @@ Expected:
 
 
 ## Test I — SAC Direct Entry
+## Test H2 — Screening report hard gate
+
+Use a controlled case that reaches `READY_FOR_SAC`, then simulate a missing/non-FINAL AI Screening Report.
+
+Expected:
+- Admission Intelligence requests report generation through Action Gateway.
+- `Report Status` must be `FINAL` and `Report PDF URL` must be present before `routeToSac=true`.
+- If the final PDF cannot be verified, the workflow fails verification and does not call SAC / IA routing.
+- A human-review case may stay pending and must not be treated as a failed academic decision.
+
 
 Use a controlled READY_FOR_SAC applicant with a complete SAC pack.
 
@@ -251,15 +261,15 @@ Expected:
 - Successful submission persists Prospect Status = PROSPECT_COMPLETED, SKY Prospect ID and Fee Group.
 - PROSPECT_COMPLETED event is emitted.
 - Orchestrator routes to Systems Operator.
-- Systems Operator verifies Prospect evidence and returns WAITING_ACCEPTANCE.
-- No SKY_ACTIVATION_REQUIRED task exists before Acceptance.
+- Systems Operator verifies Prospect evidence and creates/reuses SKY_ACTIVATION_REQUIRED for Registry.
+- Acceptance is not required for SKY activation.
 
 ## Test Q — Registry SKY activation
 
-First complete the student's Acceptance Pack.
+Use a controlled student with Prospect Status = PROSPECT_COMPLETED, a SKY Prospect ID and approved Fee Group.
 
 Expected:
-- ACCEPTANCE_COMPLETED and SKY_ACTIVATION_READY are emitted.
+- PROSPECT_COMPLETED routes to Systems Operator and SKY activation can proceed before Acceptance.
 - Systems Operator resumes after Acceptance.
 - Human Decision Desk shows SKY Prospect ID + Fee Group as evidence.
 - Registry performs the actual SKY activation outside Admission V2.
@@ -480,8 +490,8 @@ Expected:
 - Marketing completes Prospect + SKY Prospect ID + Fee Group.
 - PROSPECT_COMPLETED routes to Systems Operator.
 - Systems Operator verifies the Prospect evidence.
-- Because Acceptance is not complete, result = WAITING_ACCEPTANCE.
-- No SKY_ACTIVATION_REQUIRED human task is created.
+- SKY_ACTIVATION_REQUIRED is created/reused even when Acceptance is not complete.
+- No Orientation assignment/invitation is created until Acceptance is also complete.
 - No Orientation assignment/invitation is created.
 
 ## Test AD — Acceptance to SKY activation barrier
@@ -521,11 +531,9 @@ Expected:
 Use a controlled applicant with Marketing Prospect + Fee Group complete.
 
 Before Acceptance:
-- Systems Operator may verify the Prospect.
-- Result must be WAITING_ACCEPTANCE.
-- No SKY_ACTIVATION_REQUIRED human task may be raised.
-- Direct v2ActivateStudentInSky must fail with Student Acceptance is not complete.
-- Orientation Agent must return WAITING_SKY_ACTIVATION / blocked state and must not assign a session.
+- Systems Operator verifies Prospect + SKY Prospect ID + Fee Group.
+- SKY_ACTIVATION_REQUIRED may be raised and Registry may complete SKY activation.
+- Orientation Agent remains blocked because Acceptance is not complete, even if SKY is already ACTIVATED.
 
 After Acceptance:
 - ACCEPTANCE_COMPLETED routes to Systems Operator, not Orientation.

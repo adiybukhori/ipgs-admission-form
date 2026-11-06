@@ -19,7 +19,7 @@
     },
     {
       "parameters": {
-        "jsCode": "const req = $input.first().json;\nconst headers = req.headers || {};\nconst supplied = headers['x-iuc-agent-secret'] || headers['X-IUC-Agent-Secret'] || '';\nconst expected = 'REPLACE_WITH_N8N_EVENT_SHARED_SECRET';\nif (!supplied || supplied !== expected) throw new Error('Invalid agent event secret');\nconst body = req.body || req;\nif (!body.eventType) throw new Error('eventType is required');\nreturn [{json:{...body, ingressReceivedAt:new Date().toISOString()}}];"
+        "jsCode": "const req = $input.first().json;\nconst headers = req.headers || {};\nconst supplied = headers['x-iuc-agent-secret'] || headers['X-IUC-Agent-Secret'] || '';\nconst expected=$vars.N8N_EVENT_SHARED_SECRET;\nif (!supplied || supplied !== expected) throw new Error('Invalid agent event secret');\nconst body = req.body || req;\nif (!body.eventType) throw new Error('eventType is required');\nreturn [{json:{...body, ingressReceivedAt:new Date().toISOString()}}];"
       },
       "id": "normalize",
       "name": "Validate + Normalize Event",
@@ -39,7 +39,7 @@
           "parameters": [
             {
               "name": "X-IUC-Agent-Secret",
-              "value": "REPLACE_WITH_N8N_EVENT_SHARED_SECRET"
+              "value": "={{ $vars.N8N_EVENT_SHARED_SECRET }}"
             }
           ]
         },

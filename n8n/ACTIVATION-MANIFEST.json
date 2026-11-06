@@ -121,7 +121,7 @@
     "Run controlled test cases before enabling real production event handoff.",
     "Admission V2 remains source of truth. n8n orchestrates; it does not replace existing deterministic transaction functions.",
     "Academic decisions remain human-authorised.",
-    "Acceptance must complete before SKY activation; SKY must be ACTIVATED before Orientation.",
+    "SKY activation may proceed after Prospect completion + SKY Prospect ID + Fee Group; Acceptance remains an independent milestone and both Acceptance + SKY ACTIVATED are required before Orientation.",
     "Agentic Academic Handover requires Acceptance + SKY ACTIVATED + Orientation COMPLETED + Handover READY."
   ],
   "controlledTests": [
@@ -146,5 +146,5 @@
   "definitionOfDone": "REQUESTED -> EXECUTED -> VERIFIED -> COMPLETED; otherwise RETRY / WAITING_HUMAN / NEEDS_INVESTIGATION.",
   "workflowCount": 13,
   "validationStatus": "CURRENT_SET_EXPECTED_TO_PASS_CI",
-  "lastArchitectureUpdate": "Offer automation + post-acceptance SKY gate + Management Intelligence"
+  "lastArchitectureUpdate": "Independent SKY activation gate + Acceptance/SKY dual gate before Orientation"
 }

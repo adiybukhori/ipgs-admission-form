@@ -19,7 +19,7 @@
     },
     {
       "parameters": {
-        "jsCode": "const req=$input.first().json;\nconst h=req.headers||{};\nconst supplied=h['x-iuc-agent-secret']||h['X-IUC-Agent-Secret']||'';\nconst expected='REPLACE_WITH_N8N_EVENT_SHARED_SECRET';\nif(supplied!==expected) throw new Error('Invalid orchestrator secret');\nconst e=req.body||req;\nconst eventType=String(e.eventType||'').toUpperCase();\nconst toStage=String(e.toStage||e.data?.nextStage||'').toUpperCase();\nlet target='NO_ROUTE';\n\nconst routes={\n  APPLICATION_SUBMITTED:'DOCUMENT_AUTOMATION',\n  DOCUMENT_COMPLETENESS_CONFIRMED:'COMPLIANCE',\n  DOCUMENT_REVIEW_COMPLETED:'COMPLIANCE',\n  DOCUMENT_REPLACEMENT_RECEIVED:'COMPLIANCE',\n  DOCUMENT_QUALITY_PASSED:'ADMISSION_INTELLIGENCE',\n  DOCUMENT_REPLACEMENT_REQUIRED:'STUDENT_CONCIERGE',\n  DOCUMENT_MISSING_REQUIRED:'STUDENT_CONCIERGE',\n  SCREENING_READY_FOR_SAC:'SAC_IA',\n  ACCEPTANCE_COMPLETED:'SYSTEMS_OPERATOR',\n  PROSPECT_COMPLETED:'SYSTEMS_OPERATOR',\n  SKY_ACTIVATION_READY:'SYSTEMS_OPERATOR',\n  SKY_ACTIVATED:'ORIENTATION',\n  ORIENTATION_COMPLETED:'ACADEMIC_HANDOVER',\n  PROVISIONING_READY_TO_NOTIFY:'ACADEMIC_HANDOVER'\n};\n\ntarget=routes[eventType]||'NO_ROUTE';\n\nif(['SAC_DECISION_RECORDED','IA_OUTCOME_RECORDED','PREREQUISITE_OUTCOME_RECORDED'].includes(eventType)){\n  target=toStage==='ELIGIBLE_FOR_OFFER'?'OFFER_AUTOMATION':'SAC_IA';\n}\n\nreturn [{json:{...e,targetAgent:target,resolvedToStage:toStage}}];"
+        "jsCode": "const req=$input.first().json;\nconst h=req.headers||{};\nconst supplied=h['x-iuc-agent-secret']||h['X-IUC-Agent-Secret']||'';\nconst expected=$vars.N8N_EVENT_SHARED_SECRET;\nif(supplied!==expected) throw new Error('Invalid orchestrator secret');\nconst e=req.body||req;\nconst eventType=String(e.eventType||'').toUpperCase();\nconst toStage=String(e.toStage||e.data?.nextStage||'').toUpperCase();\nlet target='NO_ROUTE';\n\nconst routes={\n  APPLICATION_SUBMITTED:'DOCUMENT_AUTOMATION',\n  DOCUMENT_COMPLETENESS_CONFIRMED:'COMPLIANCE',\n  DOCUMENT_REVIEW_COMPLETED:'COMPLIANCE',\n  DOCUMENT_REPLACEMENT_RECEIVED:'COMPLIANCE',\n  DOCUMENT_QUALITY_PASSED:'ADMISSION_INTELLIGENCE',\n  DOCUMENT_REPLACEMENT_REQUIRED:'STUDENT_CONCIERGE',\n  DOCUMENT_MISSING_REQUIRED:'STUDENT_CONCIERGE',\n  SCREENING_READY_FOR_SAC:'SAC_IA',\n  ACCEPTANCE_COMPLETED:'SYSTEMS_OPERATOR',\n  PROSPECT_COMPLETED:'SYSTEMS_OPERATOR',\n  SKY_ACTIVATION_READY:'SYSTEMS_OPERATOR',\n  SKY_ACTIVATED:'ORIENTATION',\n  ORIENTATION_COMPLETED:'ACADEMIC_HANDOVER',\n  PROVISIONING_READY_TO_NOTIFY:'ACADEMIC_HANDOVER'\n};\n\ntarget=routes[eventType]||'NO_ROUTE';\n\nif(['SAC_DECISION_RECORDED','IA_OUTCOME_RECORDED','PREREQUISITE_OUTCOME_RECORDED'].includes(eventType)){\n  target=toStage==='ELIGIBLE_FOR_OFFER'?'OFFER_AUTOMATION':'SAC_IA';\n}\n\nreturn [{json:{...e,targetAgent:target,resolvedToStage:toStage}}];"
       },
       "id": "route",
       "name": "Decide Next Agent",
@@ -256,7 +256,7 @@
           "parameters": [
             {
               "name": "X-IUC-Agent-Secret",
-              "value": "REPLACE_WITH_N8N_EVENT_SHARED_SECRET"
+              "value": "={{ $vars.N8N_EVENT_SHARED_SECRET }}"
             }
           ]
         },
@@ -299,7 +299,7 @@
           "parameters": [
             {
               "name": "X-IUC-Agent-Secret",
-              "value": "REPLACE_WITH_N8N_EVENT_SHARED_SECRET"
+              "value": "={{ $vars.N8N_EVENT_SHARED_SECRET }}"
             }
           ]
         },
@@ -327,7 +327,7 @@
           "parameters": [
             {
               "name": "X-IUC-Agent-Secret",
-              "value": "REPLACE_WITH_N8N_EVENT_SHARED_SECRET"
+              "value": "={{ $vars.N8N_EVENT_SHARED_SECRET }}"
             }
           ]
         },
@@ -355,7 +355,7 @@
           "parameters": [
             {
               "name": "X-IUC-Agent-Secret",
-              "value": "REPLACE_WITH_N8N_EVENT_SHARED_SECRET"
+              "value": "={{ $vars.N8N_EVENT_SHARED_SECRET }}"
             }
           ]
         },
@@ -383,7 +383,7 @@
           "parameters": [
             {
               "name": "X-IUC-Agent-Secret",
-              "value": "REPLACE_WITH_N8N_EVENT_SHARED_SECRET"
+              "value": "={{ $vars.N8N_EVENT_SHARED_SECRET }}"
             }
           ]
         },
@@ -411,7 +411,7 @@
           "parameters": [
             {
               "name": "X-IUC-Agent-Secret",
-              "value": "REPLACE_WITH_N8N_EVENT_SHARED_SECRET"
+              "value": "={{ $vars.N8N_EVENT_SHARED_SECRET }}"
             }
           ]
         },
@@ -439,7 +439,7 @@
           "parameters": [
             {
               "name": "X-IUC-Agent-Secret",
-              "value": "REPLACE_WITH_N8N_EVENT_SHARED_SECRET"
+              "value": "={{ $vars.N8N_EVENT_SHARED_SECRET }}"
             }
           ]
         },
@@ -467,7 +467,7 @@
           "parameters": [
             {
               "name": "X-IUC-Agent-Secret",
-              "value": "REPLACE_WITH_N8N_EVENT_SHARED_SECRET"
+              "value": "={{ $vars.N8N_EVENT_SHARED_SECRET }}"
             }
           ]
         },
@@ -495,7 +495,7 @@
           "parameters": [
             {
               "name": "X-IUC-Agent-Secret",
-              "value": "REPLACE_WITH_N8N_EVENT_SHARED_SECRET"
+              "value": "={{ $vars.N8N_EVENT_SHARED_SECRET }}"
             }
           ]
         },
