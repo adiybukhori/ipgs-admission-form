@@ -489,6 +489,65 @@
     if(result)orientationMessage(`Invitation sent: ${result.sentCount||0}. Skipped: ${result.skippedCount||0}. Failed: ${result.failedCount||0}.`,'ok');
   };
 
+  // Preview uses the branded HTML file; no emails or backend actions are triggered.
+  window.previewOrientationInvitationHtml=async function(sessionId){
+    const session=(db.V2_ORIENTATION_SESSIONS||[]).find(s=>String(s['Orientation Session ID']||'')===String(sessionId));
+    if(!session)return orientationMessage('Orientation session not found. Refresh the page.','error');
+    const student=(db.V2_ORIENTATION_TRACKING||[]).find(s=>String(s['Orientation Session ID']||'')===String(sessionId)&&orientationAssignmentActive(s));
+    if(!student)return orientationMessage('Assign a student before previewing this invitation.','error');
+    const safe=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+    const rawDate=String(session['Session Date']||'').trim();
+    let formattedDate=rawDate;
+    if(/^\d{4}-\d{2}-\d{2}$/.test(rawDate))formattedDate=new Date(rawDate+'T12:00:00+08:00').toLocaleDateString('en-MY',{weekday:'long',day:'numeric',month:'long',year:'numeric',timeZone:'Asia/Kuala_Lumpur'});
+    const time=v=>{
+      const match=String(v||'').match(/^(\d{1,2}):(\d{2})/);
+      if(!match)return String(v||'');
+      const hour=Number(match[1]);
+      return (hour%12||12)+':'+match[2]+' '+(hour>=12?'PM':'AM');
+    };
+    const meet=String(session['Meeting Link']||'').trim();
+    const validMeet=/^https:\/\/meet\.google\.com\/[a-z0-9-]+(?:[/?#].*)?$/i.test(meet);
+    const fields={
+      STUDENT_NAME:student['Student Name']||'Student',
+      SESSION_NAME:session['Orientation Name']||'Postgraduate Orientation',
+      SESSION_DATE:formattedDate,
+      SESSION_TIME:time(session['Start Time'])+' – '+time(session['End Time']),
+      PROGRAMME:student['Programme']||session['Programme Group']||'Postgraduate',
+      MEETING_LINK:validMeet?meet:'#'
+    };
+    try{
+      const response=await fetch('/templates/orientation-invitation.html',{cache:'no-store'});
+      if(!response.ok)throw new Error('HTML template not available (HTTP '+response.status+').');
+      const html=(await response.text()).replace(/{{(STUDENT_NAME|SESSION_NAME|SESSION_DATE|SESSION_TIME|PROGRAMME|MEETING_LINK)}}/g,(_,key)=>safe(fields[key]));
+      document.getElementById('orientationHtmlPreviewModal')?.remove();
+      const overlay=document.createElement('div');
+      overlay.id='orientationHtmlPreviewModal';
+      overlay.style.cssText='position:fixed;inset:0;z-index:10020;background:rgba(17,24,39,.7);display:flex;align-items:center;justify-content:center;padding:14px';
+      const panel=document.createElement('div');
+      panel.style.cssText='background:white;border-radius:16px;width:min(800px,100%);height:min(90vh,900px);display:flex;flex-direction:column;overflow:hidden';
+      const header=document.createElement('div');
+      header.style.cssText='display:flex;justify-content:space-between;gap:12px;align-items:center;padding:16px 20px;border-bottom:1px solid #e5e7eb';
+      const title=document.createElement('strong');
+      title.textContent='Orientation Invitation — HTML Preview';
+      const close=document.createElement('button');
+      close.className='ghost';close.type='button';close.textContent='Close';close.onclick=()=>overlay.remove();
+      header.append(title,close);
+      const notice=document.createElement('div');
+      notice.style.cssText='padding:11px 20px;font-size:12px;line-height:1.5;background:#fff7e6;color:#774f00';
+      notice.textContent=(validMeet?'No email is sent by this preview. ':'Google Meet link missing. ')+
+        'The HTML template is awaiting integration into the Google Apps Script email sender; the Send Invitation action still uses its existing message.';
+      const frame=document.createElement('iframe');
+      frame.title='HTML invitation email preview';
+      frame.setAttribute('sandbox','');
+      frame.style.cssText='width:100%;flex:1;border:0;background:#f3f4f9';
+      frame.srcdoc=html;
+      panel.append(header,notice,frame);
+      overlay.appendChild(panel);
+      overlay.addEventListener('click',e=>{if(e.target===overlay)overlay.remove()});
+      document.body.appendChild(overlay);
+    }catch(e){orientationMessage(e.message||'Unable to preview HTML invitation.','error')}
+  };
+
   window.sendOrientationReminderNow=async function(sessionId){
     const result=await orientationAction('v2SendOrientationReminderNow',{sessionId},'Send an Orientation reminder now to assigned students?');
     if(result)orientationMessage(`Reminder sent: ${result.sentCount||0}. Skipped: ${result.skippedCount||0}. Failed: ${result.failedCount||0}.`,'ok');
@@ -894,6 +953,7 @@
         '<div class="panel" style="box-shadow:none"><div class="panel-head"><h3>Invitation</h3><span>'+m.invited+' / '+m.rows.length+' sent</span></div><div class="panel-body">',
           '<p class="subline" style="margin-top:0">Invitation email is sent only when Registry explicitly clicks Send Invitation.</p>',
           (!m.completed&&!m.ended?'<button class="primary" onclick="orientationDetailDo(\'invite\',\''+esc(m.id)+'\')">Send Pending Invitations</button>':'<span class="badge '+(m.completed?'purple':'amber')+'">'+esc(m.completed?'Record Locked':'Session Ended')+'</span>'),
+          '<button class="ghost" type="button" style="margin-left:8px" onclick="previewOrientationInvitationHtml(\''+esc(m.id)+'\')">Preview HTML</button>',
         '</div></div>',
         '<div class="panel" style="box-shadow:none"><div class="panel-head"><h3>Reminder</h3><span>'+m.reminderEvents+' recorded event(s)</span></div><div class="panel-body">',
           '<p class="subline" style="margin-top:0">Automatic schedule: 3 days · 2 days · 1 day · ~1 hour before the session.</p>',
