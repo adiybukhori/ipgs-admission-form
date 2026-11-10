@@ -481,10 +481,16 @@
   };
 
   window.sendOrientationInvitation=async function(sessionId){
+    const session=(db.V2_ORIENTATION_SESSIONS||[]).find(x=>String(x['Orientation Session ID']||'')===String(sessionId));
+    if(!session)return orientationMessage('Session not found. Refresh the Orientation module.','error');
+    const status=String(session.Status||'').trim().toUpperCase();
+    if(['DRAFT','CANCELLED','COMPLETED','ENDED','CLOSED'].includes(status))return orientationMessage('Session is not scheduled or is already closed. Update the session before sending invitations.','error');
+    const meetingLink=String(session['Meeting Link']||'').trim();
+    if(!/^https:\/\/meet\.google\.com\/[a-z0-9-]+(?:[/?#].*)?$/i.test(meetingLink))return orientationMessage('A valid Google Meet link is required before sending invitations.','error');
     const result=await orientationAction(
       'v2SendOrientationInvitation',
       {sessionId},
-      'Send Orientation invitation now? Only students whose invitation has not been sent will receive the email.'
+      'Important: The branded HTML template is currently a preview only. The existing Google Apps Script sender will send its original email format. Continue sending pending invitations for '+String(session['Orientation Name']||sessionId)+' on '+String(session['Session Date']||'')+' at '+String(session['Start Time']||'')+'? Only unsent invitations will be processed.'
     );
     if(result)orientationMessage(`Invitation sent: ${result.sentCount||0}. Skipped: ${result.skippedCount||0}. Failed: ${result.failedCount||0}.`,'ok');
   };
