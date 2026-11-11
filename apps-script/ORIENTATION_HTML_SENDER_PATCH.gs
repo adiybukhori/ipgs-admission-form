@@ -49,12 +49,10 @@ function ipgsOrientationEmailData_(trackingRow, sessionRow) {
   if (isNaN(date.getTime())) throw new Error('Invalid orientation date.');
   const name = String(trackingRow['Student Name'] || '').trim();
   if (!name) throw new Error('Student name is missing.');
-  const sessionName = String(sessionRow['Orientation Name'] || 'Postgraduate Orientation').trim();
   const displayDate = Utilities.formatDate(date,'Asia/Kuala_Lumpur','EEEE, d MMMM yyyy');
   const displayTime = ipgsOrientationDisplayTime_(sessionRow['Start Time']) + ' – ' +
     ipgsOrientationDisplayTime_(sessionRow['End Time']);
-  const programme = String(trackingRow['Programme'] || sessionRow['Programme Group'] || 'Postgraduate').trim();
-  return {to,name,sessionName,sessionDate:displayDate,displayTime,programme,link};
+  return {to,name,sessionDate:displayDate,displayTime,link};
 }
 
 function ipgsBuildOrientationEmail_(trackingRow, sessionRow) {
@@ -70,23 +68,20 @@ function ipgsBuildOrientationEmail_(trackingRow, sessionRow) {
   }
   const fields = {
     STUDENT_NAME:data.name,
-    SESSION_NAME:data.sessionName,
     SESSION_DATE:data.sessionDate,
     SESSION_TIME:data.displayTime,
-    PROGRAMME:data.programme,
     MEETING_LINK:data.link
   };
-  const htmlBody = template.replace(/{{(STUDENT_NAME|SESSION_NAME|SESSION_DATE|SESSION_TIME|PROGRAMME|MEETING_LINK)}}/g,
+  const htmlBody = template.replace(/{{(STUDENT_NAME|SESSION_DATE|SESSION_TIME|MEETING_LINK)}}/g,
     function(_,key){return ipgsOrientationEmailEscape_(fields[key]);});
   if (/{{[A-Z_]+}}/.test(htmlBody)) throw new Error('Orientation HTML contains an unresolved placeholder.');
-  const subject = '[IUC IPGS] Orientation Invitation – ' + data.sessionName;
+  const subject = '[IUC IPGS] Official Invitation – Postgraduate Student Orientation';
   const body = [
     'Dear ' + data.name + ',',
     '',
-    'You are invited to ' + data.sessionName + '.',
+    'You are invited to the Official Postgraduate Student Orientation.',
     'Date: ' + data.sessionDate,
     'Time: ' + data.displayTime + ' (Malaysia Time)',
-    'Programme: ' + data.programme,
     'Mode: Online via Google Meet',
     'Join: ' + data.link,
     '',
