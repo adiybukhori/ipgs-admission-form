@@ -515,16 +515,14 @@
     const validMeet=/^https:\/\/meet\.google\.com\/[a-z0-9-]+(?:[/?#].*)?$/i.test(meet);
     const fields={
       STUDENT_NAME:student['Student Name']||'Student',
-      SESSION_NAME:session['Orientation Name']||'Postgraduate Orientation',
       SESSION_DATE:formattedDate,
       SESSION_TIME:time(session['Start Time'])+' – '+time(session['End Time']),
-      PROGRAMME:student['Programme']||session['Programme Group']||'Postgraduate',
       MEETING_LINK:validMeet?meet:'#'
     };
     try{
       const response=await fetch('/templates/orientation-invitation.html',{cache:'no-store'});
       if(!response.ok)throw new Error('HTML template not available (HTTP '+response.status+').');
-      const html=(await response.text()).replace(/{{(STUDENT_NAME|SESSION_NAME|SESSION_DATE|SESSION_TIME|PROGRAMME|MEETING_LINK)}}/g,(_,key)=>safe(fields[key]));
+      const html=(await response.text()).replace(/{{(STUDENT_NAME|SESSION_DATE|SESSION_TIME|MEETING_LINK)}}/g,(_,key)=>safe(fields[key]));
       document.getElementById('orientationHtmlPreviewModal')?.remove();
       const overlay=document.createElement('div');
       overlay.id='orientationHtmlPreviewModal';
