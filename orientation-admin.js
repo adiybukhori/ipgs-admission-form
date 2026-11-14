@@ -72,6 +72,7 @@
 
   function orientationSessionEnded(session){
     const status=String(session?.['Status']||'').trim().toUpperCase();
+    if(status==='DRAFT')return false;
     if(['ENDED','CANCELLED','CLOSED','COMPLETED'].includes(status))return true;
     const end=orientationSessionEndDate(session);
     return !!(end&&end.getTime()<=Date.now());
@@ -734,8 +735,15 @@
   };
 
   window.markOrientationAttendance=async function(sessionId,referenceNo,status){
-    const result=await orientationAction('v2UpdateOrientationAttendance',{sessionId,referenceNo,attendanceStatus:status},`Mark this student as ${pretty(status)}?`);
-    if(result)orientationMessage(`Attendance updated to ${pretty(status)}.`,'ok');
+    if(!['ATTENDED','ABSENT','EXCUSED'].includes(String(status||'').toUpperCase()))return false;
+    const session=(db.V2_ORIENTATION_SESSIONS||[]).find(x=>String(x['Orientation Session ID']||'')===String(sessionId));
+    if(!session||String(session.Status||'').toUpperCase()==='COMPLETED')return false;
+    const result=await orientationAction('v2UpdateOrientationAttendance',{sessionId,referenceNo,attendanceStatus:status},`Confirm manual attendance status: ${pretty(status)}?`);
+    if(result){
+      orientationMessage(`Attendance updated to ${pretty(status)}.`,'ok');
+      openOrientationSessionDetail(sessionId,'attendance');
+    }
+    return !!result;
   };
 
   function populateOrientationIntakes(){
@@ -793,6 +801,7 @@
 
   function orientationCurrentStage(session,m){
     if(m.completed)return 'Completed';
+    if(m.storedStatus==='DRAFT')return 'Draft Setup';
     if(m.ended){
       if(m.attendanceState==='OPEN'||m.pendingAttendance>0)return 'Attendance Review';
       if(!m.recordingUrl||m.recordingSent<m.deliverableRecording)return 'Recording';
@@ -806,6 +815,7 @@
 
   function orientationOperationalStatus(session,m){
     if(m.completed)return {label:'Completed',cls:'purple'};
+    if(m.storedStatus==='DRAFT')return {label:'Draft - Setup Required',cls:'amber'};
     if(m.attendanceState==='OPEN')return {label:'In Progress',cls:'green'};
     if(m.ended)return {label:'Action Required',cls:'amber'};
     if(!m.rows.length||m.invited<m.rows.length)return {label:'Setup Required',cls:'amber'};
@@ -813,6 +823,11 @@
   }
 
   function orientationNextAction(session,m){
+    if(m.storedStatus==='DRAFT')return {
+      title:'Draft session — complete setup',
+      text:'This session has not been confirmed. Verify the date, time and meeting link before sending any invitation or recording attendance.',
+      buttons:[['primary','Edit Session','edit'],['ghost','Review Students','manage']]
+    };
     if(m.completed)return {
       title:'Orientation record completed',
       text:'The official report is available for viewing and download.',
@@ -830,7 +845,7 @@
       if(m.pendingAttendance>0)return {
         title:'Resolve attendance records',
         text:m.pendingAttendance+' student attendance record(s) still need a final status before completion.',
-        buttons:[['primary','Review Students','manage']]
+        buttons:[['primary','Review Attendance','reviewAttendance']]
       };
       if(!m.recordingUrl)return {
         title:'Add orientation recording',
@@ -841,6 +856,11 @@
         title:'Send orientation recording',
         text:'The recording link is ready. Send it to students before completion.',
         buttons:[['primary','Send Recording','sendRecording'],['ghost','Edit Recording','recording']]
+      };
+      if(m.storedStatus==='SCHEDULED')return {
+        title:'End session in ACC',
+        text:'Attendance and recording steps have been reviewed. Officially end the scheduled session before generating the completion report.',
+        buttons:[['primary','End Session','end'],['ghost','Review Attendance','reviewAttendance']]
       };
       return {
         title:'Ready to complete Orientation',
@@ -875,8 +895,8 @@
       ['Setup',true],
       ['Students',m.rows.length>0],
       ['Invitation',m.rows.length>0&&m.invited>=m.rows.length],
-      ['Session',m.ended||m.completed],
-      ['Attendance',(m.ended||m.completed)&&m.pendingAttendance===0&&m.attendanceState!=='OPEN'],
+      ['Session',m.storedStatus!=='DRAFT'&&(m.ended||m.completed)],
+      ['Attendance',m.storedStatus!=='DRAFT'&&(m.ended||m.completed)&&m.pendingAttendance===0&&m.attendanceState!=='OPEN'],
       ['Recording',!!m.recordingUrl&&m.recordingSent>=m.deliverableRecording],
       ['Complete',m.completed]
     ];
@@ -900,7 +920,13 @@
 
   function orientationDetailOverviewHtml(session,m){
     const date=[session['Session Date'],[session['Start Time'],session['End Time']].filter(Boolean).join(' - ')].filter(Boolean).join(' · ');
+    const warnings=[];
+    if(m.storedStatus==='DRAFT')warnings.push('Draft only — no invitation should be sent until the session is confirmed.');
+    if(!String(session['Meeting Link']||'').trim()&&String(session['Mode']||'ONLINE').toUpperCase()!=='PHYSICAL')warnings.push('Google Meet link is missing.');
+    if(m.storedStatus!=='DRAFT'&&m.rows.length>m.invited)warnings.push((m.rows.length-m.invited)+' assigned student(s) have no sent invitation record in ACC.');
+    if(m.ended&&m.storedStatus!=='DRAFT'&&m.pendingAttendance>0)warnings.push(m.pendingAttendance+' attendance status(es) still need to be reconciled.');
     return [
+      (warnings.length?'<div class="message" style="display:block;background:#fff8eb;color:#7b5700;margin-bottom:14px"><b>Session checks</b><div style="margin-top:7px">'+warnings.map(function(w){return '• '+esc(w)}).join('<div style="height:4px"></div>')+'</div></div>':''),
       '<div class="detail-grid">',
         '<div class="panel" style="box-shadow:none"><div class="panel-head"><h3>Session Details</h3></div><div class="panel-body">',
           '<div class="detail-grid">',
@@ -955,12 +981,12 @@
     return [
       '<div class="detail-grid">',
         '<div class="panel" style="box-shadow:none"><div class="panel-head"><h3>Invitation</h3><span>'+m.invited+' / '+m.rows.length+' sent</span></div><div class="panel-body">',
-          '<p class="subline" style="margin-top:0">Invitation email is sent only when Registry explicitly clicks Send Invitation.</p>',
+          '<p class="subline" style="margin-top:0">Invitation email is sent only when Registry explicitly clicks Send Invitation. The branded HTML preview is NOT the live sender until the Apps Script integration is deployed.</p>',
           (!m.completed&&!m.ended?'<button class="primary" onclick="orientationDetailDo(\'invite\',\''+esc(m.id)+'\')">Send Pending Invitations</button>':'<span class="badge '+(m.completed?'purple':'amber')+'">'+esc(m.completed?'Record Locked':'Session Ended')+'</span>'),
           '<button class="ghost" type="button" style="margin-left:8px" onclick="previewOrientationInvitationHtml(\''+esc(m.id)+'\')">Preview HTML</button>',
         '</div></div>',
         '<div class="panel" style="box-shadow:none"><div class="panel-head"><h3>Reminder</h3><span>'+m.reminderEvents+' recorded event(s)</span></div><div class="panel-body">',
-          '<p class="subline" style="margin-top:0">Automatic schedule: 3 days · 2 days · 1 day · ~1 hour before the session.</p>',
+          '<p class="subline" style="margin-top:0">Configured intervals: 3 days · 2 days · 1 day · ~1 hour before. These counters reflect ACC records only; verify that the automatic scheduler is active before relying on it.</p>',
           (!m.completed&&!m.ended?'<button class="ghost" onclick="orientationDetailDo(\'reminder\',\''+esc(m.id)+'\')">Send Reminder Now</button>':''),
         '</div></div>',
       '</div>',
@@ -987,10 +1013,45 @@
     return values.reduce(function(a,b){return a+b;},0)/values.length;
   }
 
+  function orientationManualAttendanceHtml(session,m,row){
+    if(m.completed)return '<span class="subline">Record locked</span>';
+    if(m.storedStatus==='DRAFT'||m.storedStatus==='CANCELLED')return '<span class="subline">Not available for draft/cancelled session</span>';
+    if(!m.ended&&m.attendanceState!=='OPEN')return '<span class="subline">Available during or after the session</span>';
+    const ref=encodeURIComponent(String(row['Reference No']||''));
+    if(!ref)return '<span class="subline">Reference missing</span>';
+    return '<select class="compact" data-ori-attendance-ref="'+esc(ref)+'" aria-label="Update attendance for '+esc(row['Student Name']||'student')+'" style="min-width:142px">'+
+      '<option value="">Set status...</option>'+
+      '<option value="ATTENDED">Attended</option>'+
+      '<option value="ABSENT">Absent</option>'+
+      '<option value="EXCUSED">Excused</option>'+
+      '</select>';
+  }
+
+  window.exportOrientationAttendanceCsv=function(sessionId){
+    const session=(db.V2_ORIENTATION_SESSIONS||[]).find(function(x){return String(x['Orientation Session ID']||'')===String(sessionId);});
+    if(!session)return orientationMessage('Orientation session not found.','error');
+    const m=orientationSessionMetrics(session);
+    const csvCell=function(v){
+      let x=String(v==null?'':v);
+      if(/^[=+@\-\t\r]/.test(x))x="'"+x; // Prevent formula evaluation in spreadsheet viewers.
+      return '"'+x.replace(/"/g,'""')+'"';
+    };
+    const columns=['Student Name','Reference No','Programme','Student Email','Invitation Status','Attendance Status','Attendance Source','Attendance Submitted At','Feedback Status','Recording Email Status'];
+    const data=[columns].concat(m.rows.map(function(row){return columns.map(function(key){return row[key]||''})}));
+    const content='\uFEFF'+data.map(function(row){return row.map(csvCell).join(',')}).join('\r\n');
+    const blob=new Blob([content],{type:'text/csv;charset=utf-8;'});
+    const url=URL.createObjectURL(blob),a=document.createElement('a');
+    a.href=url;
+    a.download='Orientation_Attendance_'+String(sessionId).replace(/[^a-z0-9_-]/gi,'_')+'.csv';
+    document.body.appendChild(a);a.click();a.remove();
+    setTimeout(function(){URL.revokeObjectURL(url)},1000);
+  };
+
   function orientationDetailAttendanceHtml(session,m){
     const avg=orientationFeedbackAverage_(m.rows);
     return [
-      '<div style="display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:10px;margin-bottom:14px">',
+      '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(125px,1fr));gap:10px;margin-bottom:14px">',
+        '<div class="kpi" style="padding:13px"><div class="label">PENDING</div><div class="value" style="font-size:23px">'+m.pendingAttendance+'</div></div>',
         '<div class="kpi" style="padding:13px"><div class="label">ATTENDED</div><div class="value" style="font-size:23px">'+m.attended+'</div></div>',
         '<div class="kpi" style="padding:13px"><div class="label">ABSENT</div><div class="value" style="font-size:23px">'+m.absent+'</div></div>',
         '<div class="kpi" style="padding:13px"><div class="label">EXCUSED</div><div class="value" style="font-size:23px">'+m.excused+'</div></div>',
@@ -1001,16 +1062,19 @@
         (!m.completed&&m.attendanceState!=='OPEN'?'<button class="primary" onclick="orientationDetailDo(\'openAttendance\',\''+esc(m.id)+'\')">Open Attendance</button>':''),
         (!m.completed&&m.attendanceState==='OPEN'?'<button class="primary" onclick="orientationDetailDo(\'closeAttendance\',\''+esc(m.id)+'\')">Close Attendance</button><button class="ghost" onclick="orientationDetailDo(\'qr\',\''+esc(m.id)+'\')">Show QR</button>':''),
         '<button class="ghost" onclick="orientationDetailDo(\'manage\',\''+esc(m.id)+'\')">Review Student Records</button>',
+        '<button class="ghost" type="button" onclick="exportOrientationAttendanceCsv(\''+esc(m.id)+'\')">Export Attendance CSV</button>',
       '</div>',
-      '<div class="table-wrap"><table><thead><tr><th>Student</th><th>Attendance</th><th>Check-in</th><th>Source</th><th>Feedback</th></tr></thead><tbody>',
+      '<div class="subline" style="margin:0 0 8px">To reconcile attendance, use the Manual Update selector for each student. Every change requires confirmation and is saved through the ACC action service.</div>',
+      '<div class="table-wrap"><table><thead><tr><th>Student</th><th>Attendance</th><th>Check-in</th><th>Source</th><th>Feedback</th><th>Manual Update</th></tr></thead><tbody>',
       m.rows.map(function(x){
         return '<tr><td>'+esc(x['Student Name']||'-')+'</td>'+
           '<td><span class="badge '+classifyBadge(x['Attendance Status']||'NOT_UPDATED')+'">'+esc(pretty(x['Attendance Status']||'NOT_UPDATED'))+'</span></td>'+
           '<td>'+esc(x['Attendance Submitted At']||'-')+'</td>'+
           '<td>'+esc(pretty(x['Attendance Source']||'-'))+'</td>'+
-          '<td><span class="badge '+classifyBadge(x['Feedback Status']||'NOT_SUBMITTED')+'">'+esc(pretty(x['Feedback Status']||'NOT_SUBMITTED'))+'</span></td></tr>';
+          '<td><span class="badge '+classifyBadge(x['Feedback Status']||'NOT_SUBMITTED')+'">'+esc(pretty(x['Feedback Status']||'NOT_SUBMITTED'))+'</span></td>'+
+          '<td>'+orientationManualAttendanceHtml(session,m,x)+'</td></tr>';
       }).join('')+
-      (m.rows.length?'':'<tr><td colspan="5" class="empty">No student attendance record yet.</td></tr>')+
+      (m.rows.length?'':'<tr><td colspan="6" class="empty">No student attendance record yet.</td></tr>')+
       '</tbody></table></div>'
     ].join('');
   }
@@ -1065,6 +1129,7 @@
     if(action==='edit')return openOrientationEdit(sessionId);
     if(action==='addStudents')return openOrientationStudents(sessionId);
     if(action==='manage')return openOrientationManageStudents(sessionId);
+    if(action==='reviewAttendance')return openOrientationSessionDetail(sessionId,'attendance');
     if(action==='invite')return sendOrientationInvitation(sessionId);
     if(action==='reminder')return sendOrientationReminderNow(sessionId);
     if(action==='openAttendance')return openOrientationAttendance(sessionId);
@@ -1084,7 +1149,7 @@
   }
   window.closeOrientationSessionDetail=closeOrientationSessionDetail;
 
-  window.openOrientationSessionDetail=function(sessionId){
+  window.openOrientationSessionDetail=function(sessionId,preferredTab){
     const session=(db.V2_ORIENTATION_SESSIONS||[]).find(function(s){return String(s['Orientation Session ID']||'')===String(sessionId);});
     if(!session)return orientationMessage('Orientation Session not found.','error');
     closeOrientationSessionDetail();
@@ -1092,6 +1157,7 @@
     const stage=orientationCurrentStage(session,m);
     const opStatus=orientationOperationalStatus(session,m);
     const next=orientationNextAction(session,m);
+    const initialTab=['overview','students','communication','attendance','recording','activity'].includes(preferredTab)?preferredTab:'overview';
     const date=[session['Session Date'],[session['Start Time'],session['End Time']].filter(Boolean).join(' - ')].filter(Boolean).join(' · ');
 
     const overlay=document.createElement('div');
@@ -1120,7 +1186,7 @@
             '<button class="ghost" data-ori-tab="recording">Recording & Completion</button>',
             '<button class="ghost" data-ori-tab="activity">Activity</button>',
           '</div>',
-          '<div id="orientationDetailTabBody">'+orientationDetailTabHtml(session,m,'overview')+'</div>',
+          '<div id="orientationDetailTabBody">'+orientationDetailTabHtml(session,m,initialTab)+'</div>',
         '</div>',
       '</div>'
     ].join('');
@@ -1136,8 +1202,20 @@
         if(body)body.innerHTML=orientationDetailTabHtml(session,m,target);
       };
     });
-    const first=overlay.querySelector('[data-ori-tab="overview"]');
+    const first=overlay.querySelector('[data-ori-tab="'+initialTab+'"]');
     if(first){first.classList.remove('ghost');first.classList.add('primary');}
+    overlay.addEventListener('change',function(event){
+      const target=event.target;
+      if(!target||!target.matches||!target.matches('[data-ori-attendance-ref]'))return;
+      const status=String(target.value||'').toUpperCase();
+      if(!['ATTENDED','ABSENT','EXCUSED'].includes(status))return;
+      let ref='';
+      try{ref=decodeURIComponent(String(target.dataset.oriAttendanceRef||''));}catch(_){target.value='';return;}
+      target.disabled=true;
+      Promise.resolve(markOrientationAttendance(sessionId,ref,status)).then(function(ok){
+        if(!ok){target.disabled=false;target.value='';}
+      }).catch(function(){target.disabled=false;target.value='';});
+    });
   };
 
   window.renderOrientation=function(){
