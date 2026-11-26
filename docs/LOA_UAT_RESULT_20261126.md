@@ -1,3 +1,5 @@
+**ARCHITECTURE UPDATE (26 Nov 2026):** This is the historical test of Apps Script v131 and its failure modes. ACC now has its own native issuance path on the feature branch. Do not interpret older Apps Script policy file references below as active; those staged files were removed. Production Apps Script v131 remains unchanged. See `docs/ACC_NATIVE_LOA_CUTOVER_20261126.md`.
+
 # LOA UAT Verification Run — 26 November 2026
 
 ## Decision
