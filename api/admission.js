@@ -146,6 +146,25 @@ export default async function handler(req, res) {
   res.setHeader('Cache-Control', 'no-store');
   res.setHeader('X-Admission-Proxy-Version', 'v3-durable-receipt-20261006');
 
+  // Public programme names only. Never expose PIC emails or internal fields.
+  if(req.method==='GET'&&String(req.query?.programmes||'')==='1'){
+    const url=String(process.env.SUPABASE_URL||process.env.NEXT_PUBLIC_SUPABASE_URL||'').replace(/\/$/,'');
+    const key=String(process.env.SUPABASE_SERVICE_ROLE_KEY||'');
+    if(!url||!key)return res.status(503).json({ok:false,programmes:[]});
+    try{
+      const response=await fetch(url+'/rest/v1/acc_programme_coordinators?select=programme_code,programme_name,level,is_active&is_active=eq.true&order=programme_code.asc',
+        {headers:{apikey:key,Authorization:'Bearer '+key}});
+      if(!response.ok)throw Error('Programme directory unavailable.');
+      const rows=await response.json();
+      const programmes=(Array.isArray(rows)?rows:[]).filter(x=>
+        /^[A-Z][A-Z0-9]{1,14}$/.test(String(x.programme_code||''))&&
+        String(x.programme_name||'').length>=4&&
+        ['Postgraduate Diploma','Bachelor','Master','Doctorate'].includes(String(x.level||''))&&
+        !['DBAODL','DPLI'].includes(String(x.programme_code||'')))
+        .map(x=>({code:x.programme_code,name:x.programme_name,level:x.level}));
+      return res.status(200).json({ok:true,programmes});
+    }catch(_){return res.status(503).json({ok:false,programmes:[]});}
+  }
   if (req.method !== 'POST') {
     return res.status(405).json({ ok: false, message: 'Method not allowed' });
   }
