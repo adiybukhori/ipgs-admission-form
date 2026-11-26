@@ -82,3 +82,12 @@ Keep legacy V1 and V2 production flows available until ACC native UAT and initia
 - Updated the static `loa-email-premium-preview.html` and regression tests to assert three card structures, original explanatory copy and all four buttons. Node test suite run on user's authorised desktop: **PASS**.
 - UAT email `[UAT DESIGN PREVIEW #4] IUC LOA – Redesigned Student Onboarding` sent from connected IPGS Admission account to authorised Registry inbox with four synthetic PDFs. Independent sent+received records verified (HTML + 4 attachments). **This is design preview only, not production ACC issuance.**
 - Pending: user design approval; integrate Registry sender and ACC-specific electronic Acceptance token with the signing backend before any live email. Existing Apps Script v131 and ACC production remain untouched.
+
+
+## 26 Nov 2026 — official IPGS header and PIC directory (#5)
+- User rejected the manually recreated purple IUC header and the weak lavender `Your Admission Details` card. Replaced the header with the **exact approved** `assets/email/IPGS_Official_Email_Header.jpg` from the repository, hosted at `https://ipgs-admission-form.innovative.edu.my/assets/email/IPGS_Official_Email_Header.jpg` (HEAD 200, JPEG verified), while retaining a compact purple congratulatory section below.
+- Admission summary rebuilt as an elegant white `ADMISSION AT A GLANCE` panel with a gold left rule, formal offer-confirmed label, programme title, matrix number, intake and study mode (when available).
+- Added `Meet Your IPGS Support Team` panel with academic coordinator per programme where a verified staff contact exists, plus `IPGS Registry & Admissions` for student records and onboarding. MBA: Muhammad Naqiyuddin Bin Mohd Jihat, `naqiyuddin.ipgs@innovative.edu.my`; MBM: Abuzar Bin Azizan, `abuzar@innovative.edu.my`; PhD and DBA: Noorus Sarah, `noorus.sarah@innovative.edu.my`. User's historical programme assignment context was matched against Google Contacts for actual email and full name; **the association itself still awaits user confirmation for official use**. Unmapped programmes show Registry only.
+- No PIC personal telephone numbers were guessed or published.
+- Static preview updated and synthetic email `[UAT DESIGN PREVIEW #5] IUC LOA – Official IPGS Header & Support Team` delivered and independently found in Registry test inbox with four PDFs.
+- Offline Node regression tests (including programme contacts, missing PIC fallback, admission summary and header) passed on authorised user desktop. Production not modified.
