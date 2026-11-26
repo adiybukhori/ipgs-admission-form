@@ -2378,7 +2378,8 @@
     function accLoaPreviewMode(){return location.hostname!=='ipgs-admission-form.innovative.edu.my';}
     function accCoordinatorForLoa(r){
  const raw=String(r?.app?.['Programme']||'').trim();
- const found=(raw.match(/^(PGDT|DPLI|MBA|MBM|MHUM|MIS|PHD|DBA|MEDU|BBA)\b/i)||[])[1];
+ if(/^DBA\s+ODL\b/i.test(raw)||/Diploma in Business Administration\s*(?:\(?ODL\)?)/i.test(raw))return null;
+ const found=(raw.match(/^([A-Za-z][A-Za-z0-9]{1,14})(?=\s*[-–+]\s*|$)/)||[])[1];
  const code=found?.toUpperCase()==='DPLI'?'PGDT':String(found||'').toUpperCase();
  if(!code)return null;
  return (db.ACC_PROGRAMME_COORDINATORS||[]).find(row=>
