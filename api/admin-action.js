@@ -341,6 +341,10 @@ export default async function handler(req, res) {
     return res.status(400).json({ ok: false, message: 'Unsupported or unapproved Admin V2 action.' });
   }
 
+  // Preview uses read-only ACC application data. Never allow action endpoints
+  // to mutate real external Sheet, Supabase, Drive or send student emails.
+  if(process.env.VERCEL_ENV==='preview')return res.status(403).json({ok:false,code:'PREVIEW_READ_ONLY',message:'ACC testing preview is read-only. No student actions or LOA emails are allowed.'});
+
   const password = String(body.password || '');
   if (!password) return res.status(401).json({ ok: false, message: 'Admin password is required.' });
 
