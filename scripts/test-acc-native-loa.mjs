@@ -7,8 +7,10 @@ const native=readFileSync(new URL('../lib/loa-native.js',import.meta.url),'utf8'
   .replace(/export (const|function|async function)/g,'$1');
 const email=readFileSync(new URL('../lib/loa-v1-email.js',import.meta.url),'utf8')
   .replace(/export \{[^}]+\};/g,'');
+const htmlTemplate=readFileSync(new URL('../lib/loa-v1-html.js',import.meta.url),'utf8')
+  .replace('export function renderLegacyLoaHtml','function renderLegacyLoaHtml');
 const context={process:{env:{}},URLSearchParams,Intl,Date,RegExp,String,Object,Array,JSON};
-runInNewContext(native+'\n'+email,context,{timeout:2000});
+runInNewContext(native+'\n'+email+'\n'+htmlTemplate,context,{timeout:2000});
 const app={'Student Folder URL':'https://drive.google.com/drive/folders/1SyntheticTest',
   'Student Name':'SYNTHETIC UAT','Personal Email':'uat@example.invalid',
   'ID / Passport No':'TEST-001','Programme':'MBA - Master of Business Administration',
@@ -26,4 +28,9 @@ assert.equal(context.accNativeLoaReadiness({}).ready,false);
 const result=context.v2LoaV1MailContract_(app.Programme,'2601001','MBA',app['ID / Passport No']);
 assert.equal(result.attachmentNames.length,4);
 assert.ok(result.body.includes('Student Matrix No.: 2601001'));
+const html=context.renderLegacyLoaHtml(app.Programme,'2601001');
+assert.ok(html.includes('<ol>'),'Original numbered list missing');
+assert.ok(html.includes('<b>Official Offer Letter</b>'),'Original document bold missing');
+assert.ok(html.includes('href="https://innovative.vialing.com/sp/login"'),'Original portal hyperlink missing');
+assert.ok(html.includes('2601001')&&!html.includes('{{'),'Template placeholders remain');
 console.log('ACC native LOA: PASS — 4 SAC/IA/PR scenarios, invalid matric, duplicate, offline-safe gate and four PDFs.');
