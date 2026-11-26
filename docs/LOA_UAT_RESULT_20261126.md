@@ -39,3 +39,9 @@
 
 ## Additional dependent Acceptance finding
 - `OfferLetterV2.js → v2AcceptOffer_` currently accepts only `OFFER_ISSUED` or `ACCEPTANCE_PENDING` stage and then overwrites `Application Stage` with `ACCEPTED`. If LOA issuance preserves `READY_FOR_SAC` as required, **Acceptance will fail until this gate is also changed**. Both LOA and Acceptance status must be independently tracked without mutating SAC/IA/Prerequisite stage.
+
+## Single-policy clean-up staged (26 Nov, subsequent verification)
+- Added `apps-script/LOA_V2_SINGLE_POLICY.js` (NOT installed in Apps Script): **one** Registry-confirmed seven-digit matric criterion, explicit ACC-Applications source, duplicate issue prevention, mismatched SKY ID protection and assertions that SAC/IA/Prerequisite status cannot change.
+- Added `scripts/test-loa-v2-single-policy.mjs`. Deterministic test cases pass for Ready for SAC, IA Pending, Prerequisite Pending, Eligible for Offer, missing matric, non-ACC caller, duplicate LOA, SKY mismatch, stage preservation and exactly four PDFs.
+- Updated the ACC server issue payload with explicit `source:'ACC_APPLICATIONS'` to agree with the staged Apps Script policy. The fail-closed parity readiness flag remains unset.
+- Attempted to reopen the authorised Windows desktop with the deployed Apps Script source in order to apply the changes coherently. Remote Desktop Commander did not respond; a read operation timed out. **No Apps Script source or live deployment was changed.** Once connectivity is available, patch `OfferLetterV2.js`, `NotificationEngineV2.js`, `AcceptancePackV2.js`, `AgenticBridgeV2.js` and their call sites together, then run isolated synthetic integration tests before any deployment.
