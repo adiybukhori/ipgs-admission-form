@@ -77,6 +77,13 @@
     @media(prefers-reduced-motion:reduce){.login-overlay,.login-loader,.login-logo-card,.login-brand-spark,.login-pulse span,.login-brand-stage::before,.login-brand-stage::after{animation:none!important;transition:none!important}.login-logo-card,.login-brand-spark{opacity:1;transform:none}}
     .message{font-size:13px;margin-top:12px;padding:10px 12px;border-radius:10px}
     .message.error{background:var(--redSoft);color:var(--red)}
+    .coordinator-form-grid{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+    .coordinator-form-grid label{display:grid;gap:6px;font-size:12px;font-weight:700;color:#504a67}
+    .coordinator-form-grid label.wide{grid-column:1/-1}
+    .coordinator-form-grid input,.coordinator-form-grid select{width:100%;padding:11px 12px;border:1px solid #d8d4e4;border-radius:9px;background:#fff;color:#211c3d;font:inherit}
+    .coordinator-form-grid input:focus,.coordinator-form-grid select:focus{outline:2px solid #b4a1df;outline-offset:1px}
+    .coordinator-active{display:flex;align-items:center;gap:10px;margin-top:17px;font-size:13px;font-weight:700;color:#2c2554}
+    @media(max-width:650px){.coordinator-form-grid{grid-template-columns:1fr}.coordinator-form-grid label.wide{grid-column:auto}}
     .app{min-height:100vh;display:grid;grid-template-columns:250px 1fr}
     .sidebar{position:sticky;top:0;height:100vh;background:#21164f;color:#fff;padding:24px 16px;display:flex;flex-direction:column}
     .side-brand{padding:2px 10px 22px;border-bottom:1px solid rgba(255,255,255,.11);margin-bottom:18px}
@@ -616,6 +623,7 @@
         <button type="button" data-section="handover" onclick="goHandover(this); return false;"><span>Academic Handover</span></button>
         <button type="button" onclick="window.open('/agents.html','_blank')"><span>Academic Consultants</span></button>
         <button data-section="feeStructure" onclick="go('feeStructure',this)"><span>Fee Structure</span></button>
+        <button data-section="programmeDirectory" onclick="go('programmeDirectory',this)"><span>Programme Coordinators</span></button>
         <button data-section="reports" onclick="go('reports',this)"><span>Reports</span></button>
         <button data-section="guide" onclick="go('guide',this)"><span>System Guide</span></button>
       </div>
@@ -856,6 +864,48 @@
           <div class="panel">
             <div class="panel-head"><h3>Fee Structure List</h3><span>Fee Structure Code is the operational value saved into Admission V2 / SKY handoff</span></div>
             <div class="table-wrap"><table><thead><tr><th>Fee Structure</th><th>Scope</th><th>Total Fee</th><th>Payment Plan</th><th>Agent Status</th><th></th></tr></thead><tbody id="feeStructureBody"></tbody></table></div>
+          </div>
+        </section>
+
+
+        <section id="programmeDirectory" class="section">
+          <div class="hero">
+            <div><h2>Programme &amp; Coordinator Directory</h2>
+              <p>Manage the academic PIC for each programme. New programmes and inactive/incomplete PIC records cannot issue an official LOA.</p>
+            </div>
+            <span class="badge amber" id="coordinatorDirectoryStatus">LOADING DIRECTORY</span>
+          </div>
+          <div class="panel" style="margin-bottom:18px">
+            <div class="panel-body" style="display:flex;gap:16px;align-items:center;justify-content:space-between;flex-wrap:wrap">
+              <div><div class="student" id="coordinatorDirectoryCounts">Loading programmes…</div>
+                <div class="subline" id="coordinatorDirectoryMessage">Only fully configured active coordinators may appear in a student LOA.</div>
+              </div>
+              <button class="primary" id="coordinatorDirectoryAdd" type="button" onclick="openCoordinatorEditor()" disabled>+ Add Programme / PIC</button>
+            </div>
+          </div>
+          <div class="panel" id="coordinatorDirectoryEditor" hidden style="margin-bottom:18px">
+            <div class="panel-head"><h3 id="coordinatorDirectoryEditorTitle">Add Programme &amp; Coordinator</h3><span>Changes apply to future LOA messages</span></div>
+            <div class="panel-body">
+              <div class="coordinator-form-grid">
+                <label>Programme Code<input id="coordinatorDirectoryCode" maxlength="15" placeholder="e.g. MEDU" autocomplete="off"></label>
+                <label>Level of Study<select id="coordinatorDirectoryLevel"><option>Postgraduate Diploma</option><option>Bachelor</option><option selected>Master</option><option>Doctorate</option></select></label>
+                <label class="wide">Official Programme Name<input id="coordinatorDirectoryName" maxlength="180" placeholder="Official programme name"></label>
+                <label>Coordinator Full Name<input id="coordinatorDirectoryPerson" maxlength="180" placeholder="Full name as approved"></label>
+                <label>Coordinator Official Email<input id="coordinatorDirectoryEmail" maxlength="240" type="email" placeholder="coordinator@innovative.edu.my"></label>
+                <label class="wide">Coordinator Designation / Role<input id="coordinatorDirectoryRole" maxlength="160" placeholder="Programme Coordinator"></label>
+              </div>
+              <label class="coordinator-active"><input id="coordinatorDirectoryActive" type="checkbox"> Activate Programme for Official LOA (requires all PIC details)</label>
+              <div class="subline" id="coordinatorDirectoryEditorMessage" style="margin-top:10px">Save as inactive until the official coordinator is appointed.</div>
+              <div style="display:flex;gap:10px;justify-content:flex-end;flex-wrap:wrap;margin-top:18px">
+                <button class="ghost" type="button" onclick="closeCoordinatorEditor()">Cancel</button>
+                <button class="primary" id="coordinatorDirectorySave" type="button" onclick="saveCoordinatorDirectory()">Save Programme Coordinator</button>
+              </div>
+            </div>
+          </div>
+          <div class="panel">
+            <div class="panel-head"><h3>Approved Programme Directory</h3><span>Package programmes follow their Master coordinator; DPLI uses PGDT</span></div>
+            <div class="table-wrap"><table><thead><tr><th>Code</th><th>Programme</th><th>Academic Coordinator</th><th>LOA Eligibility</th><th>Action</th></tr></thead>
+              <tbody id="coordinatorDirectoryRows"><tr><td colspan="5">Loading directory…</td></tr></tbody></table></div>
           </div>
         </section>
 
@@ -1276,8 +1326,8 @@
     function decision(r){const sac=String(r.workflow?.['SAC Supabase Decision']||r.workflow?.['SAC Decision']||r.sac?.['Decision']||'').trim();if(sac&&sac.toUpperCase()!=='PENDING')return sac;const s=stage(r);if(s==='READY_FOR_SAC'||s==='SAC_REVIEW'||s==='SAC')return'PENDING_SAC_DECISION';return sac||''}
     function classifyBadge(text=''){const x=String(text).toUpperCase();if(/ACCEPT|QUALIFIED|COMPLETE|FINAL|ISSUED|DIRECT|SKY_ACTIVATED|ACADEMIC_HANDOVER/.test(x))return'green';if(/REJECT|NOT QUAL|INCOMPLETE|DECLIN/.test(x))return'red';if(/PENDING|WAIT|REVIEW|NOT_|READY/.test(x))return'amber';if(/IA|PREREQ|ASSESS|SAC|ORIENTATION/.test(x))return'purple';return'blue'}
     function pretty(s=''){return String(s||'-').replaceAll('_',' ').replace(/\b\w/g,m=>m.toUpperCase())}
-    function renderAll(){populateFilters();renderDashboard();renderApplications();renderSac();renderAssessment();renderReports();if(typeof window.renderAccApplicationCalendar==='function')window.renderAccApplicationCalendar()}
-    function go(id,btn){document.querySelectorAll('.section').forEach(x=>x.classList.remove('active'));document.getElementById(id).classList.add('active');document.querySelectorAll('.nav button').forEach(x=>x.classList.remove('active'));if(btn)btn.classList.add('active');const names={dashboard:'Dashboard',applications:'Applications',sac:'SAC Monitoring',assessment:'IA / Prerequisite',feeStructure:'Fee Structure',reports:'Reports',applicationCalendar:'Application Calendar',guide:'System Guide'};document.getElementById('topTitle').textContent=names[id]||'Admission';syncMobileShortcuts(id);if(id==='applicationCalendar'&&typeof window.loadAccApplicationCalendar==='function')window.loadAccApplicationCalendar()} function goMobile(id){const btn=document.querySelector('.nav button[data-section="'+id+'"]');if(btn)go(id,btn)} function syncMobileShortcuts(id){document.querySelectorAll('[data-mobile-section]').forEach(x=>x.classList.toggle('active',x.dataset.mobileSection===id))}
+    function renderAll(){populateFilters();renderDashboard();renderApplications();renderSac();renderAssessment();renderReports();if(typeof window.renderCoordinatorDirectory==='function')window.renderCoordinatorDirectory();if(typeof window.renderAccApplicationCalendar==='function')window.renderAccApplicationCalendar()}
+    function go(id,btn){document.querySelectorAll('.section').forEach(x=>x.classList.remove('active'));document.getElementById(id).classList.add('active');document.querySelectorAll('.nav button').forEach(x=>x.classList.remove('active'));if(btn)btn.classList.add('active');const names={dashboard:'Dashboard',applications:'Applications',sac:'SAC Monitoring',assessment:'IA / Prerequisite',feeStructure:'Fee Structure',programmeDirectory:'Programme Coordinators',reports:'Reports',applicationCalendar:'Application Calendar',guide:'System Guide'};document.getElementById('topTitle').textContent=names[id]||'Admission';syncMobileShortcuts(id);if(id==='applicationCalendar'&&typeof window.loadAccApplicationCalendar==='function')window.loadAccApplicationCalendar()} function goMobile(id){const btn=document.querySelector('.nav button[data-section="'+id+'"]');if(btn)go(id,btn)} function syncMobileShortcuts(id){document.querySelectorAll('[data-mobile-section]').forEach(x=>x.classList.toggle('active',x.dataset.mobileSection===id))}
     function renderDashboard(){const live=activeV2Records(),total=live.length,attentionGroups=getAttentionGroups(),attention=attentionGroups.reduce((n,x)=>n+x.count,0),offer=live.filter(r=>/ELIGIBLE_FOR_OFFER|OFFER_ISSUED/.test(stage(r))||(stage(r)==='MANUAL_REVIEW'&&String(r.workflow?.['Offer Letter Status']||'').toUpperCase()==='ISSUED')).length,accepted=live.filter(r=>/ACCEPTED|SKY_ACTIVATED|ORIENTATION|ACADEMIC_HANDOVER/.test(stage(r))).length;document.getElementById('kTotal').textContent=total;document.getElementById('kAttention').textContent=attention;document.getElementById('kOffer').textContent=offer;document.getElementById('kAccepted').textContent=accepted;document.getElementById('attentionList').innerHTML=attentionGroups.map(x=>`<div class="attention-item"><div><div class="name">${esc(x.name)}</div><div class="sub">${esc(x.sub)}</div></div><div class="count-pill">${x.count}</div></div>`).join('')||'<div class="empty">No pending cases.</div>';renderBars('programmeBars',countBy(live,r=>r.app['Programme']||'Unspecified'),7);renderBars('intakeBars',countBy(live,r=>r.app['Intake']||r.workflow?.['Intake']||'Unspecified'),7);renderFunnel('dashboardFunnel')}
     function getAttentionGroups(){const live=activeV2Records(),sacReady=live.filter(r=>stage(r)==='READY_FOR_SAC').length,sac=live.filter(r=>/SAC_REVIEW|SAC/.test(stage(r))).length,assessment=live.filter(r=>/INTERNAL_ASSESSMENT|ASSESSMENT|IA|PREREQ/.test(stage(r))).length,manualReview=live.filter(r=>stage(r)==='MANUAL_REVIEW').length,staleOffer=live.filter(r=>stage(r)==='OFFER_ISSUED'&&String(r.workflow?.['Acceptance Remarks']||'').toUpperCase().startsWith('STALE_OFFER_REVIEW')).length,acceptance=live.filter(r=>stage(r)==='OFFER_ISSUED'&&!String(r.workflow?.['Acceptance Remarks']||'').toUpperCase().startsWith('STALE_OFFER_REVIEW')&&!/ACCEPTED|DECLINED/.test(String(r.workflow?.['Acceptance Status']||'').toUpperCase())).length;return[{name:'Ready for SAC',sub:'Applications awaiting SAC assignment / decision',count:sacReady},{name:'SAC decisions',sub:'Candidates assigned and waiting for authorised decision',count:sac},{name:'IA / Prerequisite',sub:'Assessment cases in progress',count:assessment},{name:'Manual review',sub:'Special cases requiring registry verification',count:manualReview},{name:'Stale offer review',sub:'Past-intake offers requiring close, defer or reissue decision',count:staleOffer},{name:'Acceptance follow-up',sub:'Current or future intake offers awaiting acceptance',count:acceptance}].filter(x=>x.count>0)}
     function countBy(arr,getter){const m={};arr.forEach(x=>{const k=String(getter(x)||'Unspecified');m[k]=(m[k]||0)+1});return Object.entries(m).sort((a,b)=>b[1]-a[1])}
@@ -2599,6 +2649,7 @@
   <script src="/handover-admin.js?v=20261006-inline"></script>
   <script src="/activation-admin.js?v=20261012-acc-return-fix2"></script>
   <script src="/fee-structure-admin.js"></script>
+  <script src="/coordinator-directory-admin.js?v=20261126"></script>
   <script src="/system-guide-training.js"></script>
   <script src="/system-guide-training-v2.js"></script>
 <script src="/ia-dashboard-admin.js"></script><script src="/acc-application-calendar-admin.js"></script>
