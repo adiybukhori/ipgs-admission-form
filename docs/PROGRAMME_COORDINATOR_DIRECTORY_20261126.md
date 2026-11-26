@@ -35,7 +35,7 @@ Status: **UAT branch only, not production**.
 - **Native LOA programme parser:** `lib/loa-native.js` → `accNativeLoaReference`.
 - **Email fallback subject:** `lib/loa-v1-email.js`.
 - **Automated regression:** `scripts/test-programme-coordinators.mjs`.
-- **Future self-service enhancement (NOT implemented):** `ACC → Settings → Programme & Coordinator Directory` with programme code, full approved title, level, coordinator, official email, active/inactive status and optional inherited-master mapping. It must use a durable authoritative database and feed both the Admission Form options and LOA renderer; until then, updates require a reviewed code change. Do not tell Registry that a self-service screen already exists.
+- **Branch UAT module now built (NOT LIVE):** ACC sidebar → **Programme Coordinators**. Staff add/update programme codes, approved titles, level, official PIC email, designation and active status; programme becomes eligible for LOA only if active and complete. `coordinator-directory-admin.js`, `api/admin-action.js`, `api/admin-data.js`. Database is defined in `docs/acc-programme-coordinators-staged.sql` but the migration is **not applied to production**, so preview is read-only. New active programme titles can be fetched by the Admission Form from `GET /api/admission?programmes=1` once the database is deployed; the existing dropdown remains the fallback.
 
 ## UAT evidence
 - 12 programme/PIC and package scenarios passed in a local Node test on the authorised desktop on 26 Nov 2026.
