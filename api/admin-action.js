@@ -1,9 +1,11 @@
+import {issueAccNativeLoa,accNativeLoaReadiness} from '../lib/loa-native.js';
+import {renderLegacyLoaEmail} from '../lib/loa-v1-email.js';
 const V2_WEB_APP = 'https://script.google.com/macros/s/AKfycbxasT_HgtRSvTbR_bsa8p17Cm-C2PKn20Ok1kU-AyJmxiKX8kX5EGOtRLwVwNlAL7JB/exec';
 const AUTH_WEB_APP = 'https://script.google.com/macros/s/AKfycbw22-UOsHkaap3dzU16aOjA6XFr7jWGr9qQPfp8F1CQrXboP7YdRZJKKJhHijC3us4/exec';
 
 const ALLOWED_ACTIONS = new Set([
   'v2WorkflowDiagnostics','v2ListWorkflow','v2UpsertFeeStructure','v2SetFeeStructureStatus','v2UpsertAgent','v2AgentAdminStatus','v2UpdateStage','v2RunDocumentReview','v2RegeneratePgAdm01','v2CompleteManualDocumentReview','v2RunQualificationScreening','v2RunAutoAiScreening','v2CompleteManualQualificationScreening','v2RecordAiScreeningResult','v2ConfirmAiScreening','v2GenerateAiScreeningReport','v2RunComplianceDocumentQuality','v2SendDocumentReplacementRequest','v2SendMissingDocumentRequest','v2PrepareSacCoordination','v2PrepareIaCoordination','v2PreparePrerequisiteCoordination','v2PrepareOrientationForAccepted','v2RunOrientationSessionSupervisor','v2PrepareSkyActivation','v2PrepareAcademicHandover','v2PrepareStudentAccessDelivery','v2RunManagementIntelligence','v2AgenticStatus','v2GetAgentCaseState','v2AgentActionGateway','v2RecordAgentActivity','v2CreateHumanTask','v2ResolveHumanTask','v2ListOpenHumanTasks',
-  'v2IssueOffer','v2LoaDiagnostics','v2PrepareAcceptancePack','v2ResendAcceptanceConfirmation','v2CreateSacSession','v2AssignSacCandidate','v2RemoveSacCandidate','v2PrepareSacPack','v2PrepareSacPackAsync','v2GetSacPackPrepareStatus','v2GetSacPackFile','v2SaveSacPackPdf','v2ListSacCandidates','v2RecordSacDecision','v2CreateSacSessionManual','v2UpdateSacSessionManual','v2DeleteSacSessionManual','v2SendSacCalendarInvitationManual','v2RecordSacDecisionManual','v2FinalizeSacSessionManual','v2SacManualPhase1Status','v2SacResultStatus','v2PrepareSacResultDocument','v2PreviewSacResult','v2SendSacResultEmail','v2UpdateAssessment','v2CreateOrientationSession','v2AssignOrientationBatch','v2SendOrientationInvitation','v2RemoveOrientationStudent','v2MoveOrientationStudent','v2UpdateOrientationAttendance','v2SendOrientationReminderNow','v2EndOrientationSession','v2EditOrientationSession','v2OpenOrientationAttendance','v2CloseOrientationAttendance','v2SetOrientationRecording','v2SendOrientationRecording','v2OrientationCompletionAssessment','v2CompleteOrientationAndGenerateReport','v2RegenerateOrientationReport','v2GetOrientationReportFile','v2CreateHandoverSession','v2AddHandoverStudents','v2SendHandoverSession','v2CreateAcademicHandoverBatch','v2ResendAcademicHandoverEmail','v2UpdateProvisioningTask','v2ResendProvisioningTaskEmails','v2SendStudentProvisioningAccess','v2RegistryUpsertProspect','v2RefreshFeeStructure','v2NotifyRegistryProspectReady','v2ActivateStudentInSky','v2SetApplicationAgent','v2MoveApplicationToActivated','v2ReturnApplicationFromActivated','v2ConfirmSkyActivationInAcc'
+  'v2IssueOffer','v2PrepareAcceptancePack','v2ResendAcceptanceConfirmation','v2CreateSacSession','v2AssignSacCandidate','v2RemoveSacCandidate','v2PrepareSacPack','v2PrepareSacPackAsync','v2GetSacPackPrepareStatus','v2GetSacPackFile','v2SaveSacPackPdf','v2ListSacCandidates','v2RecordSacDecision','v2CreateSacSessionManual','v2UpdateSacSessionManual','v2DeleteSacSessionManual','v2SendSacCalendarInvitationManual','v2RecordSacDecisionManual','v2FinalizeSacSessionManual','v2SacManualPhase1Status','v2SacResultStatus','v2PrepareSacResultDocument','v2PreviewSacResult','v2SendSacResultEmail','v2UpdateAssessment','v2CreateOrientationSession','v2AssignOrientationBatch','v2SendOrientationInvitation','v2RemoveOrientationStudent','v2MoveOrientationStudent','v2UpdateOrientationAttendance','v2SendOrientationReminderNow','v2EndOrientationSession','v2EditOrientationSession','v2OpenOrientationAttendance','v2CloseOrientationAttendance','v2SetOrientationRecording','v2SendOrientationRecording','v2OrientationCompletionAssessment','v2CompleteOrientationAndGenerateReport','v2RegenerateOrientationReport','v2GetOrientationReportFile','v2CreateHandoverSession','v2AddHandoverStudents','v2SendHandoverSession','v2CreateAcademicHandoverBatch','v2ResendAcademicHandoverEmail','v2UpdateProvisioningTask','v2ResendProvisioningTaskEmails','v2SendStudentProvisioningAccess','v2RegistryUpsertProspect','v2RefreshFeeStructure','v2NotifyRegistryProspectReady','v2ActivateStudentInSky','v2SetApplicationAgent','v2MoveApplicationToActivated','v2ReturnApplicationFromActivated','v2ConfirmSkyActivationInAcc'
 ]);
 
 async function validateDirectAdmin(password){
@@ -16,9 +18,8 @@ async function validateDirectAdmin(password){
   }catch(_){return false;}
 }
 async function callAppsScriptV2(action,data,password,updatedBy){
-  const isLoa=action==='v2IssueOffer'||action==='v2LoaDiagnostics';
-  const token=isLoa?String(process.env.V2_LOA_API_TOKEN||'').trim():String(process.env.V2_WORKFLOW_API_TOKEN||process.env.V2_ADMIN_API_PASSWORD||password||'').trim();
-  if(isLoa&&!token)throw new Error('LOA service authentication is not configured.');
+  // This bridge serves other legacy workflow actions only. LOA is ACC native.
+  const token=String(process.env.V2_WORKFLOW_API_TOKEN||process.env.V2_ADMIN_API_PASSWORD||password||'').trim();
   const startedAt=Date.now();
   const r=await fetch(V2_WEB_APP,{method:'POST',headers:{'Content-Type':'text/plain;charset=utf-8'},body:JSON.stringify({action,token,data:data||{},updatedBy:updatedBy||'Admin Portal V2'}),redirect:'follow'});
   const text=await r.text();let parsed;try{parsed=JSON.parse(text)}catch(_){throw new Error(`Apps Script SAC backend returned HTTP ${r.status}.`)}
@@ -359,54 +360,36 @@ export default async function handler(req, res) {
     if(serviceRequest && (action==='v2WorkflowDiagnostics'||syntheticOrientation)){
       const direct=await callAppsScriptV2(action,body.data||{},password,'Authorised Registry System Verification');
       result=direct.parsed;bridgeMs=direct.bridgeMs;transport='APPS_SCRIPT_WORKFLOW_VERIFICATION';bridgeWarning=null;
-    }else if(action==='v2IssueOffer'||action==='v2LoaDiagnostics'){
-      // Staff authentication stays separate from the narrowly scoped issuer token.
-      const serviceToken=String(process.env.V2_LOA_API_TOKEN||'').trim();
-      const syntheticTrial=action==='v2IssueOffer'&&body.data?.referenceNo==='IUC-ADM-LOA-UAT-20261013'&&body.data?.testMode===true&&body.data?.testRecipient==='adiybukhori.ipgs@innovative.edu.my';
-      const serviceDiagnostic=action==='v2LoaDiagnostics'||syntheticTrial;
-      if(!(serviceDiagnostic&&serviceToken&&password===serviceToken)&&!(await validateDirectAdmin(password))){const e=new Error('Invalid admin password.');e.code='ADMIN_AUTH_FAILED';throw e;}
-      // New Registry LOA rule: SAC/IA/PR status is not an issuance trigger.
-      // A Registry-confirmed SKY matric number is mandatory, checked server-side.
-      // Preview cannot issue real LOAs or emails; historical UAT diagnostics remain separate.
-      if(action==='v2IssueOffer'&&!syntheticTrial){
-        // Do not call the deployed V2 Apps Script until its stage gates, four-file
-        // email contract and Registry matric verification have passed UAT.
-        if(process.env.V2_LOA_V1_PARITY_READY!=='true')throw new Error('LOA issuance is in controlled migration: legacy email/template parity and Apps Script matric gate have not yet been verified. No email was sent.');
-        if(process.env.VERCEL_ENV&&process.env.VERCEL_ENV!=='production'){
-          throw new Error('LOA delivery is disabled in preview. Use an approved non-student UAT route to test generation.');
-        }
-        if(!supabaseConfig())throw new Error('Registry SKY activation verification is unavailable. LOA issuance is blocked.');
-        const referenceNo=String(body.data?.referenceNo||'').trim();
-        if(!/^IUC-ADM-[\w-]+$/i.test(referenceNo)||referenceNo.length>160)throw new Error('Valid ACC V2 application reference is required.');
-        const [applications,workflows,adminRows]=await Promise.all([
-          accVerifiedSheetRows('V2_APPLICATIONS'),
-          accVerifiedSheetRows('V2_WORKFLOW'),
-          supabaseRequest('acc_application_admin?select=reference_no,sky_activation_status,sky_student_id&reference_no=eq.'+encodeURIComponent(referenceNo)+'&limit=1')
-        ]);
-        const app=applications.find(x=>String(x['Reference No']||'').trim()===referenceNo);
-        if(!app)throw new Error('Application not found. Refresh ACC before issuing an LOA.');
-        if(!String(app['Personal Email']||'').trim())throw new Error('Applicant email is missing; LOA cannot be sent.');
-        const workflow=workflows.filter(x=>String(x['Reference No']||'').trim()===referenceNo).slice(-1)[0]||{};
-        const admin=Array.isArray(adminRows)?adminRows[0]||{}:{};
-        const adminConfirmed=String(admin.sky_activation_status||'').toUpperCase()==='ACTIVATED';
-        const workflowConfirmed=String(workflow['SKY Activation Status']||'').toUpperCase()==='ACTIVATED';
-        const registryMatric=String(adminConfirmed?(admin.sky_student_id||workflow['SKY Student ID']||''):
-          workflowConfirmed?(workflow['SKY Student ID']||''):'').trim();
-        if(!/^\d{7}$/.test(registryMatric)){
-          throw new Error('Confirm the official 7-digit SKY Student ID in ACC before issuing an LOA.');
-        }
-        if(String(body.data?.skyStudentId||'').trim()!==registryMatric){
-          throw new Error('SKY Student ID does not match the current Registry-confirmed value. Refresh and retry.');
-        }
-        const offerStatus=String(workflow['Offer Letter Status']||'').toUpperCase();
-        if(['ISSUED','SENT'].includes(offerStatus)||workflow['Offer Letter PDF URL']||workflow['Offer Letter Issued At']){
-          throw new Error('Official LOA already recorded as issued. Open the existing document instead of resending.');
-        }
-        body.data={...body.data,skyStudentId:registryMatric,matricNo:registryMatric,issuanceBasis:'REGISTRY_CONFIRMED_SKY_MATRIC',source:'ACC_APPLICATIONS'};
+    }else if(action==='v2IssueOffer'){
+      // ACC is the ONLY LOA issuer. This path never calls Apps Script.
+      if(!(await validateDirectAdmin(password))){
+        const e=new Error('Invalid admin password.');e.code='ADMIN_AUTH_FAILED';throw e;
       }
-      // One issuer path: a bridge timeout must never cause a second send attempt.
-      const direct=await callAppsScriptV2(action,body.data||{},password,body.updatedBy);
-      result=direct.parsed;bridgeMs=direct.bridgeMs;transport='APPS_SCRIPT_LOA_SCOPED';bridgeWarning=null;
+      const ready=accNativeLoaReadiness();
+      if(!ready.ready)throw new Error('ACC-native LOA not activated: Google OAuth, sender, database ledger or Registry security approval is pending. No LOA was sent.');
+      if(!supabaseConfig())throw new Error('Registry verification unavailable. LOA issuance blocked.');
+      const referenceNo=String(body.data?.referenceNo||'').trim();
+      if(!/^IUC-ADM-[\w-]+$/i.test(referenceNo)||referenceNo.length>160)throw new Error('Valid ACC application reference required.');
+      const [apps,workflows,adminRows]=await Promise.all([
+        accVerifiedSheetRows('V2_APPLICATIONS'),
+        accVerifiedSheetRows('V2_WORKFLOW'),
+        supabaseRequest('acc_application_admin?select=reference_no,sky_activation_status,sky_student_id&reference_no=eq.'+encodeURIComponent(referenceNo)+'&limit=1')
+      ]);
+      const application=apps.find(x=>String(x['Reference No']||'').trim()===referenceNo);
+      if(!application)throw new Error('Application not found.');
+      const workflow=workflows.filter(x=>String(x['Reference No']||'').trim()===referenceNo).slice(-1)[0]||{};
+      const admin=Array.isArray(adminRows)?adminRows[0]||{}:{};
+      if(String(admin.sky_activation_status||'').toUpperCase()!=='ACTIVATED')
+        throw new Error('Registry must first confirm SKY activation and matric number in ACC.');
+      const matric=String(admin.sky_student_id||'').trim();
+      if(!/^\d{7}$/.test(matric)||String(body.data?.skyStudentId||'').trim()!==matric)
+        throw new Error('SKY matric number differs from the Registry-confirmed ACC record.');
+      const began=Date.now();
+      result=await issueAccNativeLoa({referenceNo,matricNo:matric,application,
+        workflow,actor:body.updatedBy||'IPGS Registry',emailContract:renderLegacyLoaEmail});
+      bridgeMs=Date.now()-began;transport='ACC_NATIVE_GOOGLE_API';bridgeWarning=null;
+    }else if(action==='v2AgentActionGateway'&&String(body.data?.action||body.data?.requestedAction||'').toUpperCase()==='ISSUE_OFFER'){
+      throw new Error('Automated LOA issuance retired; use ACC Applications.');
     }else if(action==='v2SetApplicationAgent'||action==='v2MoveApplicationToActivated'||action==='v2ReturnApplicationFromActivated'||action==='v2ConfirmSkyActivationInAcc'){
       const directStarted=Date.now();result=await accApplyAdminAction(action,body.data||{},password,body.updatedBy);bridgeMs=Date.now()-directStarted;transport='SUPABASE_ACC_APPLICATION_ADMIN';bridgeWarning=null;
     }else if(action==='v2CreateSacSessionManual'){
