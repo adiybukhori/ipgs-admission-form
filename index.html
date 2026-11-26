@@ -592,6 +592,28 @@
     function getProgrammeOptions() {
       return PROGRAMME_OPTIONS[formState.levelOfStudy] || [];
     }
+    // Programme names come from the ACC-approved active directory when available.
+    // Static options remain as a safe fallback before the directory deployment.
+    async function loadApprovedProgrammes(){
+      try{
+        const response=await fetch('/api/admission?programmes=1',{cache:'no-store'});
+        if(!response.ok)return;
+        const payload=await response.json();
+        if(payload.ok!==true||!Array.isArray(payload.programmes))return;
+        let added=0;
+        for(const p of payload.programmes){
+          const code=String(p.code||'').toUpperCase(),name=String(p.name||'').trim(),level=String(p.level||'');
+          if(!/^[A-Z][A-Z0-9]{1,14}$/.test(code)||!PROGRAMME_OPTIONS[level]||
+             !name||/^(?:DBAODL|DPLI)$/.test(code)||
+             (code==='DBA'&&/ODL|Diploma/i.test(name)))continue;
+          const options=PROGRAMME_OPTIONS[level];
+          if(!options.some(existing=>existing.startsWith(code+' - '))){
+            options.push(code+' - '+name);added++;
+          }
+        }
+        if(added)render();
+      }catch(_){/* Keep existing approved static programme options. */}
+    }
 
     async function loadPartnerCodes() {
       const applyAgents = (items) => {
@@ -2089,6 +2111,7 @@
     formEl.addEventListener('submit', submitForm);
     render();
     loadPartnerCodes();
+    loadApprovedProgrammes();
   </script>
   <script src="/admission-upload-v2.js?v=20261029-1"></script>
 </body>
