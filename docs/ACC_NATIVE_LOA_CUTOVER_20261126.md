@@ -1,0 +1,43 @@
+# ACC-only LOA cutover — execution record (26 November 2026)
+
+## Requested architecture
+**ACC Applications is the only issuance owner and issuer.** No Apps Script LOA initiation, business rule, PDF generation or Gmail sending is used by the new ACC issuance command.
+
+`Applications → Open student → Registry-confirm SKY Matric No. → Issue Official LOA → ACC Native Google APIs → Four PDFs → ACC Student Drive Folder → Gmail → ACC status/ledger`
+
+The four original V1 Google Docs are the single source and remain in the existing IPGS Drive `TEMPLATES` folder. SAC/IA/Prerequisite processing is independent and must not be overwritten.
+
+## Completed on testing branch only
+- ACC client action renamed from `v2IssueOffer` to **`accIssueLoa`**.
+- `api/admin-action.js` routes `accIssueLoa` directly to `lib/loa-native.js` (not through `callAppsScriptV2`).
+- Removed the Apps Script-specific LOA service path and old V2 LOA diagnostics from the ACC action dispatch. The remaining Apps Script bridge serves other admission modules, not LOA.
+- Native engine uses Google OAuth REST APIs for Docs templating, Drive PDF storage and Gmail MIME delivery.
+- Email contract copied to `lib/loa-v1-email.js` and matches four observed original Registry email samples (MBA, MBM, DBA, PhD).
+- Original Google Doc template IDs unchanged. Four PDFs are generated separately and the first LOA email must attach all four.
+- Native code has Registry seven-digit matric verification, source folder validation, prevention of duplicate issuance, Supabase unique-claim ledger and no SAC/IA/PR mutation.
+- Prevents an ACC agent gateway `ISSUE_OFFER` request from auto-issuing through the legacy script.
+- Deleted staged Apps Script-side LOA policy/email files from this branch to avoid duplicate ownership.
+- Preview is deliberately read-only; test script `scripts/test-acc-native-loa.mjs` contains offline non-student assertions.
+
+## Pending prerequisites to make native ACC issuance live
+1. Authorise a dedicated Google Workspace Registry sender and issue an OAuth refresh token scoped to Drive copy/export, Docs editing, Sheets update and Gmail send. Set credentials as **encrypted Vercel production environment secrets**, never paste them into code or chat.
+2. Configure sender alias and verified CC routing using actual V1 mail routing evidence (programme-based when necessary).
+3. Review the old V1 statement that the initial portal password equals the IC number. Explicitly approve its secure replacement or temporarily restrict issuance; `ACC_LOA_LEGACY_CREDENTIAL_TEXT_APPROVED` is a fail-closed release flag.
+4. Apply the reviewed database ledger migration under a Supabase migration after UAT review: `docs/acc-native-loa-ledger-staged.sql`.
+5. Run synthetic UAT with non-student address for all four PDFs, template visual layout, Drive saved files, Gmail sender+CC, original content, missing matric, duplicate click, error recovery and SAC/IA/PR preservation.
+6. Only once complete, explicitly set `ACC_LOA_NATIVE_READY=true` and deploy the reviewed ACC branch.
+
+## Legacy Apps Script retirement (production not yet performed)
+- **DO NOT simply delete `v2IssueOffer_` in live Apps Script before ACC native is delivering successfully.** That function currently supports the legacy admission V2 production system. Deletion without replacement breaks existing routes.
+- After successful native ACC cutover, revoke Apps Script `v2IssueOffer`/LOA service access and disable `AgenticBridgeV2.ISSUE_OFFER` and any scheduled/n8n triggers. Preserve other Apps Script admission modules, V1 historical files, and the one shared Drive template folder.
+- Existing Apps Script v131 is unchanged because the authorised remote desktop is offline. This retirement task remains **pending**; no claim of live function deletion or live ACC delivery is permitted.
+
+## Verification status
+- Branch syntax checks: pass.
+- ACC native validation tests: 7/7 basic scenarios pass.
+- Vercel Preview: READY, but read-only and lacking Google OAuth env; this **does not prove PDF/email delivery**.
+- Vercel environment has no `ACC_LOA_GOOGLE_*` or `ACC_LOA_NATIVE_READY` config.
+- No real student email sent, no application record modified, production main unchanged.
+
+## Rollback
+Keep legacy V1 and V2 production flows available until ACC native UAT and initial production issuance have been verified. Maintain a controlled disable flag and log any partial delivery as REVIEW_REQUIRED, never automatically resend.
