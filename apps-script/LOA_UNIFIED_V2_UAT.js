@@ -18,13 +18,12 @@ function v2LoaRegistryMatric_(referenceNo, options) {
     throw new Error('Unified Registry LOA issuer is disabled until UAT is approved.');
   }
   const opt = options || {};
-  const matric = String(opt.skyStudentId || '').trim();
-  if (!/^\d{7}$/.test(matric) ||
-      opt.issuanceBasis !== 'REGISTRY_CONFIRMED_SKY_MATRIC' ||
-      !/^IUC-ADM-/i.test(String(referenceNo || ''))) {
-    throw new Error('LOA blocked: Registry-confirmed 7-digit SKY matric is required.');
-  }
-  return matric;
+  const application=v2Find_('V2_APPLICATIONS','Reference No',referenceNo);
+  const workflow=v2Find_('V2_WORKFLOW','Reference No',referenceNo);
+  if(!application||!workflow)throw new Error('LOA blocked: ACC applicant/workflow not found.');
+  // ONE authoritative rule. The helper also rejects duplicate LOAs and
+  // conflicting SKY IDs, independently of SAC/IA/Prerequisite status.
+  return v2LoaUnifiedGate_(referenceNo,opt,workflow.record,application.record).matricNo;
 }
 
 function v2SendOfferNotificationUnified_(referenceNo, acceptanceUrl, pdfFileId, options) {
@@ -61,6 +60,7 @@ function v2SendOfferNotificationUnified_(referenceNo, acceptanceUrl, pdfFileId, 
     const blob=file.getAs(MimeType.PDF);
     return blob.setName(contract.attachmentNames[i]);
   });
+  v2LoaUnifiedVerifyFourAttachments_(attachments,contract.attachmentNames);
 
   const mode=opt.testMode===true?'TEST':v2NotificationMode_();
   if(mode==='DISABLED')return {sent:false,status:'DISABLED',mode:'DISABLED',recipients:[]};
