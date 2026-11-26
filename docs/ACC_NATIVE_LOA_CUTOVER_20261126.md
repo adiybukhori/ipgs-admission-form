@@ -41,3 +41,12 @@ The four original V1 Google Docs are the single source and remain in the existin
 
 ## Rollback
 Keep legacy V1 and V2 production flows available until ACC native UAT and initial production issuance have been verified. Maintain a controlled disable flag and log any partial delivery as REVIEW_REQUIRED, never automatically resend.
+
+
+## 26 Nov 2026: synthetic format-preview evidence (NOT native ACC UAT)
+- Authenticated IPGS Google Drive connector copied **all four original V1 Google Docs** to a dedicated **UAT-only** folder, leaving the original TEMPLATES unchanged. Synthetic student UAT TEST STUDENT, test matric 2699999, fictional ID TEST001; no real applicant or ACC workflow record involved.
+- All placeholders were replaced. Four exported PDFs independently verified as **one A4 page each**, with synthetic student identity and no remaining `{{...}}` tokens.
+- An explicitly labelled **[UAT PREVIEW – NOT OFFICIAL]** email with those four PDFs was **sent from IPGS Admission via connected Gmail** to the authorised Registry test inbox and was independently found in that inbox; sent/received message IDs were verified.
+- This proves the V1 template visuals, mail example and attachments can be reviewed by Registry. **It does not demonstrate issuance from ACC-native API**, which remains blocked by missing OAuth secrets and ledger migration.
+- No real LOA issued, no ACC applicant record modified and no live Apps Script action disabled. Do **not** retire Apps Script or promote ACC to production solely on this preview.
+- Registry review/confirmation of email and PDF appearance is still pending.
