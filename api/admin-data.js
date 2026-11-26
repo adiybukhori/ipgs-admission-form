@@ -1,4 +1,6 @@
 import { timingSafeEqual } from 'crypto';
+import {PROGRAMME_COORDINATOR_SEEDS} from '../lib/acc-programme-directory.js';
+import {accNativeLoaReadiness} from '../lib/loa-native.js';
 
 const SPREADSHEET_ID = '1O-Y-q7_q78xKM1p5e2C3EWyQfYr5rXvhO0oWbVaw5Mw';
 const ADMIN_BRIDGE = String(process.env.N8N_ADMIN_BRIDGE_URL||'').trim();
@@ -143,6 +145,18 @@ export default async function handler(req,res){
       warnings.push('ACC Application metadata unavailable: '+(error?.message||'Unable to read')+'. Queue withheld until refresh.');
     }
   }
+  // Coordinator Directory is authoritative for LOA. Preview seeds are UI-only.
+  // If Supabase fails in production, issuance remains fail-closed.
+  if(scope!=='sac'){
+    try{
+      data.ACC_PROGRAMME_COORDINATORS=await supabaseGet('acc_programme_coordinators?select=*&order=programme_code.asc');
+      data.ACC_PROGRAMME_COORDINATORS_STATUS='READY';
+    }catch(error){
+      data.ACC_PROGRAMME_COORDINATORS=process.env.VERCEL_ENV==='preview'?PROGRAMME_COORDINATOR_SEEDS:[];
+      data.ACC_PROGRAMME_COORDINATORS_STATUS=process.env.VERCEL_ENV==='preview'?'PREVIEW_ONLY':'ERROR';
+      warnings.push('ACC Coordinator Directory unavailable: '+String(error?.message||'Unable to read')+'. LOA is blocked.');
+    }
+  }
   // Internal admin notes are written to Supabase workflow_events by admin-action.
   // Load them from that authoritative store rather than relying on stale Sheet agent events.
   if(scope!=='sac'){
@@ -163,9 +177,7 @@ export default async function handler(req,res){
   sortSacSessions(data);const totalMs=Date.now()-startedAt;res.setHeader('Server-Timing',`auth;dur=${authMs}, sheets;dur=${sheetsMs}, sac;dur=${sacMs}, total;dur=${totalMs}`);
   // Reuse the existing Admin API; a standalone readiness API would exceed Vercel Hobby's 12-function limit.
   data.ACC_LOA_ISSUANCE_READY=process.env.VERCEL_ENV==='production' &&
-    process.env.V2_LOA_V1_PARITY_READY==='true' &&
-    Boolean(process.env.V2_LOA_API_TOKEN) &&
-    Boolean(process.env.SUPABASE_URL||process.env.NEXT_PUBLIC_SUPABASE_URL) &&
-    Boolean(process.env.SUPABASE_SERVICE_ROLE_KEY||process.env.SUPABASE_SECRET_KEY);
+    data.ACC_PROGRAMME_COORDINATORS_STATUS==='READY' &&
+    accNativeLoaReadiness().ready;
   return res.status(200).json({ok:true,build:'ADMIN_DATA_SUPABASE_WORKFLOW_20261005',scope,loadedAt:new Date().toISOString(),warnings,cache:{unifiedHit:v2CacheHit,ttlSeconds:30,forced:force},performance:{authMs,sheetsMs,sacMs,totalMs},data});
 }
