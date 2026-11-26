@@ -1,3 +1,5 @@
+**ARCHITECTURE UPDATE (26 Nov 2026):** The original V1 email/PDF source comparison remains valid. LOA issuance is now ACC-native at `lib/loa-native.js` + `lib/loa-v1-email.js`; previous `apps-script/` LOA candidate files were deleted from the feature branch. The deployed Apps Script production code was NOT changed. See `docs/ACC_NATIVE_LOA_CUTOVER_20261126.md`.
+
 # ACC LOA V1 Output Parity Contract — 26 November 2026
 
 **Status:** Audited against source Google Sheet, four live Google Docs, original issued PDFs and sent Gmail messages. **Not yet deployed.** Do not release until the deployed Apps Script service passes all gates.
