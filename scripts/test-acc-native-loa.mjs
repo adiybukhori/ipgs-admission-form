@@ -42,8 +42,8 @@ const previewOptions={studentName:'UAT TEST STUDENT',programme:app.Programme,
   acceptanceUrl:'https://ipgs-admission-form.innovative.edu.my/acceptance-demo.html'};
 const premiumHtml=context.renderPremiumLoaHtml(previewOptions);
 assert.ok(premiumHtml.includes('NEXT STEP')&&premiumHtml.includes('Preview Acceptance Portal'));
-assert.ok(premiumHtml.includes('Open Student Portal')&&premiumHtml.includes('Join WhatsApp Community'));
-assert.ok(premiumHtml.includes('Apply for Physical Student ID Card'));
+assert.ok(premiumHtml.includes('Access IUC Student Portal')&&premiumHtml.includes('Join the Official WhatsApp Community'));
+assert.ok(premiumHtml.includes('Open Physical Student ID Card Application'));
 assert.ok(premiumHtml.includes('Access the IUC Student Portal'),'Student Portal section missing');
 assert.ok(premiumHtml.includes('YOUR STUDENT ACCOUNT'),'Portal account heading missing');
 assert.ok(premiumHtml.includes('Initial Password:'),'Portal login instructions missing');
