@@ -2245,7 +2245,7 @@
         const result=out.result||out;
         const ref=selected?.ref||data?.referenceNo||'';
         applyOptimisticActionResult(action,data,result);
-        const savedMessage=action==='v2IssueOffer'?(result.duplicateEmailSuppressed?'LOA already sent. Existing PDF and acceptance link retained; no duplicate email.':result.emailSent?`LOA for ${result.offerProgramme||'the approved programme'} generated and emailed successfully.`:`LOA saved. Email status: ${result.emailStatus||'NOT_SENT'}.`):'Saved successfully.';
+        const savedMessage=action==='accIssueLoa'?(result.duplicateEmailSuppressed?'LOA already sent. Existing PDF and acceptance link retained; no duplicate email.':result.emailSent?`LOA for ${result.offerProgramme||'the approved programme'} generated and emailed successfully.`:`LOA saved. Email status: ${result.emailStatus||'NOT_SENT'}.`):'Saved successfully.';
         opsMsg(savedMessage+' Syncing this applicant…','ok');
         if(ref){
           refreshApplicantRecord(ref)
@@ -2336,7 +2336,7 @@
       const programme=String(selected.app?.['Programme']||'');
       const isPackage=/\bMBA\b|Master\s+of\s+Business\s+Administration/i.test(programme)&&/\bPhD\b|Doctor\s+of\s+Philosophy/i.test(programme);
       const currentAward=isPackage?'Master of Business Administration (MBA) only':programme;
-      runAdminAction('v2IssueOffer',{referenceNo:selected.ref,skyStudentId:matric,issuanceBasis:'REGISTRY_CONFIRMED_SKY_MATRIC',sendEmail:true,testMode:false},`Generate the official Offer Letter for ${currentAward} and SEND it to ${selected.app['Personal Email']||'the student'} with the secure Acceptance link?${isPackage?' PhD progression requires a separate admission approval.':''}`);
+      runAdminAction('accIssueLoa',{referenceNo:selected.ref,skyStudentId:matric,issuanceBasis:'REGISTRY_CONFIRMED_SKY_MATRIC',sendEmail:true,testMode:false},`Generate the official Offer Letter for ${currentAward} and SEND it to ${selected.app['Personal Email']||'the student'} with the secure Acceptance link?${isPackage?' PhD progression requires a separate admission approval.':''}`);
     }
     function assignSacSession(){if(!selected)return;const el=document.getElementById('opsSacSession'),sessionId=el?.value||'';if(!sessionId)return opsMsg('Select a SAC session first.','error');runAdminAction('v2AssignSacCandidate',{referenceNo:selected.ref,sessionId,studentName:selected.app?.['Student Name']||'',programme:selected.app?.['Programme']||'',screeningRecommendation:selected.screen?.['Recommendation']||selected.screen?.['Screening Recommendation']||'',proceedWithPendingDocuments:true,confirmed:true,overrideBy:'Admin Portal V2 - nonblocking document policy'},`Assign ${selected.app['Student Name']||selected.ref} to the selected SAC session? Pending documents remain follow-up only.`)}
     function recordSacDecision(decision){if(!selected)return;const sessionId=currentSacSession(selected);if(!sessionId)return opsMsg('SAC Session ID is missing for this applicant.','error');runAdminAction('v2RecordSacDecisionManual',{referenceNo:selected.ref,sessionId,decision,confirmed:true,remarks:''},`Confirm authorised manual SAC decision: ${pretty(decision)}? This changes the admission route and cannot use Prerequisite directly.`)}
