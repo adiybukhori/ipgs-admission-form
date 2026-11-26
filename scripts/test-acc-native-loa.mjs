@@ -11,14 +11,17 @@ const email=readFileSync(new URL('../lib/loa-v1-email.js',import.meta.url),'utf8
   .replace(/export \{[^}]+\};/g,'');
 const htmlTemplate=readFileSync(new URL('../lib/loa-v1-html.js',import.meta.url),'utf8')
   .replace('export function renderLegacyLoaHtml','function renderLegacyLoaHtml');
+const directory=readFileSync(new URL('../lib/acc-programme-directory.js',import.meta.url),'utf8')
+  .replace(/export (const|function)/g,'$1');
 const premium=readFileSync(new URL('../lib/loa-premium-email.js',import.meta.url),'utf8')
-  .replace(/export function /g,'function ');
+  .replace(/^import .*;$/gm,'').replace(/export function /g,'function ');
 const context={process:{env:{}},URL,URLSearchParams,Intl,Date,RegExp,String,Object,Array,JSON};
-runInNewContext(native+'\n'+email+'\n'+htmlTemplate+'\n'+premium,context,{timeout:2000});
+runInNewContext(directory+'\n'+native+'\n'+email+'\n'+htmlTemplate+'\n'+premium,context,{timeout:2000});
 const app={'Student Folder URL':'https://drive.google.com/drive/folders/1SyntheticTest',
   'Student Name':'SYNTHETIC UAT','Personal Email':'uat@example.invalid',
   'ID / Passport No':'TEST-001','Programme':'MBA - Master of Business Administration',
-  'Intake':'January 2027'};
+  'Intake':'January 2027','Study Mode':'Full Time',
+  'Raw Application JSON':JSON.stringify({fullAddress:'UAT Registry Street 1, Kuala Lumpur'})};
 const verify=context.accNativeLoaValidate;
 for(const stage of ['READY_FOR_SAC','INTERNAL_ASSESSMENT','PREREQUISITE','ELIGIBLE_FOR_OFFER']){
   assert.equal(verify({referenceNo:'IUC-ADM-UAT-0001',matricNo:'2601001',application:app,
@@ -29,6 +32,10 @@ assert.throws(()=>verify({referenceNo:'IUC-ADM-UAT-0001',matricNo:'123',
 assert.throws(()=>verify({referenceNo:'IUC-ADM-UAT-0001',matricNo:'2601001',
   application:app,workflow:{'Offer Letter Status':'ISSUED'}}),/already issued/);
 assert.equal(context.accNativeLoaReadiness({}).ready,false);
+for(const missing of ['Student Name','Personal Email','Study Mode','ID / Passport No','Raw Application JSON']){
+  assert.throws(()=>verify({referenceNo:'IUC-ADM-UAT-0001',matricNo:'2601001',
+    application:{...app,[missing]:''},workflow:{}}),/blocked/,'Missing '+missing+' must prevent LOA');
+}
 const result=context.v2LoaV1MailContract_(app.Programme,'2601001','MBA',app['ID / Passport No']);
 assert.equal(result.attachmentNames.length,4);
 assert.ok(result.body.includes('Student Matrix No.: 2601001'));
@@ -37,6 +44,7 @@ assert.ok(html.includes('<ol>'),'Original numbered list missing');
 assert.ok(html.includes('<b>Official Offer Letter</b>'),'Original document bold missing');
 assert.ok(html.includes('href="https://innovative.vialing.com/sp/login"'),'Original portal hyperlink missing');
 assert.ok(html.includes('2601001')&&!html.includes('{{'),'Template placeholders remain');
+const verifiedPic=context.accResolveCoordinator(app.Programme,context.PROGRAMME_COORDINATOR_SEEDS);
 const previewOptions={studentName:'UAT TEST STUDENT',programme:app.Programme,
   matricNo:'2601001',intake:'January 2027',preview:true,
   acceptanceUrl:'https://ipgs-admission-form.innovative.edu.my/acceptance-demo.html'};
@@ -68,9 +76,11 @@ assert.ok(context.renderPremiumLoaHtml({...previewOptions,programme:'DBA - Docto
 assert.ok(!context.renderPremiumLoaHtml({...previewOptions,programme:'MEDU - Master of Education'}).includes('ACADEMIC & PROGRAMME MATTERS'),'Do not guess an unknown coordinator');
 
 assert.ok(!premiumHtml.includes('xvVDEnnt9Fq4jAKp7'),'Manual Acceptance Form must not be linked');
-assert.throws(()=>context.renderPremiumLoaHtml({...previewOptions,preview:false,
+assert.throws(()=>context.renderPremiumLoaHtml({...previewOptions,coordinator:verifiedPic,preview:false,
   acceptanceUrl:'https://script.google.com/macros/s/AKfycbxasT_HgtRSvTbR_bsa8p17Cm-C2PKn20Ok1kU-AyJmxiKX8kX5EGOtRLwVwNlAL7JB/exec?page=acceptance-v2'}),/token/);
-const liveHtml=context.renderPremiumLoaHtml({...previewOptions,preview:false,
+assert.throws(()=>context.renderPremiumLoaHtml({...previewOptions,preview:false,
+  acceptanceUrl:'https://script.google.com/macros/s/TEST123/exec?page=acceptance-v2&token='+'x'.repeat(64)}),/coordinator/);
+const liveHtml=context.renderPremiumLoaHtml({...previewOptions,coordinator:verifiedPic,preview:false,
   acceptanceUrl:'https://script.google.com/macros/s/AKfycbxasT_HgtRSvTbR_bsa8p17Cm-C2PKn20Ok1kU-AyJmxiKX8kX5EGOtRLwVwNlAL7JB/exec?page=acceptance-v2&token='+'a'.repeat(64)});
 assert.ok(liveHtml.includes('Complete Online Acceptance'));
 assert.ok(!liveHtml.includes('UAT DESIGN PREVIEW'));
