@@ -402,7 +402,7 @@ export default async function handler(req, res) {
         if(['ISSUED','SENT'].includes(offerStatus)||workflow['Offer Letter PDF URL']||workflow['Offer Letter Issued At']){
           throw new Error('Official LOA already recorded as issued. Open the existing document instead of resending.');
         }
-        body.data={...body.data,skyStudentId:registryMatric,matricNo:registryMatric,issuanceBasis:'REGISTRY_CONFIRMED_SKY_MATRIC'};
+        body.data={...body.data,skyStudentId:registryMatric,matricNo:registryMatric,issuanceBasis:'REGISTRY_CONFIRMED_SKY_MATRIC',source:'ACC_APPLICATIONS'};
       }
       // One issuer path: a bridge timeout must never cause a second send attempt.
       const direct=await callAppsScriptV2(action,body.data||{},password,body.updatedBy);
