@@ -55,6 +55,18 @@ assert.ok(premiumHtml.includes('OPTIONAL STUDENT SERVICE'),'Optional physical ca
 assert.ok(premiumHtml.includes('Open Physical Student ID Card Application'),'Physical card action missing');
 assert.ok(!premiumHtml.includes('Student essentials'),'Old button strip still present');
 assert.equal((premiumHtml.match(/<h3 /g)||[]).length,3,'Must show exactly three service cards');
+assert.ok(premiumHtml.includes('IPGS_Official_Email_Header.jpg'),'Official email header not used');
+assert.ok(premiumHtml.includes('ADMISSION AT A GLANCE'),'New formal admission summary missing');
+assert.ok(!premiumHtml.includes('YOUR ADMISSION DETAILS'),'Old admission box still present');
+assert.ok(premiumHtml.includes('Muhammad Naqiyuddin Bin Mohd Jihat'),'MBA coordinator missing');
+assert.ok(premiumHtml.includes('naqiyuddin.ipgs@innovative.edu.my'),'MBA coordinator email missing');
+assert.ok(premiumHtml.includes('IPGS Registry &amp; Admissions')||premiumHtml.includes('IPGS Registry & Admissions'),'Registry contact missing');
+assert.ok(premiumHtml.includes('ipgs.admission@innovative.edu.my'),'Registry email missing');
+assert.ok(context.renderPremiumLoaHtml({...previewOptions,programme:'MBM - Master in Business Management'}).includes('abuzar@innovative.edu.my'));
+assert.ok(context.renderPremiumLoaHtml({...previewOptions,programme:'PhD - Doctor of Philosophy in Management'}).includes('noorus.sarah@innovative.edu.my'));
+assert.ok(context.renderPremiumLoaHtml({...previewOptions,programme:'DBA - Doctorate of Business Administration'}).includes('noorus.sarah@innovative.edu.my'));
+assert.ok(!context.renderPremiumLoaHtml({...previewOptions,programme:'MEDU - Master of Education'}).includes('ACADEMIC & PROGRAMME MATTERS'),'Do not guess an unknown coordinator');
+
 assert.ok(!premiumHtml.includes('xvVDEnnt9Fq4jAKp7'),'Manual Acceptance Form must not be linked');
 assert.throws(()=>context.renderPremiumLoaHtml({...previewOptions,preview:false,
   acceptanceUrl:'https://script.google.com/macros/s/AKfycbxasT_HgtRSvTbR_bsa8p17Cm-C2PKn20Ok1kU-AyJmxiKX8kX5EGOtRLwVwNlAL7JB/exec?page=acceptance-v2'}),/token/);
