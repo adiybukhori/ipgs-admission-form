@@ -38,7 +38,7 @@ ACC must become the sole operational place to issue Official LOA to an applicant
 2. For unmatched legacy rows, attempt exact reference, then verified (identity + program + intake) matching. If ambiguous, queue for authorised Registry review; do not auto-create duplicate students.
 3. Never regenerate historical LOAs or send emails during import; import is a **read-only historical state** migration.
 4. The ACC LOA Centre introduced in this branch currently shows **only ACC V2** and uses the existing `v2IssueOffer` action. It does not read or mutate V1.
-5. Issue Official LOA only at the `ELIGIBLE_FOR_OFFER` gate. COL is separate from Official LOA.
+5. **Revised Registry policy (26 Nov 2026):** issue Official LOA ONLY from the individual Applications profile after a 7-digit SKY Student ID has been entered and Registry-confirmed as Activated in ACC. SAC/IA/PR stage is tracked separately, not an LOA issuance trigger. COL remains separate from Official LOA.
 6. Every issuance must be idempotent by applicant reference, programme/intake and document version; preserve issuer audit and email status.
 7. Preserve original Google Docs template layout where legally/operationally appropriate, but remove fixed `Full Time` literals and substitute the applicant's approved Study Mode. Confirm the old `MATRIX_NO` placeholder is optional before Sky activation; never fabricate a matric number.
 8. Acceptance and signed document URLs must remain attached to the correct student folder and reference.
@@ -54,3 +54,12 @@ ACC must become the sole operational place to issue Official LOA to an applicant
 - Release ACC V2 as sole issuer only after reconciliation and staff cutover communication.
 
 **No real student LOA or email should be issued during tests.**
+
+## Revised Applications-only rollout
+- The standalone LOA Issuance sidebar module has been removed.
+- Quick Actions now show a greyed-out "Issue Official LOA · Matric Pending" button without an ACC-confirmed seven-digit SKY Student ID.
+- "Enter SKY Matric No." opens ACC's existing Registry confirmation form; no new independent student database is created.
+- When the confirmed matric exists, "Issue Official LOA" is shown; existing issued LOAs link to the saved PDF rather than retriggering delivery.
+- The Vercel server checks the applicant's current official ACC registry matric record and existing issuer status before forwarding a send to the scoped Apps Script service.
+- Testing deployments are **read-only**, including Applications profile view and LOA preview. All actions in api/admin-action are blocked in Preview.
+- **Outstanding integration gate:** the deployed Apps Script LOA generator (called by v2IssueOffer) may still enforce the old \`ELIGIBLE_FOR_OFFER\` gate, which is outside this repository. This must be verified and updated to the new matric-based policy before production cutover. Do not claim real matric-triggered sending is operational until this downstream check and a controlled UAT both succeed.
