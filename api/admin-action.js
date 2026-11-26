@@ -361,6 +361,42 @@ export default async function handler(req, res) {
       const syntheticTrial=action==='v2IssueOffer'&&body.data?.referenceNo==='IUC-ADM-LOA-UAT-20261013'&&body.data?.testMode===true&&body.data?.testRecipient==='adiybukhori.ipgs@innovative.edu.my';
       const serviceDiagnostic=action==='v2LoaDiagnostics'||syntheticTrial;
       if(!(serviceDiagnostic&&serviceToken&&password===serviceToken)&&!(await validateDirectAdmin(password))){const e=new Error('Invalid admin password.');e.code='ADMIN_AUTH_FAILED';throw e;}
+      // New Registry LOA rule: SAC/IA/PR status is not an issuance trigger.
+      // A Registry-confirmed SKY matric number is mandatory, checked server-side.
+      // Preview cannot issue real LOAs or emails; historical UAT diagnostics remain separate.
+      if(action==='v2IssueOffer'&&!syntheticTrial){
+        if(process.env.VERCEL_ENV&&process.env.VERCEL_ENV!=='production'){
+          throw new Error('LOA delivery is disabled in preview. Use an approved non-student UAT route to test generation.');
+        }
+        if(!supabaseConfig())throw new Error('Registry SKY activation verification is unavailable. LOA issuance is blocked.');
+        const referenceNo=String(body.data?.referenceNo||'').trim();
+        if(!/^IUC-ADM-[\w-]+$/i.test(referenceNo)||referenceNo.length>160)throw new Error('Valid ACC V2 application reference is required.');
+        const [applications,workflows,adminRows]=await Promise.all([
+          accVerifiedSheetRows('V2_APPLICATIONS'),
+          accVerifiedSheetRows('V2_WORKFLOW'),
+          supabaseRequest('acc_application_admin?select=reference_no,sky_activation_status,sky_student_id&reference_no=eq.'+encodeURIComponent(referenceNo)+'&limit=1')
+        ]);
+        const app=applications.find(x=>String(x['Reference No']||'').trim()===referenceNo);
+        if(!app)throw new Error('Application not found. Refresh ACC before issuing an LOA.');
+        if(!String(app['Personal Email']||'').trim())throw new Error('Applicant email is missing; LOA cannot be sent.');
+        const workflow=workflows.filter(x=>String(x['Reference No']||'').trim()===referenceNo).slice(-1)[0]||{};
+        const admin=Array.isArray(adminRows)?adminRows[0]||{}:{};
+        const adminConfirmed=String(admin.sky_activation_status||'').toUpperCase()==='ACTIVATED';
+        const workflowConfirmed=String(workflow['SKY Activation Status']||'').toUpperCase()==='ACTIVATED';
+        const registryMatric=String(adminConfirmed?(admin.sky_student_id||workflow['SKY Student ID']||''):
+          workflowConfirmed?(workflow['SKY Student ID']||''):'').trim();
+        if(!/^\d{7}$/.test(registryMatric)){
+          throw new Error('Confirm the official 7-digit SKY Student ID in ACC before issuing an LOA.');
+        }
+        if(String(body.data?.skyStudentId||'').trim()!==registryMatric){
+          throw new Error('SKY Student ID does not match the current Registry-confirmed value. Refresh and retry.');
+        }
+        const offerStatus=String(workflow['Offer Letter Status']||'').toUpperCase();
+        if(['ISSUED','SENT'].includes(offerStatus)||workflow['Offer Letter PDF URL']||workflow['Offer Letter Issued At']){
+          throw new Error('Official LOA already recorded as issued. Open the existing document instead of resending.');
+        }
+        body.data={...body.data,skyStudentId:registryMatric,matricNo:registryMatric,issuanceBasis:'REGISTRY_CONFIRMED_SKY_MATRIC'};
+      }
       // One issuer path: a bridge timeout must never cause a second send attempt.
       const direct=await callAppsScriptV2(action,body.data||{},password,body.updatedBy);
       result=direct.parsed;bridgeMs=direct.bridgeMs;transport='APPS_SCRIPT_LOA_SCOPED';bridgeWarning=null;
