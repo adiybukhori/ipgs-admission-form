@@ -50,3 +50,14 @@ Keep legacy V1 and V2 production flows available until ACC native UAT and initia
 - This proves the V1 template visuals, mail example and attachments can be reviewed by Registry. **It does not demonstrate issuance from ACC-native API**, which remains blocked by missing OAuth secrets and ledger migration.
 - No real LOA issued, no ACC applicant record modified and no live Apps Script action disabled. Do **not** retire Apps Script or promote ACC to production solely on this preview.
 - Registry review/confirmation of email and PDF appearance is still pending.
+
+
+## 26 Nov 2026 — Gmail HTML parity correction
+- Registry pointed out the first synthetic preview was plain text, unlike the actual V1 HTML message (bold programme/university, four-item numbered list, bold labels, clickable links). Its plain-text content and attachment filenames matched, **but its visual email presentation did not**. This was an error in the first UAT claim.
+- Retrieved original Registry V1 MIME `text/html` part from an actual sent November 2026 LOA, decoded the quoted-printable body, replaced actual applicant details with placeholders, and staged `lib/loa-v1-html.js`.
+- HTML regression check: original source HTML and HTML rendered with the same original MBA programme/matric are **character-for-character identical after MIME decoding and trimming**.
+- `lib/loa-native.js` now constructs `multipart/mixed` containing `multipart/alternative` (plain text and the exact V1 HTML), plus exactly four PDFs, retaining the Registry sender display name.
+- UAT preview #2 sent through the connected **IPGS Admission** account to the user's authorised Registry test inbox, with four synthetic PDFs and correct HTML. Both sent and received message records were read back and confirmed `text/html`, `text/plain` and all four PDF attachments.
+- **Difference remaining:** V1 sent from `"Registry Department, IUC" <registry@innovative.edu.my>`; the synthetic preview was sent by `IPGS Admission <ipgs.admission@innovative.edu.my>`. Production ACC must use an authorised Registry Gmail account/verified send-as alias, not spoof the From address.
+- The UAT preview also has an intentional warning banner and UAT subject prefix; neither should appear in live LOAs.
+- **This is a connected Gmail/Drive format-preview test, not a successful native ACC Gmail OAuth end-to-end issuance.** ACC production remains blocked pending OAuth, sender verification, DB ledger and approval.
