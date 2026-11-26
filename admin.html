@@ -612,6 +612,7 @@
         <button data-section="assessment" onclick="go('assessment',this)"><span>IA / PREREQ</span></button>
         <button data-section="activation" onclick="goActivation(this)"><span>Prospect / Activation</span></button>
         <button data-section="activated" onclick="goActivated(this)"><span>Activated</span></button>
+        <button data-section="loaCentre" onclick="go('loaCentre',this)"><span>LOA Issuance</span></button>
         <button data-section="orientation" onclick="goOrientation(this)"><span>Orientation</span></button>
         <button type="button" data-section="handover" onclick="goHandover(this); return false;"><span>Academic Handover</span></button>
         <button type="button" onclick="window.open('/agents.html','_blank')"><span>Academic Consultants</span></button>
@@ -771,6 +772,32 @@
             <div class="kpi"><div class="label">HANDED OVER</div><div id="activatedHandedOverKpi" class="value">0</div><div class="meta">Academic handover sent / completed</div></div>
           </div>
           <div class="panel"><div class="panel-head"><h3>Activated Student Queue</h3><span>SKY activation → Orientation → Academic Handover</span></div><div class="table-wrap"><table><thead><tr><th>Student</th><th>Programme / Intake</th><th>SKY Student ID</th><th>Agent / Fee Structure</th><th>Activated</th><th>Application Move</th><th>Orientation</th><th>Academic Handover</th><th>Folder</th><th>Action</th></tr></thead><tbody id="activatedBody"></tbody></table></div></div>
+        </section>
+
+        <section id="loaCentre" class="section">
+          <div class="hero"><div><h2>LOA Issuance Centre</h2><p>Generate the official Offer Letter from a verified ACC application. Track acceptance and open the student's saved PDF without a separate spreadsheet workflow.</p></div><span class="badge purple">ACC V2 · CONTROLLED ROLLOUT</span></div>
+          <div class="kpis">
+            <div class="kpi"><div class="label">ACC RECORDS</div><div id="loaTotalKpi" class="value">0</div><div class="meta">ACC V2 applications only</div></div>
+            <div class="kpi"><div class="label">READY TO ISSUE</div><div id="loaReadyKpi" class="value">0</div><div class="meta">Admission gates completed</div></div>
+            <div class="kpi"><div class="label">OFFICIAL LOA ISSUED</div><div id="loaIssuedKpi" class="value">0</div><div class="meta">V2 issue records</div></div>
+            <div class="kpi"><div class="label">ACCEPTANCE OUTSTANDING</div><div id="loaPendingKpi" class="value">0</div><div class="meta">Issued LOA, not yet accepted</div></div>
+          </div>
+          <div class="panel">
+            <div class="panel-body">
+              <div class="warning-banner"><b>Controlled migration:</b> This page uses existing ACC V2 records and the approved LOA issuer. The former Google Sheet is still receiving LOA records and remains untouched. Do not reissue historical LOAs before reconciliation. COL is not an Official LOA.</div>
+              <div class="toolbar" style="margin-top:12px">
+                <input class="searchbox" id="loaCentreSearch" placeholder="Search name, reference, programme or intake" oninput="renderLoaOperations()" aria-label="Search LOA records">
+                <select id="loaCentreStatus" onchange="renderLoaOperations()" aria-label="LOA issuance status">
+                  <option value="">All LOA Statuses</option><option value="READY">Ready to issue</option><option value="ISSUED">Issued</option><option value="WAITING">Awaiting admission gates</option>
+                </select>
+                <button class="ghost" type="button" onclick="loadData(true)">Refresh ACC Data</button>
+              </div>
+              <p class="subline" id="loaCentreShown" style="margin-top:10px"></p>
+            </div>
+            <div class="table-wrap">
+              <table><thead><tr><th>Applicant</th><th>Programme / Intake</th><th>Admission Stage / Route</th><th>Official LOA</th><th>Acceptance</th><th>Action</th></tr></thead><tbody id="loaCentreBody"></tbody></table>
+            </div>
+          </div>
         </section>
 
         <section id="orientation" class="section">
@@ -1275,8 +1302,8 @@
     function decision(r){const sac=String(r.workflow?.['SAC Supabase Decision']||r.workflow?.['SAC Decision']||r.sac?.['Decision']||'').trim();if(sac&&sac.toUpperCase()!=='PENDING')return sac;const s=stage(r);if(s==='READY_FOR_SAC'||s==='SAC_REVIEW'||s==='SAC')return'PENDING_SAC_DECISION';return sac||''}
     function classifyBadge(text=''){const x=String(text).toUpperCase();if(/ACCEPT|QUALIFIED|COMPLETE|FINAL|ISSUED|DIRECT|SKY_ACTIVATED|ACADEMIC_HANDOVER/.test(x))return'green';if(/REJECT|NOT QUAL|INCOMPLETE|DECLIN/.test(x))return'red';if(/PENDING|WAIT|REVIEW|NOT_|READY/.test(x))return'amber';if(/IA|PREREQ|ASSESS|SAC|ORIENTATION/.test(x))return'purple';return'blue'}
     function pretty(s=''){return String(s||'-').replaceAll('_',' ').replace(/\b\w/g,m=>m.toUpperCase())}
-    function renderAll(){populateFilters();renderDashboard();renderApplications();renderSac();renderAssessment();renderReports();if(typeof window.renderAccApplicationCalendar==='function')window.renderAccApplicationCalendar()}
-    function go(id,btn){document.querySelectorAll('.section').forEach(x=>x.classList.remove('active'));document.getElementById(id).classList.add('active');document.querySelectorAll('.nav button').forEach(x=>x.classList.remove('active'));if(btn)btn.classList.add('active');const names={dashboard:'Dashboard',applications:'Applications',sac:'SAC Monitoring',assessment:'IA / Prerequisite',feeStructure:'Fee Structure',reports:'Reports',applicationCalendar:'Application Calendar',guide:'System Guide'};document.getElementById('topTitle').textContent=names[id]||'Admission';syncMobileShortcuts(id);if(id==='applicationCalendar'&&typeof window.loadAccApplicationCalendar==='function')window.loadAccApplicationCalendar()} function goMobile(id){const btn=document.querySelector('.nav button[data-section="'+id+'"]');if(btn)go(id,btn)} function syncMobileShortcuts(id){document.querySelectorAll('[data-mobile-section]').forEach(x=>x.classList.toggle('active',x.dataset.mobileSection===id))}
+    function renderAll(){populateFilters();renderDashboard();renderApplications();renderSac();renderAssessment();renderReports();if(typeof window.renderAccApplicationCalendar==='function')window.renderAccApplicationCalendar();if(typeof window.renderLoaOperations==='function')window.renderLoaOperations()}
+    function go(id,btn){document.querySelectorAll('.section').forEach(x=>x.classList.remove('active'));document.getElementById(id).classList.add('active');document.querySelectorAll('.nav button').forEach(x=>x.classList.remove('active'));if(btn)btn.classList.add('active');const names={dashboard:'Dashboard',applications:'Applications',sac:'SAC Monitoring',assessment:'IA / Prerequisite',loaCentre:'LOA Issuance',feeStructure:'Fee Structure',reports:'Reports',applicationCalendar:'Application Calendar',guide:'System Guide'};document.getElementById('topTitle').textContent=names[id]||'Admission';syncMobileShortcuts(id);if(id==='applicationCalendar'&&typeof window.loadAccApplicationCalendar==='function')window.loadAccApplicationCalendar()} function goMobile(id){const btn=document.querySelector('.nav button[data-section="'+id+'"]');if(btn)go(id,btn)} function syncMobileShortcuts(id){document.querySelectorAll('[data-mobile-section]').forEach(x=>x.classList.toggle('active',x.dataset.mobileSection===id))}
     function renderDashboard(){const live=activeV2Records(),total=live.length,attentionGroups=getAttentionGroups(),attention=attentionGroups.reduce((n,x)=>n+x.count,0),offer=live.filter(r=>/ELIGIBLE_FOR_OFFER|OFFER_ISSUED/.test(stage(r))||(stage(r)==='MANUAL_REVIEW'&&String(r.workflow?.['Offer Letter Status']||'').toUpperCase()==='ISSUED')).length,accepted=live.filter(r=>/ACCEPTED|SKY_ACTIVATED|ORIENTATION|ACADEMIC_HANDOVER/.test(stage(r))).length;document.getElementById('kTotal').textContent=total;document.getElementById('kAttention').textContent=attention;document.getElementById('kOffer').textContent=offer;document.getElementById('kAccepted').textContent=accepted;document.getElementById('attentionList').innerHTML=attentionGroups.map(x=>`<div class="attention-item"><div><div class="name">${esc(x.name)}</div><div class="sub">${esc(x.sub)}</div></div><div class="count-pill">${x.count}</div></div>`).join('')||'<div class="empty">No pending cases.</div>';renderBars('programmeBars',countBy(live,r=>r.app['Programme']||'Unspecified'),7);renderBars('intakeBars',countBy(live,r=>r.app['Intake']||r.workflow?.['Intake']||'Unspecified'),7);renderFunnel('dashboardFunnel')}
     function getAttentionGroups(){const live=activeV2Records(),sacReady=live.filter(r=>stage(r)==='READY_FOR_SAC').length,sac=live.filter(r=>/SAC_REVIEW|SAC/.test(stage(r))).length,assessment=live.filter(r=>/INTERNAL_ASSESSMENT|ASSESSMENT|IA|PREREQ/.test(stage(r))).length,manualReview=live.filter(r=>stage(r)==='MANUAL_REVIEW').length,staleOffer=live.filter(r=>stage(r)==='OFFER_ISSUED'&&String(r.workflow?.['Acceptance Remarks']||'').toUpperCase().startsWith('STALE_OFFER_REVIEW')).length,acceptance=live.filter(r=>stage(r)==='OFFER_ISSUED'&&!String(r.workflow?.['Acceptance Remarks']||'').toUpperCase().startsWith('STALE_OFFER_REVIEW')&&!/ACCEPTED|DECLINED/.test(String(r.workflow?.['Acceptance Status']||'').toUpperCase())).length;return[{name:'Ready for SAC',sub:'Applications awaiting SAC assignment / decision',count:sacReady},{name:'SAC decisions',sub:'Candidates assigned and waiting for authorised decision',count:sac},{name:'IA / Prerequisite',sub:'Assessment cases in progress',count:assessment},{name:'Manual review',sub:'Special cases requiring registry verification',count:manualReview},{name:'Stale offer review',sub:'Past-intake offers requiring close, defer or reissue decision',count:staleOffer},{name:'Acceptance follow-up',sub:'Current or future intake offers awaiting acceptance',count:acceptance}].filter(x=>x.count>0)}
     function countBy(arr,getter){const m={};arr.forEach(x=>{const k=String(getter(x)||'Unspecified');m[k]=(m[k]||0)+1});return Object.entries(m).sort((a,b)=>b[1]-a[1])}
@@ -2539,7 +2566,7 @@
   <script src="/fee-structure-admin.js"></script>
   <script src="/system-guide-training.js"></script>
   <script src="/system-guide-training-v2.js"></script>
-<script src="/ia-dashboard-admin.js"></script><script src="/acc-application-calendar-admin.js"></script>
+<script src="/ia-dashboard-admin.js"></script><script src="/acc-application-calendar-admin.js"></script><script src="/loa-operations-admin.js"></script>
 
 </body>
 </html>
