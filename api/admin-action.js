@@ -1,11 +1,12 @@
 import {issueAccNativeLoa,accNativeLoaReadiness} from '../lib/loa-native.js';
 import {renderLegacyLoaEmail} from '../lib/loa-v1-email.js';
+import {accResolveCoordinator,accValidateDirectoryRow} from '../lib/acc-programme-directory.js';
 const V2_WEB_APP = 'https://script.google.com/macros/s/AKfycbxasT_HgtRSvTbR_bsa8p17Cm-C2PKn20Ok1kU-AyJmxiKX8kX5EGOtRLwVwNlAL7JB/exec';
 const AUTH_WEB_APP = 'https://script.google.com/macros/s/AKfycbw22-UOsHkaap3dzU16aOjA6XFr7jWGr9qQPfp8F1CQrXboP7YdRZJKKJhHijC3us4/exec';
 
 const ALLOWED_ACTIONS = new Set([
   'v2WorkflowDiagnostics','v2ListWorkflow','v2UpsertFeeStructure','v2SetFeeStructureStatus','v2UpsertAgent','v2AgentAdminStatus','v2UpdateStage','v2RunDocumentReview','v2RegeneratePgAdm01','v2CompleteManualDocumentReview','v2RunQualificationScreening','v2RunAutoAiScreening','v2CompleteManualQualificationScreening','v2RecordAiScreeningResult','v2ConfirmAiScreening','v2GenerateAiScreeningReport','v2RunComplianceDocumentQuality','v2SendDocumentReplacementRequest','v2SendMissingDocumentRequest','v2PrepareSacCoordination','v2PrepareIaCoordination','v2PreparePrerequisiteCoordination','v2PrepareOrientationForAccepted','v2RunOrientationSessionSupervisor','v2PrepareSkyActivation','v2PrepareAcademicHandover','v2PrepareStudentAccessDelivery','v2RunManagementIntelligence','v2AgenticStatus','v2GetAgentCaseState','v2AgentActionGateway','v2RecordAgentActivity','v2CreateHumanTask','v2ResolveHumanTask','v2ListOpenHumanTasks',
-  'accIssueLoa','v2PrepareAcceptancePack','v2ResendAcceptanceConfirmation','v2CreateSacSession','v2AssignSacCandidate','v2RemoveSacCandidate','v2PrepareSacPack','v2PrepareSacPackAsync','v2GetSacPackPrepareStatus','v2GetSacPackFile','v2SaveSacPackPdf','v2ListSacCandidates','v2RecordSacDecision','v2CreateSacSessionManual','v2UpdateSacSessionManual','v2DeleteSacSessionManual','v2SendSacCalendarInvitationManual','v2RecordSacDecisionManual','v2FinalizeSacSessionManual','v2SacManualPhase1Status','v2SacResultStatus','v2PrepareSacResultDocument','v2PreviewSacResult','v2SendSacResultEmail','v2UpdateAssessment','v2CreateOrientationSession','v2AssignOrientationBatch','v2SendOrientationInvitation','v2RemoveOrientationStudent','v2MoveOrientationStudent','v2UpdateOrientationAttendance','v2SendOrientationReminderNow','v2EndOrientationSession','v2EditOrientationSession','v2OpenOrientationAttendance','v2CloseOrientationAttendance','v2SetOrientationRecording','v2SendOrientationRecording','v2OrientationCompletionAssessment','v2CompleteOrientationAndGenerateReport','v2RegenerateOrientationReport','v2GetOrientationReportFile','v2CreateHandoverSession','v2AddHandoverStudents','v2SendHandoverSession','v2CreateAcademicHandoverBatch','v2ResendAcademicHandoverEmail','v2UpdateProvisioningTask','v2ResendProvisioningTaskEmails','v2SendStudentProvisioningAccess','v2RegistryUpsertProspect','v2RefreshFeeStructure','v2NotifyRegistryProspectReady','v2ActivateStudentInSky','v2SetApplicationAgent','v2MoveApplicationToActivated','v2ReturnApplicationFromActivated','v2ConfirmSkyActivationInAcc'
+  'accIssueLoa','accUpsertProgrammeCoordinator','v2PrepareAcceptancePack','v2ResendAcceptanceConfirmation','v2CreateSacSession','v2AssignSacCandidate','v2RemoveSacCandidate','v2PrepareSacPack','v2PrepareSacPackAsync','v2GetSacPackPrepareStatus','v2GetSacPackFile','v2SaveSacPackPdf','v2ListSacCandidates','v2RecordSacDecision','v2CreateSacSessionManual','v2UpdateSacSessionManual','v2DeleteSacSessionManual','v2SendSacCalendarInvitationManual','v2RecordSacDecisionManual','v2FinalizeSacSessionManual','v2SacManualPhase1Status','v2SacResultStatus','v2PrepareSacResultDocument','v2PreviewSacResult','v2SendSacResultEmail','v2UpdateAssessment','v2CreateOrientationSession','v2AssignOrientationBatch','v2SendOrientationInvitation','v2RemoveOrientationStudent','v2MoveOrientationStudent','v2UpdateOrientationAttendance','v2SendOrientationReminderNow','v2EndOrientationSession','v2EditOrientationSession','v2OpenOrientationAttendance','v2CloseOrientationAttendance','v2SetOrientationRecording','v2SendOrientationRecording','v2OrientationCompletionAssessment','v2CompleteOrientationAndGenerateReport','v2RegenerateOrientationReport','v2GetOrientationReportFile','v2CreateHandoverSession','v2AddHandoverStudents','v2SendHandoverSession','v2CreateAcademicHandoverBatch','v2ResendAcademicHandoverEmail','v2UpdateProvisioningTask','v2ResendProvisioningTaskEmails','v2SendStudentProvisioningAccess','v2RegistryUpsertProspect','v2RefreshFeeStructure','v2NotifyRegistryProspectReady','v2ActivateStudentInSky','v2SetApplicationAgent','v2MoveApplicationToActivated','v2ReturnApplicationFromActivated','v2ConfirmSkyActivationInAcc'
 ]);
 
 async function validateDirectAdmin(password){
@@ -360,6 +361,16 @@ export default async function handler(req, res) {
     if(serviceRequest && (action==='v2WorkflowDiagnostics'||syntheticOrientation)){
       const direct=await callAppsScriptV2(action,body.data||{},password,'Authorised Registry System Verification');
       result=direct.parsed;bridgeMs=direct.bridgeMs;transport='APPS_SCRIPT_WORKFLOW_VERIFICATION';bridgeWarning=null;
+    }else if(action==='accUpsertProgrammeCoordinator'){
+      if(!(await validateDirectAdmin(password)))throw new Error('Admin authentication required to update programme coordinators.');
+      if(!supabaseConfig())throw new Error('ACC Coordinator Directory database is unavailable. Nothing saved.');
+      const row=accValidateDirectoryRow(body.data,{allowIncomplete:true});
+      const saved=await supabaseRequest('acc_programme_coordinators?on_conflict=programme_code','POST',[{
+        ...row,updated_at:new Date().toISOString(),updated_by:String(body.updatedBy||'ACC Registry').slice(0,120)
+      }]);
+      if(!Array.isArray(saved)||saved.length!==1)throw new Error('Coordinator update not confirmed; please refresh.');
+      result={saved:true,programmeCode:row.programme_code,active:row.is_active};
+      transport='ACC_COORDINATOR_DIRECTORY';bridgeMs=0;
     }else if(action==='accIssueLoa'){
       // ACC is the ONLY LOA issuer. This path never calls Apps Script.
       if(!(await validateDirectAdmin(password))){
@@ -384,9 +395,14 @@ export default async function handler(req, res) {
       const matric=String(admin.sky_student_id||'').trim();
       if(!/^\d{7}$/.test(matric)||String(body.data?.skyStudentId||'').trim()!==matric)
         throw new Error('SKY matric number differs from the Registry-confirmed ACC record.');
+      // Fail closed: only the authoritative, active ACC Directory can select PIC.
+      // No fallback to source-code mappings, email preview seeds, or generic Registry.
+      const directory=await supabaseRequest('acc_programme_coordinators?select=programme_code,programme_name,level,coordinator_name,coordinator_email,coordinator_role,is_active');
+      if(!Array.isArray(directory))throw new Error('Coordinator Directory cannot be verified. No LOA issued.');
+      const coordinator=accResolveCoordinator(application.Programme,directory);
       const began=Date.now();
       result=await issueAccNativeLoa({referenceNo,matricNo:matric,application,
-        workflow,actor:body.updatedBy||'IPGS Registry',emailContract:renderLegacyLoaEmail});
+        workflow,coordinator,actor:body.updatedBy||'IPGS Registry',emailContract:renderLegacyLoaEmail});
       bridgeMs=Date.now()-began;transport='ACC_NATIVE_GOOGLE_API';bridgeWarning=null;
     }else if(action==='v2AgentActionGateway'&&String(body.data?.action||body.data?.requestedAction||'').toUpperCase()==='ISSUE_OFFER'){
       throw new Error('Automated LOA issuance retired; use ACC Applications.');
