@@ -2,15 +2,19 @@
 import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
 import {runInNewContext} from 'node:vm';
+import {URL} from 'node:url';
 const native=readFileSync(new URL('../lib/loa-native.js',import.meta.url),'utf8')
-  .replace("import { randomUUID } from 'node:crypto';","const randomUUID=()=> 'synthetic-id';")
+  .replace(/^import .*;$/gm,'')
+  .replace(/^/,'const randomUUID=()=> "synthetic-id";\n')
   .replace(/export (const|function|async function)/g,'$1');
 const email=readFileSync(new URL('../lib/loa-v1-email.js',import.meta.url),'utf8')
   .replace(/export \{[^}]+\};/g,'');
 const htmlTemplate=readFileSync(new URL('../lib/loa-v1-html.js',import.meta.url),'utf8')
   .replace('export function renderLegacyLoaHtml','function renderLegacyLoaHtml');
-const context={process:{env:{}},URLSearchParams,Intl,Date,RegExp,String,Object,Array,JSON};
-runInNewContext(native+'\n'+email+'\n'+htmlTemplate,context,{timeout:2000});
+const premium=readFileSync(new URL('../lib/loa-premium-email.js',import.meta.url),'utf8')
+  .replace(/export function /g,'function ');
+const context={process:{env:{}},URL,URLSearchParams,Intl,Date,RegExp,String,Object,Array,JSON};
+runInNewContext(native+'\n'+email+'\n'+htmlTemplate+'\n'+premium,context,{timeout:2000});
 const app={'Student Folder URL':'https://drive.google.com/drive/folders/1SyntheticTest',
   'Student Name':'SYNTHETIC UAT','Personal Email':'uat@example.invalid',
   'ID / Passport No':'TEST-001','Programme':'MBA - Master of Business Administration',
@@ -33,4 +37,18 @@ assert.ok(html.includes('<ol>'),'Original numbered list missing');
 assert.ok(html.includes('<b>Official Offer Letter</b>'),'Original document bold missing');
 assert.ok(html.includes('href="https://innovative.vialing.com/sp/login"'),'Original portal hyperlink missing');
 assert.ok(html.includes('2601001')&&!html.includes('{{'),'Template placeholders remain');
-console.log('ACC native LOA: PASS — 4 SAC/IA/PR scenarios, invalid matric, duplicate, offline-safe gate and four PDFs.');
+const previewOptions={studentName:'UAT TEST STUDENT',programme:app.Programme,
+  matricNo:'2601001',intake:'January 2027',preview:true,
+  acceptanceUrl:'https://ipgs-admission-form.innovative.edu.my/acceptance-demo.html'};
+const premiumHtml=context.renderPremiumLoaHtml(previewOptions);
+assert.ok(premiumHtml.includes('NEXT STEP')&&premiumHtml.includes('Preview Acceptance Portal'));
+assert.ok(premiumHtml.includes('Open Student Portal')&&premiumHtml.includes('Join WhatsApp Community'));
+assert.ok(premiumHtml.includes('Apply for Physical Student ID Card'));
+assert.ok(!premiumHtml.includes('xvVDEnnt9Fq4jAKp7'),'Manual Acceptance Form must not be linked');
+assert.throws(()=>context.renderPremiumLoaHtml({...previewOptions,preview:false,
+  acceptanceUrl:'https://script.google.com/macros/s/AKfycbxasT_HgtRSvTbR_bsa8p17Cm-C2PKn20Ok1kU-AyJmxiKX8kX5EGOtRLwVwNlAL7JB/exec?page=acceptance-v2'}),/token/);
+const liveHtml=context.renderPremiumLoaHtml({...previewOptions,preview:false,
+  acceptanceUrl:'https://script.google.com/macros/s/AKfycbxasT_HgtRSvTbR_bsa8p17Cm-C2PKn20Ok1kU-AyJmxiKX8kX5EGOtRLwVwNlAL7JB/exec?page=acceptance-v2&token='+'a'.repeat(64)});
+assert.ok(liveHtml.includes('Complete Online Acceptance'));
+assert.ok(!liveHtml.includes('UAT DESIGN PREVIEW'));
+console.log('ACC native LOA: PASS — 4 SAC/IA/PR scenarios, invalid matric, duplicate, offline-safe gate four PDFs, online Acceptance and CTA buttons.');
