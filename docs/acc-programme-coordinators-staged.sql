@@ -17,7 +17,8 @@ create table if not exists public.acc_programme_coordinators (
       and length(trim(coordinator_role))>=4
     )
   ),
-  constraint no_diploma_dba_odl check (programme_code not in ('DBAODL','DPLI'))
+  constraint no_diploma_dba_odl check (programme_code not in ('DBAODL','DPLI')),
+  constraint dba_must_be_doctorate check (programme_code<>'DBA' or (programme_name not ilike '%ODL%' and programme_name not ilike '%Diploma%'))
 );
 alter table public.acc_programme_coordinators enable row level security;
 revoke all on public.acc_programme_coordinators from public, anon, authenticated;
