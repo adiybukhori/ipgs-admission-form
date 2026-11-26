@@ -161,5 +161,11 @@ export default async function handler(req,res){
   const sacMs=Date.now()-sacStarted;
   if(scope!=='sac'){data.V1_MASTER_DATABASE=[];data.V1_LEGACY_META=[{source:'ARCHIVED_AFTER_UNIFIED_MIGRATION',count:0,readOnly:true,cacheHit:false}];}
   sortSacSessions(data);const totalMs=Date.now()-startedAt;res.setHeader('Server-Timing',`auth;dur=${authMs}, sheets;dur=${sheetsMs}, sac;dur=${sacMs}, total;dur=${totalMs}`);
+  // Reuse the existing Admin API; a standalone readiness API would exceed Vercel Hobby's 12-function limit.
+  data.ACC_LOA_ISSUANCE_READY=process.env.VERCEL_ENV==='production' &&
+    process.env.V2_LOA_V1_PARITY_READY==='true' &&
+    Boolean(process.env.V2_LOA_API_TOKEN) &&
+    Boolean(process.env.SUPABASE_URL||process.env.NEXT_PUBLIC_SUPABASE_URL) &&
+    Boolean(process.env.SUPABASE_SERVICE_ROLE_KEY||process.env.SUPABASE_SECRET_KEY);
   return res.status(200).json({ok:true,build:'ADMIN_DATA_SUPABASE_WORKFLOW_20261005',scope,loadedAt:new Date().toISOString(),warnings,cache:{unifiedHit:v2CacheHit,ttlSeconds:30,forced:force},performance:{authMs,sheetsMs,sacMs,totalMs},data});
 }
