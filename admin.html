@@ -1414,7 +1414,7 @@
             <td>${statusText}</td>
             <td>${esc(formatDate(w['Last Updated']||a['Last Updated']||a['Submitted At']))}</td>
             <td><span class="subline">Read-only preview</span></td>
-            <td><button class="ghost" type="button" disabled title="Unavailable until authoritative ACC metadata is connected">Preview only</button></td>
+            <td><button class="ghost" type="button" data-ref="${ref}" onclick="openRecord(this.dataset.ref)">View Profile</button></td>
           </tr>`;
         }).join('');
         body.innerHTML='<tr><td colspan="12" class="warning-banner">READ-ONLY MODE: ACC application records loaded from the V2 Sheet, but Supabase administrative metadata is unavailable. SKY status, fee verification and update actions are disabled. The production ACC is unchanged.</td></tr>'+
@@ -1693,7 +1693,20 @@
           banner.style.background='var(--amberSoft)';banner.style.color='#815400';banner.style.borderColor='#f3dfad';
         }
       }
-      renderProgress(selected);renderQuickActions(selected);renderOperationalActions(selected);renderDetailTabs(selected);detailTab('overview',document.querySelector('.tabs button'));document.body.classList.add('drawer-open');document.getElementById('drawerBackdrop').classList.add('open');document.getElementById('drawer').classList.add('open')
+      renderProgress(selected);renderQuickActions(selected);renderOperationalActions(selected);renderDetailTabs(selected);detailTab('overview',document.querySelector('.tabs button'));
+      if(db.ACC_APPLICATION_ADMIN_STATUS!=='READY'&&accLoaPreviewMode()){
+        // Preview fallback is *strictly* read only. Tabs, closing and external document viewing work;
+        // the LOA demo button can show its local preview message, but no backend writes are allowed.
+        if(banner){banner.textContent='READ-ONLY PREVIEW: Registry/SKY metadata is not connected. LOA controls are demonstration only; no status or letter can be changed.';banner.style.background='var(--blueSoft)';banner.style.color='var(--blue)';}
+        document.querySelectorAll('#drawer button').forEach(btn=>{
+          const onclick=String(btn.getAttribute('onclick')||'');
+          if(btn.closest('.tabs')||btn.closest('.drawer-head')||onclick.includes('issueOffer()'))return;
+          btn.disabled=true;
+          btn.title='This preview is read-only. No student data changes are allowed.';
+        });
+        document.querySelectorAll('#drawer input,#drawer select,#drawer textarea').forEach(el=>el.disabled=true);
+      }
+      document.body.classList.add('drawer-open');document.getElementById('drawerBackdrop').classList.add('open');document.getElementById('drawer').classList.add('open')
     }
     function closeDrawer(){document.body.classList.remove('drawer-open');document.getElementById('drawerBackdrop').classList.remove('open');document.getElementById('drawer').classList.remove('open')}
 
