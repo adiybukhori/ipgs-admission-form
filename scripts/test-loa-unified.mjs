@@ -4,9 +4,10 @@ import {runInNewContext} from 'node:vm';
 
 const legacy=readFileSync(new URL('../apps-script/LOA_V1_PARITY_CONTRACT.js',import.meta.url),'utf8');
 const unified=readFileSync(new URL('../apps-script/LOA_UNIFIED_V2_UAT.js',import.meta.url),'utf8');
+const policy=readFileSync(new URL('../apps-script/LOA_V2_SINGLE_POLICY.js',import.meta.url),'utf8');
 let mail=[],updates=[];
 const workflow={
-  'Offer Letter Status':'ISSUED','LOA Registry Matric No':'2601001',
+  'Offer Letter Status':'NOT_ISSUED','LOA Registry Matric No':'2601001',
   'Acceptance Review PDF URL':'https://drive.google.com/file/d/acceptance-test/view',
   'Surat Penerimaan Review PDF URL':'https://drive.google.com/file/d/penerimaan-test/view',
   'Surat Akuan Review PDF URL':'https://drive.google.com/file/d/akuan-test/view'
@@ -34,16 +35,17 @@ const sandbox={
   v2NotificationUpdateWorkflow_:(...args)=>updates.push(args),
   v2Audit_:()=>{}
 };
-runInNewContext(legacy+'\n'+unified+'\nthis.issuer={gate:v2LoaRegistryMatric_,send:v2SendOfferNotificationUnified_};',sandbox);
+runInNewContext(legacy+'\n'+policy+'\n'+unified+'\nthis.issuer={gate:v2LoaRegistryMatric_,send:v2SendOfferNotificationUnified_};',sandbox);
 const {gate,send}=sandbox.issuer;
-assert.equal(gate('IUC-ADM-V2-TEST',{skyStudentId:'2601001',issuanceBasis:'REGISTRY_CONFIRMED_SKY_MATRIC'}),'2601001');
+assert.equal(gate('IUC-ADM-V2-TEST',{skyStudentId:'2601001',issuanceBasis:'REGISTRY_CONFIRMED_SKY_MATRIC',source:'ACC_APPLICATIONS'}),'2601001');
 assert.throws(()=>gate('IUC-ADM-V2-TEST',{skyStudentId:'2601001',issuanceBasis:'SAC_APPROVED'}),/matric/);
-assert.throws(()=>gate('IUC-ADM-V2-TEST',{skyStudentId:'1234',issuanceBasis:'REGISTRY_CONFIRMED_SKY_MATRIC'}),/matric/);
+assert.throws(()=>gate('IUC-ADM-V2-TEST',{skyStudentId:'1234',issuanceBasis:'REGISTRY_CONFIRMED_SKY_MATRIC',source:'ACC_APPLICATIONS'}),/matric/);
 state.enabled=false;
-assert.throws(()=>gate('IUC-ADM-V2-TEST',{skyStudentId:'2601001',issuanceBasis:'REGISTRY_CONFIRMED_SKY_MATRIC'}),/disabled/);
+assert.throws(()=>gate('IUC-ADM-V2-TEST',{skyStudentId:'2601001',issuanceBasis:'REGISTRY_CONFIRMED_SKY_MATRIC',source:'ACC_APPLICATIONS'}),/disabled/);
 state.enabled=true;
 assert.throws(()=>send('IUC-ADM-V2-TEST','https://test.invalid/accept','loa-file',{testMode:true,testRecipient:'someone-else@example.invalid'}),/non-test recipient/);
 assert.equal(mail.length,0);
+workflow['Offer Letter Status']='ISSUED';
 const result=send('IUC-ADM-V2-TEST','https://test.invalid/accept','loa-file',{testMode:true,testRecipient:'registry-test@example.invalid'});
 assert.equal(result.sent,true);
 assert.equal(result.attachmentCount,4);
