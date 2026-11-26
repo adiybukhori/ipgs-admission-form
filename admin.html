@@ -2375,17 +2375,30 @@
       return Boolean(w['Offer Letter PDF URL']||w['Offer Letter Issued At']||['ISSUED','SENT'].includes(v));
     }
     function accLoaPreviewMode(){return location.hostname!=='ipgs-admission-form.innovative.edu.my';}
+    function accCoordinatorForLoa(r){
+ const raw=String(r?.app?.['Programme']||'').trim();
+ const found=(raw.match(/^(PGDT|DPLI|MBA|MBM|MHUM|MIS|PHD|DBA|MEDU|BBA)\b/i)||[])[1];
+ const code=found?.toUpperCase()==='DPLI'?'PGDT':String(found||'').toUpperCase();
+ if(!code)return null;
+ return (db.ACC_PROGRAMME_COORDINATORS||[]).find(row=>
+   String(row.programme_code||'').toUpperCase()===code &&
+   row.is_active===true&&String(row.coordinator_name||'').trim().length>=3&&
+   /^[a-z0-9._%+-]+@innovative\.edu\.my$/i.test(String(row.coordinator_email||''))&&
+   String(row.coordinator_role||'').trim().length>=4)||null;
+}
+
     function issueOffer(){
       if(!selected)return;
       const matric=accMatricForLoa(selected);
       if(!matric){opsMsg('Enter and confirm the official 7-digit SKY Student ID first. This is independent of SAC decisions.','error');return;}
       if(accLoaAlreadyIssued(selected)){opsMsg('Official LOA is already recorded. Open its PDF; do not send a duplicate.','info');return;}
+      if(!accCoordinatorForLoa(selected)){opsMsg('LOA BLOCKED: This programme does not have a complete, active Programme Coordinator in ACC → Programme Coordinators.','error');return;}
       if(accLoaPreviewMode()){opsMsg('LOA is ready based on the recorded SKY matric number. Testing preview does not generate or email student letters.','info');return;}
-      if(!loaReleaseReady){opsMsg('LOA generator remains in controlled UAT. Apps Script parity is not yet approved; no email will be sent.','error');return;}
+      if(!loaReleaseReady){opsMsg('ACC native LOA remains in controlled UAT. Google OAuth, secure Acceptance and issuance approvals are pending. No email will be sent.','error');return;}
       if(db.ACC_APPLICATION_ADMIN_STATUS!=='READY'){opsMsg('ACC administrative metadata is unverified. Refresh before issuing an LOA.','error');return;}
       const programme=String(selected.app?.['Programme']||'');
-      const isPackage=/\bMBA\b|Master\s+of\s+Business\s+Administration/i.test(programme)&&/\bPhD\b|Doctor\s+of\s+Philosophy/i.test(programme);
-      const currentAward=isPackage?'Master of Business Administration (MBA) only':programme;
+      const isPackage=/\bPhD\b|Doctor\s+of\s+Philosophy/i.test(programme)&&/^(MBA|MBM)\s*\+/i.test(programme);
+      const currentAward=isPackage?(/\bMBM\b/i.test(programme)?'Master in Business Management (MBM) only':'Master of Business Administration (MBA) only'):programme;
       runAdminAction('accIssueLoa',{referenceNo:selected.ref,skyStudentId:matric,issuanceBasis:'REGISTRY_CONFIRMED_SKY_MATRIC',sendEmail:true,testMode:false},`Generate the official Offer Letter for ${currentAward} and SEND it to ${selected.app['Personal Email']||'the student'} with the secure Acceptance link?${isPackage?' PhD progression requires a separate admission approval.':''}`);
     }
     function assignSacSession(){if(!selected)return;const el=document.getElementById('opsSacSession'),sessionId=el?.value||'';if(!sessionId)return opsMsg('Select a SAC session first.','error');runAdminAction('v2AssignSacCandidate',{referenceNo:selected.ref,sessionId,studentName:selected.app?.['Student Name']||'',programme:selected.app?.['Programme']||'',screeningRecommendation:selected.screen?.['Recommendation']||selected.screen?.['Screening Recommendation']||'',proceedWithPendingDocuments:true,confirmed:true,overrideBy:'Admin Portal V2 - nonblocking document policy'},`Assign ${selected.app['Student Name']||selected.ref} to the selected SAC session? Pending documents remain follow-up only.`)}
@@ -2573,7 +2586,9 @@
     }
     function renderQuickActions(r){const a=[],folder=r.app['Student Folder URL'],pdf=r.app['Admission Form PDF URL'],col=r.workflow?.['COL PDF URL']||r.app?.['COL PDF URL'],aiReportId=String(r.ai?.['Report File ID']||''),qualityReportId=String(r.doc?.['Document Quality Report File ID']||''),aiReport=String(r.ai?.['Report PDF URL']||(aiReportId?`https://drive.google.com/file/d/${aiReportId}/view`:'')),qualityReport=String(r.doc?.['Document Quality Report PDF URL']||(qualityReportId?`https://drive.google.com/file/d/${qualityReportId}/view`:''));if(folder)a.push(`<a class="ghost" target="_blank" href="${esc(folder)}">Open student folder</a>`);if(pdf)a.push(`<a class="ghost" target="_blank" href="${esc(pdf)}">Admission Form PDF</a>`);if(col)a.push(`<a class="ghost" target="_blank" href="${esc(col)}">Conditional Offer Letter</a>`);if(r.workflow?.['Offer Letter PDF URL'])a.push('<a class="ghost" target="_blank" rel="noopener" href="'+esc(r.workflow['Offer Letter PDF URL'])+'">View Official LOA</a>');else if(accLoaAlreadyIssued(r))a.push('<button class="ghost" disabled title="LOA recorded as issued; refresh to retrieve PDF.">LOA Issued · PDF Pending</button>');else{
         const matric=accMatricForLoa(r);
-        if(matric&&loaReleaseReady&&!accLoaPreviewMode())a.push('<button class="primary" type="button" onclick="issueOffer()" title="ACC-confirmed SKY Student ID: '+esc(matric)+'">Issue Official LOA</button>');else if(matric)a.push('<button class="ghost" disabled title="SKY matric is present, but Unified LOA Apps Script UAT is not yet approved.">LOA · Matric Confirmed · UAT Pending</button>');
+        if(matric&&!accCoordinatorForLoa(r))a.push('<button class="ghost" disabled title="Configure an active Programme Coordinator with full name, official email and role in ACC Programme Coordinators.">LOA Blocked · Coordinator Missing</button>');
+        else if(matric&&loaReleaseReady&&!accLoaPreviewMode())a.push('<button class="primary" type="button" onclick="issueOffer()" title="ACC-confirmed SKY Student ID and active Programme Coordinator verified">Issue Official LOA</button>');
+        else if(matric)a.push('<button class="ghost" disabled title="Sky matric and Programme Coordinator confirmed; ACC-native LOA UAT is pending.">LOA · Details Complete · UAT Pending</button>');
         else {a.push('<button class="ghost" disabled title="Record the official 7-digit SKY Student ID to enable LOA.">Issue Official LOA · Matric Pending</button>');a.push('<button class="ghost" type="button" onclick="openSkyActivationModal(selected.ref)">Enter SKY Matric No.</button>');}
       }if(AI_SCREENING_UI_ENABLED){if(aiReport)a.push(`<a class="ghost" target="_blank" rel="noopener" href="${esc(aiReport)}">AI Screening Report</a>`);else a.push('<button class="ghost" disabled title="AI Screening Report has not been generated yet.">AI Screening Report · Pending</button>');if(qualityReport)a.push(`<a class="ghost" target="_blank" rel="noopener" href="${esc(qualityReport)}">AI Document Quality Report</a>`);else a.push('<button class="ghost" disabled title="AI Document Quality Report has not been generated yet.">AI Document Quality Report · Pending</button>');}if(r.workflow?.['Acceptance PDF URL'])a.push(`<a class="ghost" target="_blank" href="${esc(r.workflow['Acceptance PDF URL'])}">${r.source==='V1'?'Acceptance':'Acceptance PDF'}</a>`);if(r.workflow?.['Surat Akuan Signed PDF URL'])a.push(`<a class="ghost" target="_blank" href="${esc(r.workflow['Surat Akuan Signed PDF URL'])}">Surat Akuan</a>`);if(r.workflow?.['Surat Penerimaan Signed PDF URL'])a.push(`<a class="ghost" target="_blank" href="${esc(r.workflow['Surat Penerimaan Signed PDF URL'])}">Surat Penerimaan</a>`);if(r.workflow?.['Acceptance Signing URL'])a.push(`<a class="ghost" target="_blank" href="${esc(r.workflow['Acceptance Signing URL'])}">Acceptance Link</a>`);document.getElementById('quickActions').innerHTML=a.join('')}
     function pair(k,v){return`<div class="k">${esc(k)}</div><div class="v">${esc(v||'-')}</div>`}
