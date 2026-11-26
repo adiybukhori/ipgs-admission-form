@@ -36,3 +36,6 @@
 5. After testing pin an Apps Script version, verify ACC points to it, then deliberately enable the ACC readiness flag and execute a controlled cutover. Keep V1 available for rollback.
 
 **No LOA emails sent and no live student records modified in this run.**
+
+## Additional dependent Acceptance finding
+- `OfferLetterV2.js → v2AcceptOffer_` currently accepts only `OFFER_ISSUED` or `ACCEPTANCE_PENDING` stage and then overwrites `Application Stage` with `ACCEPTED`. If LOA issuance preserves `READY_FOR_SAC` as required, **Acceptance will fail until this gate is also changed**. Both LOA and Acceptance status must be independently tracked without mutating SAC/IA/Prerequisite stage.
