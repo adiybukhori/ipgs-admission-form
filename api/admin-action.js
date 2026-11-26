@@ -369,6 +369,9 @@ export default async function handler(req, res) {
       // A Registry-confirmed SKY matric number is mandatory, checked server-side.
       // Preview cannot issue real LOAs or emails; historical UAT diagnostics remain separate.
       if(action==='v2IssueOffer'&&!syntheticTrial){
+        // Do not call the deployed V2 Apps Script until its stage gates, four-file
+        // email contract and Registry matric verification have passed UAT.
+        if(process.env.V2_LOA_V1_PARITY_READY!=='true')throw new Error('LOA issuance is in controlled migration: legacy email/template parity and Apps Script matric gate have not yet been verified. No email was sent.');
         if(process.env.VERCEL_ENV&&process.env.VERCEL_ENV!=='production'){
           throw new Error('LOA delivery is disabled in preview. Use an approved non-student UAT route to test generation.');
         }
