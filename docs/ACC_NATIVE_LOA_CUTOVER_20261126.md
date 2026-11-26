@@ -73,3 +73,12 @@ Keep legacy V1 and V2 production flows available until ACC native UAT and initia
 - A synthetic preview page `loa-email-premium-preview.html` was committed on feature branch.
 - Offline executable Node regression suite `scripts/test-acc-native-loa.mjs` was run on authorised user's online desktop: **PASS** (four SAC/IA/PR cases, invalid matric, duplicate issue, absent env fail closed, V1 four PDFs, premium buttons, no manual acceptance form, token gating, preview-only banner). No student records or production services changed.
 - User visual design approval for preview #3 is pending.
+
+## 26 Nov 2026 — detailed onboarding cards #4
+- Registry review reported the three adjacent service buttons were visually weak, lacked explanation, and separated student portal credentials from the portal action. Original V1 email had specific WhatsApp and Physical ID instructions that must not be lost.
+- `lib/loa-premium-email.js` now renders three **individual full-width mobile-friendly service cards** (numbered 01/02/03), each with an explanation and a full-width CTA, preserving the original portal username/initial-password instructions and programme matric display.
+- WhatsApp card restores the V1 explanation covering announcements, orientation updates, class information and Registry communication. Optional Physical ID card restores V1 request wording about students requiring a physical card completing an application form.
+- Retains secure electronic Acceptance as the first primary action; all three service URLs remain the original verified V1 targets. Manual Acceptance Form is not linked.
+- Updated the static `loa-email-premium-preview.html` and regression tests to assert three card structures, original explanatory copy and all four buttons. Node test suite run on user's authorised desktop: **PASS**.
+- UAT email `[UAT DESIGN PREVIEW #4] IUC LOA – Redesigned Student Onboarding` sent from connected IPGS Admission account to authorised Registry inbox with four synthetic PDFs. Independent sent+received records verified (HTML + 4 attachments). **This is design preview only, not production ACC issuance.**
+- Pending: user design approval; integrate Registry sender and ACC-specific electronic Acceptance token with the signing backend before any live email. Existing Apps Script v131 and ACC production remain untouched.
