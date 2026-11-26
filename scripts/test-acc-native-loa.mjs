@@ -44,6 +44,17 @@ const premiumHtml=context.renderPremiumLoaHtml(previewOptions);
 assert.ok(premiumHtml.includes('NEXT STEP')&&premiumHtml.includes('Preview Acceptance Portal'));
 assert.ok(premiumHtml.includes('Open Student Portal')&&premiumHtml.includes('Join WhatsApp Community'));
 assert.ok(premiumHtml.includes('Apply for Physical Student ID Card'));
+assert.ok(premiumHtml.includes('Access the IUC Student Portal'),'Student Portal section missing');
+assert.ok(premiumHtml.includes('YOUR STUDENT ACCOUNT'),'Portal account heading missing');
+assert.ok(premiumHtml.includes('Initial Password:'),'Portal login instructions missing');
+assert.ok(premiumHtml.includes('2699999')===false,'Synthetic preview must use test matric 2601001');
+assert.ok(premiumHtml.includes('Join the Official WhatsApp Community'),'WhatsApp action missing');
+assert.ok(premiumHtml.includes('orientation updates, class information'),'Original WhatsApp explanation missing');
+assert.ok(premiumHtml.includes('Students who require a physical Student ID Card'),'Original ID card explanation missing');
+assert.ok(premiumHtml.includes('OPTIONAL STUDENT SERVICE'),'Optional physical card label missing');
+assert.ok(premiumHtml.includes('Open Physical Student ID Card Application'),'Physical card action missing');
+assert.ok(!premiumHtml.includes('Student essentials'),'Old button strip still present');
+assert.equal((premiumHtml.match(/<h3 /g)||[]).length,3,'Must show exactly three service cards');
 assert.ok(!premiumHtml.includes('xvVDEnnt9Fq4jAKp7'),'Manual Acceptance Form must not be linked');
 assert.throws(()=>context.renderPremiumLoaHtml({...previewOptions,preview:false,
   acceptanceUrl:'https://script.google.com/macros/s/AKfycbxasT_HgtRSvTbR_bsa8p17Cm-C2PKn20Ok1kU-AyJmxiKX8kX5EGOtRLwVwNlAL7JB/exec?page=acceptance-v2'}),/token/);
