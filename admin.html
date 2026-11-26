@@ -1421,7 +1421,31 @@
     function renderApplications(){
       const body=document.getElementById('applicationsBody');if(!body)return;
       if(db.ACC_APPLICATION_ADMIN_STATUS!=='READY'){
-        body.innerHTML='<tr><td colspan="12" class="empty">Application queue metadata could not be verified. Please Refresh before moving or editing applicants.</td></tr>';
+        // Preview deployments have no production Supabase credentials. Never infer
+        // an authoritative SKY/category/fee state, but do show the ACC application
+        // rows fetched from V2_APPLICATIONS as read-only.
+        const list=filteredApplications();
+        const readonlyRows=list.map(r=>{
+          const a=r.app||{},w=r.workflow||{},offer=accOfferInfo(r);
+          const name=esc(a['Student Name']||'-'),ref=esc(r.ref);
+          const statusText=esc(pretty(w['Application Status']||a['Application Status']||'-'));
+          return `<tr>
+            <td><div class="student">${name}</div><div class="subline">${ref}</div></td>
+            <td>${esc(a['Programme']||'-')}<div class="subline">${esc(a['Study Mode']||'')}</div></td>
+            <td>${esc(a['Intake']||'-')}</td>
+            <td><span class="badge ${classifyBadge(stage(r))}">${esc(pretty(stage(r)))}</span><div class="subline">ACC workflow · unverified</div></td>
+            <td>${esc(a['Agent Name']||a['Agent Code']||'-')}<div class="subline">SKY category unavailable</div></td>
+            <td><span class="badge amber">Unverified</span></td>
+            <td><span class="badge amber">Unverified</span></td>
+            <td><span class="badge ${offer.issued?'green':'amber'}">${offer.issued?'Recorded as issued':'Not recorded'}</span><div class="subline">ACC Sheet record · unverified</div></td>
+            <td>${statusText}</td>
+            <td>${esc(formatDate(w['Last Updated']||a['Last Updated']||a['Submitted At']))}</td>
+            <td><span class="subline">Read-only preview</span></td>
+            <td><button class="ghost" type="button" disabled title="Unavailable until authoritative ACC metadata is connected">Preview only</button></td>
+          </tr>`;
+        }).join('');
+        body.innerHTML='<tr><td colspan="12" class="warning-banner">READ-ONLY MODE: ACC application records loaded from the V2 Sheet, but Supabase administrative metadata is unavailable. SKY status, fee verification and update actions are disabled. The production ACC is unchanged.</td></tr>'+
+          (readonlyRows||'<tr><td colspan="12" class="empty">No ACC applications were returned. Please Refresh or check the source connection.</td></tr>');
         return;
       }
       const list=filteredApplications();
