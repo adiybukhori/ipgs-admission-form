@@ -38,7 +38,7 @@ const sandbox={
 runInNewContext(legacy+'\n'+policy+'\n'+unified+'\nthis.issuer={gate:v2LoaRegistryMatric_,send:v2SendOfferNotificationUnified_};',sandbox);
 const {gate,send}=sandbox.issuer;
 assert.equal(gate('IUC-ADM-V2-TEST',{skyStudentId:'2601001',issuanceBasis:'REGISTRY_CONFIRMED_SKY_MATRIC',source:'ACC_APPLICATIONS'}),'2601001');
-assert.throws(()=>gate('IUC-ADM-V2-TEST',{skyStudentId:'2601001',issuanceBasis:'SAC_APPROVED'}),/matric/);
+assert.throws(()=>gate('IUC-ADM-V2-TEST',{skyStudentId:'2601001',issuanceBasis:'SAC_APPROVED',source:'ACC_APPLICATIONS'}),/Registry-confirmed/);
 assert.throws(()=>gate('IUC-ADM-V2-TEST',{skyStudentId:'1234',issuanceBasis:'REGISTRY_CONFIRMED_SKY_MATRIC',source:'ACC_APPLICATIONS'}),/matric/);
 state.enabled=false;
 assert.throws(()=>gate('IUC-ADM-V2-TEST',{skyStudentId:'2601001',issuanceBasis:'REGISTRY_CONFIRMED_SKY_MATRIC',source:'ACC_APPLICATIONS'}),/disabled/);
