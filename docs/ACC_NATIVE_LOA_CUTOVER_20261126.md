@@ -91,3 +91,17 @@ Keep legacy V1 and V2 production flows available until ACC native UAT and initia
 - No PIC personal telephone numbers were guessed or published.
 - Static preview updated and synthetic email `[UAT DESIGN PREVIEW #5] IUC LOA – Official IPGS Header & Support Team` delivered and independently found in Registry test inbox with four PDFs.
 - Offline Node regression tests (including programme contacts, missing PIC fallback, admission summary and header) passed on authorised user desktop. Production not modified.
+
+
+## 26 November 2026 — single header and fail-closed Programme Directory UAT
+- Registry rejected two stacked headers: the official IPGS JPEG followed by an oversized purple `Congratulations` strip. Premium HTML now shows **one original official IPGS banner** and a restrained purple-on-white `Congratulations on your admission!` section below. Static HTML preview refreshed.
+- Built new **ACC Programme Coordinators** sidebar module and staff Add/Edit form; supports programme code/title, study level, coordinator full name, official email, role and Active status. Programmes without complete PIC must remain inactive. Preview is read-only.
+- Staged secured Supabase table `acc_programme_coordinators` in `docs/acc-programme-coordinators-staged.sql` with RLS, no public client grants, constraints and 9 Registry-approved PIC seeds. **Migration NOT applied.**
+- ACC admin-data serves the authoritative table when deployed; without it, UI preview may show read-only seeds. Backend `accIssueLoa` resolves an **active, complete** coordinator from Supabase and fails closed without a matching record. No hardcoded PIC fallback in live sending.
+- The native LOA engine validates coordinator again before Google APIs, document generation, Gmail or issuance ledger claim. It also checks seven-digit SKY matric, student name, valid email, intake, study mode, ID/passport, full address, destination Drive folder, duplicate evidence and personal secure Acceptance token.
+- UI disables `Issue Official LOA` with `LOA Blocked · Coordinator Missing` when applicable. Separate SAC decision tracking remains untouched.
+- Existing staff directory choices: PGDT Rushdina; MBA/MHUM/BBA Naqi; MBM Abuzar; MIS Aminah; PhD/DBA Noorus Sarah; MEDU Abu Huzaifah. Packages inherit their Master coordinator. DBA ODL is explicitly excluded.
+- A new active programme configured in Directory can be added to Admission Form dropdown dynamically by `/api/admission?programmes=1`. Staff-editable settings require the production DB migration and cutover approval.
+- Source-level syntax checks passed for all changed JS/HTML/API modules; isolated security regression **12/12 passed**, covering inactive/missing PIC, unapproved programmes, DBA ODL, missing student data and single-image header. Real Google OAuth/Drive/Gmail/Acceptance end-to-end test is **still pending**.
+- Sent and verified arrival of synthetic **[UAT DESIGN PREVIEW #6 – HTML ONLY]** in Registry test inbox for visual review, intentionally **without PDFs** because prior synthetic local attachments were unavailable. This is not an official LOA and not a native ACC issuance test.
+- Production ACC, Supabase schema and deployed Apps Script v131 **unchanged**. Do not enable live issuance until the coordinated UAT passes.
