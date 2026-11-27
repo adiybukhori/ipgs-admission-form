@@ -65,12 +65,12 @@ function gwHealth_(props){
  const app=ss.getSheetByName('V2_APPLICATIONS');
  const ah=app.getRange(1,1,1,app.getLastColumn()).getDisplayValues()[0];
  const templates=Object.keys(ACC_GW_TEMPLATES).map(k=>({key:k,accessible:DriveApp.getFileById(ACC_GW_TEMPLATES[k]).getMimeType()===MimeType.GOOGLE_DOCS}));
- return {sender:ACC_GW_SENDER,studyModeRevision:1,acceptanceMailRevision:1,workflowReady:ACC_GW_FIELDS.every(k=>header.includes(k))&&header.includes('Reference No'),applicationReady:['Reference No','Student Folder URL','Personal Email','ID / Passport No'].every(k=>ah.includes(k)),templates:templates,writeEnabled:props.getProperty('ACC_GATEWAY_WRITE_ENABLED')==='true'};
+ return {sender:ACC_GW_SENDER,studyModeRevision:1,acceptanceMailRevision:1,loaRevisionSupport:1,workflowReady:ACC_GW_FIELDS.every(k=>header.includes(k))&&header.includes('Reference No'),applicationReady:['Reference No','Student Folder URL','Personal Email','ID / Passport No'].every(k=>ah.includes(k)),templates:templates,writeEnabled:props.getProperty('ACC_GATEWAY_WRITE_ENABLED')==='true'};
 }
-function gwFileName_(ctx,name,kind){
+function gwFileName_(ctx,name,kind,revision){
  const clean=String(ctx.app['ID / Passport No']||'').replace(/[^A-Za-z0-9]/g,'').toUpperCase();
  const prefix=ACC_GW_PREFIX[kind];
- if(!clean||!prefix||typeof name!=='string'||!name.startsWith(prefix+'_')||!name.endsWith('_'+clean+'.pdf')||!/^[A-Za-z0-9_]+\.pdf$/.test(name))gwFail_('PDF filename mismatch');
+ if(!clean||!prefix||typeof name!=='string'||!name.startsWith(prefix+'_')||!name.endsWith('_'+clean+(revision?'_R'+String(revision).padStart(2,'0'):'')+'.pdf')||!/^[A-Za-z0-9_]+\.pdf$/.test(name))gwFail_('PDF filename mismatch');
 }
 function gwSet_(wf,fields){
  const data=Object.keys(fields).map(k=>{
@@ -83,6 +83,9 @@ function gwSet_(wf,fields){
 function gwDispatch_(p,props){
  const ctx=gwContext_(p),wf=ctx.wf,record=wf.record;
  if(p.op==='set_study_mode')return gwStudyMode_(p,ctx);
+ const marker=String(record['Offer Letter Remarks']||''),match=marker.match(/; Revision R(\d{2,4})$/),revision=match?Number(match[1]):0;
+ if(p.revision!==undefined&&(!Number.isInteger(p.revision)||p.revision<2||p.revision>1000||p.revision!==revision))gwFail_('Revision marker mismatch');
+ if(revision&&p.revision!==revision)gwFail_('Revision authorization missing');
  if(p.expectedStudyMode&&gwMode_(ctx.app['Study Mode'])!==p.expectedStudyMode)gwFail_('Study mode changed; review required');
  if(p.op==='preflight'){
   if(!ACC_GW_FIELDS.every(k=>wf.header.includes(k)))gwFail_('Workflow columns missing');
@@ -92,7 +95,7 @@ function gwDispatch_(p,props){
  if(p.op==='pdf'){
   if(record['Offer Letter Status']==='ISSUED'||record['Acceptance Token Hash'])gwFail_('Existing LOA requires review');
   const kind=Object.keys(ACC_GW_TEMPLATES).find(k=>ACC_GW_TEMPLATES[k]===p.templateId);
-  gwFileName_(ctx,p.name,kind);
+  gwFileName_(ctx,p.name,kind,p.revision);
   const allowed=['{{STUDENT_NAME}}','{{PROGRAMME_NAME}}','{{INTAKE}}','{{IC}}','{{SESSION_MONTH}}','{{SESSION_YEAR}}','{{REF_NO}}','{{OFFER_DATE_LONG}}','{{STUDENT_ADDRESS}}','{{MATRIX_NO}}','Study Mode\t: Full Time'];
   if(!p.replacements||!Object.keys(p.replacements).every(k=>allowed.includes(k)&&typeof p.replacements[k]==='string'&&p.replacements[k].length<=3000))gwFail_('Invalid replacement fields');
   if(kind==='loa'&&p.expectedStudyMode&&p.replacements['Study Mode\t: Full Time']!=='Study Mode\t: '+p.expectedStudyMode.replace('-',' '))gwFail_('Study mode replacement mismatch');
@@ -114,6 +117,7 @@ function gwDispatch_(p,props){
   const f=p.fields||{}, keys=Object.keys(f);
   if(keys.length===ACC_GW_FIELDS.length&&ACC_GW_FIELDS.every(k=>keys.includes(k))){
    if(record['Offer Letter Status']==='ISSUED'||record['Acceptance Token Hash']||record['Offer Letter PDF URL'])gwFail_('Existing LOA requires review');
+   if(p.revision&&f['Offer Letter Remarks']!=='Issued by ACC native LOA engine; SKY matric confirmed; Revision R'+String(p.revision).padStart(2,'0'))gwFail_('Revision write mismatch');
    if(f['Offer Letter Status']!=='ISSUED'||f['Offer Email Status']!=='SENDING'||f['Acceptance Status']!=='PENDING'||!/^https:\/\/drive\.google\.com\/file\/d\/[-\w]+\/view/.test(f['Offer Letter PDF URL']||''))gwFail_('Invalid issuance workflow');
    const tok=(String(f['Acceptance Signing URL']||'').match(/^https:\/\/script\.google\.com\/macros\/s\/AKfycbxasT_HgtRSvTbR_bsa8p17Cm-C2PKn20Ok1kU-AyJmxiKX8kX5EGOtRLwVwNlAL7JB\/exec\?page=acceptance-v2&token=([a-f0-9]{64})$/)||[])[1];
    if(!tok||gwHex_(Utilities.computeDigest(Utilities.DigestAlgorithm.SHA_256,tok,Utilities.Charset.UTF_8))!==f['Acceptance Token Hash'])gwFail_('Invalid acceptance token');
@@ -130,7 +134,7 @@ function gwDispatch_(p,props){
   if(!Array.isArray(p.files)||p.files.length!==4||new Set(p.files.map(f=>f.id)).size!==4)gwFail_('Four unique PDFs required');
   const kinds=Object.keys(ACC_GW_TEMPLATES);
   const pdfs=p.files.map((item,i)=>{
-   gwFileName_(ctx,item.name,kinds[i]);const file=DriveApp.getFileById(item.id);
+   gwFileName_(ctx,item.name,kinds[i],p.revision);const file=DriveApp.getFileById(item.id);
    const parents=file.getParents();let inFolder=false;while(parents.hasNext())if(parents.next().getId()===ctx.folder)inFolder=true;
    if(!inFolder||file.getName()!==item.name||file.getMimeType()!==MimeType.PDF)gwFail_('Attachment mismatch');
    return {name:item.name,bytes:file.getBlob().getBytes()};

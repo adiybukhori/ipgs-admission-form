@@ -1,4 +1,5 @@
 import {accGatewayCall} from '../lib/loa-gateway.js';
+import {prepareLoaRevision,normalizeStudyMode} from '../lib/loa-revision.js';
 import {issueAccNativeLoa,accNativeLoaReadiness,accNativeLoaValidate} from '../lib/loa-native.js';
 import {renderLegacyLoaEmail} from '../lib/loa-v1-email.js';
 import {accResolveCoordinator,accValidateDirectoryRow} from '../lib/acc-programme-directory.js';
@@ -8,7 +9,7 @@ const AUTH_WEB_APP = 'https://script.google.com/macros/s/AKfycbw22-UOsHkaap3dzU1
 
 const ALLOWED_ACTIONS = new Set([
   'v2WorkflowDiagnostics','v2ListWorkflow','v2UpsertFeeStructure','v2SetFeeStructureStatus','v2UpsertAgent','v2AgentAdminStatus','v2UpdateStage','v2RunDocumentReview','v2RegeneratePgAdm01','v2CompleteManualDocumentReview','v2RunQualificationScreening','v2RunAutoAiScreening','v2CompleteManualQualificationScreening','v2RecordAiScreeningResult','v2ConfirmAiScreening','v2GenerateAiScreeningReport','v2RunComplianceDocumentQuality','v2SendDocumentReplacementRequest','v2SendMissingDocumentRequest','v2PrepareSacCoordination','v2PrepareIaCoordination','v2PreparePrerequisiteCoordination','v2PrepareOrientationForAccepted','v2RunOrientationSessionSupervisor','v2PrepareSkyActivation','v2PrepareAcademicHandover','v2PrepareStudentAccessDelivery','v2RunManagementIntelligence','v2AgenticStatus','v2GetAgentCaseState','v2AgentActionGateway','v2RecordAgentActivity','v2CreateHumanTask','v2ResolveHumanTask','v2ListOpenHumanTasks',
-  'accIssueLoa','accLoaStatus','accSetStudyMode','accUpsertProgrammeCoordinator','v2PrepareAcceptancePack','v2ResendAcceptanceConfirmation','v2CreateSacSession','v2AssignSacCandidate','v2RemoveSacCandidate','v2PrepareSacPack','v2PrepareSacPackAsync','v2GetSacPackPrepareStatus','v2GetSacPackFile','v2SaveSacPackPdf','v2ListSacCandidates','v2RecordSacDecision','v2CreateSacSessionManual','v2UpdateSacSessionManual','v2DeleteSacSessionManual','v2SendSacCalendarInvitationManual','v2RecordSacDecisionManual','v2FinalizeSacSessionManual','v2SacManualPhase1Status','v2SacResultStatus','v2PrepareSacResultDocument','v2PreviewSacResult','v2SendSacResultEmail','v2UpdateAssessment','v2CreateOrientationSession','v2AssignOrientationBatch','v2SendOrientationInvitation','v2RemoveOrientationStudent','v2MoveOrientationStudent','v2UpdateOrientationAttendance','v2SendOrientationReminderNow','v2EndOrientationSession','v2EditOrientationSession','v2OpenOrientationAttendance','v2CloseOrientationAttendance','v2SetOrientationRecording','v2SendOrientationRecording','v2OrientationCompletionAssessment','v2CompleteOrientationAndGenerateReport','v2RegenerateOrientationReport','v2GetOrientationReportFile','v2CreateHandoverSession','v2AddHandoverStudents','v2SendHandoverSession','v2CreateAcademicHandoverBatch','v2ResendAcademicHandoverEmail','v2UpdateProvisioningTask','v2ResendProvisioningTaskEmails','v2SendStudentProvisioningAccess','v2RegistryUpsertProspect','v2RefreshFeeStructure','v2NotifyRegistryProspectReady','v2ActivateStudentInSky','v2SetApplicationAgent','v2MoveApplicationToActivated','v2ReturnApplicationFromActivated','v2ConfirmSkyActivationInAcc'
+  'accIssueLoa','accLoaStatus','accSaveLoaRevision','accQueueLoaRevision','accLoaHistory','accSetStudyMode','accUpsertProgrammeCoordinator','v2PrepareAcceptancePack','v2ResendAcceptanceConfirmation','v2CreateSacSession','v2AssignSacCandidate','v2RemoveSacCandidate','v2PrepareSacPack','v2PrepareSacPackAsync','v2GetSacPackPrepareStatus','v2GetSacPackFile','v2SaveSacPackPdf','v2ListSacCandidates','v2RecordSacDecision','v2CreateSacSessionManual','v2UpdateSacSessionManual','v2DeleteSacSessionManual','v2SendSacCalendarInvitationManual','v2RecordSacDecisionManual','v2FinalizeSacSessionManual','v2SacManualPhase1Status','v2SacResultStatus','v2PrepareSacResultDocument','v2PreviewSacResult','v2SendSacResultEmail','v2UpdateAssessment','v2CreateOrientationSession','v2AssignOrientationBatch','v2SendOrientationInvitation','v2RemoveOrientationStudent','v2MoveOrientationStudent','v2UpdateOrientationAttendance','v2SendOrientationReminderNow','v2EndOrientationSession','v2EditOrientationSession','v2OpenOrientationAttendance','v2CloseOrientationAttendance','v2SetOrientationRecording','v2SendOrientationRecording','v2OrientationCompletionAssessment','v2CompleteOrientationAndGenerateReport','v2RegenerateOrientationReport','v2GetOrientationReportFile','v2CreateHandoverSession','v2AddHandoverStudents','v2SendHandoverSession','v2CreateAcademicHandoverBatch','v2ResendAcademicHandoverEmail','v2UpdateProvisioningTask','v2ResendProvisioningTaskEmails','v2SendStudentProvisioningAccess','v2RegistryUpsertProspect','v2RefreshFeeStructure','v2NotifyRegistryProspectReady','v2ActivateStudentInSky','v2SetApplicationAgent','v2MoveApplicationToActivated','v2ReturnApplicationFromActivated','v2ConfirmSkyActivationInAcc'
 ]);
 
 async function validateDirectAdmin(password){
@@ -331,7 +332,7 @@ async function mirrorSacAction(action,data,result,updatedBy){
   }
 }
 
-async function accLoaInput(referenceNo,requestedMatric){
+async function accLoaInput(referenceNo,requestedMatric,revisionPreflight=false){
       const [apps,workflows,adminRows]=await Promise.all([
         accVerifiedSheetRows('V2_APPLICATIONS'),
         accVerifiedSheetRows('V2_WORKFLOW'),
@@ -351,10 +352,43 @@ async function accLoaInput(referenceNo,requestedMatric){
       const directory=await supabaseRequest('acc_programme_coordinators?select=programme_code,programme_name,level,coordinator_name,coordinator_email,coordinator_role,is_active');
       if(!Array.isArray(directory))throw new Error('Coordinator Directory cannot be verified. No LOA issued.');
       const coordinator=accResolveCoordinator(application.Programme,directory);
-  const prepared=accNativeLoaValidate({referenceNo,matricNo:matric,application,workflow});
+  const checkedWorkflow=revisionPreflight?{...workflow,'Offer Letter Status':'NOT_ISSUED','Offer Letter PDF URL':'','Offer Letter Issued At':''}:workflow;
+  const prepared=accNativeLoaValidate({referenceNo,matricNo:matric,application,workflow:checkedWorkflow});
   return {referenceNo,matricNo:matric,application,workflow,coordinator,prepared};
 }
 
+
+function stableRevisionJson(x){return JSON.stringify(x,(_k,v)=>v&&typeof v==='object'&&!Array.isArray(v)?Object.fromEntries(Object.keys(v).sort().map(k=>[k,v[k]])):v);}
+function accRevisionEnabled(){return process.env.ACC_LOA_REVISION_READY==='true'&&process.env.ACC_LOA_QUEUE_READY==='true'&&accNativeLoaReadiness().ready;}
+async function accRevisionPlan(ref,data,{running=false}={}){
+ if(!accRevisionEnabled()||!/^IUC-ADM-[A-Za-z0-9-]{3,160}$/.test(ref))throw Error('Revised LOA is not enabled.');
+ const [ls,js]=await Promise.all([supabaseRequest('acc_loa_issuance?select=*&reference_no=eq.'+encodeURIComponent(ref)+'&limit=1'),supabaseRequest('acc_loa_jobs?select=*&reference_no=eq.'+encodeURIComponent(ref)+'&limit=1')]);
+ if(!Array.isArray(ls)||ls.length!==1||!Array.isArray(js))throw Error('Prior LOA not verified');
+ const ledger=ls[0],job=js[0]||null,input=await accLoaInput(ref,ledger.matric_no,true);
+ if(!running&&normalizeStudyMode(data.expectedStudyMode)!==input.prepared.studyMode)throw Error('Current Study Mode changed; refresh first');
+ if(running&&(!job||job.status!=='RUNNING'||job.kind!=='REVISE'))throw Error('No revision job claimed');
+ const plan=prepareLoaRevision({referenceNo:ref,application:input.application,workflow:input.workflow,ledger,job:running?null:job,nextStudyMode:data.studyMode,reason:data.reason,registryConfirmed:data.registryConfirmed===true,revision:Number(ledger.revision||1)});
+ const cc=JSON.parse(process.env.ACC_LOA_CC_ROUTING_JSON||'{}')[input.prepared.code];
+ if(!Array.isArray(cc)||cc.length!==1||cc[0].toLowerCase()!==input.coordinator.email)throw Error('Coordinator routing not verified');
+ return plan;
+}
+async function accPrepareRevisionJob(job){
+ if(!accRevisionEnabled()||!process.env.V2_WORKFLOW_API_TOKEN)throw Error('Revision backend not configured');
+ const ref=job.reference_no,revision=Number(job.revision);
+ const drafts=await supabaseRequest('acc_loa_revision_requests?select=plan,state,revision&reference_no=eq.'+encodeURIComponent(ref)+'&limit=1');
+ const d=drafts?.[0];if(!d||d.state!=='QUEUED'||d.revision!==revision||d.plan.nextStudyMode!==job.study_mode)throw Error('Revision draft not verified');
+ const p=d.plan,now=await accRevisionPlan(ref,{studyMode:p.nextStudyMode,reason:p.reason,registryConfirmed:p.registryConfirmed},{running:true});
+ if(stableRevisionJson(now)!==stableRevisionJson(p))throw Error('Prior offer or acceptance changed; Registry review required');
+ const health=await accGatewayCall(process.env,'health',{});
+ if(health?.loaRevisionSupport!==1||health?.writeEnabled!==true)throw Error('Revision gateway not ready');
+ if(await supabaseRequest('rpc/acc_loa_archive_revision','POST',{p_ref:ref,p_revision:revision})!==true)throw Error('Original LOA not archived');
+ const bridge=await callAppsScriptV2('v2PrepareAccLoaRevision',p,'','Registry LOA Revision');
+ if(bridge.parsed?.tokenRevoked!==true||bridge.parsed.revision!==revision||bridge.parsed.studyMode!==job.study_mode||bridge.parsed.reviewFilesRemaining!==0)throw Error('Revision reset requires manual review');
+ const input=await accLoaInput(ref,job.matric_no);
+ if(input.prepared.studyMode!==job.study_mode||input.workflow['Offer Letter Remarks']!=='ACC revised LOA preparing; Revision R'+String(revision).padStart(2,'0')||input.workflow['Acceptance Token Hash']||input.workflow['Acceptance Signing URL'])throw Error('Revision reset not independently verified');
+ if(await supabaseRequest('rpc/acc_loa_release_revision_ledger','POST',{p_ref:ref,p_revision:revision})!==true)throw Error('Prior ledger not safely released');
+ return input;
+}
 async function accLoaWorker(body,res){
   if(process.env.VERCEL_ENV!=='production'||process.env.ACC_LOA_QUEUE_READY!=='true')return res.status(403).json({ok:false});
   const token=String(body.dispatchToken||'');
@@ -364,11 +398,13 @@ async function accLoaWorker(body,res){
     const rows=await supabaseRequest('rpc/acc_loa_claim_job','POST',{p_token:token});
     if(!Array.isArray(rows)||rows.length!==1)return res.status(403).json({ok:false});
     job=rows[0];
-    const input=await accLoaInput(job.reference_no,job.matric_no);
+    const revised=job.kind==='REVISE';
+    const input=revised?await accPrepareRevisionJob(job):await accLoaInput(job.reference_no,job.matric_no);
     if(input.prepared.studyMode!==job.study_mode)throw new Error('Study Mode changed after queuing; review required.');
-    const result=await issueAccNativeLoa({...input,actor:job.actor,emailContract:renderLegacyLoaEmail});
+    const result=await issueAccNativeLoa({...input,actor:job.actor,emailContract:renderLegacyLoaEmail,revision:revised?Number(job.revision):1});
     if(!result.emailSent)throw new Error('Email delivery was not confirmed.');
-    await supabaseRequest('acc_loa_jobs?reference_no=eq.'+encodeURIComponent(job.reference_no)+'&status=eq.RUNNING','PATCH',{status:'SENT',updated_at:new Date().toISOString()});
+    if(revised){if(await supabaseRequest('rpc/acc_loa_complete_revision','POST',{p_ref:job.reference_no,p_revision:Number(job.revision)})!==true)throw Error('Revision completion requires review');}
+    else await supabaseRequest('acc_loa_jobs?reference_no=eq.'+encodeURIComponent(job.reference_no)+'&status=eq.RUNNING','PATCH',{status:'SENT',updated_at:new Date().toISOString()});
     return res.status(200).json({ok:true});
   }catch(e){
     if(job)await supabaseRequest('acc_loa_jobs?reference_no=eq.'+encodeURIComponent(job.reference_no)+'&status=eq.RUNNING','PATCH',{status:'REVIEW_REQUIRED',failure_reason:String(e?.message||'Worker failed').slice(0,300),updated_at:new Date().toISOString()}).catch(()=>{});
@@ -424,12 +460,36 @@ export default async function handler(req, res) {
       if(!Array.isArray(saved)||saved.length!==1)throw new Error('Coordinator update not confirmed; please refresh.');
       result={saved:true,programmeCode:row.programme_code,active:row.is_active};
       transport='ACC_COORDINATOR_DIRECTORY';bridgeMs=0;
+    }else if(['accSaveLoaRevision','accQueueLoaRevision','accLoaHistory'].includes(action)){
+      if(!(await validateDirectAdmin(password)))throw Error('Admin authentication required');
+      if(!accRevisionEnabled())throw Error('Revised LOA is not enabled');
+      const ref=String(body.data?.referenceNo||'').trim();if(!/^IUC-ADM-[A-Za-z0-9-]{3,160}$/.test(ref))throw Error('Invalid application reference');
+      if(action==='accSaveLoaRevision'){
+        const p=await accRevisionPlan(ref,body.data);
+        if(await supabaseRequest('rpc/acc_loa_save_revision','POST',{p_ref:ref,p_plan:p,p_actor:String(body.updatedBy||'Registry').slice(0,120)})!==true)throw Error('Revision draft not saved');
+        result={referenceNo:ref,revision:p.revision,studyMode:p.nextStudyMode,state:'DRAFT'};
+      }else if(action==='accQueueLoaRevision'){
+        const ds=await supabaseRequest('acc_loa_revision_requests?select=plan,state,revision&reference_no=eq.'+encodeURIComponent(ref)+'&limit=1');
+        const d=ds?.[0];if(!d||d.state!=='DRAFT'||d.revision!==Number(body.data?.revision))throw Error('Save a fresh revision draft first');
+        const p=d.plan,current=await accRevisionPlan(ref,{studyMode:p.nextStudyMode,reason:p.reason,expectedStudyMode:p.previous.studyMode,registryConfirmed:p.registryConfirmed});
+        if(stableRevisionJson(current)!==stableRevisionJson(p))throw Error('Acceptance changed since draft; save again');
+        if(await supabaseRequest('rpc/acc_loa_enqueue_revision','POST',{p_ref:ref,p_revision:d.revision})!==true)throw Error('Revision already queued or prior job not settled');
+        try{await supabaseRequest('rpc/acc_loa_dispatch_job','POST',{});}catch(_){}
+        result={referenceNo:ref,revision:d.revision,jobStatus:'QUEUED'};
+      }else{
+        const history=await supabaseRequest('acc_loa_revision_history?select=revision,study_mode,superseded_by,acceptance_status,offer_issued_at,accepted_at,pdf_files,signed_document_urls,reason,archived_at&reference_no=eq.'+encodeURIComponent(ref)+'&order=revision.desc');
+        const l=await supabaseRequest('acc_loa_issuance?select=revision,status&reference_no=eq.'+encodeURIComponent(ref)+'&limit=1');
+        result={history:history||[],currentRevision:l?.[0]?.revision||null,currentStatus:l?.[0]?.status||null};
+      }
+      transport='ACC_LOA_REVISION';bridgeMs=0;
     }else if(action==='accLoaStatus'){
       if(!(await validateDirectAdmin(password))){const e=new Error('Invalid admin password.');e.code='ADMIN_AUTH_FAILED';throw e;}
-      const jobs=await supabaseRequest('acc_loa_jobs?select=reference_no,status,updated_at&order=updated_at.desc&limit=4000');
-      const ledger=await supabaseRequest('acc_loa_issuance?select=reference_no,status,updated_at,sent_at,pdf_files&order=updated_at.desc&limit=4000');
+      const revisionEnabled=accRevisionEnabled();
+      const jobs=await supabaseRequest('acc_loa_jobs?select=reference_no,status,updated_at'+(revisionEnabled?',kind,revision':'')+'&order=updated_at.desc&limit=4000');
+      const ledger=await supabaseRequest('acc_loa_issuance?select=reference_no,status,updated_at,sent_at,pdf_files'+(revisionEnabled?',revision':'')+'&order=updated_at.desc&limit=4000');
+      const drafts=revisionEnabled?await supabaseRequest('acc_loa_revision_requests?select=reference_no,revision,state,plan&state=eq.DRAFT&limit=4000'):[];
       if(!Array.isArray(jobs)||!Array.isArray(ledger))throw new Error('LOA status unavailable.');
-      result={jobs,ledger:ledger.map(x=>({reference_no:x.reference_no,status:x.status,updated_at:x.updated_at,sent_at:x.sent_at,pdf_url:x.status==='SENT'?x.pdf_files?.[0]?.url||'':''}))};transport='ACC_LOA_STATUS';bridgeMs=0;
+      result={jobs,revisionEnabled,drafts:(drafts||[]).map(d=>({reference_no:d.reference_no,revision:d.revision,studyMode:d.plan.nextStudyMode,state:d.state})),ledger:ledger.map(x=>({reference_no:x.reference_no,status:x.status,revision:x.revision||1,updated_at:x.updated_at,sent_at:x.sent_at,pdf_url:x.status==='SENT'?x.pdf_files?.[0]?.url||'':''}))};transport='ACC_LOA_STATUS';bridgeMs=0;
     }else if(action==='accSetStudyMode'){
       if(!(await validateDirectAdmin(password))){const e=new Error('Invalid admin password.');e.code='ADMIN_AUTH_FAILED';throw e;}
       const ref=String(body.data?.referenceNo||'').trim(),mode=String(body.data?.studyMode||''),prior=String(body.data?.expectedStudyMode||'');
