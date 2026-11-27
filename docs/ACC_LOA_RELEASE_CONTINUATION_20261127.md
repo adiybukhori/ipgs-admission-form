@@ -20,3 +20,5 @@ Vercel production project inspected 27 Nov: ACC_LOA_GOOGLE_CLIENT_ID, ACC_LOA_GO
 5. Only then promote reviewed release and retire legacy LOA initiation. Do not set readiness flags prematurely or issue real student letters.
 
 No production data, deployed Apps Script, or production ACC was changed during these tests. No real LOA email sent.
+## Database readiness update — 27 November 2026
+Applied the additive ledger and coordinator migration to the Admission Form V2 Supabase project. Verified both tables exist with RLS enabled, anon/authenticated SELECT denied, server service role SELECT/INSERT/UPDATE granted, nine active approved programme coordinator rows, and zero issuance records. The intentional service-role-only RLS configuration may produce an informational no-policy advisory. No existing application record changed. The Google OAuth/Registry sender, signing backend deployment and real synthetic end-to-end gate remain pending; production ACC is unchanged.
