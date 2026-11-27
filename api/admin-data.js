@@ -178,6 +178,6 @@ export default async function handler(req,res){
   // Reuse the existing Admin API; a standalone readiness API would exceed Vercel Hobby's 12-function limit.
   data.ACC_LOA_ISSUANCE_READY=process.env.VERCEL_ENV==='production' &&
     data.ACC_PROGRAMME_COORDINATORS_STATUS==='READY' &&
-    accNativeLoaReadiness().ready;
+    accNativeLoaReadiness().ready && process.env.ACC_LOA_QUEUE_READY==='true';
   return res.status(200).json({ok:true,build:'ADMIN_DATA_SUPABASE_WORKFLOW_20261005',scope,loadedAt:new Date().toISOString(),warnings,cache:{unifiedHit:v2CacheHit,ttlSeconds:30,forced:force},performance:{authMs,sheetsMs,sacMs,totalMs},data});
 }
