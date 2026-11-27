@@ -44,7 +44,7 @@ assert.ok(html.includes('<ol>'),'Original numbered list missing');
 assert.ok(html.includes('<b>Official Offer Letter</b>'),'Original document bold missing');
 assert.ok(html.includes('href="https://innovative.vialing.com/sp/login"'),'Original portal hyperlink missing');
 assert.ok(html.includes('2601001')&&!html.includes('{{'),'Template placeholders remain');
-const verifiedPic=context.accResolveCoordinator(app.Programme,context.PROGRAMME_COORDINATOR_SEEDS);
+const verifiedPic=context.accResolveCoordinator(app.Programme,runInNewContext('PROGRAMME_COORDINATOR_SEEDS',context));
 const previewOptions={studentName:'UAT TEST STUDENT',programme:app.Programme,
   matricNo:'2601001',intake:'January 2027',preview:true,
   acceptanceUrl:'https://ipgs-admission-form.innovative.edu.my/acceptance-demo.html'};
@@ -73,7 +73,7 @@ assert.ok(premiumHtml.includes('ipgs.admission@innovative.edu.my'),'Registry ema
 assert.ok(context.renderPremiumLoaHtml({...previewOptions,programme:'MBM - Master in Business Management'}).includes('abuzar@innovative.edu.my'));
 assert.ok(context.renderPremiumLoaHtml({...previewOptions,programme:'PhD - Doctor of Philosophy in Management'}).includes('noorus.sarah@innovative.edu.my'));
 assert.ok(context.renderPremiumLoaHtml({...previewOptions,programme:'DBA - Doctorate of Business Administration'}).includes('noorus.sarah@innovative.edu.my'));
-assert.ok(!context.renderPremiumLoaHtml({...previewOptions,programme:'MEDU - Master of Education'}).includes('ACADEMIC & PROGRAMME MATTERS'),'Do not guess an unknown coordinator');
+assert.ok(context.renderPremiumLoaHtml({...previewOptions,programme:'MEDU - Master in Education'}).includes('abu.huzaifah.ipgs@innovative.edu.my'),'Approved MEDU coordinator missing');
 
 assert.ok(!premiumHtml.includes('xvVDEnnt9Fq4jAKp7'),'Manual Acceptance Form must not be linked');
 assert.throws(()=>context.renderPremiumLoaHtml({...previewOptions,coordinator:verifiedPic,preview:false,
