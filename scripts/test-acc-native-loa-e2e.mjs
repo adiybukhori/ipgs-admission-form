@@ -11,7 +11,7 @@ const app={'Student Name':'SYNTHETIC TEST ONLY','Personal Email':'uat@example.in
   'Student Folder URL':'https://drive.google.com/drive/folders/SYNTHETICFOLDER'};
 const env={VERCEL_ENV:'production',ACC_LOA_GOOGLE_CLIENT_ID:'mock',ACC_LOA_GOOGLE_CLIENT_SECRET:'mock',
  ACC_LOA_GOOGLE_REFRESH_TOKEN:'mock',ACC_LOA_SENDER_EMAIL:'ipgs.admission@example.invalid',
- ACC_LOA_CC_ROUTING_JSON:'{"MBA":["registry-test@example.invalid"]}',SUPABASE_URL:'https://mock.invalid',
+ ACC_LOA_CC_ROUTING_JSON:'{"MBA":["naqiyuddin.ipgs@innovative.edu.my"]}',SUPABASE_URL:'https://mock.invalid',
  SUPABASE_SERVICE_ROLE_KEY:'mock',ACC_LOA_NATIVE_READY:'true',ACC_LOA_LEGACY_CREDENTIAL_TEXT_APPROVED:'true',
  ACC_LOA_ACCEPTANCE_BACKEND_READY:'true'};
 const fields=['Reference No','Application Stage','SAC Decision','Offer Letter Status','Offer Letter PDF URL',

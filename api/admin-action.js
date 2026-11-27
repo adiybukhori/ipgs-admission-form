@@ -1,6 +1,7 @@
 import {issueAccNativeLoa,accNativeLoaReadiness} from '../lib/loa-native.js';
 import {renderLegacyLoaEmail} from '../lib/loa-v1-email.js';
 import {accResolveCoordinator,accValidateDirectoryRow} from '../lib/acc-programme-directory.js';
+export const config = { maxDuration: 300 };
 const V2_WEB_APP = 'https://script.google.com/macros/s/AKfycbxasT_HgtRSvTbR_bsa8p17Cm-C2PKn20Ok1kU-AyJmxiKX8kX5EGOtRLwVwNlAL7JB/exec';
 const AUTH_WEB_APP = 'https://script.google.com/macros/s/AKfycbw22-UOsHkaap3dzU16aOjA6XFr7jWGr9qQPfp8F1CQrXboP7YdRZJKKJhHijC3us4/exec';
 
@@ -372,7 +373,7 @@ export default async function handler(req, res) {
       result={saved:true,programmeCode:row.programme_code,active:row.is_active};
       transport='ACC_COORDINATOR_DIRECTORY';bridgeMs=0;
     }else if(action==='accIssueLoa'){
-      // ACC is the ONLY LOA issuer. This path never calls Apps Script.
+      // ACC owns issuance; scoped Workspace gateway is transport only.
       if(!(await validateDirectAdmin(password))){
         const e=new Error('Invalid admin password.');e.code='ADMIN_AUTH_FAILED';throw e;
       }

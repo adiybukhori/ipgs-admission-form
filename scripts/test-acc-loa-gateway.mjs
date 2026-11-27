@@ -14,7 +14,7 @@ assert.equal(ctx.gwAuth_(signed,secret,now).op,'health');
 assert.throws(()=>ctx.gwAuth_({...signed,payload:'{"op":"send"}'},secret,now),/Invalid authentication/);
 assert.throws(()=>ctx.gwAuth_(signed,secret,now+121000),/Invalid authentication envelope/);
 assert.throws(()=>ctx.gwAuth_(makeAccGatewayEnvelope({op:'deleteAll'},secret,now),secret,now),/Unsupported operation/);
-const env={VERCEL_ENV:'production',ACC_LOA_TRANSPORT:'gateway',ACC_LOA_GATEWAY_URL:'https://script.google.com/macros/s/SYNTHETIC/exec',ACC_LOA_GATEWAY_SECRET:secret,ACC_LOA_GATEWAY_READY:'true',ACC_LOA_SENDER_EMAIL:'ipgs.admission@innovative.edu.my',ACC_LOA_CC_ROUTING_JSON:'{"MBA":[]}',SUPABASE_URL:'https://mock.invalid',SUPABASE_SERVICE_ROLE_KEY:'mock',ACC_LOA_NATIVE_READY:'true',ACC_LOA_LEGACY_CREDENTIAL_TEXT_APPROVED:'true',ACC_LOA_ACCEPTANCE_BACKEND_READY:'true'};
+const env={VERCEL_ENV:'production',ACC_LOA_TRANSPORT:'gateway',ACC_LOA_GATEWAY_URL:'https://script.google.com/macros/s/SYNTHETIC/exec',ACC_LOA_GATEWAY_SECRET:secret,ACC_LOA_GATEWAY_READY:'true',ACC_LOA_SENDER_EMAIL:'ipgs.admission@innovative.edu.my',ACC_LOA_CC_ROUTING_JSON:'{"MBA":["naqiyuddin.ipgs@innovative.edu.my"]}',SUPABASE_URL:'https://mock.invalid',SUPABASE_SERVICE_ROLE_KEY:'mock',ACC_LOA_NATIVE_READY:'true',ACC_LOA_LEGACY_CREDENTIAL_TEXT_APPROVED:'true',ACC_LOA_ACCEPTANCE_BACKEND_READY:'true'};
 assert.equal(accNativeLoaReadiness(env).ready,true);
 assert.equal(accNativeLoaReadiness({...env,ACC_LOA_GATEWAY_READY:'false'}).ready,false);
 assert.equal(accNativeLoaReadiness({...env,ACC_LOA_SENDER_EMAIL:'wrong@example.invalid'}).ready,false);
@@ -47,6 +47,7 @@ globalThis.fetch=async(url,opts)=>{
  return json({ok:true,data:{ready:true}});
 };
 try{
+ await assert.rejects(()=>issueAccNativeLoa({...input,env:{...env,ACC_LOA_CC_ROUTING_JSON:'{"MBA":["wrong@innovative.edu.my"]}'}}),/CC routing not approved/); assert.equal(steps.length,0);
  const r=await issueAccNativeLoa(input);assert.equal(r.emailSent,true);assert.equal(r.attachmentCount,4);
  assert.deepEqual(steps,['preflight','pdf','pdf','pdf','pdf','write','send','write']);
  assert.deepEqual(ledger,['PREPARING','PDFS_READY','SENDING','SENT']);
