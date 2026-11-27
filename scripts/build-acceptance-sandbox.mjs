@@ -1,0 +1,20 @@
+import {readFileSync,writeFileSync,mkdirSync} from 'node:fs';
+import {join} from 'node:path';
+const [src,patched,out]=process.argv.slice(2);
+if(!src||!patched||!out)throw Error('Use v131 clone, staged patched OfferLetterV2 and separate output directory');
+mkdirSync(out,{recursive:true});
+const offer=readFileSync(patched,'utf8').replace(/\r\n/g,'\n');
+function extract(name){const a=offer.indexOf('function '+name+'(');if(a<0)throw Error('Missing '+name);const b=offer.indexOf('\nfunction ',a+1);return offer.slice(a,b<0?offer.length:b);}
+let pack=readFileSync(join(src,'AcceptancePackV2.js'),'utf8').replace(/\r\n/g,'\n');
+pack=pack.slice(0,pack.indexOf('function v2AcceptancePackControlledTest()'));
+let handbook=readFileSync(join(src,'AcceptanceHandbookExactV2.js'),'utf8').replace(/\r\n/g,'\n');
+const start=handbook.indexOf('function v2AcceptanceEnsureAnyoneWithLink_('),end=handbook.indexOf('\nfunction ',start+1);
+if(start<0||end<0)throw Error('Missing sharing function');
+handbook=handbook.slice(0,start)+'function v2AcceptanceEnsureAnyoneWithLink_(id){return DriveApp.getFileById(id);}\n'+handbook.slice(end);
+writeFileSync(join(out,'AcceptancePack.js'),pack);
+writeFileSync(join(out,'Handbook.js'),handbook);
+writeFileSync(join(out,'Finalizer.js'),['v2ValidateAcceptanceToken_','v2OfferHashToken_','v2OfferExtractDriveId_','v2OfferRegexEscape_','v2OfferDisplayIntake_','v2OfferDisplayStudyMode_','v2AcceptOffer_'].map(extract).join('\n\n'));
+const html=readFileSync(join(src,'acceptance-v2.html'),'utf8').replace(/<body([^>]*)>/i,'<body$1><div style="padding:12px;background:#fff2cc;color:#654500;text-align:center;font:bold 14px Arial">UAT ONLY — SYNTHETIC APPLICANT — NO OFFICIAL ACCEPTANCE</div>');
+writeFileSync(join(out,'acceptance-v2.html'),html);
+writeFileSync(join(out,'appsscript.json'),JSON.stringify({timeZone:'Asia/Kuala_Lumpur',runtimeVersion:'V8',exceptionLogging:'STACKDRIVER',oauthScopes:['https://www.googleapis.com/auth/userinfo.email','https://www.googleapis.com/auth/drive','https://www.googleapis.com/auth/documents','https://www.googleapis.com/auth/spreadsheets'],webapp:{executeAs:'USER_DEPLOYING',access:'MYSELF'}},null,2));
+console.log('Sandbox build: original v131 UI, PDF functions, patched finalizer; no production configuration copied.');
