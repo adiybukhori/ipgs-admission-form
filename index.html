@@ -357,7 +357,9 @@
     const PASSPORT_PHOTO_MAX_MB = 2;
     const INTERNATIONAL_ADMISSION_FORM_URL = "https://drive.google.com/uc?export=download&id=15tJxq0xnvf0Ujwqpm8IfpHc201WLGQLP";
     const INTERNATIONAL_HEALTH_FORM_URL = "https://drive.google.com/uc?export=download&id=1P7VUusSZLuj4sSMLFzotO2mip-zNltDK";
-    const AGENT_REFERRAL_CODE = String(new URLSearchParams(window.location.search).get("agent") || "").trim().toUpperCase().replace(/[^A-Z0-9_-]/g, "");
+    // Clean partner paths and previously distributed query-string links use the same attribution code.
+    const cleanPartnerPath = window.location.pathname.match(/^\/([A-Za-z0-9_-]+)\/?$/);
+    const AGENT_REFERRAL_CODE = String((cleanPartnerPath && cleanPartnerPath[1]) || new URLSearchParams(window.location.search).get("agent") || "").trim().toUpperCase().replace(/[^A-Z0-9_-]/g, "");
 
     const STEPS = [
       { key: "programme", title: "Programme Selection", icon: "✉️" },
@@ -622,7 +624,7 @@
           formState.referralSource = "Education Consultant";
           formState.partnerCode = AGENT_REFERRAL_CODE;
           if (!isValidPartnerCode(AGENT_REFERRAL_CODE)) {
-            setStatus('info', 'This Academic Consultant referral link is invalid or inactive. Please contact IPGS Registry.');
+            setStatus('info', 'This Recruitment Partner referral link is invalid or inactive. Please contact IPGS Registry.');
           }
         }
         render();
@@ -802,22 +804,22 @@
           <div class="field"><label>Proposed Supervisor (if any)</label><input type="text" data-field="proposedSupervisor" value="${escapeHtml(formState.proposedSupervisor)}" placeholder="Enter supervisor name"></div>
           ${AGENT_REFERRAL_CODE ? `
             <div class="info-box">
-              <strong>Academic Consultant</strong><br>
+              <strong>Recruitment Partner</strong><br>
               ${escapeHtml(getPartnerDisplayValue(AGENT_REFERRAL_CODE))}
-              <div class="hint">This application is linked to the Academic Consultant referral link used to open this form.</div>
+              <div class="hint">This application is linked to the Recruitment Partner referral link used to open this form.</div>
             </div>
-          ` : `<div class="field"><label>How did you hear about us / Referral Source<span class="required">*</span></label><select data-field="referralSource">${selectOptions(REFERRAL_SOURCES, "Select referral source", formState.referralSource)}</select><div class="hint"><strong>Important:</strong> If an agent, consultant, staff member or another person introduced or assisted you, select the appropriate source. Choose Direct only if you applied independently without a referral or assistance.</div></div>
-          ${formState.referralSource === 'Direct / Self Enquiry' ? `<div class="field"><label class="choice"><input type="checkbox" data-field="directConfirmed" ${formState.directConfirmed?'checked':''}><span>I confirm that no agent, consultant or representative referred or assisted me.</span></label></div>` : ''}
+          ` : `<div class="field"><label>How did you hear about us / Referral Source<span class="required">*</span></label><select data-field="referralSource">${selectOptions(REFERRAL_SOURCES, "Select referral source", formState.referralSource)}</select><div class="hint"><strong>Important:</strong> If a recruitment partner, consultant, staff member or another person introduced or assisted you, select the appropriate source. Choose Direct only if you applied independently without a referral or assistance.</div></div>
+          ${formState.referralSource === 'Direct / Self Enquiry' ? `<div class="field"><label class="choice"><input type="checkbox" data-field="directConfirmed" ${formState.directConfirmed?'checked':''}><span>I confirm that no recruitment partner, consultant or representative referred or assisted me.</span></label></div>` : ''}
           ${['Friend / Family','Innovative Staff'].includes(formState.referralSource) ? `<div class="field"><label>Name of person who referred you <span class="required">*</span></label><input type="text" data-field="referralName" value="${escapeHtml(formState.referralName)}"></div>` : ''}`}
           ${isPartnerFlow() && !AGENT_REFERRAL_CODE ? `
           <div class="field">
-            <label>Registered Partner / Agent Code <span class="required">*</span></label>
+            <label>Registered Recruitment Partner Code <span class="required">*</span></label>
             <div class="search-select">
               <input
                 type="text"
                 id="partnerCodeSearch"
                 class="search-select-input"
-                placeholder="Type or select partner / agent code"
+                placeholder="Type or select recruitment partner code"
                 autocomplete="off"
                 value="${escapeHtml(getPartnerDisplayValue(formState.partnerCode || ''))}"
               >
@@ -825,7 +827,7 @@
               <div id="partnerCodeMenu" class="search-select-menu hidden"></div>
             </div>
             <div class="hint">
-              Type code, agent name, or organisation. You must select one registered partner / agent code before continuing.
+              Type code, partner name, or organisation. You must select one registered recruitment partner code before continuing.
             </div>
           </div>
           ` : ""}
@@ -1646,7 +1648,7 @@
       const matches = getFilteredPartnerCodes(query).slice(0, 50);
 
       if (!matches.length) {
-        menu.innerHTML = '<div class="search-select-empty">No matching partner / agent found.</div>';
+        menu.innerHTML = '<div class="search-select-empty">No matching recruitment partner found.</div>';
         return;
       }
 
@@ -1735,11 +1737,11 @@
     if (formState.referralSource === 'Direct / Self Enquiry' && !formState.directConfirmed) return 'Please confirm your direct application.';
     if (['Friend / Family','Innovative Staff'].includes(formState.referralSource) && !formState.referralName.trim()) return 'Please provide the name of the person who referred you.';
     if (isPartnerFlow() && !formState.partnerCode) {
-      return 'Please select the registered partner / agent code.';
+      return 'Please select the registered recruitment partner code.';
     }
 
     if (isPartnerFlow() && !isValidPartnerCode(formState.partnerCode)) {
-      return 'Please select a valid registered partner / agent code from the dropdown list.';
+      return 'Please select a valid registered recruitment partner code from the dropdown list.';
     }
   }
 

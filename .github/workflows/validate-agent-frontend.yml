@@ -5,6 +5,10 @@ on:
     branches: [main]
     paths:
       - '.github/workflows/validate-agent-frontend.yml'
+      - 'index.html'
+      - 'agents.html'
+      - 'vercel.json'
+      - 'tests/partner-links.cjs'
 
 jobs:
   validate:
@@ -27,3 +31,6 @@ jobs:
           node --check api/agents.js
           node --check api/admin-action.js
           node --check api/admin-data.js
+
+      - name: Verify clean and legacy referral links
+        run: node tests/partner-links.cjs

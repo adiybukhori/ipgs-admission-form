@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>Academic Consultants · IPGS Admission</title>
+  <title>Recruitment Partners · IPGS Admission</title>
   <style>
     :root{--bg:#f5f7fb;--panel:#fff;--ink:#172033;--muted:#697386;--line:#e7eaf0;--purple:#31206d;--purple2:#4b35a2;--soft:#f1effb;--green:#0b7a5a;--greenSoft:#eaf8f3;--red:#b42318;--redSoft:#fff0ee;--shadow:0 8px 28px rgba(29,37,59,.07)}
     *{box-sizing:border-box}body{margin:0;font-family:Inter,system-ui,-apple-system,"Segoe UI",Arial,sans-serif;background:var(--bg);color:var(--ink)}
@@ -16,25 +16,25 @@
 <body>
   <div class="wrap">
     <div class="top">
-      <div><h1>Academic Consultants / Agents</h1><p>Create consultant records, issue referral links and manage active status.</p></div>
+      <div><h1>Recruitment Partner Management</h1><p>Create recruitment partner records, issue referral links and manage active status.</p></div>
       <a class="btn ghost" href="/admin.html">← Command Center</a>
     </div>
 
     <div class="grid">
       <section class="panel">
-        <div class="head">Add / Update Consultant</div>
+        <div class="head">Add / Update Recruitment Partner</div>
         <div class="body">
-          <div class="field"><label>Consultant Name *</label><input id="agentName" placeholder="Full name" /></div>
+          <div class="field"><label>Recruitment Partner Name *</label><input id="agentName" placeholder="Full name" /></div>
           <div class="field"><label>Email *</label><input id="agentEmail" type="email" placeholder="name@example.com" /></div>
           <div class="field"><label>Organisation</label><input id="agentOrg" placeholder="Company / agency / internal unit" /></div>
-          <div class="field"><label>Agent Code</label><input id="agentCode" placeholder="Leave blank to auto-generate" maxlength="30" /><div class="hint">Use an existing code to update that consultant. Otherwise leave blank and the system will create one.</div></div>
+          <div class="field"><label>Partner Code</label><input id="agentCode" placeholder="Leave blank to auto-generate" maxlength="30" /><div class="hint">Use an existing code to update that partner. Otherwise leave blank and the system will create one.</div></div>
           <div class="field"><label>Status</label><select id="agentActive"><option value="true">Active</option><option value="false">Inactive</option></select></div>
-          <button id="saveBtn" class="btn primary" onclick="saveAgent()">Save Academic Consultant</button>
+          <button id="saveBtn" class="btn primary" onclick="saveAgent()">Save Recruitment Partner</button>
           <button class="btn ghost" style="margin-left:6px" onclick="clearForm()">Clear</button>
           <div id="msg" class="message"></div>
           <div id="resultLink" class="result-link">
-            <strong>Unique referral link</strong>
-            <div class="hint">Share this link with the consultant. Candidates who open it will be attributed to this consultant automatically.</div>
+            <strong>Personalised Admission Link</strong>
+            <div class="hint">Share this link with the partner. Candidates who open it will be attributed to this partner automatically.</div>
             <input id="resultLinkInput" readonly />
             <button class="smallbtn" onclick="copyText(document.getElementById('resultLinkInput').value)">Copy Link</button>
           </div>
@@ -42,10 +42,10 @@
       </section>
 
       <section class="panel">
-        <div class="head">Consultant Master</div>
+        <div class="head">Recruitment Partner Master</div>
         <div class="body">
           <div class="toolbar"><input id="search" class="search" placeholder="Search name, code, email or organisation" oninput="renderAgents()" /><button class="btn ghost" onclick="loadAgents()">Refresh</button></div>
-          <div class="table-wrap"><table><thead><tr><th>Consultant / Category</th><th>Code</th><th>Organisation / SKY Student Category / Remarks</th><th>Status</th><th>Referral Link</th><th>Action</th></tr></thead><tbody id="agentBody"><tr><td colspan="6">Loading…</td></tr></tbody></table></div>
+          <div class="table-wrap"><table><thead><tr><th>Partner / Category</th><th>Code</th><th>Organisation / SKY Student Category / Remarks</th><th>Status</th><th>Personalised Admission Link</th><th>Action</th></tr></thead><tbody id="agentBody"><tr><td colspan="6">Loading…</td></tr></tbody></table></div>
         </div>
       </section>
     </div>
@@ -67,9 +67,9 @@
   if(!password){ location.replace('/admin.html?return=/agents.html'); }
 
   function esc(v=''){return String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[c]))}
-  function referralLink(a){return String(a['Referral Link']||'').trim()||('https://ipgs-admission-form.innovative.edu.my/?agent='+encodeURIComponent(String(a['Agent Code']||'').trim()));}
+  function referralLink(a){const code=String(a['Agent Code']||'').trim();return /^[A-Za-z0-9_-]+$/.test(code)&&!/^SKY_/i.test(code)?'https://ipgs-admission-form.innovative.edu.my/'+encodeURIComponent(code.toLowerCase()):'';}
   function showMsg(text,type){const el=document.getElementById('msg');el.textContent=text||'';el.className='message show '+(type==='ok'?'ok':'err')}
-  async function copyText(text){try{await navigator.clipboard.writeText(text);showMsg('Referral link copied.','ok')}catch(_){prompt('Copy this link:',text)}}
+  async function copyText(text){try{await navigator.clipboard.writeText(text);showMsg('Admission link copied.','ok')}catch(_){prompt('Copy this link:',text)}}
 
   async function loadAgents(){
     const body=document.getElementById('agentBody');body.innerHTML='<tr><td colspan="6">Loading…</td></tr>';
@@ -77,10 +77,10 @@
       const res=await fetch(DATA_API,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({password})});
       const out=await res.json();
       if(res.status===401){sessionStorage.removeItem('ipgsAdminPassword');location.replace('/admin.html?return=/agents.html');return;}
-      if(!res.ok||!out.ok)throw new Error(out.message||'Unable to load consultants.');
+      if(!res.ok||!out.ok)throw new Error(out.message||'Unable to load recruitment partners.');
       agents=Array.isArray(out.data?.AGENT_MASTER)?out.data.AGENT_MASTER:[];
       renderAgents();
-    }catch(e){body.innerHTML='<tr><td colspan="6">'+esc(e.message||'Unable to load consultants.')+'</td></tr>'}
+    }catch(e){body.innerHTML='<tr><td colspan="6">'+esc(e.message||'Unable to load recruitment partners.')+'</td></tr>'}
   }
 
   function renderAgents(){
@@ -93,10 +93,10 @@
       const remarks=String(a['Remarks']||'').trim();
       const link=imported?'':referralLink(a);
       const action=imported
-        ? '<span class="sub" title="Contact and official agent status pending verification">Category record · contact pending</span>'
+        ? '<span class="sub" title="Contact and official partner status pending verification">Category record · contact pending</span>'
         : '<button class="smallbtn" onclick=\'editAgent('+JSON.stringify(a).replace(/'/g,"&#39;")+')\'>Edit</button>';
       return `<tr>
-        <td><div class="name">${esc(a['Agent Name']||'-')}</div><div class="sub">${esc(a['Agent Email']||'No agent contact recorded')}</div></td>
+        <td><div class="name">${esc(a['Agent Name']||'-')}</div><div class="sub">${esc(a['Agent Email']||'No partner contact recorded')}</div></td>
         <td>${esc(a['Agent Code']||'-')}</td>
         <td>
           <div>${esc(a['Organisation']||'-')}</div>
@@ -107,7 +107,7 @@
         <td>${link?`<button class="smallbtn" onclick="copyText('${esc(link)}')">Copy Link</button>`:'<span class="sub">Not available</span>'}</td>
         <td><div class="actions">${action}</div></td>
       </tr>`;
-    }).join('')||'<tr><td colspan="6">No consultants or SkyVialing categories found.</td></tr>';
+    }).join('')||'<tr><td colspan="6">No recruitment partners or SkyVialing categories found.</td></tr>';
   }
 
   function editAgent(a){
@@ -141,13 +141,13 @@
     try{
       const res=await fetch(ACTION_API,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({password,action:'v2UpsertAgent',data,updatedBy:'Admin Portal V2'})});
       const out=await res.json();
-      if(!res.ok||!out.ok)throw new Error(out.message||'Unable to save consultant.');
+      if(!res.ok||!out.ok)throw new Error(out.message||'Unable to save recruitment partner.');
       const result=out.result||{};
       const savedCode=result.agent?.['Agent Code']||data.code;
-      const savedLink=result.referralLink||result.agent?.['Referral Link']||'';
+      const savedLink=referralLink({'Agent Code':savedCode});
       document.getElementById('resultLinkInput').value=savedLink;
       document.getElementById('resultLink').classList.add('show');
-      showMsg(result.created?'Academic Consultant added successfully. Ready to add the next consultant.':'Academic Consultant updated successfully.','ok');
+      showMsg(result.created?'Recruitment Partner added successfully. Ready to add the next partner.':'Recruitment Partner updated successfully.','ok');
       if(result.created){
         ['agentName','agentEmail','agentOrg','agentCode'].forEach(id=>document.getElementById(id).value='');
         document.getElementById('agentActive').value='true';
@@ -155,8 +155,8 @@
         document.getElementById('agentCode').value=savedCode;
       }
       await loadAgents();
-    }catch(e){showMsg(e.message||'Unable to save consultant.','err')}
-    finally{btn.disabled=false;btn.textContent='Save Academic Consultant'}
+    }catch(e){showMsg(e.message||'Unable to save recruitment partner.','err')}
+    finally{btn.disabled=false;btn.textContent='Save Recruitment Partner'}
   }
 
   loadAgents();
