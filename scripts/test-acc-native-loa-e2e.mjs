@@ -10,7 +10,7 @@ const app={'Student Name':'SYNTHETIC TEST ONLY','Personal Email':'uat@example.in
   'Study Mode':'Full Time','Raw Application JSON':JSON.stringify({fullAddress:'Fictional Test Address'}),
   'Student Folder URL':'https://drive.google.com/drive/folders/SYNTHETICFOLDER'};
 const env={VERCEL_ENV:'production',ACC_LOA_GOOGLE_CLIENT_ID:'mock',ACC_LOA_GOOGLE_CLIENT_SECRET:'mock',
- ACC_LOA_GOOGLE_REFRESH_TOKEN:'mock',ACC_LOA_SENDER_EMAIL:'registry@example.invalid',
+ ACC_LOA_GOOGLE_REFRESH_TOKEN:'mock',ACC_LOA_SENDER_EMAIL:'ipgs.admission@example.invalid',
  ACC_LOA_CC_ROUTING_JSON:'{"MBA":["registry-test@example.invalid"]}',SUPABASE_URL:'https://mock.invalid',
  SUPABASE_SERVICE_ROLE_KEY:'mock',ACC_LOA_NATIVE_READY:'true',ACC_LOA_LEGACY_CREDENTIAL_TEXT_APPROVED:'true',
  ACC_LOA_ACCEPTANCE_BACKEND_READY:'true'};
@@ -47,6 +47,7 @@ globalThis.fetch=async(url,opts={})=>{
    sends++;
    assert.equal(sheet['Offer Letter Status'],'ISSUED','Portal must work before sending.');
    const raw=Buffer.from(body.raw,'base64url').toString('utf8');
+   assert.ok(raw.includes('From: "IPGS Admission" <ipgs.admission@example.invalid>'));
    assert.match(raw,/To: uat@example\.invalid/);
    assert.equal((raw.match(/Content-Type: application\/pdf;/g)||[]).length,4);
    assert.match(raw,/Content-Type: text\/html/);
