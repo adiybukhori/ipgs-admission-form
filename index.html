@@ -604,12 +604,15 @@
         if(payload.ok!==true||!Array.isArray(payload.programmes))return;
         let added=0;
         for(const p of payload.programmes){
-          const code=String(p.code||'').toUpperCase(),name=String(p.name||'').trim(),level=String(p.level||'');
-          if(!/^[A-Z][A-Z0-9]{1,14}$/.test(code)||!PROGRAMME_OPTIONS[level]||
-             !name||/^(?:DBAODL|DPLI)$/.test(code)||
+          const code=String(p.code||'').trim().toUpperCase(),name=String(p.name||'').trim(),level=String(p.level||'').trim();
+          if(!/^[A-Z][A-Z0-9]{1,14}$/.test(code)||!Object.prototype.hasOwnProperty.call(PROGRAMME_OPTIONS,level)||
+             !Array.isArray(PROGRAMME_OPTIONS[level])||!name||/^(?:DBAODL|DPLI)$/.test(code)||
              (code==='DBA'&&/ODL|Diploma/i.test(name)))continue;
           const options=PROGRAMME_OPTIONS[level];
-          if(!options.some(existing=>existing.startsWith(code+' - '))){
+          // Compare programme codes case-insensitively, retaining the original
+          // approved option label and value (e.g. PhD rather than PHD).
+          const alreadyListed=options.some(existing=>String(existing).split(' - ',1)[0].trim().toUpperCase()===code);
+          if(!alreadyListed){
             options.push(code+' - '+name);added++;
           }
         }
