@@ -20,7 +20,7 @@ function gwAuth_(envelope,secret,now){
  const expected=gwHex_(Utilities.computeHmacSha256Signature(signed,secret,Utilities.Charset.UTF_8));
  if(!gwEq_(expected,envelope.signature))gwFail_('Invalid authentication');
  const payload=JSON.parse(envelope.payload);
- if(!payload||!['health','preflight','pdf','write','send'].includes(payload.op))gwFail_('Unsupported operation');
+ if(!payload||!['health','preflight','pdf','write','send','set_study_mode'].includes(payload.op))gwFail_('Unsupported operation');
  return payload;
 }
 function doGet(){return gwJson_({ok:false,error:'Signed POST required'})}
@@ -38,7 +38,7 @@ function doPost(e){
   if(props.getProperty('ACC_GATEWAY_WRITE_ENABLED')!=='true')gwFail_('Gateway writes disabled');
   const data=gwDispatch_(p,props);
   return gwJson_({ok:true,data:data});
- }catch(err){return gwJson_({ok:false,error:'Gateway rejected request; inspect authorized execution logs'})}
+ }catch(err){console.error('ACC gateway rejected: '+String(err&&err.message||'Unknown').slice(0,200).replace(/https?:\/\/\S+/g,'[URL]'));return gwJson_({ok:false,error:'Gateway rejected request; inspect authorized execution logs'})}
  finally{if(lock&&lock.hasLock())lock.releaseLock()}
 }
 function gwRow_(tab,reference){
@@ -65,7 +65,7 @@ function gwHealth_(props){
  const app=ss.getSheetByName('V2_APPLICATIONS');
  const ah=app.getRange(1,1,1,app.getLastColumn()).getDisplayValues()[0];
  const templates=Object.keys(ACC_GW_TEMPLATES).map(k=>({key:k,accessible:DriveApp.getFileById(ACC_GW_TEMPLATES[k]).getMimeType()===MimeType.GOOGLE_DOCS}));
- return {sender:ACC_GW_SENDER,workflowReady:ACC_GW_FIELDS.every(k=>header.includes(k))&&header.includes('Reference No'),applicationReady:['Reference No','Student Folder URL','Personal Email','ID / Passport No'].every(k=>ah.includes(k)),templates:templates,writeEnabled:props.getProperty('ACC_GATEWAY_WRITE_ENABLED')==='true'};
+ return {sender:ACC_GW_SENDER,studyModeRevision:1,workflowReady:ACC_GW_FIELDS.every(k=>header.includes(k))&&header.includes('Reference No'),applicationReady:['Reference No','Student Folder URL','Personal Email','ID / Passport No'].every(k=>ah.includes(k)),templates:templates,writeEnabled:props.getProperty('ACC_GATEWAY_WRITE_ENABLED')==='true'};
 }
 function gwFileName_(ctx,name,kind){
  const clean=String(ctx.app['ID / Passport No']||'').replace(/[^A-Za-z0-9]/g,'').toUpperCase();
@@ -82,6 +82,8 @@ function gwSet_(wf,fields){
 }
 function gwDispatch_(p,props){
  const ctx=gwContext_(p),wf=ctx.wf,record=wf.record;
+ if(p.op==='set_study_mode')return gwStudyMode_(p,ctx);
+ if(p.expectedStudyMode&&gwMode_(ctx.app['Study Mode'])!==p.expectedStudyMode)gwFail_('Study mode changed; review required');
  if(p.op==='preflight'){
   if(!ACC_GW_FIELDS.every(k=>wf.header.includes(k)))gwFail_('Workflow columns missing');
   if(['ISSUED','SENT'].includes(String(record['Offer Letter Status']).toUpperCase())||record['Acceptance Token Hash']||record['Acceptance Signing URL']||record['Offer Letter PDF URL'])gwFail_('Existing LOA requires review');
@@ -91,13 +93,18 @@ function gwDispatch_(p,props){
   if(record['Offer Letter Status']==='ISSUED'||record['Acceptance Token Hash'])gwFail_('Existing LOA requires review');
   const kind=Object.keys(ACC_GW_TEMPLATES).find(k=>ACC_GW_TEMPLATES[k]===p.templateId);
   gwFileName_(ctx,p.name,kind);
-  const allowed=['{{STUDENT_NAME}}','{{PROGRAMME_NAME}}','{{INTAKE}}','{{IC}}','{{SESSION_MONTH}}','{{SESSION_YEAR}}','{{REF_NO}}','{{OFFER_DATE_LONG}}','{{STUDENT_ADDRESS}}','{{MATRIX_NO}}'];
+  const allowed=['{{STUDENT_NAME}}','{{PROGRAMME_NAME}}','{{INTAKE}}','{{IC}}','{{SESSION_MONTH}}','{{SESSION_YEAR}}','{{REF_NO}}','{{OFFER_DATE_LONG}}','{{STUDENT_ADDRESS}}','{{MATRIX_NO}}','Study Mode\t: Full Time'];
   if(!p.replacements||!Object.keys(p.replacements).every(k=>allowed.includes(k)&&typeof p.replacements[k]==='string'&&p.replacements[k].length<=3000))gwFail_('Invalid replacement fields');
+  if(kind==='loa'&&p.expectedStudyMode&&p.replacements['Study Mode\t: Full Time']!=='Study Mode\t: '+p.expectedStudyMode.replace('-',' '))gwFail_('Study mode replacement mismatch');
+  if(kind!=='loa'&&Object.prototype.hasOwnProperty.call(p.replacements,'Study Mode\t: Full Time'))gwFail_('Study mode replacement only allowed for LOA');
   const folder=DriveApp.getFolderById(ctx.folder);
   if(folder.getFilesByName(p.name).hasNext())gwFail_('Existing PDF requires review');
   const copy=DriveApp.getFileById(p.templateId).makeCopy('TEMP_ACC_LOA_'+Utilities.getUuid(),folder);
   try{
-   Docs.Documents.batchUpdate({requests:Object.keys(p.replacements).map(k=>({replaceAllText:{containsText:{text:k,matchCase:true},replaceText:p.replacements[k]}}))},copy.getId());
+   const changes=Object.keys(p.replacements);
+   const replaced=Docs.Documents.batchUpdate({requests:changes.map(k=>({replaceAllText:{containsText:{text:k,matchCase:true},replaceText:p.replacements[k]}}))},copy.getId());
+   const modeIdx=changes.indexOf('Study Mode\t: Full Time');
+   if(modeIdx>=0&&p.expectedStudyMode==='Part-Time'&&Number(replaced.replies[modeIdx].replaceAllText.occurrencesChanged)!==1)gwFail_('Study mode template anchor missing or ambiguous');
    const pdf=copy.getAs(MimeType.PDF).setName(p.name),bytes=pdf.getBytes();
    if(bytes.length<1000||String.fromCharCode(...bytes.slice(0,5))!=='%PDF-')gwFail_('Invalid PDF');
    const file=folder.createFile(pdf);return {id:file.getId(),name:p.name,url:'https://drive.google.com/file/d/'+file.getId()+'/view'};
@@ -138,6 +145,23 @@ function gwDispatch_(p,props){
   return {id:sent.id};
  }
  gwFail_('Unsupported operation');
+}
+function gwMode_(value){const m=String(value||'').trim().replace(/[-\s]+/g,' ').toLowerCase();return m==='full time'?'Full-Time':m==='part time'?'Part-Time':'';}
+function gwStudyMode_(p,ctx){
+ const next=String(p.studyMode||''),prior=gwMode_(ctx.app['Study Mode']);
+ if(!['Full-Time','Part-Time'].includes(next))gwFail_('Invalid study mode');
+ if(p.expectedStudyMode!==prior)gwFail_('Study mode changed; refresh record');
+ const w=ctx.wf.record;
+ if(w['Offer Letter PDF URL']||w['Offer Letter Issued At']||['ISSUED','SENT'].includes(String(w['Offer Letter Status']).toUpperCase())||w['Acceptance Token Hash'])gwFail_('Issued LOA requires controlled revision');
+ if(next===prior)return {studyMode:prior,unchanged:true};
+ const a=gwRow_('V2_APPLICATIONS',p.referenceNo),ss=a.sh.getParent(),audit=ss.getSheetByName('V2_AUDIT_LOG');
+ const h=audit.getRange(1,1,1,audit.getLastColumn()).getDisplayValues()[0];
+ const row={'Timestamp':new Date().toISOString(),'Event ID':Utilities.getUuid(),'Reference No':p.referenceNo,'Module':'APPLICATION','Action':'STUDY_MODE_CHANGED','Previous Value JSON':JSON.stringify({studyMode:prior}),'New Value JSON':JSON.stringify({studyMode:next}),'Actor':'ACC Registry Admin','Result':'SUCCESS','Remarks':String(p.reason||'Registry amendment').slice(0,300),'Build Version':'ACC_STUDY_MODE_V1'};
+ if(!Object.keys(row).every(k=>h.includes(k)))gwFail_('Audit schema missing');
+ const requests=['Study Mode','Last Updated'].map(k=>{const c=a.header.indexOf(k);if(c<0)gwFail_('Application column missing');return {updateCells:{range:{sheetId:a.sh.getSheetId(),startRowIndex:a.row-1,endRowIndex:a.row,startColumnIndex:c,endColumnIndex:c+1},rows:[{values:[{userEnteredValue:{stringValue:k==='Study Mode'?next:row.Timestamp}}]}],fields:'userEnteredValue'}}});
+ requests.push({appendCells:{sheetId:audit.getSheetId(),rows:[{values:h.map(k=>row[k]?{userEnteredValue:{stringValue:row[k]}}:{})}],fields:'userEnteredValue'}});
+ Sheets.Spreadsheets.batchUpdate({requests:requests},ACC_GW_SHEET);
+ return {studyMode:next,previousStudyMode:prior,updatedAt:row.Timestamp};
 }
 function gwEmail_(s){return typeof s==='string'&&/^[^\s@,;<>]+@[^\s@,;<>]+\.[^\s@,;<>]+$/.test(s)}
 function gwMime_(p,files){
