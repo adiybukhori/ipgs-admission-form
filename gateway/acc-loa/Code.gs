@@ -20,7 +20,7 @@ function gwAuth_(envelope,secret,now){
  const expected=gwHex_(Utilities.computeHmacSha256Signature(signed,secret,Utilities.Charset.UTF_8));
  if(!gwEq_(expected,envelope.signature))gwFail_('Invalid authentication');
  const payload=JSON.parse(envelope.payload);
- if(!payload||!['health','preflight','pdf','write','send','set_study_mode'].includes(payload.op))gwFail_('Unsupported operation');
+ if(!payload||!['health','preflight','pdf','write','send','set_study_mode','acceptance_next'].includes(payload.op))gwFail_('Unsupported operation');
  return payload;
 }
 function doGet(){return gwJson_({ok:false,error:'Signed POST required'})}
@@ -36,7 +36,7 @@ function doPost(e){
   if(cache.get(nonce))gwFail_('Replay rejected');cache.put(nonce,'1',300);
   if(p.op==='health')return gwJson_({ok:true,data:gwHealth_(props)});
   if(props.getProperty('ACC_GATEWAY_WRITE_ENABLED')!=='true')gwFail_('Gateway writes disabled');
-  const data=gwDispatch_(p,props);
+  const data=p.op==='acceptance_next'?gwAcceptanceNext_():gwDispatch_(p,props);
   return gwJson_({ok:true,data:data});
  }catch(err){console.error('ACC gateway rejected: '+String(err&&err.message||'Unknown').slice(0,200).replace(/https?:\/\/\S+/g,'[URL]'));return gwJson_({ok:false,error:'Gateway rejected request; inspect authorized execution logs'})}
  finally{if(lock&&lock.hasLock())lock.releaseLock()}
@@ -65,7 +65,7 @@ function gwHealth_(props){
  const app=ss.getSheetByName('V2_APPLICATIONS');
  const ah=app.getRange(1,1,1,app.getLastColumn()).getDisplayValues()[0];
  const templates=Object.keys(ACC_GW_TEMPLATES).map(k=>({key:k,accessible:DriveApp.getFileById(ACC_GW_TEMPLATES[k]).getMimeType()===MimeType.GOOGLE_DOCS}));
- return {sender:ACC_GW_SENDER,studyModeRevision:1,workflowReady:ACC_GW_FIELDS.every(k=>header.includes(k))&&header.includes('Reference No'),applicationReady:['Reference No','Student Folder URL','Personal Email','ID / Passport No'].every(k=>ah.includes(k)),templates:templates,writeEnabled:props.getProperty('ACC_GATEWAY_WRITE_ENABLED')==='true'};
+ return {sender:ACC_GW_SENDER,studyModeRevision:1,acceptanceMailRevision:1,workflowReady:ACC_GW_FIELDS.every(k=>header.includes(k))&&header.includes('Reference No'),applicationReady:['Reference No','Student Folder URL','Personal Email','ID / Passport No'].every(k=>ah.includes(k)),templates:templates,writeEnabled:props.getProperty('ACC_GATEWAY_WRITE_ENABLED')==='true'};
 }
 function gwFileName_(ctx,name,kind){
  const clean=String(ctx.app['ID / Passport No']||'').replace(/[^A-Za-z0-9]/g,'').toUpperCase();
@@ -179,3 +179,36 @@ function gwMime_(p,files){
 // Run once manually in the editor as IPGS Admission to authorize access.
 // No email, document generation, workflow update or secret output.
 function verifyGatewaySetup(){const p=PropertiesService.getScriptProperties();if(Session.getEffectiveUser().getEmail().toLowerCase()!==ACC_GW_SENDER)gwFail_('Wrong account');return gwHealth_(p)}
+
+// Acceptance mail: the only input is a signed request to process one queued acceptance.
+// Recipient, document IDs and content derive from the authoritative accepted record.
+function gwAcceptanceNext_(){
+ const rows=Sheets.Spreadsheets.Values.get(ACC_GW_SHEET,"'V2_WORKFLOW'!A:CX").values||[],h=rows[0]||[];
+ const qi=h.indexOf('Acceptance Confirmation Email Status'),ri=h.indexOf('Reference No');
+ if(qi<0||ri<0)gwFail_('Acceptance mail schema missing');
+ const row=rows.slice(1).find(x=>x[qi]==='GATEWAY_QUEUED');
+ if(!row)return {processed:false};
+ const ref=String(row[ri]||'');
+ const ctx=gwContext_({referenceNo:ref}),w=ctx.wf.record,app=ctx.app;
+ if(w['Acceptance Confirmation Email Status']!=='GATEWAY_QUEUED')return {processed:false};
+ function set(status,sentAt){const fields={'Acceptance Confirmation Email Status':status,'Acceptance Confirmation Email Sent At':sentAt};const data=Object.keys(fields).map(k=>{let n=ctx.wf.header.indexOf(k)+1,label='';if(n<=0)gwFail_('Acceptance mail column missing');while(n){n--;label=String.fromCharCode(65+n%26)+label;n=Math.floor(n/26)}return {range:"'V2_WORKFLOW'!"+label+ctx.wf.row,values:[[fields[k]]]};});Sheets.Spreadsheets.Values.batchUpdate({valueInputOption:'RAW',data:data},ACC_GW_SHEET);}
+ try{
+  if(w['Acceptance Status']!=='ACCEPTED'||w['Acceptance Pack Status']!=='ACCEPTED')gwFail_('Acceptance not complete');
+  const recipient=String(app['Personal Email']||'').trim();if(!gwEmail_(recipient))gwFail_('Recipient missing');
+  const keys=['Acceptance PDF URL','Surat Penerimaan Signed PDF URL','Surat Akuan Signed PDF URL','Student Handbook Acknowledgement Signed PDF URL'];
+  const prefixes=['SIGNED_Acceptance_Handbook_','SIGNED_Surat_Penerimaan_','SIGNED_Surat_Akuan_','SIGNED_Student_Handbook_Acknowledgement_'];
+  const ids=keys.map(k=>(String(w[k]||'').match(/^https:\/\/drive\.google\.com\/file\/d\/([-\w]+)\/view(?:\?.*)?$/)||[])[1]);
+  if(ids.some(x=>!x)||new Set(ids).size!==4)gwFail_('Four unique signed PDFs required');
+  const files=ids.map((id,i)=>{const file=DriveApp.getFileById(id),name=file.getName(),parents=file.getParents();let inFolder=false;while(parents.hasNext())if(parents.next().getId()===ctx.folder)inFolder=true;
+   if(!inFolder||file.isTrashed()||file.getMimeType()!==MimeType.PDF||!name.startsWith(prefixes[i])||!name.endsWith('.pdf'))gwFail_('Invalid signed PDF');
+   const bytes=file.getBlob().getBytes();if(bytes.length<1000||String.fromCharCode(...bytes.slice(0,5))!=='%PDF-')gwFail_('Invalid PDF bytes');return {name:name.replace(/[^A-Za-z0-9_.-]/g,'_'),bytes:bytes};});
+  const esc=x=>String(x||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+  const subject='[IUC IPGS] Acceptance Successfully Received - '+String(app.Programme||'').replace(/[\r\n]/g,' ').slice(0,300);
+  const html='<div style="font-family:Arial,sans-serif;max-width:680px;margin:auto;border:1px solid #e5e7eb;border-radius:16px;overflow:hidden"><div style="background:#2d2363;color:#fff;padding:24px"><h2 style="margin:0">Acceptance Successfully Received</h2></div><div style="padding:24px"><p>Dear <strong>'+esc(app['Student Name'])+'</strong>,</p><p>Thank you. Your acceptance of the IUC postgraduate offer has been successfully recorded.</p><p><strong>Reference:</strong> '+esc(ref)+'<br><strong>Programme:</strong> '+esc(app.Programme)+'<br><strong>Intake:</strong> '+esc(app.Intake)+'</p><p>Your signed admission documents are attached for your record.</p><p>We will contact you regarding the next registration/orientation process.</p><p>Regards,<br><strong>IPGS Registry</strong><br>Innovative University College</p></div></div>';
+  const raw=gwMime_({recipient:recipient,cc:[],subject:subject,text:'Your acceptance has been successfully received. Reference: '+ref,html:html},files);
+  // Commit the non-retry marker before Gmail. Never automatically retry uncertainty.
+  set('GATEWAY_ACCEPTANCE_SENDING','');
+  const sent=Gmail.Users.Messages.send({raw:raw},'me');if(!sent||!sent.id)gwFail_('Gmail did not confirm send');
+  set('LIVE_SENT_1',new Date().toISOString());return {processed:true,sent:true};
+ }catch(err){try{set('REVIEW_REQUIRED','')}catch(ignore){}console.error('Acceptance delivery requires review: '+String(err&&err.message||'Unknown').slice(0,160));return {processed:true,sent:false,reviewRequired:true};}
+}

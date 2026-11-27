@@ -375,6 +375,11 @@ async function accLoaWorker(body,res){
     return res.status(500).json({ok:false});
   }
 }
+async function accAcceptanceWorker(body,res){
+ if(process.env.VERCEL_ENV!=='production'||process.env.ACC_LOA_QUEUE_READY!=='true')return res.status(403).json({ok:false});
+ const token=String(body.dispatchToken||'');if(!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(token))return res.status(401).json({ok:false});
+ try{const claimed=await supabaseRequest('rpc/acc_acceptance_claim_dispatch','POST',{p_token:token});if(claimed!==true)return res.status(403).json({ok:false});const out=await accGatewayCall(process.env,'acceptance_next',{});return res.status(200).json({ok:true,processed:!!out?.processed,sent:!!out?.sent,reviewRequired:!!out?.reviewRequired});}catch(e){return res.status(500).json({ok:false});}
+}
 export default async function handler(req, res) {
   res.setHeader('Cache-Control', 'no-store, max-age=0');
   if (req.method !== 'POST') return res.status(405).json({ ok: false, message: 'Method not allowed.' });
@@ -386,6 +391,7 @@ export default async function handler(req, res) {
 
   const action = String(body.action || '');
   if(action==='accLoaWorker')return accLoaWorker(body,res);
+  if(action==='accAcceptanceWorker')return accAcceptanceWorker(body,res);
   if (!ALLOWED_ACTIONS.has(action)) {
     return res.status(400).json({ ok: false, message: 'Unsupported or unapproved Admin V2 action.' });
   }
